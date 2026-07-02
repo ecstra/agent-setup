@@ -422,6 +422,24 @@ If something is broken, unclear, or beyond what you can solve cleanly, surface i
 
 ---
 
+## Docs
+
+**Documentation lives in `docs/`, and each file has one job.**
+
+Keep the repo root clear of documentation. Only `README.md`, `CLAUDE.md`, `Agents.md`, and `CODEOWNERS` belong at the root, because a reader looks for those first. Every other document lives under `docs/` in a clearly named file, never loose in the repo.
+
+### 1. Where a Doc Goes
+
+Put the durable docs anyone is meant to read under `docs/`, among them the design system, the architecture, the component reference, and the integration guide. Put handover notes under `docs/handover/`. Write a handover note there when you pass work on or pause mid task, so the next session can pick up without reconstructing your head. Create the file when you need it.
+
+### 2. The Decisions Scratchpad
+
+`docs/decisions.md` is a scratchpad for decisions actually taken and the reasoning behind them. A real entry records a choice made, the alternative it beat, or the gotcha that forced it. It is not a status log, a progress report, a changelog, or a todo list. Do not write "only this is done for now" or "next we will" there. Write the why behind a real decision, or write nothing.
+
+Treat it as optional and never as the source of truth. The code and the docs above are the truth. Read the scratchpad for why something is the way it is, not to learn what the system does.
+
+---
+
 ## Other Rules
 
 > Temporary rules, or rules that do not fit any category.
@@ -429,5 +447,3 @@ If something is broken, unclear, or beyond what you can solve cleanly, surface i
 1. **No git operations.** Absolutely do not make any git commits. Do not touch git at all unless the user asks. When you do, do not add yourself (Claude) as a co-author. There is only one author.
 
 2. **Documentation style.** In all documentation, write in a natural, easy tone and follow these constraints. No em-dashes anywhere. Avoid normal hyphens as much as possible, keeping them only for established compound words and literal names. No semicolons. Use colons only inside a list item as a label, for example "term: description", never mid sentence or in a heading. Code blocks, file paths, and URLs are exempt because their punctuation is literal.
-
-3. **Project memory.** Use `docs/project/` as durable memory for this project. Write anything worth carrying across sessions there in a clearly named file. That covers something the user asked you to remember, a fix or workaround that was hard to track down, a decision and the reasoning behind it, or a stated preference. Check the folder before assuming a fact or preference isn't already recorded.
