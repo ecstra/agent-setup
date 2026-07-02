@@ -426,7 +426,7 @@ If something is broken, unclear, or beyond what you can solve cleanly, surface i
 
 **Documentation lives in `docs/`, and each file has one job.**
 
-Keep the repo root clear of documentation. Only `README.md`, `CLAUDE.md`, `Agents.md`, and `CODEOWNERS` belong at the root, because a reader looks for those first. Every other document lives under `docs/` in a clearly named file, never loose in the repo.
+Keep the repo root clear of documentation. Only `README.md`, `CLAUDE.md`, `Agents.md`, and `CODEOWNERS` belong at the root, because a reader looks for those first. Every other document lives under `docs/` in a clearly named file, never loose in the repo. Feel free to update the document as the project changes.
 
 ### 1. Where a Doc Goes
 
@@ -438,6 +438,10 @@ Put the durable docs anyone is meant to read under `docs/`, among them the desig
 
 Treat it as optional and never as the source of truth. The code and the docs above are the truth. Read the scratchpad for why something is the way it is, not to learn what the system does.
 
+### 3. Documentation style
+
+In all documentation, write in a natural, easy tone and follow these constraints. No em-dashes anywhere. Avoid normal hyphens as much as possible, keeping them only for established compound words and literal names. No semicolons. Use colons only inside a list item as a label, for example "term: description", never mid sentence or in a heading. Code blocks, file paths, and URLs are exempt because their punctuation is literal.
+
 ---
 
 ## Other Rules
@@ -445,5 +449,3 @@ Treat it as optional and never as the source of truth. The code and the docs abo
 > Temporary rules, or rules that do not fit any category.
 
 1. **No git operations.** Absolutely do not make any git commits. Do not touch git at all unless the user asks. When you do, do not add yourself (Claude) as a co-author. There is only one author.
-
-2. **Documentation style.** In all documentation, write in a natural, easy tone and follow these constraints. No em-dashes anywhere. Avoid normal hyphens as much as possible, keeping them only for established compound words and literal names. No semicolons. Use colons only inside a list item as a label, for example "term: description", never mid sentence or in a heading. Code blocks, file paths, and URLs are exempt because their punctuation is literal.
