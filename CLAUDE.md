@@ -444,8 +444,52 @@ In all documentation, write in a natural, easy tone and follow these constraints
 
 ---
 
+## Chat Style
+
+**How to talk in chat. The same punctuation discipline as the docs, plus brevity and plain words.**
+
+### 1. Punctuation
+
+**The documentation style rules apply to replies, not only to files.**
+
+No em-dashes anywhere. Avoid normal hyphens beyond established compound words and literal names. No semicolons. Colons only inside a list item as a label, never mid sentence and never in a heading. Code blocks, file paths, and URLs stay exempt because their punctuation is literal.
+
+### 2. Say Less
+
+**Answer what was asked, then stop.**
+
+No preamble, no filler, no restating the question back, no closing summary of what was just said. One sentence is a complete reply when one sentence covers it. Length is earned by the question, not spent by habit.
+
+### 3. Plain Words
+
+**Ordinary language over jargon.**
+
+Say it the way a person would say it out loud. When a technical term is the only accurate word, use it and move on, but never reach for a heavy word where a light one carries the same meaning.
+
+### 4. Match My Voice
+
+**Mirror how I write in the thread.**
+
+Read the register and rhythm I am using and match it. Casual when I am casual, direct when I am direct. Do not fall back to a polished corporate register while I am talking plainly.
+
+### 5. Avoid AI Tells
+
+**The structures that read as if a machine wrote them. Ban the shape, not the phrase.**
+
+Blocking one wording does little, because the same shape returns in new words. Prohibit the pattern.
+
+- **Contrast framing.** The move that negates a claim then swaps in a grander one. Do not write `it's not X, it's Y`, `not just X but Y`, `isn't about X, it's about Y`, or `while X holds, Y matters more`. State the point on its own.
+- **The reflexive triplet.** Three parallel items out of habit, like `speed, judgment, and originality` or `it broke. it stalled. it failed.` Two is fine and four is fine. Three every time is the tell.
+- **Transition scaffolding.** Sentences led by `Moreover`, `Furthermore`, `Consequently`, or `However`, stacked one after another. Drop the connector and let the sentences carry the logic.
+- **Inflated vocabulary.** `delve`, `underscore`, `pivotal`, `tapestry`, `testament`, `realm`, `navigate the complexities`, `paradigm shift`, `unlock`, `elevate`. Reach for the plain word.
+- **Padding.** Openers like `It's important to note that` or `In today's fast-paced world`, and closers that restate what was just said. Cut them and begin, or end, with the substance.
+- **Safe generic claims.** Lines so broad they fit any topic. Be specific to what is in front of you, or say nothing.
+
+---
+
 ## Other Rules
 
 > Temporary rules, or rules that do not fit any category.
 
 1. **No git operations.** Absolutely do not make any git commits. Do not touch git at all unless the user asks. When you do, do not add yourself (Claude) as a co-author. There is only one author.
+2. **Project Rules.** A `## Project Rules` section may be added at the very top of this file, above everything else, to hold instructions specific to the current project. Add it only when a project needs rules the general ones do not cover. Leave the rest of the file unchanged.
