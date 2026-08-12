@@ -1,4 +1,4 @@
-# Example Agent Instructions code ownership
+# Example Agent Setup code ownership
 #
 # Gitea 1.23 CODEOWNERS uses Go regular expressions. The default-all rule is
 # `.*`, not GitHub-style `*`.
