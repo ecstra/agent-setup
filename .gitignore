@@ -1,0 +1,3 @@
+# Worktrees are disabled (CLAUDE.md); the one sanctioned home if the
+# owner ever asks is this folder, and its contents never enter git.
+.agent/.worktrees/
