@@ -1,8 +1,7 @@
 # Contributing
 
 The rules of the road, human or agent. The operating version is
-`.agent/house-rules.md`, the human cut is
-[docs/house-rules.md](docs/house-rules.md), and CLAUDE.md carries agent
+`.agent/house-rules.md` and CLAUDE.md carries agent
 behavior.
 
 ## The absolutes
