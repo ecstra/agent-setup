@@ -445,19 +445,19 @@ If something is broken, unclear, or beyond what you can solve cleanly, surface i
 
 ## 6. Docs
 
-**Documentation lives in `docs/`, and each file has one job.**
+**Human docs live in `docs/`, agent knowledge lives in `.agent/`, and each file has one job.**
 
-Keep the repo root clear of documentation. Only `README.md`, `CLAUDE.md`, `Agents.md`, and `CODEOWNERS` belong at the root, because a reader looks for those first. Every other document lives under `docs/` in a clearly named file, never loose in the repo. Feel free to update the document as the project changes.
+Keep the repo root clear of documentation. Only `README.md`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS` belong at the root, because a reader looks for those first. Every other document has exactly one home: the small human set under `docs/` (the front door, the house rules), everything else in the agent directory (section 8). One fact lives in one place, a doc never restates another doc's content, it links.
 
 ### 6.1 Where a Doc Goes
 
-Put the durable docs anyone is meant to read under `docs/`, among them the design system, the architecture, the component reference, and the integration guide. Put handover notes under `docs/handover/`. Write a handover note there when you pass work on or pause mid task, so the next session can pick up without reconstructing your head. Create the file when you need it.
+`docs/` holds what a human contributor reads first: the readme pointers and the house rules. The durable knowledge (architecture, system designs, capacity, forks) lives in `.agent/docs/` under its category. Handover notes go to `.agent/handover/`: write one when you pass work on or pause mid task, so the next session picks up without reconstructing your head.
 
-### 6.2 The Decisions Scratchpad
+### 6.2 The Decisions Record
 
-`docs/decisions.md` is a scratchpad for decisions actually taken and the reasoning behind them. A real entry records a choice made, the alternative it beat, or the gotcha that forced it. It is not a status log, a progress report, a changelog, or a todo list. Do not write "only this is done for now" or "next we will" there. Write the why behind a real decision, or write nothing.
+`.agent/decisions/` holds decisions actually taken and the reasoning behind them, one file per decision per its spec. A real entry records a choice made, the alternative it beat, or the gotcha that forced it. It is not a status log, a progress report, a changelog, or a todo list. Write the why behind a real decision, or write nothing.
 
-Treat it as optional and never as the source of truth. The code and the docs above are the truth. Read the scratchpad for why something is the way it is, not to learn what the system does.
+Never treat it as the source of truth. The code and the docs are the truth. Read decisions for why something is the way it is, not to learn what the system does.
 
 ### 6.3 Documentation style
 
@@ -508,9 +508,42 @@ Blocking one wording does little, because the same shape returns in new words. P
 
 ---
 
-## 8. Other Rules
+## 8. The Agent Directory
+
+**`.agent/` at the repo root is the project's brain, committed, so any agent on any machine resumes cold.**
+
+Read `.agent/INDEX.md` before working. It is the spine: the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agent/spec/`). A file that breaks its spec is a bug.
+
+### 8.1 Upkeep
+
+The brain is maintained in the same motion as the work, never as a separate chore. A change to any file in `.agent/` updates its frontmatter date and its index line in the same commit. A code change that falsifies a knowledge doc updates the doc in the same round. A session that learns a durable project fact writes it to `.agent/memory/` before it ends.
+
+### 8.2 Boundaries
+
+- **No secrets in `.agent/`, ever.** It is committed. Same absoluteness as the `.env` rule.
+- **Project truth only.** Facts about the user as a person are not ours to manage and never enter the repo.
+- **The direction rule.** Nothing in `.agent/` references any machine's local state. A machine's local agent memory may point INTO the repo's brain, never the reverse, which is what keeps the repo self contained.
+
+### 8.3 The Trackers
+
+Defects go to `.agent/bugs/`, work goes to `.agent/todos/`, one file each per their specs. The agent classifies on intake without asking (a bug has evidence of wrong behavior, a todo has a done-when) and uses todos extensively: multi step work gets filed, not carried in a session's head. Any todo the user writes anywhere, the agent picks up, cleans, and files with the user's wording preserved, and on completing one it tells the user which of their own notes to tick.
+
+## 9. Code Review
+
+**Main contains reviewed code only. The full protocol lives in `.agent/house-rules.md`, these are the hard lines.**
+
+1. **One branch, one intent** (`feat/`, `fix/`, `sweep/`), sized by intent, never by commit count. A second intent born mid branch forks its own branch immediately. Sweeps group small work by surface and never carry a breaking change.
+2. **Gates first, then review, then PR, then merge.** No step skips, and no PR exists before the branch's review has closed.
+3. **The review is initiated by the user, always.** The agent consumes findings, it never launches a review.
+4. **Findings first, whole**, ranked by severity, before anything is fixed. All findings land in a ledger under `.agent/reviews/`, batched by theme, correctness first.
+5. **The batch loop**: fix the batch one commit per fix, a hunter sub-agent sweeps the scope for related bugs (found ones enter the ledger and get fixed, no backlog), a separate verifier sub-agent checks bug wise that each is gone and nothing new surfaced, loop until clean. Sub-agents run sequentially, one at a time, the named carve-out from the single threaded research rule.
+6. **The user's ack gates each batch.** Unfixables are named, never buried: they defer into `.agent/bugs/` and earn a future branch sparingly, on the user's call.
+
+## 10. Other Rules
 
 > Temporary rules, or rules that do not fit any category.
 
-1. **No git operations.** Absolutely do not make any git commits. Do not touch git at all unless the user asks. When you do, do not add yourself (Claude) as a co-author. There is only one author.
-2. **Project Rules.** A `## 0. Project Rules` section may be added at the very top of this file, above everything else, to hold instructions specific to the current project. Add it only when a project needs rules the general ones do not cover. Leave the rest of the file unchanged.
+1. **Git.** Commits are allowed and expected: one commit per change, so every change is undoable and addressable by hash. Single author, never add yourself (Claude) as a co-author, no AI attribution anywhere. Messages in the user's voice, short. Push after each commit. Never commit to main directly, and PRs and merges only on the user's explicit ask.
+2. **No worktrees.** Git worktrees are disabled: never create one, and never use a worktree isolation mode for sub-agents. In the rare case the user explicitly asks for one, it lives under `.agent/.worktrees/` (gitignored) and nowhere else, and dies when the task does.
+3. **Real tools only for writes.** DO NOT use python, sed, awk, heredocs, or any scripting to create or edit files, code or docs. Every write goes through the proper edit tools: read the file, then edit it exactly. Scripted writes shred text (random line breaks, lines cut mid word, half lost sentences) and bypass reading what you change. And never leave a line broken mid sentence or cut mid word: wrap prose naturally or not at all. Scripting stays fine for read only inspection (grep, counts, link checks), never for writing.
+4. **Project Rules.** A `## 0. Project Rules` section may be added at the very top of this file, above everything else, to hold instructions specific to the current project. Add it only when a project needs rules the general ones do not cover. Leave the rest of the file unchanged.
