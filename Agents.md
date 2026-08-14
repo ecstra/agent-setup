@@ -445,13 +445,13 @@ If something is broken, unclear, or beyond what you can solve cleanly, surface i
 
 ## 6. Docs
 
-**Human docs live in `docs/`, agent knowledge lives in `.agent/`, and each file has one job.**
+**The root holds the front door, `.agent/` holds everything else, and each file has one job.**
 
-Keep the repo root clear of documentation. Only `README.md`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS` belong at the root, because a reader looks for those first. Every other document has exactly one home: the small human set under `docs/` (the front door, the house rules), everything else in the agent directory (section 8). One fact lives in one place, a doc never restates another doc's content, it links.
+Keep the repo root clear of documentation. Only `README.md`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS` belong at the root, because a reader looks for those first. Those are the front door and they carry pointers, not detail. Every other document has exactly one home, the agent directory (section 8). One fact lives in one place, a doc never restates another doc's content, it links.
 
 ### 6.1 Where a Doc Goes
 
-`docs/` holds what a human contributor reads first: the readme pointers and the house rules. The durable knowledge (architecture, system designs, capacity, forks) lives in `.agent/docs/` under its category. Handover notes go to `.agent/handover/`: write one when you pass work on or pause mid task, so the next session picks up without reconstructing your head.
+The front door is the readme and the house rules, and both point onward instead of holding the detail. Everything durable lives in `.agent/docs/` under its category: the architecture, the system designs, the capacity notes, the forks, the ops guides, the research. A doc written for a reader outside the repo lives there too, one link from the root, since another project reads it here rather than copying it across. Handover notes go to `.agent/handover/`: write one when you pass work on or pause mid task, so the next session picks up without reconstructing your head.
 
 ### 6.2 The Decisions Record
 
