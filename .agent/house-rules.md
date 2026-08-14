@@ -2,7 +2,7 @@
 name: house-rules-agent
 kind: doc
 description: the branch contract and code review protocol, the agent's operating version
-updated: 2026-08-12
+updated: 2026-08-14
 links: [spec-reviews, spec-bugs, spec-todos, agent-readme]
 ---
 
@@ -37,11 +37,16 @@ works, reviewers never burn effort on red suites.
 
 ## The review protocol
 
-1. **Initiation is the owner's, always.** The owner runs the review
-   (Claude's `/code-review ultra` on the branch, Codex's `/review
-   --base main`, or both for big branches). Both work on the local
-   branch, so no PR exists yet, by rule. The agent never initiates a
-   review and cannot.
+1. **The timing is the owner's, the running is the agent's.** The owner
+   says when a branch gets reviewed and the agent never decides that on
+   its own. On the word, the agent runs the review itself with the
+   `code-review` skill at the level the branch earns: low or medium for
+   a small or mechanical branch, high or max where the surface is wide
+   or the logic is subtle. `ultra` is the owner's alone, being paid and
+   cloud run, so the agent neither reaches for it nor asks for it by
+   name. Codex `/review --base main` (GPT) is a second pair of eyes the
+   owner can add. All of it works on the local branch, so no PR exists
+   yet, by rule.
 2. **Findings first, whole.** The agent reports every finding ranked by
    severity before touching anything. No fixing during reporting, no
    silent triage.

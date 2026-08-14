@@ -8,8 +8,8 @@ behavior.
 
 - **No commit lands on main directly.** All work rides a branch: one
   branch, one intent.
-- **No PR exists before the branch's code review has closed.** The
-  review is initiated by the owner, its ledger lives under
+- **No PR exists before the branch's code review has closed.** The owner
+  calls the timing and the agent runs it, its ledger lives under
   `.agent/reviews/`, and every finding is fixed, deferred with a written
   reason, or wontfixed with a written reason before the PR opens.
 - **No merge without the owner's explicit ask.** Same for opening the PR

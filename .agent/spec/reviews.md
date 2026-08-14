@@ -2,15 +2,15 @@
 name: spec-reviews
 kind: doc
 description: format and lifecycle for .agent/reviews, the code review ledgers
-updated: 2026-08-12
+updated: 2026-08-14
 links: [conventions, house-rules-agent, spec-bugs]
 ---
 
 # Spec: reviews/
 
 One folder per code review, named `<yyyy-mm>-<branch-slug>`, born when
-the owner initiates the review, permanent once born. The full protocol
-lives in [house-rules.md](../house-rules.md), this spec covers the paper.
+the review runs, permanent once born. The full protocol lives in
+[house-rules.md](../house-rules.md), this spec covers the paper.
 
 ## The ledger
 
