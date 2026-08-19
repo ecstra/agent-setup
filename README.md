@@ -33,11 +33,7 @@ in a section called `## 0. Project Rules` at the very top of `CLAUDE.md`
 (and `AGENTS.md`), and into the files your project grows inside
 `.agent/`. The kit itself never needs editing.
 
-## Setting up a new project
-
-> **Already have a project with docs in it?** This section is for a
-> fresh repo. See [Bringing an existing project over](#bringing-an-existing-project-over)
-> below, the agent does that port for you.
+## Installation
 
 Three ways to get the kit in, easiest first. All of them end with the
 kit's files sitting in your repo root next to your code.
@@ -93,8 +89,8 @@ see them.
 >    gates (the exact test suites, analyzers, builds, and validators
 >    that must be green before a review), the tooling (how PRs are
 >    opened, how the app runs), anything else the general sections do
->    not cover. A brand new project usually has nothing to put there
->    yet, so skip it and add it when the first gate exists.
+>    not cover. A project with no gates yet has nothing to put there,
+>    so skip it and add it when the first gate exists.
 
 Commit, and start your first session. The agent reads `.agent/INDEX.md`
 on its own, you do not need to point at anything.
@@ -104,7 +100,7 @@ writes docs as it builds things, files todos and bugs as they come up,
 records decisions when they are made, and keeps small facts it learns.
 You will never sit down to "maintain" it.
 
-## Bringing an existing project over
+## Porting an existing project
 
 > **Do not follow these steps by hand, the prompt is below.** Paste it
 > into your agent and it runs the whole flow. The steps here describe
@@ -116,9 +112,10 @@ weeks. None of that is lost. All of it gets filed into `.agent/`, and
 the agent does the filing, because there is a lot of it and every file
 needs the right header block and index line.
 
-Get the kit in first, any of the three ways above. Keep your old
-`CLAUDE.md`, `AGENTS.md`, or `CONTRIBUTING.md` aside, the copy
-overwrites them and the agent folds them back in.
+Porting builds on the installation above, so do that first, any of the
+three ways, and skip nothing. Keep your old `CLAUDE.md`, `AGENTS.md`,
+or `CONTRIBUTING.md` aside, the copy overwrites them and the agent
+folds them back in.
 
 ### What the agent will do
 
