@@ -35,26 +35,28 @@ in a section called `## 0. Project Rules` at the very top of `CLAUDE.md`
 
 ## Setting up a new project
 
-Two parts. Get the files in, then two small edits.
+Three ways to get the kit in, easiest first. All of them end with the
+kit's files sitting in your repo root next to your code.
 
-### Get the kit in
+### Ask your agent
 
-Three ways, easiest first. All of them end with the kit's files sitting
-in your repo root next to your code.
-
-**Ask your agent.** If your machine can already reach the forge (you
-have cloned from `forge.example.com` before, or `tea` is logged in), open
-Claude Code in your project and paste this prompt.
+If your machine can already reach the forge (you have cloned from
+`forge.example.com` before, or `tea` is logged in), open Claude Code in
+your project and paste this prompt.
 
 ```text
 Clone https://forge.example.com/example/agent-setup into a temp folder.
 Copy its .agent folder, CLAUDE.md, AGENTS.md, CONTRIBUTING.md and
 CODEOWNERS into this repo. Append its .gitignore line to ours. Put my
-handle in CODEOWNERS. Then do the two setup edits its README describes
-and tell me what you did.
+handle in CODEOWNERS. If this project already has test, build, or lint
+commands, add a "## 0. Project Rules" section at the very top of
+CLAUDE.md and AGENTS.md naming them as the gates. Then tell me what you
+did.
 ```
 
-**Terminal.** Clone, then copy the files across.
+### Terminal
+
+Clone, then copy the files across.
 
 ```bash
 git clone https://forge.example.com/example/agent-setup
@@ -68,7 +70,9 @@ Adjust the `../agent-setup` path if you cloned somewhere else. The last
 line appends to your `.gitignore` rather than replacing it, which is
 what you want whether or not you already have one.
 
-**Download.** Sign in to the forge, open
+### Download
+
+Sign in to the forge, open
 [example/agent-setup](https://forge.example.com/example/agent-setup), and
 download the ZIP from the Code button. Unzip it and move `.agent`,
 `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS` into your
@@ -76,21 +80,18 @@ project's root folder, then add the one line from its `.gitignore` to
 yours. Two of those (`.agent` and `.gitignore`) are hidden files, so if
 you are in Finder press `Cmd + Shift + .` to see them.
 
-### Then two small edits
-
-1. Open `CODEOWNERS` and replace `@ecstra` with your own handle.
-
-2. Decide whether you need a `## 0. Project Rules` section. It goes at
-   the very top of `CLAUDE.md`, above everything else, and gets copied
-   into `AGENTS.md` too. It is for what the general rules cannot know
-   about your project.
-   - the gates: the exact test suites, analyzers, builds, and validators
-     that must be green before a review starts
-   - the tooling: how PRs are opened, how the app runs
-   - anything else the general sections do not cover
-
-   It is optional. A brand new project usually has nothing to put there
-   yet, so skip it and add it when the first gate exists.
+> **Set up by hand?** The agent path does these two edits for you. The
+> terminal and download paths leave them to you.
+>
+> 1. `CODEOWNERS`: replace `@ecstra` with your own handle.
+> 2. `## 0. Project Rules`: optional. It goes at the very top of
+>    `CLAUDE.md`, above everything else, mirrored in `AGENTS.md`, and
+>    holds what the general rules cannot know about your project. The
+>    gates (the exact test suites, analyzers, builds, and validators
+>    that must be green before a review), the tooling (how PRs are
+>    opened, how the app runs), anything else the general sections do
+>    not cover. A brand new project usually has nothing to put there
+>    yet, so skip it and add it when the first gate exists.
 
 Commit, and start your first session. The agent reads `.agent/INDEX.md`
 on its own, you do not need to point at anything.
@@ -102,42 +103,38 @@ You will never sit down to "maintain" it.
 
 ## Bringing an existing project over
 
+> **Do not follow these steps by hand, the prompt is below.** Paste it
+> into your agent and it runs the whole flow. The steps here describe
+> what the agent will do, so you know what to expect and what to check.
+
 Most projects that adopt the kit already have a pile of docs, an old
 `CLAUDE.md`, a TODO list somewhere, and notes nobody has opened in
 weeks. None of that is lost. All of it gets filed into `.agent/`, and
 the agent does the filing, because there is a lot of it and every file
 needs the right header block and index line.
 
-The port is a normal branch like any other work. The agent reads, then
-files, then cleans up, and you review the branch before it merges.
+Get the kit in first, any of the three ways above. Keep your old
+`CLAUDE.md`, `AGENTS.md`, or `CONTRIBUTING.md` aside, the copy
+overwrites them and the agent folds them back in.
 
-### The flow
+### What the agent will do
 
-1. **Get the kit in.** Any of the three ways above. If you already have
-   a `CLAUDE.md`, `AGENTS.md`, or `CONTRIBUTING.md`, keep yours aside,
-   the copy overwrites them and step 3 folds them back in.
-
-2. **The agent reads everything first.** The whole project, the code,
-   every doc and note it can find, and then the specs in `.agent/spec/`
-   so it knows the target format. No filing before the reading is done,
-   and it shows you the plan before it moves anything.
-
-3. **It files each thing where it belongs**, on its own branch, with the
-   header block and index line each file needs. The map below says where
-   each kind of thing goes. Your own wording is kept in todos, and
-   nothing gets shortened on the way. Old `CLAUDE.md` or `AGENTS.md`
-   content becomes `## 0. Project Rules`.
-
-4. **It cleans up.** Once a doc lives in `.agent/`, the old copy is
+1. **Read everything first**: the whole project, the code, every doc
+   and note it can find, then the specs in `.agent/spec/` so it knows
+   the target format. It shows you a plan before it moves anything.
+2. **File each thing where it belongs**: on its own branch, with the
+   header block and index line each file needs, per the map below. Your
+   wording is kept in todos, nothing gets shortened on the way, and old
+   `CLAUDE.md` or `AGENTS.md` content becomes `## 0. Project Rules`.
+3. **Clean up**: once a doc lives in `.agent/`, the old copy is
    deleted. The one exception is anything a person wrote by hand, which
    stays where it is, untouched. The agent tells the two apart by the
    writing itself, since a human's notes do not read like generated
    docs, and it lists what it left alone so you can decide.
-
-5. **You review the branch** and merge it. After that the root holds
-   only `README.md`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and
-   `CODEOWNERS`. If you keep a small human `docs/` folder, it points
-   into `.agent/docs/` rather than repeat it.
+4. **Hand you the branch**: you review it and merge it. After that the
+   root holds only `README.md`, `CLAUDE.md`, `AGENTS.md`,
+   `CONTRIBUTING.md`, and `CODEOWNERS`. If you keep a small human
+   `docs/` folder, it points into `.agent/docs/` rather than repeat it.
 
 ### Where things go
 
@@ -155,8 +152,8 @@ files, then cleans up, and you review the branch before it merges.
 
 ### The prompt
 
-Get the kit in, then paste this into your agent. It covers the whole
-flow above.
+Paste this into your agent once the kit is in. It covers the whole flow
+above.
 
 ```text
 We are adopting the agent kit that now sits in this repo. Do the port
@@ -174,11 +171,16 @@ and list those for me. Then tell me what you did and where.
 
 ## Keeping the kit current
 
-When this repo's rulebook changes, copy the new `CLAUDE.md` over yours
-and put your `## 0. Project Rules` back on top. Section 0 is the only
-part that is yours. Copy the result to `AGENTS.md`. The files in
-`.agent/spec/` update the same way, new over old, and nothing else in
-`.agent/` is touched. Or, again, ask the agent to do it.
+When this repo's rulebook changes, three things move and nothing else.
+
+- `CLAUDE.md`: copy the new one over yours and put your
+  `## 0. Project Rules` back on top. Section 0 is the only part that is
+  yours.
+- `AGENTS.md`: copy the result of the step above into it.
+- `.agent/spec/`: new spec over old. Nothing else inside `.agent/` is
+  touched.
+
+Or, again, ask the agent to do it.
 
 ## What `.agent/` looks like
 
@@ -253,8 +255,8 @@ work over.
 
 ## Where to read next
 
-- [`CLAUDE.md`](CLAUDE.md), the full rulebook.
-- [`.agent/README.md`](.agent/README.md), how a cold agent boots.
-- [`.agent/house-rules.md`](.agent/house-rules.md), the branch contract and review protocol.
-- [`.agent/spec/conventions.md`](.agent/spec/conventions.md), the shared rules every file in `.agent/` obeys.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md), the absolutes on one page.
+- [`CLAUDE.md`](CLAUDE.md): the full rulebook.
+- [`.agent/README.md`](.agent/README.md): how a cold agent boots.
+- [`.agent/house-rules.md`](.agent/house-rules.md): the branch contract and review protocol.
+- [`.agent/spec/conventions.md`](.agent/spec/conventions.md): the shared rules every file in `.agent/` obeys.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): the absolutes on one page.
