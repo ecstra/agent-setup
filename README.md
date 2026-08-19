@@ -35,6 +35,10 @@ in a section called `## 0. Project Rules` at the very top of `CLAUDE.md`
 
 ## Setting up a new project
 
+> **Already have a project with docs in it?** This section is for a
+> fresh repo. See [Bringing an existing project over](#bringing-an-existing-project-over)
+> below, the agent does that port for you.
+
 Three ways to get the kit in, easiest first. All of them end with the
 kit's files sitting in your repo root next to your code.
 
@@ -72,13 +76,12 @@ what you want whether or not you already have one.
 
 ### Download
 
-Sign in to the forge, open
-[example/agent-setup](https://forge.example.com/example/agent-setup), and
-download the ZIP from the Code button. Unzip it and move `.agent`,
-`CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS` into your
-project's root folder, then add the one line from its `.gitignore` to
-yours. Two of those (`.agent` and `.gitignore`) are hidden files, so if
-you are in Finder press `Cmd + Shift + .` to see them.
+Use the Code button at the top of this page and download the ZIP.
+Unzip it and move `.agent`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`,
+and `CODEOWNERS` into your project's root folder, then add the one line
+from its `.gitignore` to yours. Two of those (`.agent` and `.gitignore`)
+are hidden files, so if you are in Finder press `Cmd + Shift + .` to
+see them.
 
 > **Set up by hand?** The agent path does these two edits for you. The
 > terminal and download paths leave them to you.
