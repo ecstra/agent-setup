@@ -9,7 +9,7 @@ of it is committed, so any agent on any machine resumes cold.
 | File | What it does |
 |---|---|
 | `CLAUDE.md` | The general rulebook. How the agent writes code, how it talks, where docs go, how the agent directory is kept, how a branch gets reviewed, the git rules. Read by Claude Code. |
-| `Agents.md` | The same rulebook under the name other tools look for. Keep the two identical. |
+| `AGENTS.md` | The same rulebook under the name other tools look for. Keep the two identical. |
 | `.agent/` | The agent directory, the project's brain. Ships empty, with the specs that govern each folder. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. Points into `.agent/house-rules.md` for the full protocol. |
 | `CODEOWNERS` | One rule handing the whole repo to one owner, written for Gitea (Go regex, so `.*`). Swap in your own handle. |
@@ -23,7 +23,7 @@ and in the files the project grows inside `.agent/`.
 
 Two things travel with the kit.
 
-The rulebook (`CLAUDE.md`, mirrored as `Agents.md`) tells the agent how
+The rulebook (`CLAUDE.md`, mirrored as `AGENTS.md`) tells the agent how
 to behave. It is general and reads the same in every project that
 carries it.
 
@@ -50,7 +50,7 @@ local state.
 2. Copy it into your repo root.
 
    ```bash
-   cp -R agent-setup/.agent agent-setup/CLAUDE.md agent-setup/Agents.md \
+   cp -R agent-setup/.agent agent-setup/CLAUDE.md agent-setup/AGENTS.md \
          agent-setup/CONTRIBUTING.md agent-setup/CODEOWNERS agent-setup/.gitignore \
          your-project/
    ```
@@ -58,7 +58,7 @@ local state.
 3. Open `CODEOWNERS` and put your own handle in place of `@ecstra`.
 
 4. Add a `## 0. Project Rules` section at the very top of `CLAUDE.md`,
-   above everything else, and mirror it into `Agents.md`. It holds what
+   above everything else, and mirror it into `AGENTS.md`. It holds what
    the general rules cannot know about your project.
    - the gates: the exact suites, analyzers, builds, and validators that
      must be green before a review starts
@@ -81,12 +81,12 @@ learns in memory. Nobody maintains it as a separate chore.
 Same install, with a merge step for the files you already have.
 
 1. Get the kit and copy it in. The copy overwrites any `CLAUDE.md`,
-   agents file, or `CONTRIBUTING.md` you already have, so keep yours
+   `AGENTS.md`, or `CONTRIBUTING.md` you already have, so keep yours
    aside to fold in at step 2. Append the `.gitignore` instead of
    replacing it.
 
    ```bash
-   cp -R agent-setup/.agent agent-setup/CLAUDE.md agent-setup/Agents.md \
+   cp -R agent-setup/.agent agent-setup/CLAUDE.md agent-setup/AGENTS.md \
          agent-setup/CONTRIBUTING.md agent-setup/CODEOWNERS your-project/
    cat agent-setup/.gitignore >> your-project/.gitignore
    ```
@@ -95,7 +95,7 @@ Same install, with a merge step for the files you already have.
 
    | You have | Where it goes |
    |---|---|
-   | Your own `CLAUDE.md` or `AGENTS.md` | Its content becomes `## 0. Project Rules` at the top of the new `CLAUDE.md`, mirrored in `Agents.md`. Drop anything the general sections already say. |
+   | Your own `CLAUDE.md` or `AGENTS.md` | Its content becomes `## 0. Project Rules` at the top of the new `CLAUDE.md`, mirrored in `AGENTS.md`. Drop anything the general sections already say. |
    | A `docs/` folder, wiki pages, architecture or design notes | `.agent/docs/` under a category folder (`foundation/`, `systems/`, `ops/`, `research/`), one line each in `.agent/docs/INDEX.md`. Format in [`.agent/spec/docs.md`](.agent/spec/docs.md). |
    | ADRs or a decisions log | `.agent/decisions/`, one file per decision with a `DEC-###` id. Format in [`.agent/spec/decisions.md`](.agent/spec/decisions.md). |
    | A TODO list, roadmap, or backlog | `.agent/todos/`, one item per file with a `TODO-###` id, your wording preserved. Format in [`.agent/spec/todos.md`](.agent/spec/todos.md). |
@@ -111,7 +111,7 @@ Same install, with a merge step for the files you already have.
    a bug, so move both together.
 
 4. Keep the root clear. After the port the only docs at the root are
-   `README.md`, `CLAUDE.md`, `Agents.md`, `CONTRIBUTING.md`, and
+   `README.md`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and
    `CODEOWNERS`. If you keep a human `docs/` folder, keep it small and
    have it point into `.agent/docs/` rather than repeat it.
 
@@ -125,7 +125,7 @@ index line is exactly what the specs describe.
 When this repo's rulebook changes, copy the new `CLAUDE.md` into your
 project and put your `## 0. Project Rules` back on top. Section 0 is
 the only part that is yours, everything below it is the kit's. Mirror
-the result into `Agents.md`. The files in `.agent/spec/` update the
+the result into `AGENTS.md`. The files in `.agent/spec/` update the
 same way, new spec over old, and nothing else inside `.agent/` is
 touched.
 

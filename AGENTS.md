@@ -528,6 +528,8 @@ The brain is maintained in the same motion as the work, never as a separate chor
 
 Defects go to `.agent/bugs/`, work goes to `.agent/todos/`, one file each per their specs. The agent classifies on intake without asking (a bug has evidence of wrong behavior, a todo has a done-when) and uses todos extensively: multi step work gets filed, not carried in a session's head. Any todo the user writes anywhere, the agent picks up, cleans, and files with the user's wording preserved, and on completing one it tells the user which of their own notes to tick.
 
+---
+
 ## 9. Code Review
 
 **Main contains reviewed code only. The full protocol lives in `.agent/house-rules.md`, these are the hard lines.**
@@ -538,6 +540,8 @@ Defects go to `.agent/bugs/`, work goes to `.agent/todos/`, one file each per th
 4. **Findings first, whole**, ranked by severity, before anything is fixed. All findings land in a ledger under `.agent/reviews/`, batched by theme, correctness first.
 5. **The batch loop**: fix the batch one commit per fix, a hunter sub-agent sweeps the scope for related bugs (found ones enter the ledger and get fixed, no backlog), a separate verifier sub-agent checks bug wise that each is gone and nothing new surfaced, loop until clean. Sub-agents run sequentially, one at a time, the named carve-out from the single threaded research rule.
 6. **The user's ack gates each batch.** Unfixables are named, never buried: they defer into `.agent/bugs/` and earn a future branch sparingly, on the user's call.
+
+---
 
 ## 10. Other Rules
 
