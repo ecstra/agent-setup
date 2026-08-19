@@ -119,19 +119,33 @@ overwrites them and the agent folds them back in.
 
 ### What the agent will do
 
-1. **Read everything first**: the whole project, the code, every doc
-   and note it can find, then the specs in `.agent/spec/` so it knows
-   the target format. It shows you a plan before it moves anything.
-2. **File each thing where it belongs**: on its own branch, with the
-   header block and index line each file needs, per the map below. Your
-   wording is kept in todos, nothing gets shortened on the way, and old
-   `CLAUDE.md` or `AGENTS.md` content becomes `## 0. Project Rules`.
-3. **Clean up**: once a doc lives in `.agent/`, the old copy is
+1. **Sync with the new rulebook first**: read the new `CLAUDE.md` and
+   work by it from the first move. The port itself obeys the kit's
+   rules, so every file is written by hand with the proper edit tools,
+   no scripts, and the house style holds throughout.
+2. **Read everything**: the whole project, the code, every doc and note
+   it can find, then the specs in `.agent/spec/` so it knows the target
+   format. It shows you a plan before it moves anything.
+3. **File each thing where it belongs**: on its own branch, one file at
+   a time, with the header block and index line each file needs, per
+   the map below. Your wording is kept in todos and nothing gets
+   shortened on the way.
+4. **Port the old rules, never paste them**: the old `CLAUDE.md` or
+   `AGENTS.md` is read against the new one. Whatever the general
+   sections already say is dropped, and only what is truly project
+   specific is rewritten into `## 0. Project Rules`, mirrored in
+   `AGENTS.md`.
+5. **Do all of it**: a project can hold hundreds or thousands of files,
+   old and new, and the port covers every one, never a sample. If the
+   volume calls for it, the agent lists everything in a ledger first and
+   works through it in batches, ticking each file off, so nothing is
+   skipped and a later session can pick up where it stopped.
+6. **Clean up**: once a doc lives in `.agent/`, the old copy is
    deleted. The one exception is anything a person wrote by hand, which
    stays where it is, untouched. The agent tells the two apart by the
    writing itself, since a human's notes do not read like generated
    docs, and it lists what it left alone so you can decide.
-4. **Hand you the branch**: you review it and merge it. After that the
+7. **Hand you the branch**: you review it and merge it. After that the
    root holds only `README.md`, `CLAUDE.md`, `AGENTS.md`,
    `CONTRIBUTING.md`, and `CODEOWNERS`. If you keep a small human
    `docs/` folder, it points into `.agent/docs/` rather than repeat it.
@@ -140,7 +154,7 @@ overwrites them and the agent folds them back in.
 
 | What you have today | Where it goes |
 |---|---|
-| Your own `CLAUDE.md` or `AGENTS.md` | `## 0. Project Rules` at the top of the new `CLAUDE.md`, mirrored in `AGENTS.md`. Anything the general rules already cover is dropped. |
+| Your own `CLAUDE.md` or `AGENTS.md` | Read against the new rulebook and rewritten into `## 0. Project Rules` at the top of the new `CLAUDE.md`, mirrored in `AGENTS.md`. Never pasted whole, anything the general rules already cover is dropped. |
 | A `docs/` folder, wiki pages, architecture or design notes | `.agent/docs/`, sorted into a category folder (`foundation/`, `systems/`, `ops/`, `research/`), one line each in `.agent/docs/INDEX.md`. |
 | ADRs or a decisions log | `.agent/decisions/`, one file per decision. |
 | A TODO list, roadmap, or backlog | `.agent/todos/`, one file per item, your wording kept as is. |
@@ -157,16 +171,25 @@ above.
 
 ```text
 We are adopting the agent kit that now sits in this repo. Do the port
-on a new branch. First read the whole project: the code, every doc and
-note, our old CLAUDE.md or AGENTS.md if there is one, and every TODO
-list. Then read .agent/INDEX.md and everything in .agent/spec/ so you
-know the target format. Show me a plan of what goes where before you
-move anything. Then file it all into .agent/ (docs, decisions, todos,
-bugs, memory, everything) with correct frontmatter and index lines,
-keeping my wording in todos. Old CLAUDE.md or AGENTS.md content becomes
-section 0 Project Rules. When it is filed, delete the old copies of the
-docs you moved, but leave anything a human wrote by hand where it is
-and list those for me. Then tell me what you did and where.
+on a new branch. Before anything else, read the new CLAUDE.md and work
+by it from here on: every file written by hand with the proper edit
+tools, no scripts or heredocs, house style throughout. Then read the
+whole project: the code, every doc and note, our old CLAUDE.md or
+AGENTS.md if there is one, and every TODO list. Then read
+.agent/INDEX.md and everything in .agent/spec/ so you know the target
+format. Show me a plan of what goes where before you move anything.
+Then file it all into .agent/ (docs, decisions, todos, bugs, memory,
+everything) one file at a time with correct frontmatter and index
+lines, keeping my wording in todos. Do not paste the old CLAUDE.md or
+AGENTS.md into section 0: read it against the new rulebook, drop what
+the general sections already cover, and rewrite only the truly project
+specific parts into "## 0. Project Rules" at the top of CLAUDE.md and
+AGENTS.md. This may be hundreds or thousands of files. Do every one,
+never a sample. If the volume needs it, list everything in a ledger
+first and work in batches, ticking each file off. When it is all
+filed, delete the old copies of the docs you moved, but leave anything
+a human wrote by hand where it is and list those for me. Then tell me
+what you did and where.
 ```
 
 ## Keeping the kit current
