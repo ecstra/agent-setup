@@ -145,10 +145,13 @@ overwrites them and the agent folds them back in.
    stays where it is, untouched. The agent tells the two apart by the
    writing itself, since a human's notes do not read like generated
    docs, and it lists what it left alone so you can decide.
-7. **Hand you the branch**: you review it and merge it. After that the
-   root holds only `README.md`, `CLAUDE.md`, `AGENTS.md`,
-   `CONTRIBUTING.md`, and `CODEOWNERS`. If you keep a small human
-   `docs/` folder, it points into `.agent/docs/` rather than repeat it.
+7. **Hand you the branch**: you say when it is ready for review, and
+   the agent runs the review the way the house rules describe, findings
+   in a ledger, fixed batch by batch with your ack on each. Then it
+   opens the PR and merges, both on your word. After that the root holds
+   only `README.md`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and
+   `CODEOWNERS`. If you keep a small human `docs/` folder, it points
+   into `.agent/docs/` rather than repeat it.
 
 ### Where things go
 
@@ -189,7 +192,7 @@ never a sample. If the volume needs it, list everything in a ledger
 first and work in batches, ticking each file off. When it is all
 filed, delete the old copies of the docs you moved, but leave anything
 a human wrote by hand where it is and list those for me. Then tell me
-what you did and where.
+what you did and where, and wait for me to call the review.
 ```
 
 ## Keeping the kit current
