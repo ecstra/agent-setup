@@ -2,7 +2,7 @@
 name: house-rules-agent
 kind: doc
 description: the branch contract and code review protocol, the agent's operating version
-updated: 2026-08-14
+updated: 2026-09-09
 links: [spec-reviews, spec-bugs, spec-todos, agent-readme]
 ---
 
@@ -11,7 +11,7 @@ links: [spec-reviews, spec-bugs, spec-todos, agent-readme]
 The development rules of every project that carries this directory. A
 project may keep a short human cut at `docs/house-rules.md` and the hard
 bans in a root CONTRIBUTING.md, both pointing here. The project's own
-CLAUDE.md section 0 names its exact gates and tooling.
+CLAUDE.md section 0 names its exact gates, tooling, and PR rules.
 
 ## The branch contract
 
@@ -26,8 +26,10 @@ CLAUDE.md section 0 names its exact gates and tooling.
 3. **Branch from fresh main.** Merge whole, never cherry pick out of an
    unreviewed branch. A merged branch is deleted, its review ledger is
    the record.
-4. **Main is reviewed code only.** Gates first, then review, then PR,
-   then merge. No step skips.
+4. **Main is reviewed code only.** Gates first, then review, then
+   merge. No step skips, and nothing merges before the review has
+   closed. When the PR opens and whether as a draft is the project's
+   rule in CLAUDE.md section 0, never a question the agent asks.
 
 ## The gates
 
@@ -45,8 +47,8 @@ works, reviewers never burn effort on red suites.
    or the logic is subtle. `ultra` is the owner's alone, being paid and
    cloud run, so the agent neither reaches for it nor asks for it by
    name. Codex `/review --base main` (GPT) is a second pair of eyes the
-   owner can add. All of it works on the local branch, so no PR exists
-   yet, by rule.
+   owner can add. All of it works on the local branch, whether or not
+   a PR is open yet.
 2. **Findings first, whole.** The agent reports every finding ranked by
    severity before touching anything. No fixing during reporting, no
    silent triage.
@@ -87,8 +89,9 @@ works, reviewers never burn effort on red suites.
   removed:, one short sentence, two clauses at most.
 - Push after each commit.
 - PRs only on the owner's explicit ask in the current message, through
-  the project's PR tooling, base main. Merges only on the owner's
-  explicit ask.
+  the project's PR tooling, base main, plain unless section 0 says
+  otherwise. Merges only on the owner's explicit ask, never before the
+  review has closed.
 - Never commit to main directly.
 - Worktrees are disabled: never create one, and never use a worktree
   isolation mode for sub-agents. If the owner ever explicitly asks, the

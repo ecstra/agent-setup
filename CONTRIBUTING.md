@@ -8,12 +8,13 @@ behavior.
 
 - **No commit lands on main directly.** All work rides a branch: one
   branch, one intent.
-- **No PR exists before the branch's code review has closed.** The owner
+- **No merge before the branch's code review has closed.** The owner
   calls the timing and the agent runs it, its ledger lives under
   `.agent/reviews/`, and every finding is fixed, deferred with a written
-  reason, or wontfixed with a written reason before the PR opens.
+  reason, or wontfixed with a written reason before anything merges.
 - **No merge without the owner's explicit ask.** Same for opening the PR
-  itself.
+  itself. When it opens and whether as a draft is this project's own
+  rule in CLAUDE.md section 0.
 - **Single author, no co-authors, no AI attribution anywhere.** Not in
   commits, not in PR titles or bodies, no generated-with footers.
 - **Gates before review.** Suites, analyzer, builds, and validators are
@@ -27,6 +28,6 @@ behavior.
 ## The short loop
 
 Branch from fresh main, work in small undoable commits, keep the gates
-green, ask the owner to run the review, fix it batch by batch, then PR
-and merge on their word. The branch dies after merge, its ledger is the
-record.
+green, ask the owner to run the review, fix it batch by batch, then
+merge on their word. The PR follows section 0, on their ask. The branch
+dies after merge, its ledger is the record.

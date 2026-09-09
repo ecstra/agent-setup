@@ -148,10 +148,12 @@ folds them back in.
 7. **Hand you the branch**: you say when it is ready for review, and
    the agent runs the review the way the house rules describe, findings
    in a ledger, fixed batch by batch with your ack on each. Then it
-   opens the PR and merges, both on your word. After that the root holds
-   only `README.md`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and
-   `CODEOWNERS`. If you keep a small human `docs/` folder, it points
-   into `.agent/docs/` rather than repeat it.
+   opens the PR and merges, both on your word. When the PR opens and
+   whether as a draft is your project's own rule in section 0, so the
+   agent never asks. After that the root holds only `README.md`,
+   `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS`. If
+   you keep a small human `docs/` folder, it points into `.agent/docs/`
+   rather than repeat it.
 
 ### Where things go
 
