@@ -204,8 +204,9 @@ def write(
     """Write the document as a real file.
 
     The brain holds real files. A symlink standing in a file's place is
-    replaced rather than written through, so nothing the tool writes
-    ever lands outside `.agents/`.
+    replaced rather than written through. A folder somebody linked into
+    the brain is theirs, and a file filed in it lives where they put the
+    folder.
     """
     if os.path.islink(path):
         os.unlink(path)
