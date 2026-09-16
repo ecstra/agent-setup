@@ -25,8 +25,8 @@ one, agents read this.
 
 ## The map
 
-- `spec/`: the law of this directory, one spec per folder plus the shared
-  conventions.
+- `spec/`: the law of this directory, one spec per content folder plus
+  the shared conventions.
 - `docs/`: the knowledge, categorized. What the product is and how it
   works.
 - `memory/`: project facts learned along the way, one per file.
