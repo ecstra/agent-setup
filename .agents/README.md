@@ -1,7 +1,7 @@
 ---
 name: agent-readme
 kind: doc
-description: what the .agent directory is and how a cold agent boots from it
+description: what the .agents directory is and how a cold agent boots from it
 updated: 2026-09-16
 links: [agent-index, conventions, house-rules-agent]
 ---
@@ -25,6 +25,9 @@ one, agents read this.
 
 ## The map
 
+- `SYSTEM.md`: the rules every agent works by. Claude Code and Gemini
+  CLI pull it in through the root `AGENTS.md`. An agent that does not
+  expand imports, Codex among them, opens it first.
 - `spec/`: the law of this directory, one spec per content folder plus
   the shared conventions.
 - `docs/`: the knowledge, categorized. What the product is and how it

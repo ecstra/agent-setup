@@ -2,7 +2,7 @@
 name: agent-index
 kind: doc
 description: the spine of the agent directory, what exists and where
-updated: 2026-08-12
+updated: 2026-09-16
 links: [agent-readme, conventions, house-rules-agent]
 ---
 
@@ -14,6 +14,7 @@ line in the same commit.
 
 ## The directory itself
 
+- [SYSTEM.md](SYSTEM.md), the rulebook every agent works by, reached through AGENTS.md
 - [README.md](README.md), what this directory is and how to boot from it
 - [house-rules.md](house-rules.md), the branch contract and review protocol, the operating version
 - [spec/conventions.md](spec/conventions.md), the shared law: frontmatter, naming, links, indexes

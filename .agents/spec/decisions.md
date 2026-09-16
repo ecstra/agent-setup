@@ -1,8 +1,8 @@
 ---
 name: spec-decisions
 kind: doc
-description: format for .agent/decisions, one decision per file
-updated: 2026-08-12
+description: format for .agents/decisions, one decision per file
+updated: 2026-09-16
 links: [conventions]
 ---
 

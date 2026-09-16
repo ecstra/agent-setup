@@ -1,8 +1,8 @@
 ---
 name: spec-reviews
 kind: doc
-description: format and lifecycle for .agent/reviews, the code review ledgers
-updated: 2026-08-14
+description: format and lifecycle for .agents/reviews, the code review ledgers
+updated: 2026-09-16
 links: [conventions, house-rules-agent, spec-bugs]
 ---
 
