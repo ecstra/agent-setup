@@ -5,6 +5,7 @@ names instead, so resolving still accepts an id or a name, and the
 upgrade turns them into paths.
 """
 
+import os
 import re
 from pathlib import Path
 from typing import Optional
@@ -57,9 +58,17 @@ def within(
     brain: store.Brain,
     path: Path,
 ) -> Optional[str]:
-    """The path relative to the brain, or None when it lies outside."""
+    """The path relative to the brain, or None when it lies outside.
+
+    Nothing is resolved. A symlink filed inside the brain is inside it,
+    and `..` is folded lexically, so a path cannot climb out unseen and
+    a symlink loop on disk cannot raise here.
+    """
+    root = Path(os.path.normpath(str(brain.root)))
+    folded = Path(os.path.normpath(str(path)))
+
     try:
-        return str(path.resolve().relative_to(brain.root.resolve()))
+        return str(folded.relative_to(root))
     except ValueError:
         return None
 
