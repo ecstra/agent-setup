@@ -451,7 +451,7 @@ Keep the repo root clear of documentation. What belongs there is `README.md`, `C
 
 ### 6.1 Where a Doc Goes
 
-The front door is the readme and the house rules, and both point onward instead of holding the detail. Everything durable lives in `.agent/docs/` under its category: the architecture, the system designs, the capacity notes, the forks, the ops guides, the research. A doc written for a reader outside the repo lives there too, one link from the root, since another project reads it here rather than copying it across. Handover notes go to `.agent/handover/`: write one when you pass work on or pause mid task, so the next session picks up without reconstructing your head.
+The front door is the readme and the house rules, and both point onward instead of holding the detail. Everything durable lives in `.agent/docs/` under its category: the architecture, the system designs, the capacity notes, the forks, the ops guides, the research. A doc written for a reader outside the repo lives there too, linked from the root readme or the project's `docs/` folder, since another project reads it here rather than copying it across. Handover notes go to `.agent/handover/`: write one when you pass work on or pause mid task, so the next session picks up without reconstructing your head.
 
 ### 6.2 The Decisions Record
 
