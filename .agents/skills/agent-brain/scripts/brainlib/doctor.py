@@ -403,7 +403,7 @@ def check_indexes(
         Finding(
             path=relative(brain, path),
             check="index",
-            message="does not match its folder",
+            message="differs from what the tool builds for its folder",
             repair=repair,
         )
         for path in stale

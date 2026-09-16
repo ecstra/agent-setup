@@ -1,8 +1,10 @@
 """Building every INDEX.md from the files it lists.
 
-The indexes are generated, never hand edited. Each one keeps its own
-frontmatter and gets a fresh body from the folder it describes, so an
-index can never disagree with its folder for longer than one run.
+The indexes are generated, never hand edited. The tool owns the whole
+file, frontmatter included, so an index that disagrees with its folder
+in its body or in its header is rebuilt on the next run. The one thing
+kept from the file on disk is its `updated` date, which moves only when
+the rest of the file does.
 """
 
 from datetime import date
@@ -21,18 +23,31 @@ SYSTEM_HOOK = "the rulebook every agent works by, reached through AGENTS.md"
 
 SEVERITY_ORDER = ("breaks", "bug", "debt", "nit")
 
+SPINE_DESCRIPTION = "the spine of the agent directory, what exists and where"
+SPINE_LINKS = ("README.md", "spec/conventions.md", "house-rules.md")
+
+DESCRIPTIONS: dict[str, str] = {
+    "docs": "index of the knowledge library, one line per doc",
+    "memory": "index of project memory, one line per fact",
+    "todos": "the work tracker's index, open items first",
+    "bugs": "the defect tracker's index, open bugs first",
+    "decisions": "index of every decision taken, newest first",
+    "reviews": "index of code review ledgers, active first",
+}
+
 
 def build(
     brain: store.Brain,
 ) -> dict[Path, str]:
     """Every index path with the text it should hold right now."""
     wanted: dict[Path, str] = {
-        brain.root / "INDEX.md": with_body(
+        brain.root / "INDEX.md": render_index(
             brain=brain,
             path=brain.root / "INDEX.md",
             body=spine_body(brain),
             name="agent-index",
-            description="the spine of the agent directory, what exists and where",
+            description=SPINE_DESCRIPTION,
+            links=list(SPINE_LINKS),
         ),
     }
 
@@ -42,12 +57,13 @@ def build(
             continue
 
         path = brain.root / folder / "INDEX.md"
-        wanted[path] = with_body(
+        wanted[path] = render_index(
             brain=brain,
             path=path,
             body=folder_body(brain=brain, kind=kind),
             name=f"{folder}-index",
-            description=f"index of {folder}, built from the folder",
+            description=DESCRIPTIONS[folder],
+            links=["INDEX.md", f"spec/{folder}.md"],
         )
 
     return wanted
@@ -60,10 +76,24 @@ def stale(
     found: list[Path] = []
 
     for path, text in build(brain).items():
-        if body_of(current_text(path)) != body_of(text):
+        if fingerprint(current_text(path)) != fingerprint(text):
             found.append(path)
 
     return found
+
+
+def fingerprint(
+    text: str,
+) -> tuple[list[str], str]:
+    """Everything about an index but its date, which follows the rest."""
+    try:
+        document = frontmatter.parse(text)
+    except frontmatter.FrontmatterError:
+        return [], text
+
+    lines = [line for line in document.lines if frontmatter.split_field(line)[0] != "updated"]
+
+    return lines, document.body
 
 
 def current_text(
@@ -97,47 +127,48 @@ def write(
     return changed
 
 
-def with_body(
+def render_index(
     brain: store.Brain,
     path: Path,
     body: str,
     name: str,
     description: str,
+    links: list[str],
 ) -> str:
-    """The index's existing frontmatter, or a fresh one, over the new body.
+    """The whole index as the tool writes it, header and body.
 
-    An index somebody pasted over, or truncated, gets the fresh one, so a
-    broken index is rebuilt by the next run instead of stopping it.
+    A link is carried only while its file exists, so a project that
+    dropped a kit file does not get a dangling link rebuilt forever.
     """
+    present = [link for link in links if (brain.root / link).is_file()]
     document = frontmatter.Document(
         lines=[
             f"name: {name}",
             "kind: doc",
             f"description: {description}",
-            f"updated: {date.today().isoformat()}",
-            "links: []",
+            f"updated: {kept_stamp(path)}",
+            f"links: {frontmatter.render_list(present)}",
         ],
-        body="",
+        body="\n" + body,
     )
-
-    if path.is_file():
-        try:
-            document = frontmatter.read(str(path))
-        except frontmatter.FrontmatterError:
-            pass
-
-    document.body = "\n" + body
 
     return frontmatter.render(document)
 
 
-def body_of(
-    text: str,
+def kept_stamp(
+    path: Path,
 ) -> str:
-    try:
-        return frontmatter.parse(text).body
-    except frontmatter.FrontmatterError:
-        return text
+    """The index's own updated date when it carries a real one, else today."""
+    if path.is_file():
+        try:
+            current = frontmatter.read(str(path)).get("updated")
+        except frontmatter.FrontmatterError:
+            current = None
+
+        if current and schema.is_date(current):
+            return current
+
+    return date.today().isoformat()
 
 
 def spine_body(

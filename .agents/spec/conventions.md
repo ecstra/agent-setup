@@ -63,8 +63,9 @@ the hook is the description or a shorter cut of it.
 
 The upkeep rule: any change to a file updates its `updated:` date in the
 same commit, and the indexes are rebuilt by the brain tool, never edited
-by hand. An index that disagrees with its folder is a bug, and doctor
-rebuilds it.
+by hand. The tool owns an index whole, its frontmatter as much as its
+body, and an index that differs from what it builds is a bug that
+doctor rebuilds.
 
 ## Prose
 
