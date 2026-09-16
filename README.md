@@ -70,9 +70,9 @@ cat ../agent-setup/.gitignore >> .gitignore
 
 Adjust the `../agent-setup` path if you cloned somewhere else. The last
 two lines append to your `.gitignore` rather than replacing it, which is
-what you want whether or not you already have one. The `echo` opens a
-blank line first, so the kit's first rule cannot fuse onto the end of
-your last one.
+what you want whether or not you already have one. The `echo` guarantees
+a line break before the kit's rules, so its first line cannot fuse onto
+the end of yours.
 
 ### Download
 
