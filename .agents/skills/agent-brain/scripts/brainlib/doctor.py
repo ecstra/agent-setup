@@ -362,7 +362,7 @@ def check_links(
                 Finding(
                     path=where,
                     check="link",
-                    message="links written as names, the convention is paths",
+                    message="links not written as paths relative to .agents/",
                     repair=set_links(path, canonical),
                 )
             )

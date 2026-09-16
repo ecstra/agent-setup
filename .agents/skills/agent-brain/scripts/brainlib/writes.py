@@ -56,7 +56,7 @@ def create(
         kind=kind,
         name=entry_name(path=path, kind=kind),
         description=description,
-        links=links or [],
+        links=path_links(brain=brain, references=links or []),
         stamp=stamp,
     )
     fields.update(defaults(kind=kind, stamp=stamp))
@@ -87,6 +87,11 @@ def update(
         raise WriteError(f"nothing in the brain answers to '{key}'")
 
     stamp = stamp or today()
+    changes = dict(changes)
+    if "links" in changes:
+        wanted = path_links(brain=brain, references=frontmatter.parse_list(changes["links"]))
+        changes["links"] = frontmatter.render_list(wanted)
+
     fields = entry.document.fields()
     fields.update(changes)
 
@@ -223,6 +228,23 @@ def entry_name(
         return path.parent.name
 
     return path.stem
+
+
+def path_links(
+    brain: store.Brain,
+    references: list[str],
+) -> list[str]:
+    """Every link in path form, refused when one reaches nothing in the brain."""
+    found: list[str] = []
+
+    for reference in references:
+        path = links.canonical(brain=brain, reference=reference)
+        if path is None:
+            raise WriteError(f"link '{reference}' reaches nothing inside .agents/")
+
+        found.append(path)
+
+    return found
 
 
 def opening_fields(

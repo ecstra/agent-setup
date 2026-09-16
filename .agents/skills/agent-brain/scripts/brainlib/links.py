@@ -19,8 +19,8 @@ def resolve(
     reference: str,
 ) -> Optional[Path]:
     """The file a link means, whether it was written as a path or a name."""
-    direct = brain.root / reference
-    if direct.is_file():
+    direct = inside(brain=brain, reference=reference)
+    if direct is not None and direct.is_file():
         return direct
 
     entry = brain.find(reference)
@@ -34,6 +34,36 @@ def resolve(
     return None
 
 
+def inside(
+    brain: store.Brain,
+    reference: str,
+) -> Optional[Path]:
+    """The file a path reference names, or None when it lies outside the brain.
+
+    An absolute path replaces the root when joined, and `..` climbs out
+    of it, so both are checked against the root before anything is read.
+    """
+    if not reference:
+        return None
+
+    candidate = brain.root / reference
+    if within(brain=brain, path=candidate) is None:
+        return None
+
+    return candidate
+
+
+def within(
+    brain: store.Brain,
+    path: Path,
+) -> Optional[str]:
+    """The path relative to the brain, or None when it lies outside."""
+    try:
+        return str(path.resolve().relative_to(brain.root.resolve()))
+    except ValueError:
+        return None
+
+
 def canonical(
     brain: store.Brain,
     reference: str,
@@ -43,7 +73,7 @@ def canonical(
     if path is None:
         return None
 
-    return str(path.relative_to(brain.root))
+    return within(brain=brain, path=path)
 
 
 def outgoing(
