@@ -175,12 +175,19 @@ def render(
 def load(
     path: str,
 ) -> str:
-    """The file's text, refused as frontmatter when it is not UTF-8."""
+    """The file's text, refused as frontmatter when it cannot be read as such.
+
+    A file that is not UTF-8, a dangling symlink, a folder named like a
+    file or a file the process may not open all become one refusal, so
+    a caller that notes bad files notes these too instead of dying.
+    """
     try:
         with open(path, encoding="utf-8") as handle:
             return handle.read()
     except UnicodeDecodeError as error:
         raise FrontmatterError("the file is not UTF-8 text") from error
+    except OSError as error:
+        raise FrontmatterError(f"the file cannot be read: {error.strerror or error}") from error
 
 
 def read(

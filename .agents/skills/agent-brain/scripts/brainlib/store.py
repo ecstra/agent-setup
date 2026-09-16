@@ -131,7 +131,7 @@ class Brain:
         self,
         kind: schema.Kind,
     ) -> list[Entry]:
-        """Read one folder. A file that cannot be parsed is noted, not fatal."""
+        """Read one folder. A file that cannot be read or parsed is noted, not fatal."""
         folder = self.folder(kind)
         if not folder.is_dir():
             return []
