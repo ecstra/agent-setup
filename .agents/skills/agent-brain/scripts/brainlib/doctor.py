@@ -203,9 +203,12 @@ def set_field(
     key: str,
     value: str,
 ) -> Callable[[], None]:
+    """A repair that changes one field and stamps the file, per the upkeep rule."""
+
     def repair() -> None:
         document = frontmatter.read(str(path))
         document.set(key=key, value=value)
+        document.set(key="updated", value=date.today().isoformat())
         frontmatter.write(path=str(path), document=document)
 
     return repair
@@ -380,6 +383,7 @@ def set_links(
     def repair() -> None:
         document = frontmatter.read(str(path))
         document.set_list(key="links", values=values)
+        document.set(key="updated", value=date.today().isoformat())
         frontmatter.write(path=str(path), document=document)
 
     return repair
