@@ -2,7 +2,7 @@
 name: conventions
 kind: doc
 description: the shared rules every file in .agent obeys, frontmatter, naming, links, indexes
-updated: 2026-08-12
+updated: 2026-09-16
 links: [agent-readme]
 ---
 
@@ -51,10 +51,11 @@ something worth writing, not an error.
 ## Indexes
 
 `.agent/INDEX.md` is the spine: one line per file, grouped by folder.
-Folders with many files carry their own INDEX.md too, and the spine may
-summarize those groups with counts plus the open items. An index line is
-`- [name](path), hook` where the hook is the description or a shorter cut
-of it.
+The trackers, the docs library, and memory carry their own INDEX.md too,
+however few files they hold, and the spine may summarize those groups
+with counts plus the open items. `spec/` and `handover/` carry none, the
+spine names them directly. An index line is `- [name](path), hook` where
+the hook is the description or a shorter cut of it.
 
 The upkeep rule: any change to a file updates its `updated:` date and its
 index line in the same commit. An index that disagrees with its folder is

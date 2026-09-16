@@ -26,12 +26,13 @@ written record of what the project knows.
 | `.agent/` | The project's memory. Docs, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
-| `.gitignore` | One line, so a stray worktree folder never gets committed. |
+| `.gitignore` | Keeps your `.env` out of git, along with any stray worktree folder. |
 
 Everything is generic on purpose. Anything specific to your project goes
 in a section called `## 0. Project Rules` at the very top of `CLAUDE.md`
 (and `AGENTS.md`), and into the files your project grows inside
-`.agent/`. The kit itself never needs editing.
+`.agent/`. The rest of the kit stays as it ships, apart from your handle
+in `CODEOWNERS`.
 
 ## Installation
 
@@ -47,7 +48,7 @@ your project and paste this prompt.
 ```text
 Clone https://forge.example.com/example/agent-setup into a temp folder.
 Copy its .agent folder, CLAUDE.md, AGENTS.md, CONTRIBUTING.md and
-CODEOWNERS into this repo. Append its .gitignore line to ours. Put my
+CODEOWNERS into this repo. Append its .gitignore lines to ours. Put my
 handle in CODEOWNERS. If this project already has test, build, or lint
 commands, add a "## 0. Project Rules" section at the very top of
 CLAUDE.md and AGENTS.md naming them as the gates. Then tell me what you
@@ -63,18 +64,21 @@ git clone https://forge.example.com/example/agent-setup
 cd your-project
 cp -R ../agent-setup/.agent ../agent-setup/CLAUDE.md ../agent-setup/AGENTS.md \
       ../agent-setup/CONTRIBUTING.md ../agent-setup/CODEOWNERS .
+echo >> .gitignore
 cat ../agent-setup/.gitignore >> .gitignore
 ```
 
 Adjust the `../agent-setup` path if you cloned somewhere else. The last
-line appends to your `.gitignore` rather than replacing it, which is
-what you want whether or not you already have one.
+two lines append to your `.gitignore` rather than replacing it, which is
+what you want whether or not you already have one. The `echo` guarantees
+a line break before the kit's rules, so its first line cannot fuse onto
+the end of yours.
 
 ### Download
 
 Use the Code button at the top of this page and download the ZIP.
 Unzip it and move `.agent`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`,
-and `CODEOWNERS` into your project's root folder, then add the one line
+and `CODEOWNERS` into your project's root folder, then add the lines
 from its `.gitignore` to yours. Two of those (`.agent` and `.gitignore`)
 are hidden files, so if you are in Finder press `Cmd + Shift + .` to
 see them.
@@ -150,17 +154,18 @@ folds them back in.
    in a ledger, fixed batch by batch with your ack on each. Then it
    opens the PR and merges, both on your word. When the PR opens and
    whether as a draft is your project's own rule in section 0, so the
-   agent never asks. After that the root holds only `README.md`,
-   `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS`. If
-   you keep a small human `docs/` folder, it points into `.agent/docs/`
-   rather than repeat it.
+   agent never asks. After that the root holds `README.md`, `CLAUDE.md`,
+   `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS`, plus your `docs/`
+   folder if you keep one. What a person wrote by hand stays as it is,
+   and anything new in there links into `.agent/docs/` rather than
+   repeating it.
 
 ### Where things go
 
 | What you have today | Where it goes |
 |---|---|
 | Your own `CLAUDE.md` or `AGENTS.md` | Read against the new rulebook and rewritten into `## 0. Project Rules` at the top of the new `CLAUDE.md`, mirrored in `AGENTS.md`. Never pasted whole, anything the general rules already cover is dropped. |
-| A `docs/` folder, wiki pages, architecture or design notes | `.agent/docs/`, sorted into a category folder (`foundation/`, `systems/`, `ops/`, `research/`), one line each in `.agent/docs/INDEX.md`. |
+| A `docs/` folder, wiki pages, architecture or design notes | `.agent/docs/`, sorted into a category folder (`foundation/`, `systems/`, `ops/`, `research/`), one line each in `.agent/docs/INDEX.md`. What a person wrote by hand stays where it is. |
 | ADRs or a decisions log | `.agent/decisions/`, one file per decision. |
 | A TODO list, roadmap, or backlog | `.agent/todos/`, one file per item, your wording kept as is. |
 | Known bugs, issue notes | `.agent/bugs/`, one file per bug. |
@@ -199,14 +204,17 @@ what you did and where, and wait for me to call the review.
 
 ## Keeping the kit current
 
-When this repo's rulebook changes, three things move and nothing else.
+When this repo's rulebook changes, copy the kit's own files over yours
+and leave everything your project wrote alone.
 
 - `CLAUDE.md`: copy the new one over yours and put your
   `## 0. Project Rules` back on top. Section 0 is the only part that is
   yours.
 - `AGENTS.md`: copy the result of the step above into it.
-- `.agent/spec/`: new spec over old. Nothing else inside `.agent/` is
-  touched.
+- `CONTRIBUTING.md` and `.agent/house-rules.md`: new over old. They
+  carry the same rules in shorter form, so they move with the rulebook.
+- `.agent/README.md` and `.agent/spec/`: new over old. Nothing else
+  inside `.agent/` is touched, because the rest of it is your project's.
 
 Or, again, ask the agent to do it.
 
@@ -276,10 +284,11 @@ land.
     └── billing-cutover.md
 ```
 
-Every folder has an `INDEX.md` that lists what is inside, and
-`.agent/INDEX.md` at the top lists everything. `handover/` is the one
-folder that does not ship, it appears the first time a session hands
-work over.
+The trackers, the docs library, and memory each carry an `INDEX.md`
+listing what is inside, and `.agent/INDEX.md` at the top lists
+everything. `spec/` and `handover/` carry none, the spine covers both.
+`handover/` is also the one folder that does not ship, it appears the
+first time a session hands work over.
 
 ## Where to read next
 

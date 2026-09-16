@@ -2,7 +2,7 @@
 name: agent-readme
 kind: doc
 description: what the .agent directory is and how a cold agent boots from it
-updated: 2026-08-12
+updated: 2026-09-16
 links: [agent-index, conventions, house-rules-agent]
 ---
 
@@ -19,14 +19,14 @@ one, agents read this.
    directory, grouped. It tells you what exists and where.
 2. Read [house-rules.md](house-rules.md) before any branch, commit, or
    review work.
-3. Obey [spec/](spec/conventions.md). Every folder here has a spec file
-   that states its format and lifecycle. A file that breaks its spec is a
-   bug.
+3. Obey [spec/](spec/conventions.md). Each content folder here has a spec
+   file that states its format and lifecycle. A file that breaks its spec
+   is a bug.
 
 ## The map
 
-- `spec/`: the law of this directory, one spec per folder plus the shared
-  conventions.
+- `spec/`: the law of this directory, one spec per content folder plus
+  the shared conventions.
 - `docs/`: the knowledge, categorized. What the product is and how it
   works.
 - `memory/`: project facts learned along the way, one per file.

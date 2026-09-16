@@ -19,8 +19,9 @@ behavior.
   commits, not in PR titles or bodies, no generated-with footers.
 - **Gates before review.** Suites, analyzer, builds, and validators are
   green before a review starts. Reviewers judge working code.
-- **Secrets only in the gitignored root `.env`.** Never in code, docs,
-  `.agent/`, or git history.
+- **Secrets stay out of git.** They live in the gitignored root `.env`
+  or in the project's own secret store, never in code, docs, `.agent/`,
+  or git history.
 - **No git worktrees.** Disabled outright for agents. The one exception
   is the owner explicitly asking, confined to `.agent/.worktrees/` and
   torn down after.
