@@ -73,9 +73,16 @@ def stale(
     brain: store.Brain,
 ) -> list[Path]:
     """The indexes on disk that no longer match what build() would write."""
+    return stale_among(build(brain))
+
+
+def stale_among(
+    wanted: dict[Path, str],
+) -> list[Path]:
+    """The paths in one build whose file on disk says something else."""
     found: list[Path] = []
 
-    for path, text in build(brain).items():
+    for path, text in wanted.items():
         if fingerprint(current_text(path)) != fingerprint(text):
             found.append(path)
 
@@ -113,12 +120,16 @@ def write(
     brain: store.Brain,
     stamp: str = "",
 ) -> list[Path]:
-    """Rewrite the stale indexes and hand back the ones that changed."""
+    """Rewrite the stale indexes and hand back the ones that changed.
+
+    One build serves every index, since building reads the whole brain.
+    """
     stamp = stamp or date.today().isoformat()
+    wanted = build(brain)
     changed: list[Path] = []
 
-    for path in stale(brain):
-        document = frontmatter.parse(build(brain)[path])
+    for path in stale_among(wanted):
+        document = frontmatter.parse(wanted[path])
         document.set(key="updated", value=stamp)
         path.parent.mkdir(parents=True, exist_ok=True)
         frontmatter.write(path=str(path), document=document)
