@@ -215,7 +215,8 @@ and leave everything your project wrote alone.
 - `.agents/SYSTEM.md`: new over old. The rules are the kit's from end to
   end, so nothing of yours is in there to save.
 - `AGENTS.md`: keep your `## 0. Project Rules` and take the kit's wording
-  for the rest. `CLAUDE.md` and `GEMINI.md` never change.
+  for the rest. `CLAUDE.md` and `GEMINI.md` never change from one
+  release to the next.
 - `CONTRIBUTING.md` and `.agents/house-rules.md`: new over old. They
   carry the same rules in shorter form, so they move with the rulebook.
 - `.agents/README.md` and `.agents/spec/`: new over old. Nothing else
