@@ -12,3 +12,7 @@
 # Python leaves compiled bytecode beside the brain tool. It never ships.
 __pycache__/
 *.pyc
+
+# Claude Code keeps one person's own settings here. The shared ones are
+# in .claude/settings.json, which does ship.
+.claude/settings.local.json
