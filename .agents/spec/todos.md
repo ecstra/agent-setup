@@ -53,5 +53,7 @@ deleted and nothing grows inline paragraphs: completion notes go in Done
 when, never appended to What. The INDEX lists every open item one per
 line, grouped by area, and summarizes done and dropped by area with
 counts (each closed file carries its own description, the id finds it).
-A todo that turns out to describe a defect moves to bugs/ keeping its id
-trail in `links:`.
+A todo that turns out to describe a defect is refiled as a bug through
+the tool, `brain refile --kind bug`. The todo stays, closed as dropped,
+and the two link to each other, so the id trail holds and no id is ever
+reused.

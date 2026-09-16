@@ -15,9 +15,11 @@ bug's history.
 ## A bug is not a todo
 
 A bug has evidence of wrong behavior. A todo is work to do. Neither may
-hold the other: a wish filed here moves to todos/, a defect filed there
-moves here. The agent classifies on intake without asking, and cross
-links carry any relationship (`links:`, `parent:`).
+hold the other: a wish filed here is refiled as a todo, a defect filed
+there as a bug, both through `brain refile --kind`. The old file stays,
+closed, and the two link to each other. The agent classifies on intake
+without asking, and cross links carry any relationship (`links:`,
+`parent:`).
 
 ## Format
 
