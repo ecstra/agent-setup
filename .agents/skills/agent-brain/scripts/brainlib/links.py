@@ -1,0 +1,149 @@
+"""What a file points at, what points back, and whether any of it holds.
+
+A frontmatter link is a path relative to `.agents/`. Older brains wrote
+names instead, so resolving still accepts an id or a name, and the
+upgrade turns them into paths.
+"""
+
+import re
+from pathlib import Path
+from typing import Optional
+
+from . import frontmatter, store
+
+MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+
+
+def resolve(
+    brain: store.Brain,
+    reference: str,
+) -> Optional[Path]:
+    """The file a link means, whether it was written as a path or a name."""
+    direct = brain.root / reference
+    if direct.is_file():
+        return direct
+
+    entry = brain.find(reference)
+    if entry is not None:
+        return entry.path
+
+    for path, document in kit_documents(brain):
+        if document.get("name") == reference:
+            return path
+
+    return None
+
+
+def canonical(
+    brain: store.Brain,
+    reference: str,
+) -> Optional[str]:
+    """The path form of a link, or None when it points at nothing."""
+    path = resolve(brain=brain, reference=reference)
+    if path is None:
+        return None
+
+    return str(path.relative_to(brain.root))
+
+
+def outgoing(
+    entry: store.Entry,
+) -> list[str]:
+    return entry.document.get_list("links")
+
+
+def backlinks(
+    brain: store.Brain,
+    target: store.Entry,
+) -> list[store.Entry]:
+    """Every entry whose frontmatter links reach `target`."""
+    found: list[store.Entry] = []
+
+    for entry in brain.entries():
+        if entry.path == target.path:
+            continue
+
+        resolved = [resolve(brain=brain, reference=link) for link in outgoing(entry)]
+        if target.path in resolved:
+            found.append(entry)
+
+    return found
+
+
+def broken(
+    brain: store.Brain,
+) -> list[tuple[store.Entry, str]]:
+    """Every frontmatter link in the brain that reaches nothing."""
+    found: list[tuple[store.Entry, str]] = []
+
+    for entry in brain.entries():
+        for link in outgoing(entry):
+            if resolve(brain=brain, reference=link) is None:
+                found.append((entry, link))
+
+    return found
+
+
+def broken_in_body(
+    entry: store.Entry,
+) -> list[str]:
+    """Relative markdown links in the body that do not reach a file."""
+    found: list[str] = []
+
+    for match in MARKDOWN_LINK.finditer(entry.document.body):
+        target = match.group(1)
+        if "://" in target or target.startswith("#"):
+            continue
+
+        if not (entry.path.parent / target.split("#")[0]).exists():
+            found.append(target)
+
+    return found
+
+
+def rewrite_references(
+    brain: store.Brain,
+    old: str,
+    new: str,
+) -> list[Path]:
+    """Point every frontmatter link at `old` to `new`. Paths are root relative."""
+    changed: list[Path] = []
+
+    for entry in brain.entries():
+        current = outgoing(entry)
+        updated = [new if canonical(brain, link) == old else link for link in current]
+        if updated == current:
+            continue
+
+        entry.document.set_list(key="links", values=updated)
+        frontmatter.write(path=str(entry.path), document=entry.document)
+        changed.append(entry.path)
+
+    brain.refresh()
+
+    return changed
+
+
+def kit_documents(
+    brain: store.Brain,
+) -> list[tuple[Path, frontmatter.Document]]:
+    """The kit's own files that carry frontmatter, so names still resolve."""
+    found: list[tuple[Path, frontmatter.Document]] = []
+    candidates = [
+        brain.root / "README.md",
+        brain.root / "house-rules.md",
+        brain.root / "INDEX.md",
+        *sorted((brain.root / "spec").glob("*.md")),
+        *sorted(brain.root.glob("*/INDEX.md")),
+    ]
+
+    for path in candidates:
+        if not path.is_file():
+            continue
+
+        try:
+            found.append((path, frontmatter.read(str(path))))
+        except frontmatter.FrontmatterError:
+            continue
+
+    return found
