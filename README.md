@@ -51,11 +51,11 @@ Clone https://forge.example.com/example/agent-setup into a temp folder.
 If we already have an AGENTS.md, CLAUDE.md, GEMINI.md, CONTRIBUTING.md
 or CODEOWNERS, show me what is in them and keep a copy, because the
 next step overwrites all five. Then copy its .agents folder, AGENTS.md,
-CLAUDE.md, GEMINI.md, CONTRIBUTING.md and CODEOWNERS into this repo. Append its .gitignore
-lines to ours. Put my handle in CODEOWNERS. If this project already has
-test, build, or lint commands, add a "## 0. Project Rules" section at
-the top of AGENTS.md naming them as the gates. Then tell me what you
-did.
+CLAUDE.md, GEMINI.md, CONTRIBUTING.md and CODEOWNERS into this repo.
+Append its .gitignore lines to ours. Put my handle in CODEOWNERS. If
+this project already has test, build, or lint commands, add a
+"## 0. Project Rules" section at the top of AGENTS.md naming them as
+the gates. Then tell me what you did.
 ```
 
 ### Terminal
