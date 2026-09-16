@@ -66,14 +66,15 @@ def copy_text(
     """What a copy says, read the way it was written, or None when it cannot be read.
 
     Text mode folds line endings both ways, so a copy written on Windows
-    compares equal to the source rather than reading as stale forever.
+    compares equal to the source rather than reading as stale forever. A
+    copy that cannot be opened or decoded is stale, and gets rewritten.
     """
     if not target.is_file():
         return None
 
     try:
         return target.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
+    except (OSError, UnicodeDecodeError):
         return None
 
 
@@ -94,8 +95,13 @@ def write_one(
     target: Path,
     text: str,
 ) -> None:
-    """Write one copy as a real file, replacing a symlink rather than writing through it."""
+    """Write one copy as a fresh real file.
+
+    Whatever stands there goes first, a symlink so the text is not
+    written through it, a file so one the process may not open does not
+    stop the rewrite. The copies are the tool's, so nothing is lost.
+    """
     target.parent.mkdir(parents=True, exist_ok=True)
-    if target.is_symlink():
+    if target.is_symlink() or target.is_file():
         target.unlink()
     target.write_text(text, encoding="utf-8")
