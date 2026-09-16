@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from brainlib import doctor, frontmatter, reads, store
+from brainlib import doctor, frontmatter, links, reads, store
 
 BLOCK = 2
 FAILED = 1
@@ -147,11 +147,11 @@ def refusal(
     path: Path,
 ) -> Optional[str]:
     """Why this write may not create a brain file by hand, or None if it may."""
-    try:
-        relative = path.resolve().relative_to(brain.root)
-    except ValueError:
+    inside = links.within(brain=brain, path=path)
+    if inside is None:
         return None
 
+    relative = Path(inside)
     if path.suffix != ".md" or path.exists():
         return None
 
@@ -191,31 +191,43 @@ def is_inside(
     brain: store.Brain,
     path: Path,
 ) -> bool:
-    try:
-        path.resolve().relative_to(brain.root)
-    except ValueError:
-        return False
-
-    return True
+    return links.within(brain=brain, path=path) is not None
 
 
 def written_paths(
     event: dict,
 ) -> list[Path]:
-    """The files a write event touches, in the shape each agent sends."""
+    """The files a write event touches, absolute, in the shape each agent sends.
+
+    A relative path is taken against the directory the event names, not
+    the one this process happens to run in, and nothing on disk is
+    resolved, so a symlink loop in the agent's path cannot raise here.
+    """
+    base = Path(event.get("cwd") or Path.cwd())
     tool_input = event.get("tool_input") or {}
     found: list[Path] = []
 
     for key in ("file_path", "path", "filePath"):
         value = tool_input.get(key)
         if isinstance(value, str) and value:
-            found.append(Path(value))
+            found.append(absolute(base=base, value=value))
 
     for value in tool_input.values():
         if isinstance(value, str):
-            found.extend(Path(match) for match in ADD_FILE.findall(value))
+            found.extend(absolute(base=base, value=match) for match in ADD_FILE.findall(value))
 
     return found
+
+
+def absolute(
+    base: Path,
+    value: str,
+) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+
+    return base / path
 
 
 def emit_context(
