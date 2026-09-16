@@ -160,7 +160,7 @@ class Brain:
         try:
             document = frontmatter.read(str(path))
         except frontmatter.FrontmatterError as error:
-            raise StoreError(f"{path}: {error}") from error
+            raise StoreError(f"{near(str(path))}: {error}") from error
 
         return Entry(
             path=path,
@@ -230,7 +230,7 @@ class Brain:
 
         folder = self.folder(kind)
         if category:
-            folder = folder / category
+            folder = folder / category_folder(category)
 
         if kind.name == "review":
             return folder / slug / LEDGER
@@ -239,6 +239,17 @@ class Brain:
             return folder / f"{self.next_id(kind)}-{slug}.md"
 
         return folder / f"{slug}.md"
+
+
+def category_folder(
+    category: str,
+) -> Path:
+    """The folder a category names, one or more slugs deep, never outside the kind's folder."""
+    parts = category.split("/")
+    if not all(schema.is_slug(part) for part in parts):
+        raise StoreError(f"'{category}' is not a category, which is one or more slugs such as systems/auth")
+
+    return Path(*parts)
 
 
 def explain(
@@ -268,7 +279,10 @@ def find_brain(
     start: Optional[Path] = None,
 ) -> Brain:
     """Walk up from `start` until the `.agents/` directory turns up."""
-    here = (start or Path.cwd()).resolve()
+    try:
+        here = (start or Path.cwd()).resolve()
+    except (OSError, RuntimeError) as error:
+        raise StoreError(f"the working directory cannot be resolved: {error}") from error
 
     for candidate in [here, *here.parents]:
         if candidate.name == ".agents" and (candidate / "INDEX.md").is_file():
