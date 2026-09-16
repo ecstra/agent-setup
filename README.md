@@ -31,7 +31,8 @@ written record of what the project knows.
 Everything is generic on purpose. Anything specific to your project goes
 in a section called `## 0. Project Rules` at the very top of `CLAUDE.md`
 (and `AGENTS.md`), and into the files your project grows inside
-`.agent/`. The kit itself never needs editing.
+`.agent/`. The rest of the kit stays as it ships, apart from your handle
+in `CODEOWNERS`.
 
 ## Installation
 
