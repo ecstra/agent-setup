@@ -72,11 +72,13 @@ and values against the spec, required headings, the lifecycle rules,
 filename patterns and duplicate ids, links that resolve, links written
 as paths, body links that resolve, indexes current, no dashes or
 semicolons in prose, no machine paths, nothing shaped like a secret, the
-version stamp, and the skill link Claude Code needs.
+version stamp, and the skill link Claude Code needs, which must reach
+the skill rather than point at nothing or be a plain file.
 
 What `--fix` repairs: a missing `updated` date, a name that disagrees
 with its filename, a link written as a name, a stale index, and the
-missing skill link. Each repaired file gets today's date.
+skill link when it is missing, dead or a plain file. Each repaired file
+gets today's date.
 
 ## Hooks
 

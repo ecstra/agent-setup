@@ -112,7 +112,7 @@ brain doctor --fix
 
 Doctor reports each defect on its own line, marked `fixable` or `flag`.
 `--fix` repairs the mechanical ones, a stale index, a name that
-disagrees with its filename, a link written as a name, a missing skill
-link, and stamps every file it touches. Whatever is left needs a
+disagrees with its filename, a link written as a name, a missing or dead
+skill link, and stamps every file it touches. Whatever is left needs a
 decision, so read it and act on it. Silencing a finding is never the
 answer.

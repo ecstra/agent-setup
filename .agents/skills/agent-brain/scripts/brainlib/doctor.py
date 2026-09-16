@@ -468,13 +468,13 @@ def check_layout(
     if not (brain.root / "VERSION").is_file():
         found.append(Finding(path="VERSION", check="layout", message="no kit version stamp, run the upgrade"))
 
-    link = project / SKILL_LINK
-    if not link.is_symlink() and not link.is_dir():
+    trouble = skill_link_trouble(project)
+    if trouble is not None:
         found.append(
             Finding(
                 path=str(SKILL_LINK),
                 check="layout",
-                message="Claude Code cannot see the skill without this link",
+                message=f"{trouble}, so Claude Code cannot see the skill",
                 repair=make_skill_link(project),
             )
         )
@@ -482,6 +482,29 @@ def check_layout(
     found.extend(check_style_copies(brain))
 
     return found
+
+
+def skill_link_trouble(
+    project: Path,
+) -> Optional[str]:
+    """What is wrong with the skill link, or None when Claude Code can follow it.
+
+    A link that points at nothing still counts as a symlink, and a ZIP
+    download or a checkout without symlinks leaves a plain file in its
+    place, so the check asks what is actually there.
+    """
+    link = project / SKILL_LINK
+
+    if link.is_dir():
+        return None
+
+    if link.is_symlink():
+        return "the skill link points at nothing"
+
+    if link.exists():
+        return "a plain file sits where the skill link belongs"
+
+    return "the skill link is missing"
 
 
 def check_style_copies(
@@ -510,9 +533,13 @@ def check_style_copies(
 def make_skill_link(
     project: Path,
 ) -> Callable[[], None]:
+    """A repair that puts the symlink in place, clearing a dead link or a file first."""
+
     def repair() -> None:
         link = project / SKILL_LINK
         link.parent.mkdir(parents=True, exist_ok=True)
+        if link.is_symlink() or link.is_file():
+            link.unlink()
         os.symlink(str(SKILL_TARGET), str(link))
 
     return repair
