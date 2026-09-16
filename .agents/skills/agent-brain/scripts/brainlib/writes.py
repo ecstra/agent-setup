@@ -319,7 +319,7 @@ def check_transition(
 
     if entry.kind.name == "todo" and status == "done":
         if not fields.get("done"):
-            raise WriteError("a todo goes done with the date it closed, done: YYYY-MM-DD")
+            raise WriteError("a todo goes done with its closing date, done=YYYY-MM-DD")
 
         if not sections.is_filled(body=body, title="Done when"):
             raise WriteError("a todo goes done once Done when names what closed it")

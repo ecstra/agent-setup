@@ -1,38 +1,38 @@
 ---
 name: agent-brain
-description: Files, changes, counts and checks everything in the project's .agents/ brain, which holds its todos, bugs, decisions, docs, memory, review ledgers and handovers. Use it whenever work needs filing or tracking, a bug turns up, a decision is taken, a session learns a durable fact, a review starts, a file needs a new title, or the brain needs checking. Never create or renumber a brain file by hand, the tool owns ids, header blocks and indexes.
+description: The one way to file, change, count or check anything in the project's .agents/ brain. Use it to file a todo, a bug, a decision, a doc or a memory, to run a review ledger, to retitle a file, or to check the brain. Never write a brain file by hand.
 ---
 
 # The brain tool
 
-Everything under `.agents/` is filed, changed, counted and checked through
-one command. It is plain Python with no dependencies, run from anywhere
-inside the project:
+One command does everything under `.agents/`. It is plain Python with no
+dependencies, and it runs from anywhere inside the project:
 
 ```bash
 python3 .agents/skills/agent-brain/scripts/brain.py status
 ```
 
-Every example below shortens that to `brain`. The full flags for each
-command are in [references/commands.md](references/commands.md).
+The examples below shorten that to `brain`. Every flag is listed in
+[references/commands.md](references/commands.md).
 
-## The rules the tool enforces
+## What the tool holds to
 
-- A brain file is never written by hand. `brain new` picks the id, writes
-  the header block, files it in the right folder and rebuilds the index.
+- No brain file is written by hand. `brain new` picks the id, writes the
+  header block, puts the file in the right folder and rebuilds the index.
   A hook blocks a hand written file in every agent that runs hooks.
 - Ids only go up. A gap left by a moved or deleted file stays a gap.
-- The indexes are generated. `brain index` rebuilds them, and doctor
-  rebuilds them for you. Nobody edits an `INDEX.md`.
-- Frontmatter links are paths relative to `.agents/`, so a file can be
-  opened without searching. `brain refile` drags every link along.
+- The indexes are generated. `brain index` rebuilds them, doctor rebuilds
+  them too, and nobody edits an `INDEX.md`.
+- A link in frontmatter is a path relative to `.agents/`, so a file opens
+  without a search. `brain refile` carries every link along.
 - `brain doctor` is a gate. It exits 0 only when the brain is clean, so
   it runs green before any review.
 
-## Start of a session
+## When a session starts
 
 The hook prints `brain status` when a session opens. If it did not, run
-it. Every number in it is counted from the files at that moment.
+it. Every number in it is counted from the files at that moment, so
+trust it over anything remembered.
 
 ```bash
 brain status
@@ -48,10 +48,10 @@ and `links` gives the same answer for a script.
 
 ## Filing something
 
-The prose goes in on standard input inside a quoted heredoc, so the
-shell passes it through untouched. The tool writes the structure around
-it and refuses anything that breaks the spec, such as a missing
-heading or a value outside the allowed set.
+The prose goes in on standard input inside a quoted heredoc, which the
+shell passes through untouched. The tool writes the structure around it
+and refuses anything that breaks the spec, such as a missing heading or
+a value outside the allowed set.
 
 ```bash
 brain new bug --title "Token refresh loops after expiry" \
@@ -70,8 +70,7 @@ EOF
 The same shape files a todo (`--area`, `--by`), a decision (`--area`),
 a memory (`--type project|feedback|reference`), a doc (`--category`), a
 handover, or a review. Each kind's required headings are in its spec
-under `.agents/spec/`, and the tool names the missing one if the body
-lacks it.
+under `.agents/spec/`, and the tool names the one that is missing.
 
 ## Changing something
 
@@ -81,9 +80,10 @@ brain set TODO-012 status=done done=2026-09-16
 brain refile BUG-004 --title "Token refresh loops on expiry"
 ```
 
-`set` applies the lifecycle rules: a bug goes `fixed` only once its Fix
+`set` holds to the lifecycle rules. A bug goes `fixed` only once its Fix
 section is written, a todo goes `done` only with a date and a filled
-Done when, a decision goes `superseded` only naming its successor.
+Done when, and a decision goes `superseded` only when it names what
+replaced it.
 
 `refile --kind bug` turns a todo into a bug, or the reverse, with the
 new body on standard input. Both files stay and link to each other, so
@@ -110,8 +110,9 @@ brain doctor
 brain doctor --fix
 ```
 
-Doctor reports every defect on one line each, marked `fixable` or
-`flag`. `--fix` repairs the mechanical ones, such as a stale index, a
-name that disagrees with its filename, a link written as a name, or a
-missing skill link, and stamps every file it touches. What is left
-needs a decision, so read it and act, never silence it.
+Doctor reports each defect on its own line, marked `fixable` or `flag`.
+`--fix` repairs the mechanical ones, a stale index, a name that
+disagrees with its filename, a link written as a name, a missing skill
+link, and stamps every file it touches. Whatever is left needs a
+decision, so read it and act on it. Silencing a finding is never the
+answer.
