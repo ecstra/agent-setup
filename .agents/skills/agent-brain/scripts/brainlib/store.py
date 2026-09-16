@@ -296,7 +296,7 @@ def find_brain(
     """Walk up from `start` until the `.agents/` directory turns up."""
     try:
         here = (start or Path.cwd()).resolve()
-    except (OSError, RuntimeError) as error:
+    except (OSError, RuntimeError, ValueError) as error:
         raise StoreError(f"the working directory cannot be resolved: {error}") from error
 
     for candidate in [here, *here.parents]:
