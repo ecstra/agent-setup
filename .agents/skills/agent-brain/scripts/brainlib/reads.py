@@ -8,7 +8,7 @@ files as they are right now.
 from pathlib import Path
 from typing import Optional
 
-from . import doctor, links, schema, store
+from . import doctor, frontmatter, links, schema, store
 
 COLUMNS: dict[str, tuple[str, ...]] = {
     "todo": ("status", "area"),
@@ -28,7 +28,7 @@ def version(
     if not stamp.is_file():
         return "unversioned"
 
-    return stamp.read_text(encoding="utf-8").strip()
+    return stamp.read_bytes().decode("utf-8", errors="replace").strip()
 
 
 def status(
@@ -148,7 +148,7 @@ def show(
     if meta_only:
         return "\n".join(entry.document.lines)
 
-    return entry.path.read_text(encoding="utf-8")
+    return frontmatter.render(entry.document)
 
 
 def path_of(

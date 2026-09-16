@@ -60,11 +60,23 @@ def stale(
     found: list[Path] = []
 
     for path, text in build(brain).items():
-        current = path.read_text(encoding="utf-8") if path.is_file() else ""
-        if body_of(current) != body_of(text):
+        if body_of(current_text(path)) != body_of(text):
             found.append(path)
 
     return found
+
+
+def current_text(
+    path: Path,
+) -> str:
+    """What the index holds now, or nothing when it is missing or unreadable."""
+    if not path.is_file():
+        return ""
+
+    try:
+        return frontmatter.load(str(path))
+    except frontmatter.FrontmatterError:
+        return ""
 
 
 def write(

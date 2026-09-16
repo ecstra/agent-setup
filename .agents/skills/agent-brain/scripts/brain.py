@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from brainlib import doctor, index, ledger, reads, schema, store, writes
+from brainlib import doctor, frontmatter, index, ledger, reads, schema, store, writes
 
 REFUSED = 1
 FINDINGS_REMAIN = 2
@@ -36,7 +36,14 @@ def main(
     try:
         brain = store.find_brain(Path.cwd())
         return args.handler(brain, args)
-    except (store.StoreError, writes.WriteError, ledger.LedgerError, KeyError) as error:
+    except (
+        store.StoreError,
+        writes.WriteError,
+        ledger.LedgerError,
+        frontmatter.FrontmatterError,
+        OSError,
+        KeyError,
+    ) as error:
         print(str(error).strip("'"), file=sys.stderr)
         return REFUSED
 

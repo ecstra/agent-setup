@@ -445,7 +445,7 @@ def check_hygiene(
     found: list[Finding] = []
 
     for path in markdown_files(brain):
-        text = path.read_text(encoding="utf-8")
+        text = path.read_bytes().decode("utf-8", errors="replace")
         where = relative(brain, path)
 
         if MACHINE_PATH.search(prose_of(text)):

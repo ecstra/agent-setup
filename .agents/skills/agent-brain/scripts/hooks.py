@@ -87,14 +87,21 @@ def session_start(
     if with_rules:
         rules = brain.root / "SYSTEM.md"
         if rules.is_file():
-            text += "\n\nThe rules this project works by, from .agents/SYSTEM.md:\n\n" + rules.read_text(encoding="utf-8")
+            text += "\n\nThe rules this project works by, from .agents/SYSTEM.md:\n\n" + text_of(rules)
 
         chat_style = brain.root.parent / f".{agent}" / "plain-and-short.md"
         if chat_style.is_file():
-            text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + chat_style.read_text(encoding="utf-8")
+            text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
 
     emit_context(agent, text, event_name="SessionStart")
     return 0
+
+
+def text_of(
+    path: Path,
+) -> str:
+    """The file as text for the agent's context, whatever bytes it holds."""
+    return path.read_bytes().decode("utf-8", errors="replace")
 
 
 def pre_write(

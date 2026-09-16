@@ -53,7 +53,7 @@ def stale(
 
     for relative in COPIES:
         target = project(brain) / relative
-        if not target.is_file() or target.read_text(encoding="utf-8") != wanted:
+        if not target.is_file() or target.read_bytes() != wanted.encode("utf-8"):
             found.append(relative)
 
     return found

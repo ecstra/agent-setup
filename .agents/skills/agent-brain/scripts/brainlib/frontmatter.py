@@ -172,11 +172,21 @@ def render(
     return f"{FENCE}\n{head}{FENCE}\n{document.body}"
 
 
+def load(
+    path: str,
+) -> str:
+    """The file's text, refused as frontmatter when it is not UTF-8."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+    except UnicodeDecodeError as error:
+        raise FrontmatterError("the file is not UTF-8 text") from error
+
+
 def read(
     path: str,
 ) -> Document:
-    with open(path, encoding="utf-8") as handle:
-        return parse(handle.read())
+    return parse(load(path))
 
 
 def write(
