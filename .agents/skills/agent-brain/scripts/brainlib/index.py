@@ -122,20 +122,25 @@ def write(
 
     One build serves every index, since building reads the whole brain.
     """
-    stamp = stamp or date.today().isoformat()
     wanted = build(brain)
-    changed: list[Path] = []
 
-    for path in stale_among(wanted):
-        document = frontmatter.parse(wanted[path])
-        document.set(key="updated", value=stamp)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if path.is_symlink():
-            path.unlink()
-        frontmatter.write(path=str(path), document=document)
-        changed.append(path)
+    return [write_one(path=path, text=wanted[path], stamp=stamp) for path in stale_among(wanted)]
 
-    return changed
+
+def write_one(
+    path: Path,
+    text: str,
+    stamp: str = "",
+) -> Path:
+    """Write one index as built, stamped today unless told otherwise, as a real file."""
+    document = frontmatter.parse(text)
+    document.set(key="updated", value=stamp or date.today().isoformat())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_symlink():
+        path.unlink()
+    frontmatter.write(path=str(path), document=document)
+
+    return path
 
 
 def render_index(
@@ -148,11 +153,12 @@ def render_index(
     """The whole index as the tool writes it, header and body.
 
     The date here is a placeholder: `write` stamps the real one and
-    `fingerprint` ignores it. A link is carried only while its file
-    exists, so a project that dropped a kit file does not get a dangling
-    link rebuilt forever.
+    `fingerprint` ignores it. A link to a kit file is carried only while
+    that file exists, so a project that dropped one does not get a
+    dangling link rebuilt forever. A link to an index is always carried,
+    since the tool writes every index in the same run.
     """
-    present = [link for link in links if (brain.root / link).is_file()]
+    present = [link for link in links if Path(link).name == "INDEX.md" or (brain.root / link).is_file()]
     document = frontmatter.Document(
         lines=[
             f"name: {name}",

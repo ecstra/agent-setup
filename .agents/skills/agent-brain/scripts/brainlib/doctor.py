@@ -392,22 +392,28 @@ def set_links(
 def check_indexes(
     brain: store.Brain,
 ) -> list[Finding]:
-    stale = index.stale(brain)
-    if not stale:
-        return []
-
-    def repair() -> None:
-        index.write(brain)
+    """One build of the brain serves the check and every repair it hands out."""
+    wanted = index.build(brain)
 
     return [
         Finding(
             path=relative(brain, path),
             check="index",
             message="differs from what the tool builds for its folder",
-            repair=repair,
+            repair=write_index(path, wanted[path]),
         )
-        for path in stale
+        for path in index.stale_among(wanted)
     ]
+
+
+def write_index(
+    path: Path,
+    text: str,
+) -> Callable[[], None]:
+    def repair() -> None:
+        index.write_one(path=path, text=text)
+
+    return repair
 
 
 def prose_of(
