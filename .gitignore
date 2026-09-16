@@ -8,3 +8,7 @@
 .env
 .env.*
 !.env.example
+
+# Python leaves compiled bytecode beside the brain tool. It never ships.
+__pycache__/
+*.pyc
