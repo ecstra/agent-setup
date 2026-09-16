@@ -191,10 +191,10 @@ style throughout. Then read the whole project: the code, every doc and
 note, our old AGENTS.md, CLAUDE.md, GEMINI.md or CONTRIBUTING.md if we
 have any, and every TODO list. Then read .agents/INDEX.md and
 everything in .agents/spec/ so you know the target format. Show me a
-plan of what goes where before you move anything. Then file it all
-into .agents/
-(docs, decisions, todos, bugs, memory, everything) one file at a time
-with correct frontmatter and index lines, keeping my wording in todos.
+plan of what goes where before you move anything. Then file it all into
+.agents/ (docs, decisions, todos, bugs, memory, everything) one file at
+a time with correct frontmatter and index lines, keeping my wording in
+todos.
 Do not paste any of our old rulebook files into section 0: read them
 against the new rulebook, drop what the general sections already
 cover, and rewrite only the truly project specific parts into
