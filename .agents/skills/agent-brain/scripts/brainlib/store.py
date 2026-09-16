@@ -93,9 +93,11 @@ class Brain:
 
     def __post_init__(self) -> None:
         self.loaded: dict[str, list[Entry]] = {}
+        self.unreadable: dict[Path, str] = {}
 
     def refresh(self) -> None:
         self.loaded = {}
+        self.unreadable = {}
 
     def folder(
         self,
@@ -128,6 +130,7 @@ class Brain:
         self,
         kind: schema.Kind,
     ) -> list[Entry]:
+        """Read one folder. A file that cannot be parsed is noted, not fatal."""
         folder = self.folder(kind)
         if not folder.is_dir():
             return []
@@ -141,7 +144,10 @@ class Brain:
             if kind.name == "review" and path.name != LEDGER:
                 continue
 
-            found.append(self.read(path=path, kind=kind))
+            try:
+                found.append(self.read(path=path, kind=kind))
+            except StoreError as error:
+                self.unreadable[path] = str(error)
 
         return found
 
