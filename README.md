@@ -154,10 +154,10 @@ folds them back in.
    in a ledger, fixed batch by batch with your ack on each. Then it
    opens the PR and merges, both on your word. When the PR opens and
    whether as a draft is your project's own rule in section 0, so the
-   agent never asks. After that the root holds only `README.md`,
-   `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS`. If
-   you keep a small human `docs/` folder, it points into `.agent/docs/`
-   rather than repeat it.
+   agent never asks. After that the root holds `README.md`, `CLAUDE.md`,
+   `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS`, plus your `docs/`
+   folder if you keep one, which points into `.agent/docs/` rather than
+   repeating it.
 
 ### Where things go
 
