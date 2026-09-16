@@ -34,7 +34,7 @@ SECRET_SHAPES = (
 )
 
 SKILL_LINK = Path(".claude") / "skills" / "agent-brain"
-SKILL_TARGET = Path("..") / ".." / ".agents" / "skills" / "agent-brain"
+SKILL_HOME = Path(".agents") / "skills" / "agent-brain"
 
 
 @dataclass
@@ -573,9 +573,22 @@ def make_skill_link(
         link.parent.mkdir(parents=True, exist_ok=True)
         if link.is_symlink() or (link.exists() and not link.is_dir()):
             link.unlink()
-        os.symlink(str(SKILL_TARGET), str(link))
+        os.symlink(skill_target(project=project, link=link), str(link))
 
     return repair
+
+
+def skill_target(
+    project: Path,
+    link: Path,
+) -> str:
+    """The skill folder, relative to where the link really sits.
+
+    On the shipped layout that is `../../.agents/skills/agent-brain`.
+    When `.claude/skills` is itself a symlink the link lands elsewhere,
+    and a target counted from there is the one that still resolves.
+    """
+    return os.path.relpath(str(project / SKILL_HOME), str(link.parent.resolve()))
 
 
 CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
