@@ -155,7 +155,7 @@ def refusal(
         return None
 
     relative = Path(inside)
-    if path.suffix != ".md" or path.exists():
+    if path.suffix != ".md" or store.quietly(path.exists):
         return None
 
     if relative.parts[0] in HAND_WRITTEN_OK or relative.name in KIT_FILES:

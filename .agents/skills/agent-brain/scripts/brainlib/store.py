@@ -9,7 +9,7 @@ commits, ledgers and links that nobody can rewrite.
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from . import frontmatter, schema
 
@@ -241,19 +241,27 @@ class Brain:
         return folder / f"{slug}.md"
 
 
+def quietly(
+    question: Callable[[], bool],
+) -> bool:
+    """A path question such as `path.is_file`, answered False instead of raised.
+
+    On the 3.9 floor `is_file`, `is_dir`, `is_symlink` and `exists` raise
+    when the folder above cannot be searched, where newer interpreters
+    answer False. Every gate above a read or a decision asks here, so
+    both floors degrade the same way.
+    """
+    try:
+        return question()
+    except OSError:
+        return False
+
+
 def readable_file(
     path: Path,
 ) -> bool:
-    """True when `path` is a file the process can see.
-
-    On the 3.9 floor `is_file` raises when the folder above cannot be
-    searched, where newer interpreters answer False. Every gate above a
-    read asks here, so both floors degrade the same way.
-    """
-    try:
-        return path.is_file()
-    except OSError:
-        return False
+    """True when `path` is a file the process can see."""
+    return quietly(path.is_file)
 
 
 def category_folder(

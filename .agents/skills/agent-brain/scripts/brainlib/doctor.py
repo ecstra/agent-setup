@@ -513,13 +513,13 @@ def skill_link_trouble(
     if store.readable_file(link / "SKILL.md"):
         return None
 
-    if link.is_symlink():
+    if store.quietly(link.is_symlink):
         return "the skill link does not reach the skill"
 
-    if link.is_dir():
+    if store.quietly(link.is_dir):
         return REAL_FOLDER_WITHOUT_SKILL
 
-    if link.exists():
+    if store.quietly(link.exists):
         return "something that is not a link sits where the skill link belongs"
 
     return "the skill link is missing"

@@ -139,7 +139,7 @@ def broken_in_body(
             continue
 
         file_part = target.split("#")[0]
-        if Path(file_part).is_absolute() or not (entry.path.parent / file_part).exists():
+        if Path(file_part).is_absolute() or not store.quietly((entry.path.parent / file_part).exists):
             found.append(target)
 
     return found
