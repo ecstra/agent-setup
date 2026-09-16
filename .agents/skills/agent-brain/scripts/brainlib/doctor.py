@@ -475,7 +475,7 @@ def check_layout(
                 path=str(SKILL_LINK),
                 check="layout",
                 message=f"{trouble}, so Claude Code cannot see the skill",
-                repair=make_skill_link(project),
+                repair=None if trouble == REAL_FOLDER_WITHOUT_SKILL else make_skill_link(project),
             )
         )
 
@@ -484,25 +484,33 @@ def check_layout(
     return found
 
 
+REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs"
+
+
 def skill_link_trouble(
     project: Path,
 ) -> Optional[str]:
-    """What is wrong with the skill link, or None when Claude Code can follow it.
+    """What is wrong with the skill link, or None when Claude Code can load the skill.
 
-    A link that points at nothing still counts as a symlink, and a ZIP
-    download or a checkout without symlinks leaves a plain file in its
-    place, so the check asks what is actually there.
+    What Claude Code needs is `.claude/skills/agent-brain/SKILL.md`. A
+    dead link still counts as a symlink, a ZIP download or a checkout
+    without symlinks leaves a plain file in the link's place, and a real
+    folder is fine only while it carries the skill, so the check asks
+    what is actually there.
     """
     link = project / SKILL_LINK
 
-    if link.is_dir():
+    if (link / "SKILL.md").is_file():
         return None
 
     if link.is_symlink():
-        return "the skill link points at nothing"
+        return "the skill link does not reach the skill"
+
+    if link.is_dir():
+        return REAL_FOLDER_WITHOUT_SKILL
 
     if link.exists():
-        return "a plain file sits where the skill link belongs"
+        return "something that is not a link sits where the skill link belongs"
 
     return "the skill link is missing"
 
@@ -533,12 +541,16 @@ def check_style_copies(
 def make_skill_link(
     project: Path,
 ) -> Callable[[], None]:
-    """A repair that puts the symlink in place, clearing a dead link or a file first."""
+    """A repair that puts the symlink in place, clearing a dead link or a stray file first.
+
+    A real folder is never removed here. It is somebody's, and the check
+    leaves it for a person.
+    """
 
     def repair() -> None:
         link = project / SKILL_LINK
         link.parent.mkdir(parents=True, exist_ok=True)
-        if link.is_symlink() or link.is_file():
+        if link.is_symlink() or (link.exists() and not link.is_dir()):
             link.unlink()
         os.symlink(str(SKILL_TARGET), str(link))
 
