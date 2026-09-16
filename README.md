@@ -27,7 +27,7 @@ written record of what the project knows.
 | `.agents/SYSTEM.md` | The rulebook. How to write code, how to talk to you, where docs go, how a branch gets reviewed, how git is used. |
 | `.agents/` | The project's memory. Docs, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
 | `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. Plain Python, no dependencies. |
-| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking, the link Claude Code needs to find the skill, and the Plain & Short output style, switched on for Claude Code. |
+| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking, the link Claude Code needs to find the skill, and the Plain & Short chat style, once per agent in the form that agent reads. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
 | `.gitignore` | Keeps your `.env` out of git, along with any stray worktree folder. |

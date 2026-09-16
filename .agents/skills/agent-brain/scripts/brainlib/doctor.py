@@ -13,7 +13,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import frontmatter, index, links, schema, sections, store, writes
+from . import frontmatter, index, links, schema, sections, store, style, writes
 
 SKIP_DIRS: frozenset[str] = frozenset({"skills", ".worktrees"})
 
@@ -479,7 +479,32 @@ def check_layout(
             )
         )
 
+    found.extend(check_style_copies(brain))
+
     return found
+
+
+def check_style_copies(
+    brain: store.Brain,
+) -> list[Finding]:
+    """Codex and Gemini CLI carry the chat style as copies of the Claude Code one."""
+    try:
+        stale = style.stale(brain)
+    except style.StyleError as error:
+        return [Finding(path=str(style.SOURCE), check="layout", message=str(error))]
+
+    def repair() -> None:
+        style.write(brain)
+
+    return [
+        Finding(
+            path=str(relative),
+            check="layout",
+            message="the chat style copy does not match the Claude Code one",
+            repair=repair,
+        )
+        for relative in stale
+    ]
 
 
 def make_skill_link(
