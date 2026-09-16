@@ -156,7 +156,8 @@ folds them back in.
    whether as a draft is your project's own rule in section 0, so the
    agent never asks. After that the root holds `README.md`, `CLAUDE.md`,
    `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS`, plus your `docs/`
-   folder if you keep one, which points into `.agent/docs/` rather than
+   folder if you keep one. What a person wrote by hand stays as it is,
+   and anything new in there links into `.agent/docs/` rather than
    repeating it.
 
 ### Where things go
