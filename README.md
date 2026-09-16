@@ -87,17 +87,20 @@ then add the lines from its `.gitignore` to yours. Two of those
 (`.agents` and `.gitignore`) are hidden files, so if you are in Finder
 press `Cmd + Shift + .` to see them.
 
-> **Set up by hand?** The agent path does these two edits for you. The
+> **Set up by hand?** The agent path does these three for you. The
 > terminal and download paths leave them to you.
 >
-> 1. `CODEOWNERS`: replace `@ecstra` with your own handle.
-> 2. `## 0. Project Rules`: optional. It goes at the top of `AGENTS.md`,
+> 1. Anything you already have at `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`,
+>    `CONTRIBUTING.md`, or `CODEOWNERS`: read it and keep a copy before
+>    you copy anything across, because all five get overwritten.
+> 2. `CODEOWNERS`: replace `@ecstra` with your own handle.
+> 3. `## 0. Project Rules`: optional. It goes at the top of `AGENTS.md`,
 >    directly under the title, and holds what the general rules cannot
->    know about your project. The
->    gates (the exact test suites, analyzers, builds, and validators
->    that must be green before a review), the tooling (how PRs are
->    opened, how the app runs), anything else the general sections do
->    not cover. A project with no gates yet has nothing to put there,
+>    know about your project. The gates (the exact test suites,
+>    analyzers, builds, and validators that must be green before a
+>    review), the tooling (how PRs are opened, how the app runs),
+>    anything else the general sections do not cover. A project with no
+>    gates yet has nothing to put there,
 >    so skip it and add it when the first gate exists.
 
 Commit, and start your first session. The agent reads `.agents/INDEX.md`
