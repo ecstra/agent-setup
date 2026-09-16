@@ -92,20 +92,27 @@ def with_body(
     name: str,
     description: str,
 ) -> str:
-    """The index's existing frontmatter, or a fresh one, over the new body."""
+    """The index's existing frontmatter, or a fresh one, over the new body.
+
+    An index somebody pasted over, or truncated, gets the fresh one, so a
+    broken index is rebuilt by the next run instead of stopping it.
+    """
+    document = frontmatter.Document(
+        lines=[
+            f"name: {name}",
+            "kind: doc",
+            f"description: {description}",
+            f"updated: {date.today().isoformat()}",
+            "links: []",
+        ],
+        body="",
+    )
+
     if path.is_file():
-        document = frontmatter.read(str(path))
-    else:
-        document = frontmatter.Document(
-            lines=[
-                f"name: {name}",
-                "kind: doc",
-                f"description: {description}",
-                f"updated: {date.today().isoformat()}",
-                "links: []",
-            ],
-            body="",
-        )
+        try:
+            document = frontmatter.read(str(path))
+        except frontmatter.FrontmatterError:
+            pass
 
     document.body = "\n" + body
 
