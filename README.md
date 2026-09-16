@@ -120,8 +120,8 @@ needs the right header block and index line.
 Porting builds on the installation above, so do that first, any of the
 three ways, and skip nothing. Keep your old `AGENTS.md`, `CLAUDE.md`,
 `GEMINI.md`, `CONTRIBUTING.md`, and `CODEOWNERS` aside, since the copy
-overwrites all five. The agent folds the rules back in and puts your own
-ownership back into `CODEOWNERS`.
+overwrites all five. The rules come back in during the port, and your
+own ownership goes back into `CODEOWNERS`.
 
 ### What the agent will do
 
