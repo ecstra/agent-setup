@@ -14,7 +14,7 @@ line in the same commit.
 
 ## The directory itself
 
-- [SYSTEM.md](SYSTEM.md), the rulebook every agent works by, pulled in by AGENTS.md
+- [SYSTEM.md](SYSTEM.md), the rulebook every agent works by, reached through AGENTS.md
 - [README.md](README.md), what this directory is and how to boot from it
 - [house-rules.md](house-rules.md), the branch contract and review protocol, the operating version
 - [spec/conventions.md](spec/conventions.md), the shared law: frontmatter, naming, links, indexes

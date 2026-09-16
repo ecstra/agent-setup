@@ -28,8 +28,8 @@ Kinds add their own fields (status, severity, area, by, date, parent),
 defined in that kind's spec. `name` is unique across the whole directory
 and normally equals the filename without extension.
 
-`SYSTEM.md` is the one exception. It is the rulebook, pulled into an
-agent's context exactly as it stands, so it carries no frontmatter.
+`SYSTEM.md` is the one exception. It is the rulebook, and an agent takes
+it exactly as it stands, so it carries no frontmatter.
 
 ## Naming and ids
 
