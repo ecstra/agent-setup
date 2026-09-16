@@ -20,9 +20,10 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from brainlib import doctor, reads, store
+from brainlib import doctor, frontmatter, reads, store
 
 BLOCK = 2
+FAILED = 1
 
 ADD_FILE = re.compile(r"^\*\*\* Add File: (.+)$", re.MULTILINE)
 
@@ -39,6 +40,23 @@ def main(
     parser.add_argument("--with-rules", action="store_true", help="add SYSTEM.md to the context")
     args = parser.parse_args(argv)
 
+    try:
+        return run(args)
+    except (store.StoreError, frontmatter.FrontmatterError, OSError) as error:
+        print(f"the brain hook could not run: {store.explain(error)}", file=sys.stderr)
+        return FAILED
+
+
+def run(
+    args: argparse.Namespace,
+) -> int:
+    """Dispatch one event. A brain the hook cannot read fails visibly, not silently.
+
+    Exit 1 is the non blocking error every agent shows to the person,
+    which is the right outcome for a broken brain: the write goes ahead
+    and the reason is on screen, rather than every write being refused
+    until someone finds a traceback.
+    """
     event = read_event()
     brain = locate(event)
     if brain is None:
