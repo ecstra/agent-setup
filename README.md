@@ -184,24 +184,24 @@ above.
 We are adopting the agent kit that now sits in this repo. Do the port
 on a new branch. Before anything else, read the new AGENTS.md and the
 rules it points at, and work by them from here on: every file written
-by hand with the proper edit
-tools, no scripts or heredocs, house style throughout. Then read the
-whole project: the code, every doc and note, our old AGENTS.md,
-CLAUDE.md or GEMINI.md if we have any, and every TODO list. Then read
-.agents/INDEX.md and everything in .agents/spec/ so you know the target
-format. Show me a plan of what goes where before you move anything.
-Then file it all into .agents/ (docs, decisions, todos, bugs, memory,
-everything) one file at a time with correct frontmatter and index
-lines, keeping my wording in todos. Do not paste any of our old rulebook
-files into section 0: read them against the new rulebook, drop what
-the general sections already cover, and rewrite only the truly project
-specific parts into "## 0. Project Rules" at the top of AGENTS.md.
-This may be hundreds or thousands of files. Do every one,
-never a sample. If the volume needs it, list everything in a ledger
-first and work in batches, ticking each file off. When it is all
-filed, delete the old copies of the docs you moved, but leave anything
-a human wrote by hand where it is and list those for me. Then tell me
-what you did and where, and wait for me to call the review.
+by hand with the proper edit tools, no scripts or heredocs, house
+style throughout. Then read the whole project: the code, every doc and
+note, our old AGENTS.md, CLAUDE.md or GEMINI.md if we have any, and
+every TODO list. Then read .agents/INDEX.md and everything in
+.agents/spec/ so you know the target format. Show me a plan of what
+goes where before you move anything. Then file it all into .agents/
+(docs, decisions, todos, bugs, memory, everything) one file at a time
+with correct frontmatter and index lines, keeping my wording in todos.
+Do not paste any of our old rulebook files into section 0: read them
+against the new rulebook, drop what the general sections already
+cover, and rewrite only the truly project specific parts into
+"## 0. Project Rules" at the top of AGENTS.md. This may be hundreds or
+thousands of files. Do every one, never a sample. If the volume needs
+it, list everything in a ledger first and work in batches, ticking
+each file off. When it is all filed, delete the old copies of the docs
+you moved, but leave anything a human wrote by hand where it is and
+list those for me. Then tell me what you did and where, and wait for
+me to call the review.
 ```
 
 ## Keeping the kit current
@@ -219,6 +219,22 @@ and leave everything your project wrote alone.
   inside `.agents/` is touched, because the rest of it is your project's.
 
 Or, again, ask the agent to do it.
+
+### Coming from the older layout
+
+A project that took the kit before the rulebook moved has a `.agent/`
+folder and a root `CLAUDE.md` carrying all the rules. That one takes a
+move first, best done on its own branch.
+
+1. Rename `.agent/` to `.agents/` and fix every path that named the old
+   folder.
+2. Cut your `## 0. Project Rules` out of `CLAUDE.md` and keep it aside.
+3. Copy in the kit's `.agents/SYSTEM.md`, `AGENTS.md`, `CLAUDE.md`, and
+   `GEMINI.md`, then paste your section 0 at the top of `AGENTS.md`.
+4. Take the kit's `.gitignore` lines again, since the worktree path
+   moved with the folder.
+
+Ask your agent to run those four steps and show you the diff.
 
 ## What `.agents/` looks like
 
