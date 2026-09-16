@@ -135,8 +135,8 @@ and the agent folds them back in.
    a time, with the header block and index line each file needs, per
    the map below. Your wording is kept in todos and nothing gets
    shortened on the way.
-4. **Port the old rules, never paste them**: the old `CLAUDE.md` or
-   `AGENTS.md` is read against the new rules. Whatever the general
+4. **Port the old rules, never paste them**: your old `AGENTS.md`,
+   `CLAUDE.md`, or `GEMINI.md` is read against the new rules. Whatever the general
    sections already say is dropped, and only what is truly project
    specific is rewritten into `## 0. Project Rules` at the top of the
    new `AGENTS.md`.
@@ -186,14 +186,14 @@ on a new branch. Before anything else, read the new AGENTS.md and the
 rules it points at, and work by them from here on: every file written
 by hand with the proper edit
 tools, no scripts or heredocs, house style throughout. Then read the
-whole project: the code, every doc and note, our old CLAUDE.md or
-AGENTS.md if there is one, and every TODO list. Then read
+whole project: the code, every doc and note, our old AGENTS.md,
+CLAUDE.md or GEMINI.md if we have any, and every TODO list. Then read
 .agents/INDEX.md and everything in .agents/spec/ so you know the target
 format. Show me a plan of what goes where before you move anything.
 Then file it all into .agents/ (docs, decisions, todos, bugs, memory,
 everything) one file at a time with correct frontmatter and index
-lines, keeping my wording in todos. Do not paste the old CLAUDE.md or
-AGENTS.md into section 0: read it against the new rulebook, drop what
+lines, keeping my wording in todos. Do not paste any of our old rulebook
+files into section 0: read them against the new rulebook, drop what
 the general sections already cover, and rewrite only the truly project
 specific parts into "## 0. Project Rules" at the top of AGENTS.md.
 This may be hundreds or thousands of files. Do every one,
