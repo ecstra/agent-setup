@@ -109,11 +109,11 @@ def session_start(
     text = "The brain, counted from the files right now:\n" + reads.render_status(reads.status(brain))
     if with_rules:
         rules = brain.root / "SYSTEM.md"
-        if rules.is_file():
+        if store.readable_file(rules):
             text += "\n\nThe rules this project works by, from .agents/SYSTEM.md:\n\n" + text_of(rules)
 
         chat_style = brain.root.parent / f".{agent}" / "plain-and-short.md"
-        if chat_style.is_file():
+        if store.readable_file(chat_style):
             text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
 
     emit_context(agent, text, event_name="SessionStart")

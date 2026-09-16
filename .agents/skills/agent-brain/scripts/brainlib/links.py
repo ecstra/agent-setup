@@ -21,7 +21,7 @@ def resolve(
 ) -> Optional[Path]:
     """The file a link means, whether it was written as a path or a name."""
     direct = inside(brain=brain, reference=reference)
-    if direct is not None and direct.is_file():
+    if direct is not None and store.readable_file(direct):
         return direct
 
     entry = brain.find(reference)
@@ -185,7 +185,7 @@ def kit_documents(
     ]
 
     for path in candidates:
-        if not path.is_file():
+        if not store.readable_file(path):
             continue
 
         try:

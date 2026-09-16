@@ -105,7 +105,7 @@ def current_text(
     path: Path,
 ) -> str:
     """What the index holds now, or nothing when it is missing or unreadable."""
-    if not path.is_file():
+    if not store.readable_file(path):
         return ""
 
     try:
@@ -156,7 +156,7 @@ def render_index(
     dangling link rebuilt forever. The link to the spine is always
     carried, since the tool writes the spine in the same run.
     """
-    present = [link for link in links if link == "INDEX.md" or (brain.root / link).is_file()]
+    present = [link for link in links if link == "INDEX.md" or store.readable_file(brain.root / link)]
     document = frontmatter.Document(
         lines=[
             f"name: {name}",
@@ -204,10 +204,10 @@ def kit_listing(
 
     for kind in schema.KINDS.values():
         spec = f"spec/{kind.folder}.md"
-        if spec not in listing and (brain.root / spec).is_file():
+        if spec not in listing and store.readable_file(brain.root / spec):
             listing.append(spec)
 
-    return [relative for relative in listing if (brain.root / relative).is_file()]
+    return [relative for relative in listing if store.readable_file(brain.root / relative)]
 
 
 def hook_of(

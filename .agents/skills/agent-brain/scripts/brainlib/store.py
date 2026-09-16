@@ -241,6 +241,21 @@ class Brain:
         return folder / f"{slug}.md"
 
 
+def readable_file(
+    path: Path,
+) -> bool:
+    """True when `path` is a file the process can see.
+
+    On the 3.9 floor `is_file` raises when the folder above cannot be
+    searched, where newer interpreters answer False. Every gate above a
+    read asks here, so both floors degrade the same way.
+    """
+    try:
+        return path.is_file()
+    except OSError:
+        return False
+
+
 def category_folder(
     category: str,
 ) -> Path:
@@ -285,11 +300,11 @@ def find_brain(
         raise StoreError(f"the working directory cannot be resolved: {error}") from error
 
     for candidate in [here, *here.parents]:
-        if candidate.name == ".agents" and (candidate / "INDEX.md").is_file():
+        if candidate.name == ".agents" and readable_file(candidate / "INDEX.md"):
             return Brain(root=candidate)
 
         inside = candidate / ".agents"
-        if (inside / "INDEX.md").is_file():
+        if readable_file(inside / "INDEX.md"):
             return Brain(root=inside)
 
     raise StoreError(

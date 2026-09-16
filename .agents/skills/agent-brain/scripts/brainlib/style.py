@@ -34,7 +34,7 @@ def source_body(
 ) -> str:
     """The style text without the frontmatter only Claude Code reads."""
     source = project(brain) / SOURCE
-    if not source.is_file():
+    if not store.readable_file(source):
         raise StyleError(f"{SOURCE} is missing, so there is no style to copy")
 
     try:
@@ -69,7 +69,7 @@ def copy_text(
     compares equal to the source rather than reading as stale forever. A
     copy that cannot be opened or decoded is stale, and gets rewritten.
     """
-    if not target.is_file():
+    if not store.readable_file(target):
         return None
 
     try:

@@ -475,7 +475,7 @@ def check_layout(
     found: list[Finding] = []
     project = brain.root.parent
 
-    if not (brain.root / "VERSION").is_file():
+    if not store.readable_file(brain.root / "VERSION"):
         found.append(Finding(path="VERSION", check="layout", message="no kit version stamp, run the upgrade"))
 
     trouble = skill_link_trouble(project)
@@ -510,7 +510,7 @@ def skill_link_trouble(
     """
     link = project / SKILL_LINK
 
-    if (link / "SKILL.md").is_file():
+    if store.readable_file(link / "SKILL.md"):
         return None
 
     if link.is_symlink():

@@ -25,7 +25,7 @@ def version(
     brain: store.Brain,
 ) -> str:
     stamp = brain.root / "VERSION"
-    if not stamp.is_file():
+    if not store.readable_file(stamp):
         return "unversioned"
 
     try:
