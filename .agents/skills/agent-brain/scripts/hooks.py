@@ -200,8 +200,9 @@ def written_paths(
     """The files a write event touches, absolute, in the shape each agent sends.
 
     A relative path is taken against the directory the event names, not
-    the one this process happens to run in, and nothing on disk is
-    resolved, so a symlink loop in the agent's path cannot raise here.
+    the one this process happens to run in. The folder part is then
+    spelled the way the disk spells it, so a project reached through a
+    symlink still compares equal to the brain's real root.
     """
     base = Path(event.get("cwd") or Path.cwd())
     tool_input = event.get("tool_input") or {}
@@ -224,10 +225,25 @@ def absolute(
     value: str,
 ) -> Path:
     path = Path(value)
-    if path.is_absolute():
-        return path
+    if not path.is_absolute():
+        path = base / path
 
-    return base / path
+    return settled(path)
+
+
+def settled(
+    path: Path,
+) -> Path:
+    """The path with its folder resolved on disk and the file itself left alone.
+
+    Only the folder is followed, so a symlinked file still counts where
+    it sits. A folder that cannot be resolved, a loop on the 3.9 floor
+    for one, keeps its lexical spelling and is judged as written.
+    """
+    try:
+        return path.parent.resolve() / path.name
+    except (OSError, RuntimeError):
+        return path
 
 
 def emit_context(
