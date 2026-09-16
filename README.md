@@ -165,7 +165,7 @@ and the agent folds them back in.
 
 | What you have today | Where it goes |
 |---|---|
-| Your own `CLAUDE.md` or `AGENTS.md` | Read against the new rulebook and rewritten into `## 0. Project Rules` at the top of the new `AGENTS.md`. Never pasted whole, anything the general rules already cover is dropped. |
+| Your own `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` | Read against the new rulebook and rewritten into `## 0. Project Rules` at the top of the new `AGENTS.md`. Never pasted whole, anything the general rules already cover is dropped. |
 | A `docs/` folder, wiki pages, architecture or design notes | `.agents/docs/`, sorted into a category folder (`foundation/`, `systems/`, `ops/`, `research/`), one line each in `.agents/docs/INDEX.md`. What a person wrote by hand stays where it is. |
 | ADRs or a decisions log | `.agents/decisions/`, one file per decision. |
 | A TODO list, roadmap, or backlog | `.agents/todos/`, one file per item, your wording kept as is. |
