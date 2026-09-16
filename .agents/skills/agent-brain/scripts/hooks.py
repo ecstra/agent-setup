@@ -54,7 +54,12 @@ def main(
 
 
 def read_event() -> dict:
-    if sys.stdin.isatty():
+    """The event JSON the agent piped in, or nothing when it piped nothing.
+
+    A closed standard input leaves `sys.stdin` as None, which is not an
+    event either.
+    """
+    if sys.stdin is None or sys.stdin.isatty():
         return {}
 
     raw = sys.stdin.read()

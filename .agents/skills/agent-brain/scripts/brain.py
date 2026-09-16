@@ -453,7 +453,12 @@ def pairs(
 
 
 def stdin_text() -> str:
-    if sys.stdin.isatty():
+    """The prose on standard input, or nothing when there is no input at all.
+
+    A closed standard input leaves `sys.stdin` as None, and a terminal
+    means nobody piped anything, so both read as an empty body.
+    """
+    if sys.stdin is None or sys.stdin.isatty():
         return ""
 
     return sys.stdin.read()
