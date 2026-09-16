@@ -44,7 +44,7 @@ def main(
         OSError,
         KeyError,
     ) as error:
-        print(str(error).strip("'"), file=sys.stderr)
+        print(store.explain(error), file=sys.stderr)
         return REFUSED
 
 

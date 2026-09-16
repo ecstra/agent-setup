@@ -6,6 +6,7 @@ moved or was deleted stays a gap, because the id it held is written into
 commits, ledgers and links that nobody can rewrite.
 """
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -238,6 +239,29 @@ class Brain:
             return folder / f"{self.next_id(kind)}-{slug}.md"
 
         return folder / f"{slug}.md"
+
+
+def explain(
+    error: BaseException,
+) -> str:
+    """The error as one plain line, an OS error without the machine's path."""
+    if isinstance(error, OSError) and error.filename:
+        reason = error.strerror or type(error).__name__
+
+        return f"{reason}: {near(os.fsdecode(error.filename))}"
+
+    return str(error).strip("'")
+
+
+def near(
+    path: str,
+) -> str:
+    """A path from `.agents/` down, or just the filename when it lies elsewhere."""
+    parts = Path(path).parts
+    if ".agents" in parts:
+        return str(Path(*parts[parts.index(".agents") :]))
+
+    return Path(path).name
 
 
 def find_brain(
