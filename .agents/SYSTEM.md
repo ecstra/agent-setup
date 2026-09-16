@@ -350,7 +350,7 @@ The blank lines group the computation, the persistence, and the notification int
 
 **Treat secrets and untrusted input as radioactive. When unsure, stop and flag.**
 
-- Never hardcode a secret. No API keys, tokens, passwords, or connection strings in source, and none in this file. Read them from the environment or the existing secret store.
+- Never hardcode a secret. No API keys, tokens, passwords, or connection strings in source, and none in the rulebook or in `AGENTS.md`. Read them from the environment or the existing secret store.
 - Never commit, log, or print a secret, not into the console and not into an error message.
 - Do not put a `.env`, credential file, or key under version control. If one is already tracked, flag it rather than quietly removing it.
 - Validate input that crosses a boundary. Anything from a user, a request, or a file is untrusted until checked for the shape you assume.
