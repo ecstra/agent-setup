@@ -64,12 +64,15 @@ git clone https://forge.example.com/example/agent-setup
 cd your-project
 cp -R ../agent-setup/.agent ../agent-setup/CLAUDE.md ../agent-setup/AGENTS.md \
       ../agent-setup/CONTRIBUTING.md ../agent-setup/CODEOWNERS .
+echo >> .gitignore
 cat ../agent-setup/.gitignore >> .gitignore
 ```
 
 Adjust the `../agent-setup` path if you cloned somewhere else. The last
-line appends to your `.gitignore` rather than replacing it, which is
-what you want whether or not you already have one.
+two lines append to your `.gitignore` rather than replacing it, which is
+what you want whether or not you already have one. The `echo` opens a
+blank line first, so the kit's first rule cannot fuse onto the end of
+your last one.
 
 ### Download
 
