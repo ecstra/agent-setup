@@ -204,8 +204,10 @@ todos.
 Do not paste any of our old rulebook files into section 0: read them
 against the new rulebook, drop what the general sections already
 cover, and rewrite only the truly project specific parts into
-"## 0. Project Rules" at the top of AGENTS.md. This may be hundreds or
-thousands of files. Do every one, never a sample. If the volume needs
+"## 0. Project Rules" at the top of AGENTS.md, and our old
+CONTRIBUTING.md the same way, its extra rules into section 0. This may
+be hundreds or thousands of files. Do every one, never a sample. If the
+volume needs
 it, list everything in a ledger first and work in batches, ticking
 each file off. When it is all filed, delete the old copies of the docs
 you moved, but leave anything a human wrote by hand where it is and
