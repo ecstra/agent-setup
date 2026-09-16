@@ -11,7 +11,7 @@ links: [spec-reviews, spec-bugs, spec-todos, agent-readme]
 The development rules of every project that carries this directory. A
 project may keep a short human cut at `docs/house-rules.md` and the hard
 bans in a root CONTRIBUTING.md, both pointing here. The project's own
-CLAUDE.md section 0 names its exact gates, tooling, and PR rules.
+AGENTS.md section 0 names its exact gates, tooling, and PR rules.
 
 ## The branch contract
 
@@ -29,12 +29,12 @@ CLAUDE.md section 0 names its exact gates, tooling, and PR rules.
 4. **Main is reviewed code only.** Gates first, then review, then
    merge. No step skips, and nothing merges before the review has
    closed. When the PR opens and whether as a draft is the project's
-   rule in CLAUDE.md section 0, never a question the agent asks.
+   rule in AGENTS.md section 0, never a question the agent asks.
 
 ## The gates
 
 Before any review: every suite, analyzer, and build the project's
-CLAUDE.md section 0 names, green. The review judges code that already
+AGENTS.md section 0 names, green. The review judges code that already
 works, reviewers never burn effort on red suites.
 
 ## The review protocol

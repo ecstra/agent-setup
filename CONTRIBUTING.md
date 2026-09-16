@@ -1,7 +1,7 @@
 # Contributing
 
 The rules of the road, human or agent. The operating version is
-`.agents/house-rules.md` and CLAUDE.md carries agent
+`.agents/house-rules.md`, and `.agents/SYSTEM.md` carries agent
 behavior.
 
 ## The absolutes
@@ -14,7 +14,7 @@ behavior.
   reason, or wontfixed with a written reason before anything merges.
 - **No merge without the owner's explicit ask.** Same for opening the PR
   itself. When it opens and whether as a draft is this project's own
-  rule in CLAUDE.md section 0.
+  rule in AGENTS.md section 0.
 - **Single author, no co-authors, no AI attribution anywhere.** Not in
   commits, not in PR titles or bodies, no generated-with footers.
 - **Gates before review.** Suites, analyzer, builds, and validators are
