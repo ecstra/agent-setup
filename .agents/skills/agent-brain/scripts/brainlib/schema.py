@@ -11,7 +11,6 @@ from typing import Optional
 
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-ID = re.compile(r"^(BUG|TODO|DEC)-\d{3}$")
 FILENAME_WITH_ID = re.compile(r"^(BUG|TODO|DEC)-(\d{3})-(.+)\.md$")
 
 ID_DIGITS = 3

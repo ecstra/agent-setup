@@ -52,12 +52,6 @@ class Document:
 
         self.lines.append(f"{key}: {value}")
 
-    def remove(
-        self,
-        key: str,
-    ) -> None:
-        self.lines = [line for line in self.lines if split_field(line)[0] != key]
-
     def fields(self) -> dict[str, str]:
         found: dict[str, str] = {}
 
