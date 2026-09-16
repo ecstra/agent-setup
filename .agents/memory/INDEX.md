@@ -3,7 +3,7 @@ name: memory-index
 kind: doc
 description: index of project memory, one line per fact
 updated: 2026-09-16
-links: [agent-index, spec-memory]
+links: [INDEX.md, spec/memory.md]
 ---
 
 # Memory Index

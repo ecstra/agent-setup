@@ -3,7 +3,7 @@ name: todos-index
 kind: doc
 description: the work tracker's index, open items first
 updated: 2026-09-16
-links: [agent-index, spec-todos]
+links: [INDEX.md, spec/todos.md]
 ---
 
 # Todos Index

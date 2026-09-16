@@ -3,7 +3,7 @@ name: house-rules-agent
 kind: doc
 description: the branch contract and code review protocol, the agent's operating version
 updated: 2026-09-16
-links: [spec-reviews, spec-bugs, spec-todos, agent-readme]
+links: [spec/reviews.md, spec/bugs.md, spec/todos.md, README.md]
 ---
 
 # House Rules

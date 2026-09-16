@@ -3,7 +3,7 @@ name: docs-index
 kind: doc
 description: index of the knowledge library, one line per doc
 updated: 2026-09-16
-links: [agent-index, spec-docs]
+links: [INDEX.md, spec/docs.md]
 ---
 
 # Docs Index

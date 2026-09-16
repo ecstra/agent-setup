@@ -3,7 +3,7 @@ name: spec-docs
 kind: doc
 description: format and folder rules for .agents/docs, the knowledge library
 updated: 2026-09-16
-links: [conventions]
+links: [spec/conventions.md]
 ---
 
 # Spec: docs/

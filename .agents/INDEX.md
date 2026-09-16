@@ -3,7 +3,7 @@ name: agent-index
 kind: doc
 description: the spine of the agent directory, what exists and where
 updated: 2026-09-16
-links: [agent-readme, conventions, house-rules-agent]
+links: [README.md, spec/conventions.md, house-rules.md]
 ---
 
 # Index

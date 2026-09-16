@@ -3,7 +3,7 @@ name: spec-handover
 kind: doc
 description: format for .agents/handover, session handoffs
 updated: 2026-09-16
-links: [conventions]
+links: [spec/conventions.md]
 ---
 
 # Spec: handover/

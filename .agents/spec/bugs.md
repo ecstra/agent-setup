@@ -3,7 +3,7 @@ name: spec-bugs
 kind: doc
 description: format and lifecycle for .agents/bugs, the defect tracker
 updated: 2026-09-16
-links: [conventions, spec-todos, spec-reviews]
+links: [spec/conventions.md, spec/todos.md, spec/reviews.md]
 ---
 
 # Spec: bugs/

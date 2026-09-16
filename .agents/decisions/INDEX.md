@@ -3,7 +3,7 @@ name: decisions-index
 kind: doc
 description: index of every decision taken, newest first
 updated: 2026-09-16
-links: [agent-index, spec-decisions]
+links: [INDEX.md, spec/decisions.md]
 ---
 
 # Decisions Index

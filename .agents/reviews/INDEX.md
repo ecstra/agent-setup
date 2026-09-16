@@ -3,7 +3,7 @@ name: reviews-index
 kind: doc
 description: index of code review ledgers, active first
 updated: 2026-09-16
-links: [agent-index, spec-reviews]
+links: [INDEX.md, spec/reviews.md]
 ---
 
 # Reviews Index

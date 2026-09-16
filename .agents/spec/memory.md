@@ -3,7 +3,7 @@ name: spec-memory
 kind: doc
 description: format and rules for .agents/memory, project facts learned along the way
 updated: 2026-09-16
-links: [conventions]
+links: [spec/conventions.md]
 ---
 
 # Spec: memory/

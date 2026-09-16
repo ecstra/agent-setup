@@ -3,7 +3,7 @@ name: spec-decisions
 kind: doc
 description: format for .agents/decisions, one decision per file
 updated: 2026-09-16
-links: [conventions]
+links: [spec/conventions.md]
 ---
 
 # Spec: decisions/
