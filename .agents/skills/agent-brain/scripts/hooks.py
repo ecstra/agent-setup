@@ -42,7 +42,7 @@ def main(
 
     try:
         return run(args)
-    except (store.StoreError, frontmatter.FrontmatterError, OSError) as error:
+    except (store.StoreError, frontmatter.FrontmatterError, OSError, ValueError) as error:
         print(f"the brain hook could not run: {store.explain(error)}", file=sys.stderr)
         return FAILED
 
@@ -241,11 +241,12 @@ def settled(
 
     Only the folder is followed, so a symlinked file still counts where
     it sits. A folder that cannot be resolved, a loop on the 3.9 floor
-    for one, keeps its lexical spelling and is judged as written.
+    or a path with a stray null byte in it, keeps its lexical spelling
+    and is judged as written.
     """
     try:
         return path.parent.resolve() / path.name
-    except (OSError, RuntimeError):
+    except (OSError, RuntimeError, ValueError):
         return path
 
 
