@@ -234,7 +234,18 @@ and leave everything your project wrote alone.
   or renames one of its files. Nothing else inside `.agents/` is
   touched, because the rest of it is your project's.
 
-Or, again, ask the agent to do it.
+Or hand your agent this.
+
+```text
+The agent kit at https://forge.example.com/example/agent-setup has a new
+release. Clone it into a temp folder and copy only these over ours:
+.agents/SYSTEM.md, .agents/README.md, everything in .agents/spec/,
+.agents/house-rules.md, and CONTRIBUTING.md. Take the kit's AGENTS.md
+wording but keep our "## 0. Project Rules" section at the top of it. If
+the release adds or renames a file of its own under .agents/, fix the
+kit's lines at the top of our .agents/INDEX.md to match. Touch nothing
+else inside .agents/, the rest of it is ours. Then tell me what changed.
+```
 
 ### Coming from the older layout
 
