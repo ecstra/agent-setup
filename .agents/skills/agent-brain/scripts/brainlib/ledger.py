@@ -14,7 +14,10 @@ from . import frontmatter, schema, sections, store, writes
 
 FINDING = re.compile(r"^### (F-\d+): (.+?)[ \t]*$", re.MULTILINE)
 BULLET = re.compile(r"^- ([a-z-]+):[ \t]*(.*?)[ \t]*$", re.MULTILINE)
-BATCH_ROW = re.compile(r"^\| (\d+) \| (.*?) \| (.*?) \| (.*?) \|[ \t]*$", re.MULTILINE)
+BATCH_ROW = re.compile(
+    r"^\|\s*(\d+)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|[ \t]*$",
+    re.MULTILINE,
+)
 
 BATCH_HEADER = "| # | Theme | Status | Ack |\n|---|---|---|---|\n"
 
