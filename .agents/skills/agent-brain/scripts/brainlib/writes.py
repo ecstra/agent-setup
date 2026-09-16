@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from . import frontmatter, schema, sections, store
+from . import frontmatter, links, schema, sections, store
 
 
 class WriteError(Exception):
@@ -105,6 +105,99 @@ def update(
     brain.refresh()
 
     return brain.read(path=entry.path, kind=entry.kind)
+
+
+def retitle(
+    brain: store.Brain,
+    key: str,
+    title: str,
+    stamp: str = "",
+) -> store.Entry:
+    """Rename a file for a new title. The id stays, every link follows."""
+    entry = brain.find(key)
+    if entry is None:
+        raise WriteError(f"nothing in the brain answers to '{key}'")
+
+    if entry.kind.name == "review":
+        raise WriteError("a review keeps the name of its branch")
+
+    slug = schema.slugify(title)
+    if not slug:
+        raise WriteError(f"'{title}' leaves nothing to name a file with")
+
+    taken = brain.with_slug(kind=entry.kind, slug=slug)
+    if taken is not None and taken.path != entry.path:
+        raise WriteError(f"{taken.name} already carries that title")
+
+    stem = f"{entry.identifier}-{slug}" if entry.identifier else slug
+    target = entry.path.with_name(f"{stem}.md")
+
+    links.rewrite_references(
+        brain=brain,
+        old=entry.relative,
+        new=str(target.relative_to(brain.root)),
+    )
+
+    entry.document.set(key="name", value=stem)
+    entry.document.set(key="updated", value=stamp or today())
+    frontmatter.write(path=str(entry.path), document=entry.document)
+    entry.path.rename(target)
+    brain.refresh()
+
+    return brain.read(path=target, kind=entry.kind)
+
+
+def convert(
+    brain: store.Brain,
+    key: str,
+    kind: schema.Kind,
+    description: str,
+    values: Optional[dict[str, str]] = None,
+    body: str = "",
+    stamp: str = "",
+) -> store.Entry:
+    """File a todo as a bug, or the reverse, keeping the id trail in links.
+
+    The old file stays, closed, and the two point at each other. An id
+    is never reused, so the old one is not deleted.
+    """
+    source = brain.find(key)
+    if source is None:
+        raise WriteError(f"nothing in the brain answers to '{key}'")
+
+    if source.kind.name == kind.name:
+        raise WriteError(f"{source.name} is already a {kind.name}")
+
+    if source.kind.name not in ("todo", "bug") or kind.name not in ("todo", "bug"):
+        raise WriteError("only a todo and a bug convert into each other")
+
+    stamp = stamp or today()
+    created = create(
+        brain=brain,
+        kind=kind,
+        title=source.slug.replace("-", " "),
+        description=description,
+        values=values,
+        body=body,
+        links=[source.relative],
+        stamp=stamp,
+    )
+
+    closing = {"todo": {"status": "dropped", "done": stamp}, "bug": {"status": "wontfix"}}
+    source = brain.find(key)
+    if source is None:
+        raise WriteError(f"{key} vanished while converting it")
+
+    for name, value in closing[source.kind.name].items():
+        source.document.set(key=name, value=value)
+
+    trail = [link for link in source.document.get_list("links") if link != created.relative]
+    source.document.set_list(key="links", values=[*trail, created.relative])
+    source.document.set(key="updated", value=stamp)
+    frontmatter.write(path=str(source.path), document=source.document)
+    brain.refresh()
+
+    return created
 
 
 def entry_name(

@@ -111,7 +111,10 @@ def rewrite_references(
 
     for entry in brain.entries():
         current = outgoing(entry)
-        updated = [new if canonical(brain, link) == old else link for link in current]
+        updated = [
+            new if link == old or canonical(brain, link) == old else link
+            for link in current
+        ]
         if updated == current:
             continue
 
