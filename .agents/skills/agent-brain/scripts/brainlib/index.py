@@ -2,9 +2,9 @@
 
 The indexes are generated, never hand edited. The tool owns the whole
 file, frontmatter included, so an index that disagrees with its folder
-in its body or in its header is rebuilt on the next run. The one thing
-kept from the file on disk is its `updated` date, which moves only when
-the rest of the file does.
+in its body or in its header is rebuilt on the next run. An index that
+still says what the tool would write is left alone, which is how its
+`updated` date moves only when the rest of the file does.
 """
 
 from datetime import date
@@ -43,7 +43,6 @@ def build(
     wanted: dict[Path, str] = {
         brain.root / "INDEX.md": render_index(
             brain=brain,
-            path=brain.root / "INDEX.md",
             body=spine_body(brain),
             name="agent-index",
             description=SPINE_DESCRIPTION,
@@ -59,7 +58,6 @@ def build(
         path = brain.root / folder / "INDEX.md"
         wanted[path] = render_index(
             brain=brain,
-            path=path,
             body=folder_body(brain=brain, kind=kind),
             name=f"{folder}-index",
             description=DESCRIPTIONS[folder],
@@ -142,7 +140,6 @@ def write(
 
 def render_index(
     brain: store.Brain,
-    path: Path,
     body: str,
     name: str,
     description: str,
@@ -150,8 +147,10 @@ def render_index(
 ) -> str:
     """The whole index as the tool writes it, header and body.
 
-    A link is carried only while its file exists, so a project that
-    dropped a kit file does not get a dangling link rebuilt forever.
+    The date here is a placeholder: `write` stamps the real one and
+    `fingerprint` ignores it. A link is carried only while its file
+    exists, so a project that dropped a kit file does not get a dangling
+    link rebuilt forever.
     """
     present = [link for link in links if (brain.root / link).is_file()]
     document = frontmatter.Document(
@@ -159,29 +158,13 @@ def render_index(
             f"name: {name}",
             "kind: doc",
             f"description: {description}",
-            f"updated: {kept_stamp(path)}",
+            f"updated: {date.today().isoformat()}",
             f"links: {frontmatter.render_list(present)}",
         ],
         body="\n" + body,
     )
 
     return frontmatter.render(document)
-
-
-def kept_stamp(
-    path: Path,
-) -> str:
-    """The index's own updated date when it carries a real one, else today."""
-    if path.is_file():
-        try:
-            current = frontmatter.read(str(path)).get("updated")
-        except frontmatter.FrontmatterError:
-            current = None
-
-        if current and schema.is_date(current):
-            return current
-
-    return date.today().isoformat()
 
 
 def spine_body(
