@@ -223,18 +223,21 @@ Or, again, ask the agent to do it.
 ### Coming from the older layout
 
 A project that took the kit before the rulebook moved has a `.agent/`
-folder and a root `CLAUDE.md` carrying all the rules. That one takes a
-move first, best done on its own branch.
+folder, a root `CLAUDE.md` carrying all the rules, and an `AGENTS.md`
+that copies it. That one takes a move first, best done on its own
+branch, and then the list above on top.
 
 1. Rename `.agent/` to `.agents/` and fix every path that named the old
    folder.
 2. Cut your `## 0. Project Rules` out of `CLAUDE.md` and keep it aside.
-3. Copy in the kit's `.agents/SYSTEM.md`, `AGENTS.md`, `CLAUDE.md`, and
-   `GEMINI.md`, then paste your section 0 at the top of `AGENTS.md`.
-4. Take the kit's `.gitignore` lines again, since the worktree path
-   moved with the folder.
+3. Work through the list above, new over old, then paste your section 0
+   at the top of the new `AGENTS.md`.
+4. Add a `SYSTEM.md` line to `.agents/INDEX.md`, since the spine carries
+   one line per file in the folder.
+5. Replace the kit's old block in your `.gitignore`, where the worktree
+   path moved with the folder.
 
-Ask your agent to run those four steps and show you the diff.
+Ask your agent to run those steps and show you the diff.
 
 ## What `.agents/` looks like
 
