@@ -86,6 +86,8 @@ def write(
     for relative in stale(brain):
         target = project(brain) / relative
         target.parent.mkdir(parents=True, exist_ok=True)
+        if target.is_symlink():
+            target.unlink()
         target.write_text(wanted, encoding="utf-8")
         changed.append(relative)
 
