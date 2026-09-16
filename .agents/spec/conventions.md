@@ -3,7 +3,7 @@ name: conventions
 kind: doc
 description: the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
 updated: 2026-09-16
-links: [agent-readme]
+links: [README.md]
 ---
 
 # Conventions
@@ -20,7 +20,7 @@ name: <unique-kebab-slug>
 kind: doc | memory | bug | todo | decision | review
 description: <one line, what this file holds>
 updated: <YYYY-MM-DD, the last content change>
-links: [<names of related files>]
+links: [<paths of related files, relative to .agents/>]
 ---
 ```
 
@@ -41,15 +41,16 @@ never reused. The filename is `<ID>-<short-slug>.md`.
 
 Two forms, each with its job:
 
-- Frontmatter `links:` lists names. They resolve through the indexes and
-  survive nothing, so they are kept true: whoever moves or renames a file
-  greps its name and fixes every reference in the same commit.
+- Frontmatter `links:` lists paths relative to `.agents/`, such as
+  `bugs/BUG-004-token-loop.md`, so an agent opens the file without
+  searching for it. The brain tool rewrites every one when a file moves,
+  and doctor turns a link written as a name into its path.
 - Body links are real markdown relative links that actually resolve, to
   files in .agents and to project files both. A link that does not
   resolve is a bug.
 
-A frontmatter link to a name that does not exist yet is allowed: it marks
-something worth writing, not an error.
+Every frontmatter link reaches a file that exists. Something worth
+writing is a todo, not a dangling link.
 
 ## Indexes
 
@@ -60,9 +61,10 @@ with counts plus the open items. `spec/` and `handover/` carry none, the
 spine names them directly. An index line is `- [name](path), hook` where
 the hook is the description or a shorter cut of it.
 
-The upkeep rule: any change to a file updates its `updated:` date and its
-index line in the same commit. An index that disagrees with its folder is
-a bug.
+The upkeep rule: any change to a file updates its `updated:` date in the
+same commit, and the indexes are rebuilt by the brain tool, never edited
+by hand. An index that disagrees with its folder is a bug, and doctor
+rebuilds it.
 
 ## Prose
 
