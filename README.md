@@ -209,8 +209,9 @@ thousands of files. Do every one, never a sample. If the volume needs
 it, list everything in a ledger first and work in batches, ticking
 each file off. When it is all filed, delete the old copies of the docs
 you moved, but leave anything a human wrote by hand where it is and
-list those for me. Then tell me what you did and where, and wait for
-me to call the review.
+list those for me. If we set an old CODEOWNERS aside, put our own
+ownership rules back into it. Then tell me what you did and where, and
+wait for me to call the review.
 ```
 
 ## Keeping the kit current
