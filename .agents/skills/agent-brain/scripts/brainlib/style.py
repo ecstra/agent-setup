@@ -7,6 +7,7 @@ folder, and doctor keeps the copies identical to the source.
 """
 
 from pathlib import Path
+from typing import Optional
 
 from . import frontmatter, store
 
@@ -52,11 +53,27 @@ def stale(
     found: list[Path] = []
 
     for relative in COPIES:
-        target = project(brain) / relative
-        if not target.is_file() or target.read_bytes() != wanted.encode("utf-8"):
+        if copy_text(project(brain) / relative) != wanted:
             found.append(relative)
 
     return found
+
+
+def copy_text(
+    target: Path,
+) -> Optional[str]:
+    """What a copy says, read the way it was written, or None when it cannot be read.
+
+    Text mode folds line endings both ways, so a copy written on Windows
+    compares equal to the source rather than reading as stale forever.
+    """
+    if not target.is_file():
+        return None
+
+    try:
+        return target.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return None
 
 
 def write(
