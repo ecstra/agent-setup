@@ -132,6 +132,8 @@ def write(
         document = frontmatter.parse(wanted[path])
         document.set(key="updated", value=stamp)
         path.parent.mkdir(parents=True, exist_ok=True)
+        if path.is_symlink():
+            path.unlink()
         frontmatter.write(path=str(path), document=document)
         changed.append(path)
 
