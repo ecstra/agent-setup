@@ -28,7 +28,10 @@ def version(
     if not stamp.is_file():
         return "unversioned"
 
-    return stamp.read_bytes().decode("utf-8", errors="replace").strip()
+    try:
+        return stamp.read_bytes().decode("utf-8", errors="replace").strip()
+    except OSError:
+        return "unreadable"
 
 
 def status(

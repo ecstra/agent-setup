@@ -123,8 +123,11 @@ def session_start(
 def text_of(
     path: Path,
 ) -> str:
-    """The file as text for the agent's context, whatever bytes it holds."""
-    return path.read_bytes().decode("utf-8", errors="replace")
+    """The file as text for the agent's context, or one line saying why there is none."""
+    try:
+        return path.read_bytes().decode("utf-8", errors="replace")
+    except OSError as error:
+        return f"({store.near(str(path))} cannot be read: {error.strerror or error})"
 
 
 def pre_write(
