@@ -118,9 +118,9 @@ the agent does the filing, because there is a lot of it and every file
 needs the right header block and index line.
 
 Porting builds on the installation above, so do that first, any of the
-three ways, and skip nothing. Keep your old `CLAUDE.md`, `AGENTS.md`,
-or `CONTRIBUTING.md` aside, the copy overwrites them and the agent
-folds them back in.
+three ways, and skip nothing. Keep your old `AGENTS.md`, `CLAUDE.md`,
+`GEMINI.md`, or `CONTRIBUTING.md` aside, the copy overwrites all four
+and the agent folds them back in.
 
 ### What the agent will do
 
