@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py session-start --agent codex --with-rules"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py pre-write --agent codex"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py post-write --agent codex"
+          }
+        ]
+      }
+    ]
+  }
+}

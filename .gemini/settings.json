@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py session-start --agent gemini"
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "matcher": "write_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py pre-write --agent gemini"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "write_file|replace",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py post-write --agent gemini"
+          }
+        ]
+      }
+    ]
+  }
+}
