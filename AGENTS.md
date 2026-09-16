@@ -447,7 +447,7 @@ If something is broken, unclear, or beyond what you can solve cleanly, surface i
 
 **The root holds the front door, `.agent/` holds everything else, and each file has one job.**
 
-Keep the repo root clear of documentation. Only `README.md`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS` belong at the root, because a reader looks for those first. Those are the front door and they carry pointers, not detail. Every other document has exactly one home, the agent directory (section 8). One fact lives in one place, a doc never restates another doc's content, it links.
+Keep the repo root clear of documentation. Only `README.md`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and `CODEOWNERS` belong at the root, because a reader looks for those first. Those are the front door and they carry pointers, not detail. A project may also keep a root `docs/` folder written for human readers alone. Agent knowledge never goes there, it lives in the agent directory (section 8), and a human doc links into it rather than repeating it. Every other document has exactly one home, that directory. One fact lives in one place, a doc never restates another doc's content, it links.
 
 ### 6.1 Where a Doc Goes
 
