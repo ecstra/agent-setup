@@ -26,7 +26,7 @@ written record of what the project knows.
 | `.agent/` | The project's memory. Docs, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
-| `.gitignore` | One line, so a stray worktree folder never gets committed. |
+| `.gitignore` | Keeps your `.env` out of git, along with any stray worktree folder. |
 
 Everything is generic on purpose. Anything specific to your project goes
 in a section called `## 0. Project Rules` at the very top of `CLAUDE.md`
