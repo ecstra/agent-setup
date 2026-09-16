@@ -1,7 +1,7 @@
 ---
 name: agent-readme
 kind: doc
-description: what the .agent directory is and how a cold agent boots from it
+description: what the .agents directory is and how a cold agent boots from it
 updated: 2026-09-16
 links: [agent-index, conventions, house-rules-agent]
 ---

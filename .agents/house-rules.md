@@ -53,7 +53,7 @@ works, reviewers never burn effort on red suites.
    severity before touching anything. No fixing during reporting, no
    silent triage.
 3. **The ledger.** All findings land in
-   `.agent/reviews/<yyyy-mm>-<branch-slug>/ledger.md` per
+   `.agents/reviews/<yyyy-mm>-<branch-slug>/ledger.md` per
    [spec/reviews.md](spec/reviews.md): severity graded (breaks, bug,
    debt, nit), split into themed batches ordered by severity,
    correctness first, nits last. A finding not worth fixing gets a
@@ -69,7 +69,7 @@ works, reviewers never burn effort on red suites.
      repeats until the verifier comes back clean.
    - Sub agents run one at a time, sequentially.
 5. **Batch close.** Mark it in the ledger, report to the owner, and name
-   anything unfixable in scope. Unfixables defer into `.agent/bugs/` as
+   anything unfixable in scope. Unfixables defer into `.agents/bugs/` as
    their own files, linked both ways, and earn a future branch sparingly,
    on the owner's call.
 6. **The owner's ack gates each batch.** The next batch starts only when
@@ -94,7 +94,7 @@ works, reviewers never burn effort on red suites.
 - Never commit to main directly.
 - Worktrees are disabled: never create one, and never use a worktree
   isolation mode for sub-agents. If the owner ever explicitly asks, the
-  one sanctioned home is `.agent/.worktrees/` (gitignored), nowhere
+  one sanctioned home is `.agents/.worktrees/` (gitignored), nowhere
   else, torn down when the task ends.
 
 ## The trackers

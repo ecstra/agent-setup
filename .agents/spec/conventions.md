@@ -1,7 +1,7 @@
 ---
 name: conventions
 kind: doc
-description: the shared rules every file in .agent obeys, frontmatter, naming, links, indexes
+description: the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
 updated: 2026-09-16
 links: [agent-readme]
 ---
@@ -12,7 +12,7 @@ The shared law. Each folder's own spec adds to this, never contradicts it.
 
 ## Frontmatter
 
-Every markdown file in .agent opens with:
+Every markdown file in .agents opens with:
 
 ```
 ---
@@ -42,7 +42,7 @@ Two forms, each with its job:
   survive nothing, so they are kept true: whoever moves or renames a file
   greps its name and fixes every reference in the same commit.
 - Body links are real markdown relative links that actually resolve, to
-  files in .agent and to project files both. A link that does not
+  files in .agents and to project files both. A link that does not
   resolve is a bug.
 
 A frontmatter link to a name that does not exist yet is allowed: it marks
@@ -50,7 +50,7 @@ something worth writing, not an error.
 
 ## Indexes
 
-`.agent/INDEX.md` is the spine: one line per file, grouped by folder.
+`.agents/INDEX.md` is the spine: one line per file, grouped by folder.
 The trackers, the docs library, and memory carry their own INDEX.md too,
 however few files they hold, and the spine may summarize those groups
 with counts plus the open items. `spec/` and `handover/` carry none, the
