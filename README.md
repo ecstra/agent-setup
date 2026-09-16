@@ -280,8 +280,9 @@ land.
     └── billing-cutover.md
 ```
 
-Every folder has an `INDEX.md` that lists what is inside, and
-`.agent/INDEX.md` at the top lists everything. `handover/` is the one
+Every folder that collects files has an `INDEX.md` listing what is
+inside, and `.agent/INDEX.md` at the top lists everything. `spec/` needs
+none, since the spine names every spec. `handover/` is the one
 folder that does not ship, it appears the first time a session hands
 work over.
 
