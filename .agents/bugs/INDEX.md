@@ -2,11 +2,14 @@
 name: bugs-index
 kind: doc
 description: the defect tracker's index, open bugs first
-updated: 2026-08-12
+updated: 2026-09-16
 links: [agent-index, spec-bugs]
 ---
 
 # Bugs Index
 
-Nothing here yet. Defects land per [spec/bugs.md](../spec/bugs.md), open
-bugs listed first grouped by severity, fixed below.
+Open bugs first, grouped by severity. Fixed and wontfix below.
+Filed per [spec/bugs.md](../spec/bugs.md).
+Built by the brain tool from the folder it lists.
+
+Nothing here yet.

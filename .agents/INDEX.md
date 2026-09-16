@@ -8,36 +8,36 @@ links: [agent-readme, conventions, house-rules-agent]
 
 # Index
 
-The spine. Read this first, then follow into the folder indexes. The
-upkeep rule (spec/conventions.md): every file change updates its index
-line in the same commit.
+The spine. Read this first, then follow into the folder indexes.
+Built by the brain tool from the files it lists, so change those files
+rather than this one.
 
 ## The directory itself
 
 - [SYSTEM.md](SYSTEM.md), the rulebook every agent works by, reached through AGENTS.md
-- [README.md](README.md), what this directory is and how to boot from it
-- [house-rules.md](house-rules.md), the branch contract and review protocol, the operating version
-- [spec/conventions.md](spec/conventions.md), the shared law: frontmatter, naming, links, indexes
-- [spec/docs.md](spec/docs.md), format and folder rules for the knowledge library
-- [spec/memory.md](spec/memory.md), format and boundaries for project memory
-- [spec/bugs.md](spec/bugs.md), the defect tracker's format and lifecycle
-- [spec/todos.md](spec/todos.md), the work tracker's format, intake, and lifecycle
-- [spec/decisions.md](spec/decisions.md), one decision per file, how
-- [spec/reviews.md](spec/reviews.md), the review ledger format and lifecycle
-- [spec/handover.md](spec/handover.md), session handoff notes, how
+- [README.md](README.md), what the .agents directory is and how a cold agent boots from it
+- [house-rules.md](house-rules.md), the branch contract and code review protocol, the agent's operating version
+- [spec/conventions.md](spec/conventions.md), the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
+- [spec/docs.md](spec/docs.md), format and folder rules for .agents/docs, the knowledge library
+- [spec/memory.md](spec/memory.md), format and rules for .agents/memory, project facts learned along the way
+- [spec/bugs.md](spec/bugs.md), format and lifecycle for .agents/bugs, the defect tracker
+- [spec/todos.md](spec/todos.md), format and lifecycle for .agents/todos, the work tracker
+- [spec/decisions.md](spec/decisions.md), format for .agents/decisions, one decision per file
+- [spec/reviews.md](spec/reviews.md), format and lifecycle for .agents/reviews, the code review ledgers
+- [spec/handover.md](spec/handover.md), format for .agents/handover, session handoffs
 
 ## The knowledge
 
-- [docs/INDEX.md](docs/INDEX.md), the knowledge library: empty, the project's docs land here
+- [docs/INDEX.md](docs/INDEX.md), the knowledge library: empty
 
 ## The trackers
 
 - [todos/INDEX.md](todos/INDEX.md), the work tracker: empty
 - [bugs/INDEX.md](bugs/INDEX.md), the defect tracker: empty
 - [decisions/INDEX.md](decisions/INDEX.md), the decision record: empty
-- [reviews/INDEX.md](reviews/INDEX.md), code review ledgers: none yet
+- [reviews/INDEX.md](reviews/INDEX.md), code review ledgers: empty
 
 ## Memory and handovers
 
-- [memory/INDEX.md](memory/INDEX.md), project facts: none yet
+- [memory/INDEX.md](memory/INDEX.md), project facts: empty
 - handover/ is born with its first handoff (spec/handover.md)
