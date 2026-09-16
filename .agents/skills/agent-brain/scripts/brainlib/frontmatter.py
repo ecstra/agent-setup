@@ -6,6 +6,7 @@ it. Frontmatter lines are kept as raw text too, so a field nobody edited
 is written back character for character.
 """
 
+import os
 from dataclasses import dataclass
 from typing import Optional
 
@@ -200,5 +201,14 @@ def write(
     path: str,
     document: Document,
 ) -> None:
+    """Write the document as a real file.
+
+    The brain holds real files. A symlink standing in a file's place is
+    replaced rather than written through, so nothing the tool writes
+    ever lands outside `.agents/`.
+    """
+    if os.path.islink(path):
+        os.unlink(path)
+
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(render(document))

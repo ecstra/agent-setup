@@ -132,12 +132,10 @@ def write_one(
     text: str,
     stamp: str = "",
 ) -> Path:
-    """Write one index as built, stamped today unless told otherwise, as a real file."""
+    """Write one index as built, stamped today unless told otherwise."""
     document = frontmatter.parse(text)
     document.set(key="updated", value=stamp or date.today().isoformat())
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.is_symlink():
-        path.unlink()
     frontmatter.write(path=str(path), document=document)
 
     return path
