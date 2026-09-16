@@ -82,9 +82,20 @@ class Entry:
 
 @dataclass
 class Brain:
-    """The `.agents/` directory and everything filed inside it."""
+    """The `.agents/` directory and everything filed inside it.
+
+    Each folder is scanned once per command and the result kept, since a
+    doctor run asks about the same files hundreds of times. Anything that
+    writes calls `refresh` so the next question reads what is on disk.
+    """
 
     root: Path
+
+    def __post_init__(self) -> None:
+        self.loaded: dict[str, list[Entry]] = {}
+
+    def refresh(self) -> None:
+        self.loaded = {}
 
     def folder(
         self,
@@ -105,6 +116,15 @@ class Brain:
         return found
 
     def entries_of(
+        self,
+        kind: schema.Kind,
+    ) -> list[Entry]:
+        if kind.name not in self.loaded:
+            self.loaded[kind.name] = self.scan(kind)
+
+        return list(self.loaded[kind.name])
+
+    def scan(
         self,
         kind: schema.Kind,
     ) -> list[Entry]:

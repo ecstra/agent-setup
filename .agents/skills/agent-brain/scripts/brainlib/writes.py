@@ -71,6 +71,7 @@ def create(
 
     path.parent.mkdir(parents=True, exist_ok=True)
     frontmatter.write(path=str(path), document=document)
+    brain.refresh()
 
     return brain.read(path=path, kind=kind)
 
@@ -101,6 +102,7 @@ def update(
 
     entry.document.set(key="updated", value=stamp)
     frontmatter.write(path=str(entry.path), document=entry.document)
+    brain.refresh()
 
     return brain.read(path=entry.path, kind=entry.kind)
 
