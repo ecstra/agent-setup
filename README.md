@@ -229,8 +229,10 @@ and leave everything your project wrote alone.
   first time.
 - `CONTRIBUTING.md` and `.agents/house-rules.md`: new over old. They
   carry the same rules in shorter form, so they move with the rulebook.
-- `.agents/README.md` and `.agents/spec/`: new over old. Nothing else
-  inside `.agents/` is touched, because the rest of it is your project's.
+- `.agents/README.md` and `.agents/spec/`: new over old, along with the
+  kit's own lines at the top of `.agents/INDEX.md` when a release adds
+  or renames one of its files. Nothing else inside `.agents/` is
+  touched, because the rest of it is your project's.
 
 Or, again, ask the agent to do it.
 
