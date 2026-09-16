@@ -2,8 +2,8 @@
 # owner ever asks is this folder, and its contents never enter git.
 .agent/.worktrees/
 
-# Secrets live in .env and never enter git. The example file is tracked
-# so a fresh clone knows which keys it needs.
+# Secrets live in .env and never enter git. An .env.example stays
+# tracked, so a fresh clone knows which keys it needs.
 .env
 .env.*
 !.env.example
