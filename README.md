@@ -216,7 +216,8 @@ and leave everything your project wrote alone.
   end, so nothing of yours is in there to save.
 - `AGENTS.md`: keep your `## 0. Project Rules` and take the kit's wording
   for the rest. `CLAUDE.md` and `GEMINI.md` never change from one
-  release to the next.
+  release to the next, though the move below puts them in place the
+  first time.
 - `CONTRIBUTING.md` and `.agents/house-rules.md`: new over old. They
   carry the same rules in shorter form, so they move with the rulebook.
 - `.agents/README.md` and `.agents/spec/`: new over old. Nothing else
@@ -234,8 +235,9 @@ branch, and then the list above on top.
 1. Rename `.agent/` to `.agents/` and fix every path that named the old
    folder.
 2. Cut your `## 0. Project Rules` out of `CLAUDE.md` and keep it aside.
-3. Work through the list above, new over old, then paste your section 0
-   at the top of the new `AGENTS.md`.
+3. Work through the list above, new over old. Then copy in the kit's
+   `CLAUDE.md` and `GEMINI.md`, which your layout has stale or missing,
+   and paste your section 0 at the top of the new `AGENTS.md`.
 4. Add a `SYSTEM.md` line to `.agents/INDEX.md`, since the spine carries
    one line per file in the folder.
 5. Replace the kit's old block in your `.gitignore`, where the worktree
