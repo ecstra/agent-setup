@@ -6,11 +6,9 @@ moved or was deleted stays a gap, because the id it held is written into
 commits, ledgers and links that nobody can rewrite.
 """
 
-from __future__ import annotations
-
-import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from . import frontmatter, schema
 
@@ -22,8 +20,6 @@ SKIP_NAMES: frozenset[str] = frozenset(
         "house-rules.md",
     }
 )
-
-SKIP_FOLDERS: frozenset[str] = frozenset({"spec", "skills"})
 
 LEDGER = "ledger.md"
 
@@ -50,7 +46,7 @@ class Entry:
         return self.document.get("name") or self.path.stem
 
     @property
-    def identifier(self) -> str | None:
+    def identifier(self) -> Optional[str]:
         match = schema.FILENAME_WITH_ID.match(self.path.name)
         if match is None:
             return None
@@ -58,7 +54,19 @@ class Entry:
         return f"{match.group(1)}-{match.group(2)}"
 
     @property
-    def number(self) -> int | None:
+    def slug(self) -> str:
+        """The filename with its id taken off, which is what a title becomes."""
+        match = schema.FILENAME_WITH_ID.match(self.path.name)
+        if match is not None:
+            return match.group(3)
+
+        if self.kind.name == "review":
+            return self.path.parent.name
+
+        return self.path.stem
+
+    @property
+    def number(self) -> Optional[int]:
         match = schema.FILENAME_WITH_ID.match(self.path.name)
         if match is None:
             return None
@@ -68,7 +76,7 @@ class Entry:
     def field(
         self,
         key: str,
-    ) -> str | None:
+    ) -> Optional[str]:
         return self.document.get(key)
 
 
@@ -86,7 +94,7 @@ class Brain:
 
     def entries(
         self,
-        kind: schema.Kind | None = None,
+        kind: Optional[schema.Kind] = None,
     ) -> list[Entry]:
         kinds = [kind] if kind is not None else list(schema.KINDS.values())
         found: list[Entry] = []
@@ -160,13 +168,25 @@ class Brain:
     def find(
         self,
         key: str,
-    ) -> Entry | None:
+    ) -> Optional[Entry]:
         """Resolve an id, a name, or a path inside the brain to one entry."""
         for entry in self.entries():
             if key in (entry.identifier, entry.name, entry.relative):
                 return entry
 
             if entry.path.stem == key:
+                return entry
+
+        return None
+
+    def with_slug(
+        self,
+        kind: schema.Kind,
+        slug: str,
+    ) -> Optional[Entry]:
+        """The entry already filed under this title, whatever id it carries."""
+        for entry in self.entries_of(kind):
+            if entry.slug == slug:
                 return entry
 
         return None
@@ -195,7 +215,7 @@ class Brain:
 
 
 def find_brain(
-    start: Path | None = None,
+    start: Optional[Path] = None,
 ) -> Brain:
     """Walk up from `start` until the `.agents/` directory turns up."""
     here = (start or Path.cwd()).resolve()
