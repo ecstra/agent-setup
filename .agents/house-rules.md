@@ -34,8 +34,9 @@ AGENTS.md section 0 names its exact gates, tooling, and PR rules.
 ## The gates
 
 Before any review: every suite, analyzer, and build the project's
-AGENTS.md section 0 names, green. The review judges code that already
-works, reviewers never burn effort on red suites.
+AGENTS.md section 0 names, green, and `brain doctor` clean. The review
+judges code that already works, reviewers never burn effort on red
+suites or a brain with broken links.
 
 ## The review protocol
 
