@@ -66,7 +66,7 @@ def create(
 
     document = frontmatter.Document(
         lines=render_lines(kind=kind, fields=fields),
-        body=body or sections.skeleton(kind=kind, title=title),
+        body=framed(body) if body else sections.skeleton(kind=kind, title=title),
     )
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -198,6 +198,21 @@ def convert(
     brain.refresh()
 
     return created
+
+
+def framed(
+    body: str,
+) -> str:
+    """The prose as given, with a blank line before it and a newline after.
+
+    The text itself is untouched. This only settles where the body sits
+    against the closing fence, which the caller should not have to think
+    about.
+    """
+    opening = "" if body.startswith("\n") else "\n"
+    closing = "" if body.endswith("\n") else "\n"
+
+    return f"{opening}{body}{closing}"
 
 
 def entry_name(
