@@ -5,10 +5,9 @@ in the form doctor and the write commands need, so a rule lives in one
 place here rather than being rediscovered by every command.
 """
 
-from __future__ import annotations
-
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Optional
 
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
@@ -204,7 +203,7 @@ def kind_named(
 
 def kind_for_folder(
     folder: str,
-) -> Kind | None:
+) -> Optional[Kind]:
     for kind in KINDS.values():
         if kind.folder == folder:
             return kind

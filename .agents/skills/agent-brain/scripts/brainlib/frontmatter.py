@@ -6,9 +6,8 @@ it. Frontmatter lines are kept as raw text too, so a field nobody edited
 is written back character for character.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
+from typing import Optional
 
 FENCE = "---"
 
@@ -32,7 +31,7 @@ class Document:
     def get(
         self,
         key: str,
-    ) -> str | None:
+    ) -> Optional[str]:
         for line in self.lines:
             name, value = split_field(line)
             if name == key:
@@ -92,7 +91,7 @@ class Document:
 
 def split_field(
     line: str,
-) -> tuple[str | None, str | None]:
+) -> tuple[Optional[str], Optional[str]]:
     """Split one frontmatter line into its name and its raw value.
 
     A line with no colon is not a field, which is how a continuation line
@@ -152,7 +151,7 @@ def parse(
 
 def find_closing_fence(
     rest: str,
-) -> int | None:
+) -> Optional[int]:
     """Offset of the closing fence line, or None when there is none.
 
     The body of a brain file often carries `---` as a rule between
