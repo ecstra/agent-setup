@@ -49,14 +49,15 @@ def stale(
     brain: store.Brain,
 ) -> list[Path]:
     """The copies that are missing or differ from the source."""
-    wanted = source_body(brain)
-    found: list[Path] = []
+    return stale_against(brain=brain, wanted=source_body(brain))
 
-    for relative in COPIES:
-        if copy_text(project(brain) / relative) != wanted:
-            found.append(relative)
 
-    return found
+def stale_against(
+    brain: store.Brain,
+    wanted: str,
+) -> list[Path]:
+    """The copies that do not say `wanted`, for a caller that read the source once."""
+    return [relative for relative in COPIES if copy_text(project(brain) / relative) != wanted]
 
 
 def copy_text(
@@ -81,14 +82,20 @@ def write(
 ) -> list[Path]:
     """Rewrite the stale copies from the source, and say which ones."""
     wanted = source_body(brain)
-    changed: list[Path] = []
+    changed = stale_against(brain=brain, wanted=wanted)
 
-    for relative in stale(brain):
-        target = project(brain) / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if target.is_symlink():
-            target.unlink()
-        target.write_text(wanted, encoding="utf-8")
-        changed.append(relative)
+    for relative in changed:
+        write_one(target=project(brain) / relative, text=wanted)
 
     return changed
+
+
+def write_one(
+    target: Path,
+    text: str,
+) -> None:
+    """Write one copy as a real file, replacing a symlink rather than writing through it."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.is_symlink():
+        target.unlink()
+    target.write_text(text, encoding="utf-8")

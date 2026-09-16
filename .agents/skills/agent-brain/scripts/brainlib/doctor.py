@@ -528,24 +528,35 @@ def skill_link_trouble(
 def check_style_copies(
     brain: store.Brain,
 ) -> list[Finding]:
-    """Codex and Gemini CLI carry the chat style as copies of the Claude Code one."""
+    """Codex and Gemini CLI carry the chat style as copies of the Claude Code one.
+
+    The source is read once, and each stale copy gets a repair that
+    writes only itself.
+    """
     try:
-        stale = style.stale(brain)
+        wanted = style.source_body(brain)
     except style.StyleError as error:
         return [Finding(path=str(style.SOURCE), check="layout", message=str(error))]
-
-    def repair() -> None:
-        style.write(brain)
 
     return [
         Finding(
             path=str(relative),
             check="layout",
             message="the chat style copy does not match the Claude Code one",
-            repair=repair,
+            repair=write_copy(style.project(brain) / relative, wanted),
         )
-        for relative in stale
+        for relative in style.stale_against(brain=brain, wanted=wanted)
     ]
+
+
+def write_copy(
+    target: Path,
+    text: str,
+) -> Callable[[], None]:
+    def repair() -> None:
+        style.write_one(target=target, text=text)
+
+    return repair
 
 
 def make_skill_link(
