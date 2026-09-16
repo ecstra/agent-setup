@@ -155,10 +155,10 @@ def render_index(
     The date here is a placeholder: `write` stamps the real one and
     `fingerprint` ignores it. A link to a kit file is carried only while
     that file exists, so a project that dropped one does not get a
-    dangling link rebuilt forever. A link to an index is always carried,
-    since the tool writes every index in the same run.
+    dangling link rebuilt forever. The link to the spine is always
+    carried, since the tool writes the spine in the same run.
     """
-    present = [link for link in links if Path(link).name == "INDEX.md" or (brain.root / link).is_file()]
+    present = [link for link in links if link == "INDEX.md" or (brain.root / link).is_file()]
     document = frontmatter.Document(
         lines=[
             f"name: {name}",
