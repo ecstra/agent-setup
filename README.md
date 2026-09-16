@@ -47,7 +47,7 @@ your project and paste this prompt.
 ```text
 Clone https://forge.example.com/example/agent-setup into a temp folder.
 Copy its .agent folder, CLAUDE.md, AGENTS.md, CONTRIBUTING.md and
-CODEOWNERS into this repo. Append its .gitignore line to ours. Put my
+CODEOWNERS into this repo. Append its .gitignore lines to ours. Put my
 handle in CODEOWNERS. If this project already has test, build, or lint
 commands, add a "## 0. Project Rules" section at the very top of
 CLAUDE.md and AGENTS.md naming them as the gates. Then tell me what you
@@ -74,7 +74,7 @@ what you want whether or not you already have one.
 
 Use the Code button at the top of this page and download the ZIP.
 Unzip it and move `.agent`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`,
-and `CODEOWNERS` into your project's root folder, then add the one line
+and `CODEOWNERS` into your project's root folder, then add the lines
 from its `.gitignore` to yours. Two of those (`.agent` and `.gitignore`)
 are hidden files, so if you are in Finder press `Cmd + Shift + .` to
 see them.
