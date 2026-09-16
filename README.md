@@ -80,9 +80,9 @@ the end of yours.
 Use the Code button at the top of this page and download the ZIP.
 Unzip it and move `.agents`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`,
 `CONTRIBUTING.md`, and `CODEOWNERS` into your project's root folder,
-then add the lines from its `.gitignore` to yours. Two of those (`.agents` and `.gitignore`)
-are hidden files, so if you are in Finder press `Cmd + Shift + .` to
-see them.
+then add the lines from its `.gitignore` to yours. Two of those
+(`.agents` and `.gitignore`) are hidden files, so if you are in Finder
+press `Cmd + Shift + .` to see them.
 
 > **Set up by hand?** The agent path does these two edits for you. The
 > terminal and download paths leave them to you.
@@ -125,9 +125,10 @@ and the agent folds them back in.
 ### What the agent will do
 
 1. **Sync with the new rulebook first**: read the new `AGENTS.md` and
-   the rules it points at, then work by them from the first move. The port itself obeys the kit's
-   rules, so every file is written by hand with the proper edit tools,
-   no scripts, and the house style holds throughout.
+   the rules it points at, then work by them from the first move. The
+   port itself obeys the kit's rules, so every file is written by hand
+   with the proper edit tools, no scripts, and the house style holds
+   throughout.
 2. **Read everything**: the whole project, the code, every doc and note
    it can find, then the specs in `.agents/spec/` so it knows the target
    format. It shows you a plan before it moves anything.
@@ -136,10 +137,10 @@ and the agent folds them back in.
    the map below. Your wording is kept in todos and nothing gets
    shortened on the way.
 4. **Port the old rules, never paste them**: your old `AGENTS.md`,
-   `CLAUDE.md`, or `GEMINI.md` is read against the new rules. Whatever the general
-   sections already say is dropped, and only what is truly project
-   specific is rewritten into `## 0. Project Rules` at the top of the
-   new `AGENTS.md`.
+   `CLAUDE.md`, or `GEMINI.md` is read against the new rules. Whatever
+   the general sections already say is dropped, and only what is truly
+   project specific is rewritten into `## 0. Project Rules` at the top
+   of the new `AGENTS.md`.
 5. **Do all of it**: a project can hold hundreds or thousands of files,
    old and new, and the port covers every one, never a sample. If the
    volume calls for it, the agent lists everything in a ledger first and
@@ -157,9 +158,9 @@ and the agent folds them back in.
    whether as a draft is your project's own rule in section 0, so the
    agent never asks. After that the root holds `README.md`, `AGENTS.md`,
    `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md`, and `CODEOWNERS`, plus
-   your `docs/` folder if you keep one. What a person wrote by hand stays as it is,
-   and anything new in there links into `.agents/docs/` rather than
-   repeating it.
+   your `docs/` folder if you keep one. What a person wrote by hand
+   stays as it is, and anything new in there links into `.agents/docs/`
+   rather than repeating it.
 
 ### Where things go
 
