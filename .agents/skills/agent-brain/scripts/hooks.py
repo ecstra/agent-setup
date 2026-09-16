@@ -89,6 +89,10 @@ def session_start(
         if rules.is_file():
             text += "\n\nThe rules this project works by, from .agents/SYSTEM.md:\n\n" + rules.read_text(encoding="utf-8")
 
+        chat_style = brain.root.parent / f".{agent}" / "plain-and-short.md"
+        if chat_style.is_file():
+            text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + chat_style.read_text(encoding="utf-8")
+
     emit_context(agent, text, event_name="SessionStart")
     return 0
 

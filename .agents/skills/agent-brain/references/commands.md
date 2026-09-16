@@ -85,7 +85,7 @@ standard input:
 
 | Event | What happens |
 |---|---|
-| `session-start` | Prints `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md`, for an agent that does not expand imports. |
+| `session-start` | Prints `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy, for an agent that does not expand imports. |
 | `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, or an `INDEX.md`. Edits to existing files, spec files and skill files pass. |
 | `post-write` | After a write inside `.agents/`, runs doctor and hands its findings back as context. |
 
