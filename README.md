@@ -212,8 +212,8 @@ and leave everything your project wrote alone.
 - `AGENTS.md`: copy the result of the step above into it.
 - `CONTRIBUTING.md` and `.agent/house-rules.md`: new over old. They
   carry the same rules in shorter form, so they move with the rulebook.
-- `.agent/spec/`: new spec over old. Nothing else inside `.agent/` is
-  touched, because the rest of it is your project's.
+- `.agent/README.md` and `.agent/spec/`: new over old. Nothing else
+  inside `.agent/` is touched, because the rest of it is your project's.
 
 Or, again, ask the agent to do it.
 
