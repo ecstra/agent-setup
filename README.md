@@ -100,8 +100,8 @@ press `Cmd + Shift + .` to see them.
 >    analyzers, builds, and validators that must be green before a
 >    review), the tooling (how PRs are opened, how the app runs),
 >    anything else the general sections do not cover. A project with no
->    gates yet has nothing to put there,
->    so skip it and add it when the first gate exists.
+>    gates yet has nothing to put there, so skip it and add it when the
+>    first gate exists.
 
 Commit, and start your first session. The agent reads `.agents/INDEX.md`
 on its own, you do not need to point at anything.
@@ -200,20 +200,18 @@ everything in .agents/spec/ so you know the target format. Show me a
 plan of what goes where before you move anything. Then file it all into
 .agents/ (docs, decisions, todos, bugs, memory, everything) one file at
 a time with correct frontmatter and index lines, keeping my wording in
-todos.
-Do not paste any of our old rulebook files into section 0: read them
-against the new rulebook, drop what the general sections already
+todos. Do not paste any of our old rulebook files into section 0: read
+them against the new rulebook, drop what the general sections already
 cover, and rewrite only the truly project specific parts into
 "## 0. Project Rules" at the top of AGENTS.md, and our old
 CONTRIBUTING.md the same way, its extra rules into section 0. This may
 be hundreds or thousands of files. Do every one, never a sample. If the
-volume needs
-it, list everything in a ledger first and work in batches, ticking
-each file off. When it is all filed, delete the old copies of the docs
-you moved, but leave anything a human wrote by hand where it is and
-list those for me. If we set an old CODEOWNERS aside, put our own
-ownership rules back into it. Then tell me what you did and where, and
-wait for me to call the review.
+volume needs it, list everything in a ledger first and work in batches,
+ticking each file off. When it is all filed, delete the old copies of
+the docs you moved, but leave anything a human wrote by hand where it
+is and list those for me. If we set an old CODEOWNERS aside, put our
+own ownership rules back into it. Then tell me what you did and where,
+and wait for me to call the review.
 ```
 
 ## Keeping the kit current
