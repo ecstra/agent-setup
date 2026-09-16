@@ -126,7 +126,11 @@ def broken(
 def broken_in_body(
     entry: store.Entry,
 ) -> list[str]:
-    """Relative markdown links in the body that do not reach a file."""
+    """Markdown links in the body that do not reach a file from where they stand.
+
+    A body link is relative to its file, so an absolute one is broken
+    however the machine it was written on is laid out.
+    """
     found: list[str] = []
 
     for match in MARKDOWN_LINK.finditer(entry.document.body):
@@ -134,7 +138,8 @@ def broken_in_body(
         if "://" in target or target.startswith("#"):
             continue
 
-        if not (entry.path.parent / target.split("#")[0]).exists():
+        file_part = target.split("#")[0]
+        if Path(file_part).is_absolute() or not (entry.path.parent / file_part).exists():
             found.append(target)
 
     return found
