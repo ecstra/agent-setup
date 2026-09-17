@@ -41,6 +41,7 @@ def main(
         writes.WriteError,
         ledger.LedgerError,
         frontmatter.FrontmatterError,
+        schema.UnknownKind,
         OSError,
         KeyError,
     ) as error:

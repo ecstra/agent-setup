@@ -231,12 +231,16 @@ def is_kit_path(
     return len(parts) == 2 and parts[0] in INDEXED_FOLDERS and parts[1] == INDEX
 
 
+class UnknownKind(Exception):
+    """A kind name the spec does not know, with the known ones in the message."""
+
+
 def kind_named(
     name: str,
 ) -> Kind:
     if name not in KINDS:
         known = ", ".join(sorted(KINDS))
-        raise KeyError(f"unknown kind '{name}', expected one of {known}")
+        raise UnknownKind(f"unknown kind '{name}', expected one of {known}")
 
     return KINDS[name]
 

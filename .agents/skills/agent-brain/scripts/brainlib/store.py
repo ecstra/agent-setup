@@ -305,13 +305,20 @@ def category_folder(
 def explain(
     error: BaseException,
 ) -> str:
-    """The error as one plain line, an OS error without the machine's path."""
+    """The error as one plain line, an OS error without the machine's path.
+
+    A KeyError prints its key in quotes, which is the key that was
+    looked up and not found, so it reads as that.
+    """
     if isinstance(error, OSError) and error.filename:
         reason = error.strerror or type(error).__name__
 
         return f"{reason}: {near(os.fsdecode(error.filename))}"
 
-    return str(error).strip("'")
+    if isinstance(error, KeyError) and error.args:
+        return f"{error.args[0]} is missing"
+
+    return str(error)
 
 
 def near(
