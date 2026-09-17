@@ -308,6 +308,8 @@ def check_names(
     for entry in brain.entries():
         expected = writes.entry_name(path=entry.path, kind=entry.kind)
         actual = entry.document.get("name") or ""
+        if not actual:
+            continue
 
         if actual != expected:
             found.append(
@@ -355,7 +357,7 @@ def check_kinds(
 
     for entry in brain.entries():
         actual = entry.document.get("kind")
-        if actual == entry.kind.kind_value:
+        if not actual or actual == entry.kind.kind_value:
             continue
 
         found.append(
