@@ -39,7 +39,7 @@ def status(
 ) -> dict:
     """The whole picture in one structure: version, health, and counts."""
     findings = doctor.run(brain)
-    counts = {kind.name: tally(brain.entries_of(kind), "status") for kind in schema.KINDS.values()}
+    counts = {kind.name: counted(brain.entries_of(kind), kind) for kind in schema.KINDS.values()}
     reviews = [entry for entry in brain.entries_of(schema.kind_named("review")) if entry.field("status") == "open"]
     handovers = brain.entries_of(schema.kind_named("handover"))
 
@@ -52,6 +52,17 @@ def status(
         "latest_handover": handovers[-1].relative if handovers else None,
         "unreadable": [str(path.relative_to(brain.root)) for path in brain.unreadable],
     }
+
+
+def counted(
+    entries: list[store.Entry],
+    kind: schema.Kind,
+) -> dict[str, int]:
+    """The kind's files by status, or just how many are filed when the kind has no status."""
+    if any(field.name == "status" for field in kind.fields):
+        return tally(entries, "status")
+
+    return {"filed": len(entries)} if entries else {}
 
 
 def tally(
