@@ -348,9 +348,9 @@ def render_lines(
     kind: schema.Kind,
     fields: dict[str, str],
 ) -> list[str]:
-    """Frontmatter lines in the order the spec lists them."""
+    """Frontmatter lines in the order the spec lists them, each value as written, trimmed."""
     return [
-        f"{item.name}: {fields[item.name]}"
+        f"{item.name}: {fields[item.name].strip()}"
         for item in schema.fields_for(kind)
         if item.name in fields
     ]
@@ -385,6 +385,8 @@ def check_against(
 
     for item in items:
         value = fields.get(item.name, "").strip()
+        if "\n" in value or "\r" in value:
+            raise WriteError(f"{item.name} is one line, and this one has a line break in it")
 
         if item.required and not value:
             raise WriteError(f"a {kind.name} needs {item.name} filled in")

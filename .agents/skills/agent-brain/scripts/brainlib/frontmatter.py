@@ -63,6 +63,11 @@ class Document:
         key: str,
         value: str,
     ) -> None:
+        """Set one field, on one line. A value that would not fit on a line is refused."""
+        key, value = key.strip(), value.strip()
+        if "\n" in key or "\r" in key or "\n" in value or "\r" in value:
+            raise FrontmatterError(f"{key} is one line, and this value has a line break in it")
+
         for index, line in enumerate(self.lines):
             name, _ = split_field(line)
             if name == key:
@@ -177,6 +182,9 @@ def check_lines(
     seen: set[str] = set()
 
     for number, line in enumerate(lines, start=2):
+        if "\n" in line or "\r" in line:
+            raise FrontmatterError(f"line {number} of the header has a line break in it")
+
         name, _ = split_field(line)
         if name is None:
             raise FrontmatterError(line_trouble(line=line, number=number))
@@ -226,6 +234,12 @@ def find_closing_fence(
 def render(
     document: Document,
 ) -> str:
+    """The file's text, refused when its header could not be read back.
+
+    The same rules the parser holds are held here, so a document built
+    with a line the parser would refuse never reaches the disk.
+    """
+    check_lines(document.lines)
     head = "\n".join(document.lines)
     if head:
         head += "\n"
