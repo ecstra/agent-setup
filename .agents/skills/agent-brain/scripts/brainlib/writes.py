@@ -106,11 +106,7 @@ def update(
     fields.update(changes)
 
     check(kind=entry.kind, fields=fields)
-    check_transition(
-        entry=entry,
-        changes=changes,
-        fields=fields,
-    )
+    check_rules(entry=entry, fields=fields)
 
     for name, value in changes.items():
         entry.document.set(key=name, value=value)
@@ -435,15 +431,16 @@ def check_against(
             raise WriteError(f"{item.name} reads YYYY-MM-DD, not '{value}'")
 
 
-def check_transition(
+def check_rules(
     entry: store.Entry,
-    changes: dict[str, str],
     fields: dict[str, str],
 ) -> None:
-    """The lifecycle rules a status change has to satisfy, the kind's own table."""
-    if "status" not in changes:
-        return
+    """The lifecycle rules the file must hold to as the change would leave it.
 
+    Every change is judged, not only one that moves the status, so a
+    done todo cannot lose its date and a refiled bug cannot lose its
+    link, and the writer never leaves a file that doctor would flag.
+    """
     gaps = sections.lifecycle_gaps(kind=entry.kind, fields=fields, body=entry.document.body)
     if gaps:
         raise WriteError(gaps[0])

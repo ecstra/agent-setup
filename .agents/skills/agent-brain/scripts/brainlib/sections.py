@@ -114,7 +114,7 @@ def lifecycle_gaps(
         if rule.section and not is_filled(body=body, title=rule.section):
             gaps.append(rule.says)
 
-        if rule.link_kind and not links_into(fields=fields, folder=schema.KINDS[rule.link_kind].folder):
+        if rule.link_kind and not links_into(fields=fields, kind=schema.KINDS[rule.link_kind]):
             gaps.append(rule.says)
 
     return gaps
@@ -122,10 +122,26 @@ def lifecycle_gaps(
 
 def links_into(
     fields: dict[str, str],
-    folder: str,
+    kind: schema.Kind,
 ) -> bool:
-    """Whether the header's links reach into the named folder."""
-    return any(link.startswith(f"{folder}/") for link in frontmatter.parse_list(fields.get("links", "")))
+    """Whether the header links to an entry of the kind, judged by the shape of the path.
+
+    A path in the kind's folder that is not its index and, for a kind
+    with ids, carries the kind's own id in its name. Whether the file is
+    there is the link check's business.
+    """
+    for link in frontmatter.parse_list(fields.get("links", "")):
+        parts = link.split("/")
+        if len(parts) < 2 or parts[0] != kind.folder or parts[-1] == schema.INDEX:
+            continue
+
+        match = schema.FILENAME_WITH_ID.match(parts[-1])
+        if kind.has_ids and (match is None or match.group(1) != kind.id_prefix):
+            continue
+
+        return True
+
+    return False
 
 
 def skeleton(
