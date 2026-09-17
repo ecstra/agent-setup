@@ -155,28 +155,50 @@ def rewrite_references(
     """Point every frontmatter link at `old` to `new`, stamping each file touched.
 
     Paths are root relative. A file whose links change has changed, so
-    it gets the date like any other edit, per the upkeep rule.
+    it gets the date like any other edit, per the upkeep rule. The
+    writes go all together or not at all: a file that cannot be written
+    puts the ones before it back, so no link points at a path that the
+    rename then never made.
     """
     stamp = stamp or date.today().isoformat()
-    changed: list[Path] = []
-
+    planned: list[tuple[store.Entry, list[str]]] = []
     for entry in brain.entries():
-        current = outgoing(entry)
-        updated = [
-            new if link == old or canonical(brain, link) == old else link
-            for link in current
-        ]
-        if updated == current:
-            continue
+        moved = moved_links(brain=brain, entry=entry, old=old, new=new)
+        if moved is not None:
+            planned.append((entry, moved))
 
-        entry.document.set_list(key="links", values=updated)
-        entry.document.set(key="updated", value=stamp)
-        frontmatter.write(path=str(entry.path), document=entry.document)
-        changed.append(entry.path)
+    written: dict[Path, str] = {}
 
-    brain.refresh()
+    try:
+        for entry, moved in planned:
+            before = frontmatter.load(str(entry.path))
+            entry.document.set_list(key="links", values=moved)
+            entry.document.set(key="updated", value=stamp)
+            frontmatter.write(path=str(entry.path), document=entry.document)
+            written[entry.path] = before
+    except OSError:
+        for path, before in written.items():
+            path.write_text(before, encoding="utf-8")
+        raise
+    finally:
+        brain.refresh()
 
-    return changed
+    return list(written)
+
+
+def moved_links(
+    brain: store.Brain,
+    entry: store.Entry,
+    old: str,
+    new: str,
+) -> Optional[list[str]]:
+    """The entry's links with `old` pointed at `new`, or None when none point there."""
+    current = outgoing(entry)
+    moved = [new if link == old or canonical(brain, link) == old else link for link in current]
+    if moved == current:
+        return None
+
+    return moved
 
 
 def kit_documents(
