@@ -280,7 +280,7 @@ def common_field_gap(
             path=where,
             check="frontmatter",
             message="links is blank, none is written as []",
-            repair=set_field(path, "links", "[]"),
+            repair=set_field(path=path, key="links", value="[]"),
         )
 
     state = "is blank" if present else "field is missing"
@@ -317,7 +317,7 @@ def check_names(
                     path=entry.relative,
                     check="name",
                     message=f"name is '{actual}', the file says '{expected}'",
-                    repair=set_field(entry.path, "name", expected),
+                    repair=set_field(path=entry.path, key="name", value=expected),
                 )
             )
 
