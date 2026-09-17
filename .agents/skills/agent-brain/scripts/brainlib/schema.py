@@ -122,9 +122,21 @@ KINDS: dict[str, Kind] = {
             Section(title="Verification", required=False),
         ),
         rules=(
-            Rule(status="fixed", says="a bug goes fixed once its Fix section names the cause and the commit", section="Fix"),
-            Rule(status="wontfix", says="a wontfix needs its reason written under Problem", section="Problem"),
-            Rule(status="refiled", says="a refiled bug links to the todo it became", link_kind="todo"),
+            Rule(
+                status="fixed",
+                says="a bug goes fixed once its Fix section names the cause and the commit",
+                section="Fix",
+            ),
+            Rule(
+                status="wontfix",
+                says="a wontfix needs its reason written under Problem",
+                section="Problem",
+            ),
+            Rule(
+                status="refiled",
+                says="a refiled bug links to the todo it became",
+                link_kind="todo",
+            ),
         ),
     ),
     "todo": Kind(
@@ -150,11 +162,31 @@ KINDS: dict[str, Kind] = {
             Section(title="Done when"),
         ),
         rules=(
-            Rule(status="done", says="a todo goes done with its closing date, done=YYYY-MM-DD", field="done"),
-            Rule(status="done", says="a todo goes done once Done when names what closed it", section="Done when"),
-            Rule(status="dropped", says="a todo goes dropped with its closing date, done=YYYY-MM-DD", field="done"),
-            Rule(status="refiled", says="a todo goes refiled with its closing date, done=YYYY-MM-DD", field="done"),
-            Rule(status="refiled", says="a refiled todo links to the bug it became", link_kind="bug"),
+            Rule(
+                status="done",
+                says="a todo goes done with its closing date, done=YYYY-MM-DD",
+                field="done",
+            ),
+            Rule(
+                status="done",
+                says="a todo goes done once Done when names what closed it",
+                section="Done when",
+            ),
+            Rule(
+                status="dropped",
+                says="a todo goes dropped with its closing date, done=YYYY-MM-DD",
+                field="done",
+            ),
+            Rule(
+                status="refiled",
+                says="a todo goes refiled with its closing date, done=YYYY-MM-DD",
+                field="done",
+            ),
+            Rule(
+                status="refiled",
+                says="a refiled todo links to the bug it became",
+                link_kind="bug",
+            ),
         ),
     ),
     "decision": Kind(
@@ -176,7 +208,11 @@ KINDS: dict[str, Kind] = {
             Section(title="Consequences", required=False),
         ),
         rules=(
-            Rule(status="superseded", says="a superseded decision names the one that replaced it", field="superseded-by"),
+            Rule(
+                status="superseded",
+                says="a superseded decision names the one that replaced it",
+                field="superseded-by",
+            ),
         ),
     ),
     "review": Kind(
