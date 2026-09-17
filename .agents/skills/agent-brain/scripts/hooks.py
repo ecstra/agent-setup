@@ -257,29 +257,26 @@ def header_change(
     header block, every line between the fences except the updated date
     the upkeep rule asks the agent to move, must come out as it went in.
     A file whose header does not read is already broken, so the write is
-    taken as the repair, and it must at least leave a header that reads,
-    then doctor judges the rest. A file the hook cannot open at all is
-    not judged. A hunk that fits nowhere is judged by its shape: refused
-    when it carries a fence or a header field, since the hook cannot
-    tell where it would land.
+    taken as the repair and held to one thing, leaving a header that
+    reads, then doctor judges the rest. A file the hook cannot open at
+    all is not judged. A hunk that fits nowhere is judged by its shape
+    either way: refused when it carries a fence or a header field, since
+    the hook cannot tell where it would land.
     """
     try:
         text = frontmatter.load(str(touch.path))
     except frontmatter.FrontmatterError:
         return None
 
+    current: Optional[frontmatter.Document] = None
+    trouble = ""
     try:
         current = frontmatter.parse(text)
-    except frontmatter.FrontmatterError as trouble:
-        return repair_verdict(touch=touch, text=text, inside=inside, trouble=trouble)
+    except frontmatter.FrontmatterError as error:
+        trouble = str(error)
 
-    loose: tuple[tuple[str, ...], ...] = ()
-    if touch.hunks:
-        after, loose = patched(text=text, hunks=touch.hunks)
-    else:
-        after = outcome(touch=touch, text=text)
-
-    names = field_names(current=current, inside=inside)
+    after, loose = outcome_of(touch=touch, text=text)
+    names = field_names(inside=inside, lines=current.lines if current is not None else [])
     for hunk in loose:
         line = header_line_in(hunk=hunk, names=names)
         if line is not None:
@@ -291,26 +288,49 @@ def header_change(
     try:
         wanted = frontmatter.parse(after)
     except frontmatter.FrontmatterError as error:
+        if current is None:
+            return still_broken(inside=inside, trouble=trouble, error=str(error))
+
         return f"{inside}: after that write the header would not read, {error}, and {HEADER_IS_THE_TOOLS}"
 
-    if header_lines(wanted) != header_lines(current):
+    if current is not None and header_lines(wanted) != header_lines(current):
         return f"{inside}: {HEADER_IS_THE_TOOLS}"
 
     return None
 
 
-def field_names(
-    current: frontmatter.Document,
+def outcome_of(
+    touch: Touch,
+    text: str,
+) -> tuple[Optional[str], tuple[tuple[str, ...], ...]]:
+    """The file as the write would leave it, and the hunks of a patch that fit nowhere."""
+    if touch.hunks:
+        return patched(text=text, hunks=touch.hunks)
+
+    return outcome(touch=touch, text=text), ()
+
+
+def still_broken(
     inside: str,
+    trouble: str,
+    error: str,
+) -> str:
+    return f"{inside} does not read as a header now, {trouble}, and that write would not make it one, {error}"
+
+
+def field_names(
+    inside: str,
+    lines: list[str],
 ) -> set[str]:
     """The fields this file's header carries or could carry, the updated date aside.
 
     What the file holds now plus what its kind's spec allows, so a loose
     hunk that adds an optional field the file does not yet carry is
     still read as header work, while a prose line with a colon whose
-    name is neither is not.
+    name is neither is not. A file whose header does not read offers no
+    lines, and its kind's fields still count.
     """
-    names = {name for name in (frontmatter.split_field(line)[0] for line in current.lines) if name is not None}
+    names = {name for name in (frontmatter.split_field(line)[0] for line in lines) if name is not None}
     kind = schema.kind_for_folder(Path(inside).parts[0])
     if kind is not None:
         names |= {field.name for field in schema.fields_for(kind)}
@@ -327,34 +347,6 @@ def header_line_in(
         text = line[1:]
         if text == frontmatter.FENCE or frontmatter.split_field(text)[0] in names:
             return text
-
-    return None
-
-
-def repair_verdict(
-    touch: Touch,
-    text: str,
-    inside: str,
-    trouble: frontmatter.FrontmatterError,
-) -> Optional[str]:
-    """Why a write to a file whose header does not read may not go ahead, or None if it may.
-
-    There is no header to hold the write to, so the one thing asked is
-    that the file reads as a header afterwards. A patch that fits
-    nowhere on such a file has nothing to say and is let through.
-    """
-    if touch.hunks:
-        after, _ = patched(text=text, hunks=touch.hunks)
-    else:
-        after = outcome(touch=touch, text=text)
-
-    if after is None:
-        return None
-
-    try:
-        frontmatter.parse(after)
-    except frontmatter.FrontmatterError as error:
-        return f"{inside} does not read as a header now, {trouble}, and that write would not make it one, {error}"
 
     return None
 
