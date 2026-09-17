@@ -17,7 +17,7 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional
 
@@ -40,14 +40,18 @@ class Touch:
     """One file a write event reaches, with what the write would do to it.
 
     `content` is the whole new text when the tool writes a file whole,
-    `old_string` the text an edit replaces, `removed` the lines a patch
-    takes out. Whichever the agent's tool provides, the hook reads.
+    `old_string` and `new_string` the edit a tool makes in place, and
+    `hunks` the blocks a patch applies, each line still carrying its
+    leading space, minus or plus. Whichever the agent's tool provides,
+    the hook works out the file as the write would leave it.
     """
 
     path: Path
     content: Optional[str] = None
     old_string: Optional[str] = None
-    removed: tuple[str, ...] = ()
+    new_string: Optional[str] = None
+    replace_all: bool = False
+    hunks: tuple[tuple[str, ...], ...] = ()
 
 
 def main(
@@ -222,11 +226,13 @@ def header_change(
 ) -> Optional[str]:
     """Why this write to an existing brain file may not go ahead, or None if it may.
 
-    The header block is every line between the fences except the
-    updated date, which the upkeep rule asks the agent to move. A tool
-    that writes the file whole shows its new text, one that edits shows
-    the text it replaces, a patch shows the lines it takes out, and each
-    is judged by whether it reaches the header.
+    The file is judged as the write would leave it: the whole new text,
+    the text after the edit, or the file after the patch's hunks. Its
+    header block, every line between the fences except the updated date
+    the upkeep rule asks the agent to move, must come out as it went in.
+    A file the hook cannot read is already broken, so the write is taken
+    as the repair and doctor judges the result. A patch whose hunk does
+    not fit the file is not judged either, since it will not apply.
     """
     try:
         text = frontmatter.load(str(touch.path))
@@ -234,22 +240,72 @@ def header_change(
     except frontmatter.FrontmatterError:
         return None
 
-    header = header_lines(current)
+    after = outcome(touch=touch, text=text)
+    if after is None:
+        return None
 
+    try:
+        wanted = frontmatter.parse(after)
+    except frontmatter.FrontmatterError:
+        return f"{inside} would lose its header block, and {HEADER_IS_THE_TOOLS}"
+
+    if header_lines(wanted) != header_lines(current):
+        return f"{inside}: {HEADER_IS_THE_TOOLS}"
+
+    return None
+
+
+def outcome(
+    touch: Touch,
+    text: str,
+) -> Optional[str]:
+    """The file's text as the write would leave it, or None when nothing says."""
     if touch.content is not None:
-        try:
-            wanted = frontmatter.parse(touch.content)
-        except frontmatter.FrontmatterError:
-            return f"{inside} would lose its header block, and {HEADER_IS_THE_TOOLS}"
+        return touch.content
 
-        if header_lines(wanted) != header:
-            return f"{inside}: {HEADER_IS_THE_TOOLS}"
+    if touch.old_string is not None:
+        new = touch.new_string or ""
+        if touch.replace_all:
+            return text.replace(touch.old_string, new)
 
-    if touch.old_string and edit_reaches_header(text=text, old_string=touch.old_string):
-        return f"{inside}: {HEADER_IS_THE_TOOLS}"
+        return text.replace(touch.old_string, new, 1)
 
-    if any(line in header for line in touch.removed):
-        return f"{inside}: {HEADER_IS_THE_TOOLS}"
+    if touch.hunks:
+        return patched(text=text, hunks=touch.hunks)
+
+    return None
+
+
+def patched(
+    text: str,
+    hunks: tuple[tuple[str, ...], ...],
+) -> Optional[str]:
+    """The text after each hunk's before lines are swapped for its after lines."""
+    lines = text.split("\n")
+
+    for hunk in hunks:
+        before = [line[1:] for line in hunk if line[:1] in (" ", "-")]
+        after = [line[1:] for line in hunk if line[:1] in (" ", "+")]
+        start = block_start(lines=lines, block=before)
+        if start is None:
+            return None
+
+        lines[start : start + len(before)] = after
+
+    return "\n".join(lines)
+
+
+def block_start(
+    lines: list[str],
+    block: list[str],
+) -> Optional[int]:
+    """Where a run of lines first occurs, or None when it does not, or is empty."""
+    if not block:
+        return None
+
+    for start in range(len(lines) - len(block) + 1):
+        if lines[start : start + len(block)] == block:
+            return start
 
     return None
 
@@ -258,40 +314,6 @@ def header_lines(
     document: frontmatter.Document,
 ) -> list[str]:
     return [line for line in document.lines if frontmatter.split_field(line)[0] != "updated"]
-
-
-def edit_reaches_header(
-    text: str,
-    old_string: str,
-) -> bool:
-    """Whether the text an edit replaces lies in the header, the updated line aside."""
-    end = frontmatter.header_end(text)
-    if end is None:
-        return False
-
-    start = 0
-    while True:
-        found = text.find(old_string, start)
-        if found < 0 or found >= end:
-            return False
-
-        if not within_updated_line(text=text, start=found, stop=found + len(old_string)):
-            return True
-
-        start = found + 1
-
-
-def within_updated_line(
-    text: str,
-    start: int,
-    stop: int,
-) -> bool:
-    line_start = text.rfind("\n", 0, start) + 1
-    line_end = text.find("\n", line_start)
-    if line_end < 0:
-        line_end = len(text)
-
-    return text[line_start:line_end].startswith("updated:") and stop <= line_end
 
 
 def post_write(
@@ -341,8 +363,10 @@ def touches(
             found.append(
                 Touch(
                     path=absolute(base=base, value=value.strip()),
-                    content=text_field(tool_input, "content"),
-                    old_string=text_field(tool_input, "old_string"),
+                    content=text_field(tool_input=tool_input, key="content"),
+                    old_string=text_field(tool_input=tool_input, key="old_string"),
+                    new_string=text_field(tool_input=tool_input, key="new_string"),
+                    replace_all=bool(tool_input.get("replace_all") or tool_input.get("allow_multiple")),
                 )
             )
 
@@ -366,20 +390,38 @@ def patch_touches(
     base: Path,
     patch: str,
 ) -> list[Touch]:
-    """Every file a Codex patch names, with the lines an update takes out."""
-    found: list[Touch] = []
-    removed: list[str] = []
+    """Every file a Codex patch names, an update carrying its hunks.
 
-    for line in patch.splitlines():
+    A hunk opens at `@@` and holds context, removed and added lines,
+    each with its leading character. It closes at the next `@@`, the
+    next file marker, or the end of file mark.
+    """
+    found: list[Touch] = []
+    hunk: list[str] = []
+    updating: Optional[int] = None
+
+    def close_hunk() -> None:
+        if updating is not None and hunk:
+            found[updating] = replace(found[updating], hunks=found[updating].hunks + (tuple(hunk),))
+        hunk.clear()
+
+    for raw in patch.splitlines():
+        line = raw.rstrip("\r")
         marker = MARKER.match(line)
         if marker is not None:
+            close_hunk()
             found.append(Touch(path=absolute(base=base, value=marker.group(2))))
-            removed = []
+            updating = len(found) - 1 if marker.group(1) == "Update File" else None
             continue
 
-        if found and line.startswith("-"):
-            removed.append(line[1:].rstrip("\r"))
-            found[-1] = Touch(path=found[-1].path, removed=tuple(removed))
+        if line.startswith("@@") or line.startswith("*** End"):
+            close_hunk()
+            continue
+
+        if updating is not None and line[:1] in (" ", "-", "+"):
+            hunk.append(line)
+
+    close_hunk()
 
     return found
 
