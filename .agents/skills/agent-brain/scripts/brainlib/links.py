@@ -169,11 +169,21 @@ def body_targets(
     spans = sections.code_spans(body)
 
     return [
-        match.group(1)
+        bare(match.group(1))
         for pattern in (MARKDOWN_LINK, REFERENCE_LINK)
         for match in pattern.finditer(body)
         if not sections.in_code(spans=spans, position=match.start())
     ]
+
+
+def bare(
+    target: str,
+) -> str:
+    """The target without the angle brackets markdown allows around one."""
+    if target.startswith("<") and target.endswith(">"):
+        return target[1:-1]
+
+    return target
 
 
 def documents(
@@ -330,7 +340,7 @@ def moved_body(
     spans: list[tuple[int, int]] = []
 
     def moved(match: re.Match) -> str:
-        target = match.group(1)
+        target = bare(match.group(1))
         if sections.in_code(spans=spans, position=match.start()):
             return match.group(0)
 
@@ -342,6 +352,8 @@ def moved_body(
             return match.group(0)
 
         replacement = os.path.relpath(str(brain.root / new), str(folder)) + hash_sign + anchor
+        if target != match.group(1):
+            replacement = f"<{replacement}>"
         head = match.group(0)[: match.start(1) - match.start(0)]
         tail = match.group(0)[match.end(1) - match.start(0) :]
 
