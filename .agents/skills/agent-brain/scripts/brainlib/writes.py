@@ -157,8 +157,8 @@ def retitle(
     try:
         frontmatter.write(path=str(entry.path), document=entry.document)
         entry.path.rename(target)
-    except OSError:
-        undo_retitle(path=entry.path, before=before, moved=moved)
+    except OSError as error:
+        undo_retitle(path=entry.path, before=before, moved=moved, error=error)
         raise
     finally:
         brain.refresh()
@@ -170,11 +170,13 @@ def undo_retitle(
     path: Path,
     before: str,
     moved: list[links.Planned],
+    error: OSError,
 ) -> None:
     """Put the file and every link that followed it back, or say which would not go.
 
     The file goes back only if it changed. A write refused up front
     left it as it was, and a refused file cannot take the restore either.
+    What could not go back is named beside the failure that started it.
     """
     stuck: list[Path] = []
 
@@ -186,7 +188,7 @@ def undo_retitle(
 
     stuck += links.put_back_all(moved)
     if stuck:
-        raise OSError(f"the retitle failed, and {links.names_of(stuck)} could not be put back")
+        raise OSError(f"{store.explain(error)}, and {links.names_of(stuck)} could not be put back") from error
 
 
 def occupied(
