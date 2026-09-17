@@ -30,6 +30,13 @@ def project(
     return brain.root.parent
 
 
+def folders(
+    brain: store.Brain,
+) -> list[Path]:
+    """The folders the style files live in, where a write in flight would be left."""
+    return [project(brain) / relative.parent for relative in (SOURCE, *COPIES)]
+
+
 def source_body(
     brain: store.Brain,
 ) -> str:
