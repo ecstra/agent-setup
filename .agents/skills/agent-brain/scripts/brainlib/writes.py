@@ -346,10 +346,8 @@ def settled_links(
     found: list[str] = []
 
     for link in wanted:
-        if link in existing:
-            found.append(link)
-        else:
-            found.extend(path_links(brain=brain, references=[link]))
+        settled = [link] if link in existing else path_links(brain=brain, references=[link])
+        found += [path for path in settled if path not in found]
 
     return found
 
@@ -358,7 +356,7 @@ def path_links(
     brain: store.Brain,
     references: list[str],
 ) -> list[str]:
-    """Every link in path form, refused when one reaches nothing in the brain."""
+    """Every link in path form, each once, refused when one reaches nothing in the brain."""
     found: list[str] = []
 
     for reference in references:
@@ -366,7 +364,8 @@ def path_links(
         if path is None:
             raise WriteError(f"link '{reference}' reaches nothing inside .agents/")
 
-        found.append(path)
+        if path not in found:
+            found.append(path)
 
     return found
 
