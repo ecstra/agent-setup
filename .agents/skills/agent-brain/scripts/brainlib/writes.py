@@ -53,13 +53,9 @@ def create(
         raise WriteError(f"{path.name} is already filed")
 
     name = entry_name(path=path, kind=kind)
-    try:
-        holder = brain.find(name)
-    except store.Ambiguous as clash:
-        raise WriteError(str(clash)) from clash
-
+    holder = holder_of(brain=brain, name=name)
     if holder is not None:
-        raise WriteError(f"{name} is already the name of {holder.relative}, and a name is unique across the brain")
+        raise WriteError(f"{name} is already the name of {holder}, and a name is unique across the brain")
 
     body = body if body.strip() else ""
     if body and sections.missing(body=body, kind=kind):
@@ -153,6 +149,10 @@ def retitle(
     if occupied(target=target, by=entry.path):
         raise WriteError(f"{target.relative_to(brain.root)} is already on disk, the brain does not write over it")
 
+    holder = holder_of(brain=brain, name=stem)
+    if holder is not None and holder != entry.relative:
+        raise WriteError(f"{stem} is already the name of {holder}, and a name is unique across the brain")
+
     stamp = stamp or today()
     before = frontmatter.load(str(entry.path))
     moved = links.move_links(
@@ -199,6 +199,31 @@ def undo_retitle(
     stuck += links.put_back_all(moved)
     if stuck:
         raise OSError(f"{store.explain(error)}, and {links.names_of(stuck)} could not be put back") from error
+
+
+def holder_of(
+    brain: store.Brain,
+    name: str,
+) -> Optional[str]:
+    """The brain relative path of whatever already carries this name, entry or kit file, or None.
+
+    A name is unique across the whole brain, the kit's own files
+    included, so a doc may not be called conventions while the spec is.
+    A name two files already share is refused with both named.
+    """
+    try:
+        entry = brain.find(name)
+    except store.Ambiguous as clash:
+        raise WriteError(str(clash)) from clash
+
+    if entry is not None:
+        return entry.relative
+
+    for path, document in links.kit_documents(brain):
+        if document.get("name") == name:
+            return str(path.relative_to(brain.root))
+
+    return None
 
 
 def occupied(

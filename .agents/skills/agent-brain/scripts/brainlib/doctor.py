@@ -369,6 +369,11 @@ def check_names(
     found: list[Finding] = []
     seen: dict[str, str] = {}
 
+    for path, document in links.kit_documents(brain):
+        name = document.get("name") or ""
+        if name:
+            seen[name] = relative(brain=brain, path=path)
+
     for entry in brain.entries():
         expected = writes.entry_name(path=entry.path, kind=entry.kind)
         actual = entry.document.get("name") or ""
