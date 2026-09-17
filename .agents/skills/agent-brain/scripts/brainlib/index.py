@@ -23,6 +23,9 @@ SYSTEM_HOOK = "the rulebook every agent works by, reached through AGENTS.md"
 
 SEVERITY_ORDER = ("breaks", "bug", "debt", "nit")
 
+# The ways a bug stops being open, in the order the index lists them.
+CLOSED_BUG = ("fixed", "wontfix", "refiled")
+
 SPINE_DESCRIPTION = "the spine of the agent directory, what exists and where"
 SPINE_LINKS = ("README.md", "spec/conventions.md", "house-rules.md")
 
@@ -286,7 +289,7 @@ def count_bugs(
         inner = ", ".join(f"{by_severity[s]} {s}" for s in SEVERITY_ORDER if s in by_severity)
         parts[0] += f" ({inner})"
 
-    for status in ("fixed", "wontfix"):
+    for status in CLOSED_BUG:
         count = sum(1 for entry in entries if entry.field("status") == status)
         if count:
             parts.append(f"{count} {status}")
@@ -426,8 +429,10 @@ def todos_body(
         lines.append("Nothing closed yet.")
     for area, group in grouped(closed, "area").items():
         done = sum(1 for entry in group if entry.field("status") == "done")
-        dropped = len(group) - done
-        lines.append(f"- {area}: {done} done, {dropped} dropped")
+        refiled = sum(1 for entry in group if entry.field("status") == "refiled")
+        dropped = len(group) - done - refiled
+        summary = f"- {area}: {done} done, {dropped} dropped"
+        lines.append(f"{summary}, {refiled} refiled" if refiled else summary)
 
     return "\n".join(lines).rstrip("\n") + "\n"
 
@@ -462,7 +467,7 @@ def bugs_body(
             lines.append(line_for(entry, folder) + suffix)
         lines.append("")
 
-    for status in ("fixed", "wontfix"):
+    for status in CLOSED_BUG:
         group = [entry for entry in entries if entry.field("status") == status]
         if not group:
             continue

@@ -224,8 +224,10 @@ def convert(
 ) -> store.Entry:
     """File a todo as a bug, or the reverse, keeping the id trail in links.
 
-    The old file stays, closed, and the two point at each other. An id
-    is never reused, so the old one is not deleted.
+    The old file stays, marked refiled, and the two point at each other.
+    An id is never reused, so the old one is not deleted. The closing
+    goes through `update`, so the same rules hold as for any status
+    change, and a closing that is refused takes the new file with it.
     """
     source = brain.find(key)
     if source is None:
@@ -249,24 +251,21 @@ def convert(
         stamp=stamp,
     )
 
-    closing = {"todo": {"status": "dropped", "done": stamp}, "bug": {"status": "wontfix"}}
     source = brain.find(key)
     if source is None:
         raise WriteError(f"{key} vanished while converting it")
 
-    for name, value in closing[source.kind.name].items():
-        source.document.set(key=name, value=value)
-
     trail = [link for link in source.document.get_list("links") if link != created.relative]
-    source.document.set_list(key="links", values=[*trail, created.relative])
-    source.document.set(key="updated", value=stamp)
+    closing = {"status": "refiled", "links": frontmatter.render_list([*trail, created.relative])}
+    if source.kind.name == "todo":
+        closing["done"] = stamp
+
     try:
-        frontmatter.write(path=str(source.path), document=source.document)
-    except OSError:
+        update(brain=brain, key=key, changes=closing, stamp=stamp)
+    except (WriteError, OSError):
         created.path.unlink()
-        raise
-    finally:
         brain.refresh()
+        raise
 
     return created
 

@@ -105,7 +105,7 @@ KINDS: dict[str, Kind] = {
         fields=(
             Field(
                 name="status",
-                values=("open", "branched", "fixed", "wontfix"),
+                values=("open", "branched", "fixed", "wontfix", "refiled"),
             ),
             Field(
                 name="severity",
@@ -124,6 +124,7 @@ KINDS: dict[str, Kind] = {
         rules=(
             Rule(status="fixed", says="a bug goes fixed once its Fix section names the cause and the commit", section="Fix"),
             Rule(status="wontfix", says="a wontfix needs its reason written under Problem", section="Problem"),
+            Rule(status="refiled", says="a refiled bug links to the todo it became", link_kind="todo"),
         ),
     ),
     "todo": Kind(
@@ -133,7 +134,7 @@ KINDS: dict[str, Kind] = {
         fields=(
             Field(
                 name="status",
-                values=("open", "done", "dropped"),
+                values=("open", "done", "dropped", "refiled"),
             ),
             Field(
                 name="by",
@@ -152,6 +153,8 @@ KINDS: dict[str, Kind] = {
             Rule(status="done", says="a todo goes done with its closing date, done=YYYY-MM-DD", field="done"),
             Rule(status="done", says="a todo goes done once Done when names what closed it", section="Done when"),
             Rule(status="dropped", says="a todo goes dropped with its closing date, done=YYYY-MM-DD", field="done"),
+            Rule(status="refiled", says="a todo goes refiled with its closing date, done=YYYY-MM-DD", field="done"),
+            Rule(status="refiled", says="a refiled todo links to the bug it became", link_kind="bug"),
         ),
     ),
     "decision": Kind(

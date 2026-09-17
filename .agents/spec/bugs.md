@@ -2,7 +2,7 @@
 name: spec-bugs
 kind: doc
 description: format and lifecycle for .agents/bugs, the defect tracker
-updated: 2026-09-16
+updated: 2026-09-17
 links: [spec/conventions.md, spec/todos.md, spec/reviews.md]
 ---
 
@@ -17,7 +17,7 @@ bug's history.
 A bug has evidence of wrong behavior. A todo is work to do. Neither may
 hold the other: a wish filed here is refiled as a todo, a defect filed
 there as a bug, both through `brain refile --kind`. The old file stays,
-closed, and the two link to each other. The agent classifies on intake
+marked `refiled`, and the two link to each other. The agent classifies on intake
 without asking, and cross links carry any relationship (`links:`,
 `parent:`).
 
@@ -26,7 +26,7 @@ without asking, and cross links carry any relationship (`links:`,
 Standard frontmatter, `kind: bug`, plus:
 
 ```
-status: open | branched | fixed | wontfix
+status: open | branched | fixed | wontfix | refiled
 severity: breaks | bug | debt | nit
 area: <the project's own area vocabulary, kept consistent>
 reported: <YYYY-MM-DD>
@@ -34,7 +34,9 @@ parent: <name of the bug or finding that spawned this one, if any>
 ```
 
 `branched` means a branch is carrying the fix right now (name it in the
-body). `wontfix` requires the reason written in the body.
+body). `wontfix` requires the reason written in the body. `refiled`
+means the file turned out to be a todo, which the tool filed and linked
+here, so a refiled bug always links to a todo.
 
 Body sections, in order:
 

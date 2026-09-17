@@ -90,8 +90,8 @@ Done when, and a decision goes `superseded` only when it names what
 replaced it.
 
 `refile --kind bug` turns a todo into a bug, or the reverse, with the
-new body on standard input. Both files stay and link to each other, so
-the id trail holds.
+new body on standard input. Both files stay and link to each other, the
+old one marked `refiled`, so the id trail holds.
 
 ## A review
 

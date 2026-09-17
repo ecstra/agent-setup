@@ -26,16 +26,17 @@ A `<key>` is an id such as `BUG-004`, a name such as
 | `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry. Prose on standard input. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`. |
 | `brain set <key> field=value ...` | Changes fields, checks values and dates, applies the lifecycle rules, stamps `updated`. |
 | `brain refile <key> --title T` | Renames for a new title. The id stays, every link follows. |
-| `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input. Both files stay, linked both ways, the old one closed. |
+| `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input. Both files stay, linked both ways, the old one marked `refiled`. |
 | `brain index` | Rebuilds every `INDEX.md` and prints the ones that changed. |
 
 Fields by kind, all passed as flags to `new` or as `field=value` to `set`:
 
 - bug: `--severity breaks|bug|debt|nit` and `--area` required. `status`
-  is open, branched, fixed or wontfix, `reported` defaults to today,
-  `parent` optional.
+  is open, branched, fixed, wontfix or refiled, `reported` defaults to
+  today, `parent` optional.
 - todo: `--by owner|agent` and `--area` required. `status` is open,
-  done or dropped, `born` defaults to today, `done` is the closing date.
+  done, dropped or refiled, `born` defaults to today, `done` is the
+  closing date.
 - decision: `--area` required. `status` is standing or superseded,
   `date` defaults to today, `superseded-by` names the successor.
 - memory: `--type project|feedback|reference` required.
