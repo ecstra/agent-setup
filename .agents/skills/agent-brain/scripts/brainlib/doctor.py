@@ -86,7 +86,7 @@ def run(
     if not fix:
         return found
 
-    failed: dict[tuple[str, str], str] = {}
+    failed: dict[tuple[str, str, str], str] = {}
 
     for _ in range(PASSES):
         pending = [finding for finding in found if finding.fixable and key_of(finding) not in failed]
@@ -111,8 +111,9 @@ def run(
 
 def key_of(
     finding: Finding,
-) -> tuple[str, str]:
-    return finding.path, finding.check
+) -> tuple[str, str, str]:
+    """What makes a finding the same one across passes: its file, check and words."""
+    return finding.path, finding.check, finding.message
 
 
 def lines_of(
@@ -123,7 +124,7 @@ def lines_of(
 
 def flagged(
     finding: Finding,
-    failed: dict[tuple[str, str], str],
+    failed: dict[tuple[str, str, str], str],
 ) -> Finding:
     """The finding as it stands, or as a flag when its repair failed."""
     reason = failed.get(key_of(finding))
