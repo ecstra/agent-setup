@@ -158,10 +158,16 @@ def broken_in_body(
 
 @dataclass
 class Planned:
-    """One file about to have its links moved, with what it was before."""
+    """One file about to have its links moved, with what it was before.
+
+    `links` is the header list with the move made, or None when the
+    header does not point there. `body` is the prose with its markdown
+    links moved, or None when none of them point there.
+    """
 
     entry: store.Entry
-    links: list[str]
+    links: Optional[list[str]]
+    body: Optional[str]
     text: str
     link: Optional[str]
 
@@ -182,29 +188,36 @@ def move_links(
     new: str,
     stamp: str = "",
 ) -> list[Planned]:
-    """Point every frontmatter link at `old` to `new`, stamping each file touched.
+    """Point every link at `old` to `new`, in headers and in prose, stamping each file touched.
 
-    Paths are root relative. A file whose links change has changed, so
-    it gets the date like any other edit, per the upkeep rule. The
-    writes go all together or not at all: every file is read before any
-    is written, and a file that cannot be written puts the ones before
-    it back as they were, symlink included, so no link points at a path
-    the rename then never made. What comes back is each file written
-    with what it held before, so a caller that fails later can put them
-    back too.
+    Paths are root relative. A header link is rewritten in path form, a
+    markdown link in the prose keeps its relative form from the file it
+    sits in. A file whose links change has changed, so it gets the date
+    like any other edit, per the upkeep rule. The writes go all together
+    or not at all: every file is read before any is written, and a file
+    that cannot be written puts the ones before it back as they were,
+    symlink included, so no link points at a path the rename then never
+    made. What comes back is each file written with what it held before,
+    so a caller that fails later can put them back too.
     """
     stamp = stamp or date.today().isoformat()
     planned: list[Planned] = []
     for entry in brain.entries():
         moved = moved_links(brain=brain, entry=entry, old=old, new=new)
-        if moved is not None:
-            planned.append(Planned(entry=entry, links=moved, text=frontmatter.load(str(entry.path)), link=link_target(entry.path)))
+        body = moved_body(brain=brain, entry=entry, old=old, new=new)
+        if moved is None and body is None:
+            continue
+
+        planned.append(Planned(entry=entry, links=moved, body=body, text=frontmatter.load(str(entry.path)), link=link_target(entry.path)))
 
     written: list[Planned] = []
 
     try:
         for item in planned:
-            item.entry.document.set_list(key="links", values=item.links)
+            if item.links is not None:
+                item.entry.document.set_list(key="links", values=item.links)
+            if item.body is not None:
+                item.entry.document.body = item.body
             item.entry.document.set(key="updated", value=stamp)
             frontmatter.write(path=str(item.entry.path), document=item.entry.document)
             written.append(item)
@@ -267,6 +280,41 @@ def put_back(
         beside = os.path.join(scratch, path.name)
         os.symlink(item.link, beside)
         os.replace(beside, str(path))
+
+
+def moved_body(
+    brain: store.Brain,
+    entry: store.Entry,
+    old: str,
+    new: str,
+) -> Optional[str]:
+    """The entry's prose with every markdown link at `old` pointed at `new`, or None when none is.
+
+    A body link is relative to the file it sits in, so the new target is
+    written relative to that file too, anchor kept. Everything else in
+    the prose is left character for character.
+    """
+    old_target = os.path.normpath(str(brain.root / old))
+    folder = entry.path.parent
+
+    def moved(match: "re.Match[str]") -> str:
+        target = match.group(1)
+        if "://" in target or target.startswith("#") or Path(target).is_absolute():
+            return match.group(0)
+
+        file_part, hash_sign, anchor = target.partition("#")
+        if os.path.normpath(str(folder / file_part)) != old_target:
+            return match.group(0)
+
+        replacement = os.path.relpath(str(brain.root / new), str(folder)) + hash_sign + anchor
+        head = match.group(0)[: match.start(1) - match.start(0)]
+        tail = match.group(0)[match.end(1) - match.start(0) :]
+
+        return head + replacement + tail
+
+    body = MARKDOWN_LINK.sub(moved, entry.document.body)
+
+    return body if body != entry.document.body else None
 
 
 def moved_links(
