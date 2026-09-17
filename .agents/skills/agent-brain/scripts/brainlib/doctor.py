@@ -222,10 +222,10 @@ def check_leftovers(
     their folders are looked at too.
     """
     found: list[Finding] = []
-    project = brain.root.parent
     candidates = [path for path in brain.root.rglob(".*") if path.relative_to(brain.root).parts[0] not in SKIP_DIRS]
     for folder in style.folders(brain):
-        candidates += [path for path in folder.glob(".*")] if store.quietly(folder.is_dir) else []
+        if store.quietly(folder.is_dir):
+            candidates += list(folder.glob(".*"))
 
     for path in sorted(candidates):
         if store.quietly(path.is_symlink):
@@ -238,7 +238,7 @@ def check_leftovers(
 
         found.append(
             Finding(
-                path=str(path.relative_to(project if brain.root not in path.parents else brain.root)),
+                path=where_of(brain=brain, path=path),
                 check="leftover",
                 message="left by an interrupted write, nothing in it is the brain's",
                 repair=remove(path),
@@ -246,6 +246,17 @@ def check_leftovers(
         )
 
     return found
+
+
+def where_of(
+    brain: store.Brain,
+    path: Path,
+) -> str:
+    """A path from the brain when it is inside it, else from the project."""
+    if brain.root in path.parents:
+        return relative(brain=brain, path=path)
+
+    return str(path.relative_to(brain.root.parent))
 
 
 def remove(
