@@ -32,6 +32,10 @@ FAILED = 1
 MARKER = re.compile(r"^\*\*\* (Add File|Update File|Delete File|Move to): (.+?)\s*$")
 PATCH_OPENS = "*** Begin Patch"
 
+# Where Codex puts the patch text: `command` per its hook reference, the
+# others in case that name moves.
+PATCH_KEYS = ("command", "patch", "input")
+
 SKILLS = "skills"
 
 
@@ -87,12 +91,12 @@ def run(
         return 0
 
     if args.event == "session-start":
-        return session_start(brain, args.agent, args.with_rules)
+        return session_start(brain=brain, agent=args.agent, with_rules=args.with_rules)
 
     if args.event == "pre-write":
-        return pre_write(brain, event, args.agent)
+        return pre_write(brain=brain, event=event, agent=args.agent)
 
-    return post_write(brain, event, args.agent)
+    return post_write(brain=brain, event=event, agent=args.agent)
 
 
 def read_event() -> dict:
@@ -140,7 +144,7 @@ def session_start(
         if store.readable_file(chat_style):
             text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
 
-    emit_context(agent, text, event_name="SessionStart")
+    emit_context(agent=agent, text=text, event_name="SessionStart")
     return 0
 
 
@@ -159,8 +163,8 @@ def pre_write(
     event: dict,
     agent: str,
 ) -> int:
-    for touch in touches(event):
-        verdict = refusal(brain, touch)
+    for touch in touches(event=event, agent=agent):
+        verdict = refusal(brain=brain, touch=touch)
         if verdict is None:
             continue
 
@@ -353,7 +357,7 @@ def post_write(
     event: dict,
     agent: str,
 ) -> int:
-    inside = [touch for touch in touches(event) if is_inside(brain, touch.path)]
+    inside = [touch for touch in touches(event=event, agent=agent) if is_inside(brain=brain, path=touch.path)]
     findings = doctor.run(brain) if inside else []
     if not findings:
         emit_nothing(agent)
@@ -361,7 +365,7 @@ def post_write(
 
     lines = [finding.line() for finding in findings]
     text = "brain doctor after that write:\n" + "\n".join(lines) + "\nRun brain doctor --fix for the fixable ones."
-    emit_context(agent, text, event_name=AFTER_WRITE.get(agent, "PostToolUse"))
+    emit_context(agent=agent, text=text, event_name=AFTER_WRITE.get(agent, "PostToolUse"))
     return 0
 
 
@@ -374,20 +378,30 @@ def is_inside(
 
 def touches(
     event: dict,
+    agent: str,
 ) -> list[Touch]:
     """The files a write event touches, absolute, in the shape each agent sends.
 
     Claude Code and Gemini CLI name one file and hand over its new text
-    or the text an edit replaces. Codex hands over a patch that can add,
-    update, delete or move several files. A relative path is taken
-    against the directory the event names, not the one this process
-    happens to run in. The folder part is then spelled the way the disk
-    spells it, so a project reached through a symlink still compares
-    equal to the brain's real root.
+    or the edit they make in place. Codex hands over a patch that can
+    add, update, delete or move several files, and only Codex is read
+    that way, so a file whose text quotes a patch is not taken for one.
+    A relative path is taken against the directory the event names, not
+    the one this process happens to run in. The folder part is then
+    spelled the way the disk spells it, so a project reached through a
+    symlink still compares equal to the brain's real root.
     """
     base = Path(event.get("cwd") or Path.cwd())
     tool_input = event.get("tool_input") or {}
     found: list[Touch] = []
+
+    if agent == "codex":
+        for key in PATCH_KEYS:
+            value = tool_input.get(key)
+            if isinstance(value, str) and PATCH_OPENS in value:
+                return patch_touches(base=base, patch=value)
+
+        return found
 
     for key in ("file_path", "path", "filePath"):
         value = tool_input.get(key)
@@ -401,10 +415,6 @@ def touches(
                     replace_all=bool(tool_input.get("replace_all") or tool_input.get("allow_multiple")),
                 )
             )
-
-    for value in tool_input.values():
-        if isinstance(value, str) and PATCH_OPENS in value:
-            found.extend(patch_touches(base=base, patch=value))
 
     return found
 
