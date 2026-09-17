@@ -266,10 +266,18 @@ def header_change(
     except frontmatter.FrontmatterError:
         return None
 
-    if any(adds_header_line(hunk) for hunk in unplaced(touch=touch, text=text)):
-        return f"{inside}: a hunk the hook cannot place adds a header line, and {HEADER_IS_THE_TOOLS}"
+    loose: tuple[tuple[str, ...], ...] = ()
+    if touch.hunks:
+        after, loose = patched(text=text, hunks=touch.hunks)
+    else:
+        after = outcome(touch=touch, text=text)
 
-    after = outcome(touch=touch, text=text)
+    names = field_names(current=current, inside=inside)
+    for hunk in loose:
+        line = header_line_in(hunk=hunk, names=names)
+        if line is not None:
+            return f"{inside}: a hunk the hook cannot place touches the header block with '{line}', and {HEADER_IS_THE_TOOLS}"
+
     if after is None:
         return None
 
@@ -284,29 +292,36 @@ def header_change(
     return None
 
 
-def unplaced(
-    touch: Touch,
-    text: str,
-) -> list[tuple[str, ...]]:
-    """The hunks of a patch that fit nowhere in the file."""
-    lines = text.split("\n")
+def field_names(
+    current: frontmatter.Document,
+    inside: str,
+) -> set:
+    """The fields this file's header carries or could carry, the updated date aside.
 
-    return [hunk for hunk in touch.hunks if block_start(lines=lines, block=before_lines(hunk)) is None]
+    What the file holds now plus what its kind's spec allows, so a loose
+    hunk that adds an optional field the file does not yet carry is
+    still read as header work, while a prose line with a colon whose
+    name is neither is not.
+    """
+    names = {frontmatter.split_field(line)[0] for line in current.lines}
+    kind = schema.kind_for_folder(Path(inside).parts[0])
+    if kind is not None:
+        names |= {field.name for field in schema.fields_for(kind)}
+
+    return names - {None, "updated"}
 
 
-def adds_header_line(
+def header_line_in(
     hunk: tuple[str, ...],
-) -> bool:
-    """Whether a hunk adds a fence or a line shaped like a field."""
+    names: set,
+) -> Optional[str]:
+    """The first line of a hunk, kept, removed or added, that is a fence or a header field."""
     for line in hunk:
-        if line[:1] != "+":
-            continue
+        text = line[1:]
+        if text == frontmatter.FENCE or frontmatter.split_field(text)[0] in names:
+            return text
 
-        added = line[1:]
-        if added == frontmatter.FENCE or frontmatter.split_field(added)[0] is not None:
-            return True
-
-    return False
+    return None
 
 
 def outcome(
@@ -328,9 +343,6 @@ def outcome(
 
         return text.replace(old, new, 1)
 
-    if touch.hunks:
-        return patched(text=text, hunks=touch.hunks)
-
     return None
 
 
@@ -343,29 +355,31 @@ def unix(
 def patched(
     text: str,
     hunks: tuple[tuple[str, ...], ...],
-) -> Optional[str]:
-    """The text after each hunk that fits has its before lines swapped for its after lines.
+) -> tuple[Optional[str], tuple[tuple[str, ...], ...]]:
+    """The text after the hunks that fit are applied, one after another, and the ones that did not.
 
-    A hunk that fits nowhere is left out and the rest are still judged,
-    so one loose hunk does not disarm the guard for the whole patch. If
-    none fits, the patch will not apply and nothing is judged.
+    Each hunk is placed against the text as the hunks before it left it,
+    the way the patch is applied. A hunk that fits nowhere is handed
+    back loose, so the caller can judge it by its shape, and the rest
+    are still applied. If none fits, the patch will not apply and there
+    is no text to judge.
     """
     lines = text.split("\n")
-    placed = 0
+    loose: list[tuple[str, ...]] = []
 
     for hunk in hunks:
         before = before_lines(hunk)
         start = block_start(lines=lines, block=before)
         if start is None:
+            loose.append(hunk)
             continue
 
         lines[start : start + len(before)] = [line[1:] for line in hunk if line[:1] in (" ", "+")]
-        placed += 1
 
-    if not placed:
-        return None
+    if len(loose) == len(hunks):
+        return None, tuple(loose)
 
-    return "\n".join(lines)
+    return "\n".join(lines), tuple(loose)
 
 
 def before_lines(
