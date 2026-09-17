@@ -22,7 +22,8 @@ The examples below shorten that to `brain`. Every flag is listed in
   The header block of an existing file changes through `brain set` and
   `brain refile`. The prose below it is yours to edit, and doctor reads
   the file after. A hook holds all of this in every agent that runs
-  hooks: a new file, an index or a header change by hand is refused.
+  hooks: a new file, an index, a rename or a header change by hand is
+  refused. A delete is not, and doctor runs after it.
 - Ids only go up. A gap left by a moved or deleted file stays a gap.
 - The indexes are generated. `brain index` rebuilds them, doctor rebuilds
   them too, and nobody edits an `INDEX.md`.
