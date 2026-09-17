@@ -212,16 +212,21 @@ def check_strays(
 def check_leftovers(
     brain: store.Brain,
 ) -> list[Finding]:
-    """What an interrupted write left beside its target, safe to remove."""
+    """What an interrupted write left beside its target, safe to remove.
+
+    Only the tool's own shapes count, a real file named the way a write
+    in flight is named and a real folder named the way a put back
+    scratch is named. A person's own dotfile is nobody's to delete.
+    """
     found: list[Finding] = []
 
     for path in sorted(brain.root.rglob(".*")):
         parts = path.relative_to(brain.root).parts
-        if parts[0] in SKIP_DIRS:
+        if parts[0] in SKIP_DIRS or store.quietly(path.is_symlink):
             continue
 
-        in_flight = store.quietly(path.is_file) and path.name.endswith(frontmatter.TEMP_SUFFIX)
-        scratch = store.quietly(path.is_dir) and path.name.startswith(links.SCRATCH_PREFIX)
+        in_flight = store.quietly(path.is_file) and frontmatter.TEMP_SHAPE.match(path.name) is not None
+        scratch = store.quietly(path.is_dir) and links.SCRATCH_SHAPE.match(path.name) is not None
         if not in_flight and not scratch:
             continue
 
@@ -240,8 +245,10 @@ def check_leftovers(
 def remove(
     path: Path,
 ) -> Callable[[], None]:
+    """A repair that removes a leftover, a folder with whatever the tool left in it."""
+
     def repair() -> None:
-        if path.is_dir() and not path.is_symlink():
+        if path.is_dir():
             shutil.rmtree(path)
         else:
             path.unlink()

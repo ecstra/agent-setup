@@ -8,6 +8,7 @@ is written back character for character.
 
 import errno
 import os
+import re
 import stat
 import tempfile
 from dataclasses import dataclass
@@ -15,9 +16,12 @@ from typing import Optional
 
 FENCE = "---"
 
-# What a write in flight is called, beside its target. Doctor knows the
-# shape, so one left by an interrupted run is found rather than ignored.
+# What a write in flight is called, beside its target: the target's own
+# name between a dot and mkstemp's random tail. Doctor knows the exact
+# shape, so one left by an interrupted run is found, and nothing else
+# that happens to end in .tmp is touched.
 TEMP_SUFFIX = ".tmp"
+TEMP_SHAPE = re.compile(r"^\..+\.md\.[A-Za-z0-9_]+\.tmp$")
 
 
 class FrontmatterError(Exception):

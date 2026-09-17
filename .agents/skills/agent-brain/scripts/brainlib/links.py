@@ -17,9 +17,11 @@ from . import frontmatter, store
 
 MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
-# The scratch folder a symlink is put back through. Doctor knows the
-# shape, so one left by an interrupted run is found rather than ignored.
+# The scratch folder a symlink is put back through, the prefix and the
+# random tail TemporaryDirectory adds. Doctor knows the exact shape, so
+# one left by an interrupted run is found and nothing else is touched.
 SCRATCH_PREFIX = ".putback."
+SCRATCH_SHAPE = re.compile(r"^\.putback\.[A-Za-z0-9_]+$")
 
 
 def resolve(
