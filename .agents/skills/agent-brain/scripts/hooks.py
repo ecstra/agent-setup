@@ -256,16 +256,22 @@ def header_change(
     the text after the edit, or the file after the patch's hunks. Its
     header block, every line between the fences except the updated date
     the upkeep rule asks the agent to move, must come out as it went in.
-    A file the hook cannot read is already broken, so the write is taken
-    as the repair and doctor judges the result. A hunk that fits nowhere
-    is judged by its shape: refused when it carries a fence or a header
-    field, since the hook cannot tell where it would land.
+    A file whose header does not read is already broken, so the write is
+    taken as the repair, and it must at least leave a header that reads,
+    then doctor judges the rest. A file the hook cannot open at all is
+    not judged. A hunk that fits nowhere is judged by its shape: refused
+    when it carries a fence or a header field, since the hook cannot
+    tell where it would land.
     """
     try:
         text = frontmatter.load(str(touch.path))
-        current = frontmatter.parse(text)
     except frontmatter.FrontmatterError:
         return None
+
+    try:
+        current = frontmatter.parse(text)
+    except frontmatter.FrontmatterError as trouble:
+        return repair_verdict(touch=touch, text=text, inside=inside, trouble=trouble)
 
     loose: tuple[tuple[str, ...], ...] = ()
     if touch.hunks:
@@ -321,6 +327,34 @@ def header_line_in(
         text = line[1:]
         if text == frontmatter.FENCE or frontmatter.split_field(text)[0] in names:
             return text
+
+    return None
+
+
+def repair_verdict(
+    touch: Touch,
+    text: str,
+    inside: str,
+    trouble: frontmatter.FrontmatterError,
+) -> Optional[str]:
+    """Why a write to a file whose header does not read may not go ahead, or None if it may.
+
+    There is no header to hold the write to, so the one thing asked is
+    that the file reads as a header afterwards. A patch that fits
+    nowhere on such a file has nothing to say and is let through.
+    """
+    if touch.hunks:
+        after, _ = patched(text=text, hunks=touch.hunks)
+    else:
+        after = outcome(touch=touch, text=text)
+
+    if after is None:
+        return None
+
+    try:
+        frontmatter.parse(after)
+    except frontmatter.FrontmatterError as error:
+        return f"{inside} does not read as a header now, {trouble}, and that write would not make it one, {error}"
 
     return None
 
