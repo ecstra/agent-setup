@@ -266,6 +266,9 @@ def header_change(
     except frontmatter.FrontmatterError:
         return None
 
+    if any(adds_header_line(hunk) for hunk in unplaced(touch=touch, text=text)):
+        return f"{inside}: a hunk the hook cannot place adds a header line, and {HEADER_IS_THE_TOOLS}"
+
     after = outcome(touch=touch, text=text)
     if after is None:
         return None
@@ -279,6 +282,31 @@ def header_change(
         return f"{inside}: {HEADER_IS_THE_TOOLS}"
 
     return None
+
+
+def unplaced(
+    touch: Touch,
+    text: str,
+) -> list[tuple[str, ...]]:
+    """The hunks of a patch that fit nowhere in the file."""
+    lines = text.split("\n")
+
+    return [hunk for hunk in touch.hunks if block_start(lines=lines, block=before_lines(hunk)) is None]
+
+
+def adds_header_line(
+    hunk: tuple[str, ...],
+) -> bool:
+    """Whether a hunk adds a fence or a line shaped like a field."""
+    for line in hunk:
+        if line[:1] != "+":
+            continue
+
+        added = line[1:]
+        if added == frontmatter.FENCE or frontmatter.split_field(added)[0] is not None:
+            return True
+
+    return False
 
 
 def outcome(
@@ -316,19 +344,34 @@ def patched(
     text: str,
     hunks: tuple[tuple[str, ...], ...],
 ) -> Optional[str]:
-    """The text after each hunk's before lines are swapped for its after lines."""
+    """The text after each hunk that fits has its before lines swapped for its after lines.
+
+    A hunk that fits nowhere is left out and the rest are still judged,
+    so one loose hunk does not disarm the guard for the whole patch. If
+    none fits, the patch will not apply and nothing is judged.
+    """
     lines = text.split("\n")
+    placed = 0
 
     for hunk in hunks:
-        before = [line[1:] for line in hunk if line[:1] in (" ", "-")]
-        after = [line[1:] for line in hunk if line[:1] in (" ", "+")]
+        before = before_lines(hunk)
         start = block_start(lines=lines, block=before)
         if start is None:
-            return None
+            continue
 
-        lines[start : start + len(before)] = after
+        lines[start : start + len(before)] = [line[1:] for line in hunk if line[:1] in (" ", "+")]
+        placed += 1
+
+    if not placed:
+        return None
 
     return "\n".join(lines)
+
+
+def before_lines(
+    hunk: tuple[str, ...],
+) -> list[str]:
+    return [line[1:] for line in hunk if line[:1] in (" ", "-")]
 
 
 def block_start(
