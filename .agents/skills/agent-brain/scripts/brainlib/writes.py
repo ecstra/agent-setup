@@ -73,10 +73,12 @@ def create(
     fields.update(values or {})
 
     check(kind=kind, fields=fields)
+    text = framed(body) if body else sections.skeleton(kind=kind, title=title)
+    refuse_gaps(sections.lifecycle_gaps(kind=kind, fields=fields, body=text))
 
     document = frontmatter.Document(
         lines=render_lines(kind=kind, fields=fields),
-        body=framed(body) if body else sections.skeleton(kind=kind, title=title),
+        body=text,
     )
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -468,6 +470,12 @@ def check_rules(
     done todo cannot lose its date and a refiled bug cannot lose its
     link, and the writer never leaves a file that doctor would flag.
     """
-    gaps = sections.lifecycle_gaps(kind=entry.kind, fields=fields, body=entry.document.body)
+    refuse_gaps(sections.lifecycle_gaps(kind=entry.kind, fields=fields, body=entry.document.body))
+
+
+def refuse_gaps(
+    gaps: list[str],
+) -> None:
+    """Refuse with every rule the file would fall short of, named together, or pass when none."""
     if gaps:
-        raise WriteError(gaps[0])
+        raise WriteError(", and ".join(gaps))
