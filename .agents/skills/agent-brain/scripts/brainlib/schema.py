@@ -14,7 +14,7 @@ SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 FILENAME_WITH_ID = re.compile(r"^(BUG|TODO|DEC)-(\d{3})-(.+)\.md$")
 
 # A review folder is <yyyy-mm>-<branch-slug>, per spec/reviews.md.
-REVIEW_FOLDER = re.compile(r"^\d{4}-\d{2}-[a-z0-9]+(-[a-z0-9]+)*$")
+REVIEW_FOLDER = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-[a-z0-9]+(-[a-z0-9]+)*$")
 
 ID_DIGITS = 3
 
