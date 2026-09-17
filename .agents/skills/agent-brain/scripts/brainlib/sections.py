@@ -102,22 +102,23 @@ def lifecycle_gaps(
     every file as it stands, so the two never disagree on a rule.
     """
     status = fields.get("status", "")
-    gaps: list[str] = []
 
-    for rule in kind.rules:
-        if rule.status != status:
-            continue
+    return [rule.says for rule in kind.rules if rule.status == status and rule_broken(rule=rule, fields=fields, body=body)]
 
-        if rule.field and not fields.get(rule.field, "").strip():
-            gaps.append(rule.says)
 
-        if rule.section and not is_filled(body=body, title=rule.section):
-            gaps.append(rule.says)
+def rule_broken(
+    rule: schema.Rule,
+    fields: dict[str, str],
+    body: str,
+) -> bool:
+    """Whether the file falls short of the rule in any of the ways it names, said once."""
+    if rule.field and not fields.get(rule.field, "").strip():
+        return True
 
-        if rule.link_kind and not links_into(fields=fields, kind=schema.KINDS[rule.link_kind]):
-            gaps.append(rule.says)
+    if rule.section and not is_filled(body=body, title=rule.section):
+        return True
 
-    return gaps
+    return bool(rule.link_kind) and not links_into(fields=fields, kind=schema.KINDS[rule.link_kind])
 
 
 def links_into(
