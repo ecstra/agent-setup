@@ -136,15 +136,19 @@ def retitle(
 
     stem = f"{entry.identifier}-{slug}" if entry.identifier else slug
     target = entry.path.with_name(f"{stem}.md")
+    if store.quietly(target.exists) or store.quietly(target.is_symlink):
+        raise WriteError(f"{target.relative_to(brain.root)} is already on disk, the brain does not write over it")
 
+    stamp = stamp or today()
     links.rewrite_references(
         brain=brain,
         old=entry.relative,
         new=str(target.relative_to(brain.root)),
+        stamp=stamp,
     )
 
     entry.document.set(key="name", value=stem)
-    entry.document.set(key="updated", value=stamp or today())
+    entry.document.set(key="updated", value=stamp)
     frontmatter.write(path=str(entry.path), document=entry.document)
     entry.path.rename(target)
     brain.refresh()
