@@ -436,13 +436,17 @@ def patch_touches(
 
     A hunk opens at `@@` and holds context, removed and added lines,
     each with its leading character. It closes at the next `@@`, the
-    next file marker, or the end of file mark.
+    next file marker, or the end of file mark. A bare empty line inside
+    a hunk is a blank context line, as apply_patch reads it, and blank
+    lines trailing a hunk are the patch's spacing, not the file's.
     """
     found: list[Touch] = []
     hunk: list[str] = []
     updating: Optional[int] = None
 
     def close_hunk() -> None:
+        while hunk and hunk[-1] == " ":
+            hunk.pop()
         if updating is not None and hunk:
             found[updating] = replace(found[updating], hunks=found[updating].hunks + (tuple(hunk),))
         hunk.clear()
@@ -467,6 +471,8 @@ def patch_touches(
 
         if updating is not None and line[:1] in (" ", "-", "+"):
             hunk.append(line)
+        elif updating is not None and line == "":
+            hunk.append(" ")
 
     close_hunk()
 
