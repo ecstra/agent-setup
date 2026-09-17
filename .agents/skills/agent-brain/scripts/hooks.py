@@ -156,10 +156,16 @@ def refusal(
     if path.suffix != ".md" or store.quietly(path.exists):
         return None
 
-    if Path(inside).name == schema.INDEX:
-        return f"{inside} is generated, run brain index instead of writing it"
+    if Path(inside).parts[0] == SKILLS:
+        return None
 
-    if Path(inside).parts[0] == SKILLS or schema.is_kit_path(inside):
+    if Path(inside).name == schema.INDEX:
+        if schema.is_kit_path(inside):
+            return f"{inside} is generated, run brain index instead of writing it"
+
+        return f"{inside} would be an index where none belongs, the tool builds one per tracker, docs/ and memory/"
+
+    if schema.is_kit_path(inside):
         return None
 
     return (
