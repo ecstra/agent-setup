@@ -52,6 +52,15 @@ def create(
     if path.exists():
         raise WriteError(f"{path.name} is already filed")
 
+    name = entry_name(path=path, kind=kind)
+    try:
+        holder = brain.find(name)
+    except store.Ambiguous as clash:
+        raise WriteError(str(clash)) from clash
+
+    if holder is not None:
+        raise WriteError(f"{name} is already the name of {holder.relative}, and a name is unique across the brain")
+
     body = body if body.strip() else ""
     if body and sections.missing(body=body, kind=kind):
         wanted = ", ".join(sections.missing(body=body, kind=kind))
@@ -59,7 +68,7 @@ def create(
 
     fields = opening_fields(
         kind=kind,
-        name=entry_name(path=path, kind=kind),
+        name=name,
         description=description,
         links=path_links(brain=brain, references=links or []),
         stamp=stamp,

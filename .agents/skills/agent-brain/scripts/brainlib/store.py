@@ -18,6 +18,10 @@ class StoreError(Exception):
     """The brain is missing, or something in it cannot be read."""
 
 
+class Ambiguous(StoreError):
+    """A key that names more than one file, with the paths to choose from in the message."""
+
+
 @dataclass
 class Entry:
     """One file in the brain, with its frontmatter already parsed."""
@@ -200,15 +204,22 @@ class Brain:
         self,
         key: str,
     ) -> Optional[Entry]:
-        """Resolve an id, a name, or a path inside the brain to one entry."""
-        for entry in self.entries():
-            if key in (entry.identifier, entry.name, entry.relative):
-                return entry
+        """Resolve an id, a name, or a path inside the brain to one entry.
 
-            if entry.path.stem == key:
-                return entry
+        A key that fits more than one file, a stem two kinds share or
+        the ledger.md every review is, is refused with the paths named,
+        rather than answered with whichever came first.
+        """
+        found = [
+            entry
+            for entry in self.entries()
+            if key in (entry.identifier, entry.name, entry.relative, entry.path.stem)
+        ]
+        if len(found) > 1:
+            paths = ", ".join(entry.relative for entry in found)
+            raise Ambiguous(f"'{key}' names {len(found)} files, use the path: {paths}")
 
-        return None
+        return found[0] if found else None
 
     def with_slug(
         self,

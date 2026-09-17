@@ -37,7 +37,11 @@ def resolve(
     if direct is not None and store.readable_file(direct):
         return direct
 
-    entry = brain.find(reference)
+    try:
+        entry = brain.find(reference)
+    except store.Ambiguous:
+        entry = None
+
     if entry is not None:
         return entry.path
 
