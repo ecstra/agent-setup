@@ -168,6 +168,9 @@ def refusal(
     if schema.is_kit_path(inside):
         return None
 
+    if Path(inside).parts[0] == "spec":
+        return f"{inside} would nest inside spec/, which holds its files directly"
+
     return (
         f"{inside} would be a new brain file written by hand. File it with "
         "brain new so it gets its id, its header block and its index line, "

@@ -209,6 +209,9 @@ def stray_reason(
     if parts[-1] == schema.INDEX:
         return "no index belongs here, the tool builds one per tracker, docs/ and memory/"
 
+    if parts[0] == "spec":
+        return "spec/ holds its files directly, nothing nested"
+
     return "not a file the brain lists, file it with brain new or move it out"
 
 
