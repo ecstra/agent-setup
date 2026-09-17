@@ -147,12 +147,32 @@ def broken_in_body(
     return found
 
 
+@dataclass
+class Planned:
+    """One file about to have its links moved, with what it was before."""
+
+    entry: store.Entry
+    links: list[str]
+    text: str
+    link: Optional[str]
+
+
 def rewrite_references(
     brain: store.Brain,
     old: str,
     new: str,
     stamp: str = "",
 ) -> list[Path]:
+    """Point every frontmatter link at `old` to `new`, and say which files changed."""
+    return [item.entry.path for item in move_links(brain=brain, old=old, new=new, stamp=stamp)]
+
+
+def move_links(
+    brain: store.Brain,
+    old: str,
+    new: str,
+    stamp: str = "",
+) -> list[Planned]:
     """Point every frontmatter link at `old` to `new`, stamping each file touched.
 
     Paths are root relative. A file whose links change has changed, so
@@ -160,7 +180,9 @@ def rewrite_references(
     writes go all together or not at all: every file is read before any
     is written, and a file that cannot be written puts the ones before
     it back as they were, symlink included, so no link points at a path
-    the rename then never made.
+    the rename then never made. What comes back is each file written
+    with what it held before, so a caller that fails later can put them
+    back too.
     """
     stamp = stamp or date.today().isoformat()
     planned: list[Planned] = []
@@ -177,24 +199,36 @@ def rewrite_references(
             item.entry.document.set(key="updated", value=stamp)
             frontmatter.write(path=str(item.entry.path), document=item.entry.document)
             written.append(item)
-    except OSError:
-        for item in written:
-            put_back(item)
+    except OSError as error:
+        stuck = put_back_all(written)
+        if stuck:
+            raise OSError(f"{store.explain(error)}, and {names_of(stuck)} could not be put back") from error
         raise
     finally:
         brain.refresh()
 
-    return [item.entry.path for item in written]
+    return written
 
 
-@dataclass
-class Planned:
-    """One file about to have its links moved, with what it was before."""
+def put_back_all(
+    written: list[Planned],
+) -> list[Path]:
+    """Restore every file it can, and hand back the ones it could not."""
+    stuck: list[Path] = []
 
-    entry: store.Entry
-    links: list[str]
-    text: str
-    link: Optional[str]
+    for item in written:
+        try:
+            put_back(item)
+        except OSError:
+            stuck.append(item.entry.path)
+
+    return stuck
+
+
+def names_of(
+    paths: list[Path],
+) -> str:
+    return ", ".join(store.near(str(path)) for path in paths)
 
 
 def link_target(

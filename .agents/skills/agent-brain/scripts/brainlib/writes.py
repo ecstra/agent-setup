@@ -140,7 +140,8 @@ def retitle(
         raise WriteError(f"{target.relative_to(brain.root)} is already on disk, the brain does not write over it")
 
     stamp = stamp or today()
-    links.rewrite_references(
+    before = frontmatter.load(str(entry.path))
+    moved = links.move_links(
         brain=brain,
         old=entry.relative,
         new=str(target.relative_to(brain.root)),
@@ -149,11 +150,39 @@ def retitle(
 
     entry.document.set(key="name", value=stem)
     entry.document.set(key="updated", value=stamp)
-    frontmatter.write(path=str(entry.path), document=entry.document)
-    entry.path.rename(target)
-    brain.refresh()
+    try:
+        frontmatter.write(path=str(entry.path), document=entry.document)
+        entry.path.rename(target)
+    except OSError:
+        undo_retitle(path=entry.path, before=before, moved=moved)
+        raise
+    finally:
+        brain.refresh()
 
     return brain.read(path=target, kind=entry.kind)
+
+
+def undo_retitle(
+    path: Path,
+    before: str,
+    moved: list[links.Planned],
+) -> None:
+    """Put the file and every link that followed it back, or say which would not go.
+
+    The file goes back only if it changed. A write refused up front
+    left it as it was, and a refused file cannot take the restore either.
+    """
+    stuck: list[Path] = []
+
+    try:
+        if frontmatter.load(str(path)) != before:
+            frontmatter.write_text(path=str(path), text=before)
+    except (OSError, frontmatter.FrontmatterError):
+        stuck.append(path)
+
+    stuck += links.put_back_all(moved)
+    if stuck:
+        raise OSError(f"the retitle failed, and {links.names_of(stuck)} could not be put back")
 
 
 def occupied(
