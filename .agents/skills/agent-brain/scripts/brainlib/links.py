@@ -18,8 +18,8 @@ from . import frontmatter, sections, store
 # The two ways markdown writes a link: inline, `[text](target)`, and by
 # reference, `[label]: target` on a line of its own. Group 1 is the
 # target in both, so one rewrite serves both.
-MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
-REFERENCE_LINK = re.compile(r"^\[[^\]]+\]:[ \t]+(\S+)", re.MULTILINE)
+MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\((<[^>\n]*>|[^)\s]+)\)")
+REFERENCE_LINK = re.compile(r"^\[[^\]]+\]:[ \t]+(<[^>\n]*>|\S+)", re.MULTILINE)
 
 # The scratch folder a symlink is put back through, the prefix and the
 # random tail TemporaryDirectory adds. Doctor knows the exact shape, so
@@ -156,7 +156,7 @@ def broken_in_body(
             continue
 
         file_part = target.split("#")[0]
-        if Path(file_part).is_absolute() or not store.quietly((path.parent / file_part).exists):
+        if not file_part or Path(file_part).is_absolute() or not store.quietly((path.parent / file_part).exists):
             found.append(target)
 
     return found
@@ -344,7 +344,7 @@ def moved_body(
         if sections.in_code(spans=spans, position=match.start()):
             return match.group(0)
 
-        if "://" in target or target.startswith("#") or Path(target).is_absolute():
+        if not target or "://" in target or target.startswith("#") or Path(target).is_absolute():
             return match.group(0)
 
         file_part, hash_sign, anchor = target.partition("#")
