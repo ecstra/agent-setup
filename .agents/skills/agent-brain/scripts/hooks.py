@@ -25,7 +25,10 @@ from brainlib import doctor, frontmatter, links, reads, schema, store
 BLOCK = 2
 FAILED = 1
 
-ADD_FILE = re.compile(r"^\*\*\* Add File: (.+)$", re.MULTILINE)
+# A patch written with Windows line endings carries a carriage return
+# before every newline, so the path is taken up to the last visible
+# character rather than to the end of the line.
+ADD_FILE = re.compile(r"^\*\*\* Add File: (.+?)\s*$", re.MULTILINE)
 
 SKILLS = "skills"
 
@@ -223,8 +226,8 @@ def written_paths(
 
     for key in ("file_path", "path", "filePath"):
         value = tool_input.get(key)
-        if isinstance(value, str) and value:
-            found.append(absolute(base=base, value=value))
+        if isinstance(value, str) and value.strip():
+            found.append(absolute(base=base, value=value.strip()))
 
     for value in tool_input.values():
         if isinstance(value, str):
