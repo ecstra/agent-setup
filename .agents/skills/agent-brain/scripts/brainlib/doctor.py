@@ -87,6 +87,7 @@ def run(
         return found
 
     failed: dict[tuple[str, str, str], str] = {}
+    attempted: set[tuple[str, str, str]] = set()
 
     for _ in range(PASSES):
         pending = [finding for finding in found if finding.fixable and key_of(finding) not in failed]
@@ -94,6 +95,7 @@ def run(
             break
 
         for finding in pending:
+            attempted.add(key_of(finding))
             try:
                 finding.repair()
             except (OSError, frontmatter.FrontmatterError) as error:
@@ -106,7 +108,7 @@ def run(
 
         found = again
 
-    return [flagged(finding, failed) for finding in found]
+    return [flagged(finding=finding, failed=failed, attempted=attempted) for finding in found]
 
 
 def key_of(
@@ -125,17 +127,23 @@ def lines_of(
 def flagged(
     finding: Finding,
     failed: dict[tuple[str, str, str], str],
+    attempted: set[tuple[str, str, str]],
 ) -> Finding:
-    """The finding as it stands, or as a flag when its repair failed."""
-    reason = failed.get(key_of(finding))
-    if reason is None:
-        return finding
+    """The finding as it stands, or as a flag when its repair failed or got nowhere.
 
-    return Finding(
-        path=finding.path,
-        check=finding.check,
-        message=f"{finding.message}, and the repair failed: {reason}",
-    )
+    A finding still on offer as fixable after its repair ran is one no
+    number of runs will clear, so it goes back as a flag that says so
+    rather than an invitation to run --fix again.
+    """
+    key = key_of(finding)
+    reason = failed.get(key)
+    if reason is not None:
+        return Finding(path=finding.path, check=finding.check, message=f"{finding.message}, and the repair failed: {reason}")
+
+    if finding.fixable and key in attempted:
+        return Finding(path=finding.path, check=finding.check, message=f"{finding.message}, and the repair ran without clearing it")
+
+    return finding
 
 
 def check_all(
@@ -606,7 +614,7 @@ def check_layout(
                 path=str(SKILL_LINK),
                 check="layout",
                 message=f"{trouble}, so Claude Code cannot see the skill",
-                repair=None if trouble == REAL_FOLDER_WITHOUT_SKILL else make_skill_link(project),
+                repair=None if trouble in LINK_TROUBLE_FOR_A_PERSON else make_skill_link(project),
             )
         )
 
@@ -616,6 +624,8 @@ def check_layout(
 
 
 REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs"
+SKILL_ITSELF_MISSING = "the skill itself is missing from .agents/skills/agent-brain, so reinstall the kit"
+LINK_TROUBLE_FOR_A_PERSON = (REAL_FOLDER_WITHOUT_SKILL, SKILL_ITSELF_MISSING)
 
 
 def skill_link_trouble(
@@ -630,6 +640,9 @@ def skill_link_trouble(
     what is actually there.
     """
     link = project / SKILL_LINK
+
+    if not store.readable_file(project / SKILL_HOME / "SKILL.md"):
+        return SKILL_ITSELF_MISSING
 
     if store.readable_file(link / "SKILL.md"):
         return None
