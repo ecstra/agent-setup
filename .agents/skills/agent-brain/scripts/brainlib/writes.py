@@ -253,8 +253,13 @@ def convert(
     trail = [link for link in source.document.get_list("links") if link != created.relative]
     source.document.set_list(key="links", values=[*trail, created.relative])
     source.document.set(key="updated", value=stamp)
-    frontmatter.write(path=str(source.path), document=source.document)
-    brain.refresh()
+    try:
+        frontmatter.write(path=str(source.path), document=source.document)
+    except OSError:
+        created.path.unlink()
+        raise
+    finally:
+        brain.refresh()
 
     return created
 
