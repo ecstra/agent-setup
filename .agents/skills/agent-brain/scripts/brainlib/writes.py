@@ -52,6 +52,7 @@ def create(
     if path.exists():
         raise WriteError(f"{path.name} is already filed")
 
+    body = body if body.strip() else ""
     if body and sections.missing(body=body, kind=kind):
         wanted = ", ".join(sections.missing(body=body, kind=kind))
         raise WriteError(f"the body is missing the {wanted} heading")
@@ -383,7 +384,7 @@ def check_against(
             raise WriteError(f"{kind.name} files carry no '{name}' field")
 
     for item in items:
-        value = fields.get(item.name, "")
+        value = fields.get(item.name, "").strip()
 
         if item.required and not value:
             raise WriteError(f"a {kind.name} needs {item.name} filled in")
