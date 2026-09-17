@@ -5,7 +5,7 @@ command can refuse to file something the spec says is incomplete.
 """
 
 import re
-from typing import Callable, Optional
+from typing import Optional
 
 from . import schema
 
@@ -23,22 +23,19 @@ def prose_of(
     return CODE.sub("", text)
 
 
-def map_prose(
+def code_spans(
     text: str,
-    transform: Callable[[str], str],
-) -> str:
-    """The text with `transform` applied to the prose and the code left as it is."""
-    pieces: list[str] = []
-    at = 0
+) -> list[tuple[int, int]]:
+    """Where the code sits in the text, as start and end offsets."""
+    return [(match.start(), match.end()) for match in CODE.finditer(text)]
 
-    for match in CODE.finditer(text):
-        pieces.append(transform(text[at : match.start()]))
-        pieces.append(match.group(0))
-        at = match.end()
 
-    pieces.append(transform(text[at:]))
-
-    return "".join(pieces)
+def in_code(
+    spans: list[tuple[int, int]],
+    position: int,
+) -> bool:
+    """Whether an offset falls inside one of the code spans."""
+    return any(start <= position < end for start, end in spans)
 
 
 def headings(

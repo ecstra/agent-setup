@@ -145,13 +145,13 @@ def broken_in_body(
     """Markdown links in the prose that do not reach a file from where they stand.
 
     A body link is relative to its file, so an absolute one is broken
-    however the machine it was written on is laid out. A link quoted in
-    code is not a link.
+    however the machine it was written on is laid out. A link that
+    starts inside code is not a link, while one whose text holds a code
+    span is.
     """
     found: list[str] = []
-    prose = sections.prose_of(document.body)
 
-    for target in [match.group(1) for pattern in (MARKDOWN_LINK, REFERENCE_LINK) for match in pattern.finditer(prose)]:
+    for target in body_targets(document.body):
         if "://" in target or target.startswith("#"):
             continue
 
@@ -160,6 +160,20 @@ def broken_in_body(
             found.append(target)
 
     return found
+
+
+def body_targets(
+    body: str,
+) -> list[str]:
+    """Every link target in the prose, inline and reference style, code stepped over."""
+    spans = sections.code_spans(body)
+
+    return [
+        match.group(1)
+        for pattern in (MARKDOWN_LINK, REFERENCE_LINK)
+        for match in pattern.finditer(body)
+        if not sections.in_code(spans=spans, position=match.start())
+    ]
 
 
 def documents(
@@ -313,9 +327,13 @@ def moved_body(
     """
     old_target = os.path.normpath(str(brain.root / old))
     folder = path.parent
+    spans: list[tuple[int, int]] = []
 
     def moved(match: re.Match) -> str:
         target = match.group(1)
+        if sections.in_code(spans=spans, position=match.start()):
+            return match.group(0)
+
         if "://" in target or target.startswith("#") or Path(target).is_absolute():
             return match.group(0)
 
@@ -329,7 +347,10 @@ def moved_body(
 
         return head + replacement + tail
 
-    body = sections.map_prose(document.body, lambda prose: REFERENCE_LINK.sub(moved, MARKDOWN_LINK.sub(moved, prose)))
+    body = document.body
+    for pattern in (MARKDOWN_LINK, REFERENCE_LINK):
+        spans = sections.code_spans(body)
+        body = pattern.sub(moved, body)
 
     return body if body != document.body else None
 
