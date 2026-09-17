@@ -248,13 +248,8 @@ class Brain:
 def hidden(
     relative: Path,
 ) -> bool:
-    """Whether any part of the path starts with a dot.
-
-    A dotfile or anything inside a dot folder is not the brain's: an
-    editor's swap file, a scratch folder a write left behind, a tool's
-    own cache. None of it is filed, listed or checked as an entry.
-    """
-    return any(part.startswith(".") for part in relative.parts)
+    """Whether any part of the path starts with a dot, per schema.is_hidden."""
+    return schema.is_hidden("/".join(relative.parts))
 
 
 def number_in(

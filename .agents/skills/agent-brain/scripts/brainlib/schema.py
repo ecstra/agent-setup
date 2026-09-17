@@ -196,14 +196,30 @@ INDEX = "INDEX.md"
 LEDGER = "ledger.md"
 
 
+def is_hidden(
+    relative: str,
+) -> bool:
+    """Whether any part of a path inside .agents/ starts with a dot.
+
+    A dotfile or anything inside a dot folder is nobody's: an editor's
+    swap file, a scratch folder a write left behind, a tool's cache. It
+    is never an entry, never the kit's, never linked, listed or checked.
+    """
+    return any(part.startswith(".") for part in relative.split("/"))
+
+
 def is_kit_path(
     relative: str,
 ) -> bool:
     """Whether a path inside .agents/ names a file the kit owns.
 
     That is a root kit file, a spec, or the index of a folder that
-    carries one. Everything else in the brain is an entry or a stray.
+    carries one. Everything else in the brain is an entry or a stray,
+    and a dotted path is neither.
     """
+    if is_hidden(relative):
+        return False
+
     parts = relative.split("/")
 
     if len(parts) == 1:
