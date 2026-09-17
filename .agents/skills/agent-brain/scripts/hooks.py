@@ -284,8 +284,8 @@ def header_change(
 
     try:
         wanted = frontmatter.parse(after)
-    except frontmatter.FrontmatterError:
-        return f"{inside} would lose its header block, and {HEADER_IS_THE_TOOLS}"
+    except frontmatter.FrontmatterError as error:
+        return f"{inside} would lose its header block, {error}, and {HEADER_IS_THE_TOOLS}"
 
     if header_lines(wanted) != header_lines(current):
         return f"{inside}: {HEADER_IS_THE_TOOLS}"

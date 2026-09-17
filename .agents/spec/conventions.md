@@ -2,7 +2,7 @@
 name: conventions
 kind: doc
 description: the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
-updated: 2026-09-16
+updated: 2026-09-17
 links: [README.md]
 ---
 
@@ -27,6 +27,13 @@ links: [<paths of related files, relative to .agents/>]
 Kinds add their own fields (status, severity, area, by, date, parent),
 defined in that kind's spec. `name` is unique across the whole directory
 and normally equals the filename without extension.
+
+The header is the kit's own shape, not general YAML. One key per line
+at the margin, `key: value`, each key once, nothing blank or indented
+between the fences. A value is plain text taken as written, so a colon
+inside it is fine and nothing is ever quoted. A list sits on its key's
+line as `[a, b]`. The brain tool writes headers this way and refuses to
+read one written any other way, naming the line and the fix.
 
 `SYSTEM.md` is the one exception. It is the rulebook, and an agent takes
 it exactly as it stands, so it carries no frontmatter.

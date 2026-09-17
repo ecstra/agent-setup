@@ -4,6 +4,13 @@ The body is what a person wrote. Every function here hands it back
 exactly as it came in, which is why nothing reflows, strips or re-indents
 it. Frontmatter lines are kept as raw text too, so a field nobody edited
 is written back character for character.
+
+The header is the kit's own shape, not general YAML: one key per line
+at the margin, `key: value`, each key once, nothing blank or indented
+between the fences. A value is plain text taken as written, a colon
+inside it is fine and nothing is quoted. A list sits on its key's line
+as `[a, b]`. A header written any other way is refused, with the line
+and the fix named, rather than read as something it is not.
 """
 
 import errno
@@ -100,8 +107,9 @@ def split_field(
 ) -> tuple[Optional[str], Optional[str]]:
     """Split one frontmatter line into its name and its raw value.
 
-    A line with no colon is not a field, which is how a continuation line
-    or a stray comment survives a round trip untouched.
+    A line with no colon, or one that is indented, is not a field. The
+    parser refuses such a line in a header, and the header guard uses
+    the same answer to tell a field line from prose.
     """
     if ":" not in line:
         return None, None
@@ -169,12 +177,9 @@ def check_lines(
     seen: set[str] = set()
 
     for number, line in enumerate(lines, start=2):
-        if line[:1] in (" ", "\t"):
-            raise FrontmatterError(indented_trouble(line=line, number=number))
-
         name, _ = split_field(line)
         if name is None:
-            continue
+            raise FrontmatterError(line_trouble(line=line, number=number))
 
         if name in seen:
             raise FrontmatterError(f"{name} appears twice in the header, one key per line and each key once")
@@ -182,14 +187,21 @@ def check_lines(
         seen.add(name)
 
 
-def indented_trouble(
+def line_trouble(
     line: str,
     number: int,
 ) -> str:
+    """Why a header line is not `key: value`, in words that say what to write."""
     if line.strip().startswith("- "):
         return f"line {number} of the header is a block list item, the kit writes a list on its key's line as [a, b]"
 
-    return f"line {number} of the header is indented, the kit writes one key per line at the margin"
+    if line[:1] in (" ", "\t"):
+        return f"line {number} of the header is indented, the kit writes one key per line at the margin"
+
+    if not line.strip():
+        return f"line {number} of the header is blank, the kit writes one key per line with nothing between"
+
+    return f"line {number} of the header is not key: value"
 
 
 def find_closing_fence(
