@@ -315,8 +315,10 @@ def explain(
 
         return f"{reason}: {near(os.fsdecode(error.filename))}"
 
-    if isinstance(error, KeyError) and error.args:
-        return f"{error.args[0]} is missing"
+    if isinstance(error, KeyError):
+        key = error.args[0] if error.args else "a key"
+
+        return f"{key} is missing"
 
     return str(error)
 
@@ -329,11 +331,15 @@ NEAR_ROOTS = (".agents", ".claude", ".codex", ".gemini")
 def near(
     path: str,
 ) -> str:
-    """A path from the brain or an agent folder down, or just the filename elsewhere."""
+    """A path from the brain or an agent folder down, or just the filename elsewhere.
+
+    The last such folder on the path wins, since a checkout can itself
+    live under a folder named .claude, as Claude Code's own projects do.
+    """
     parts = Path(path).parts
-    for position, part in enumerate(parts):
-        if part in NEAR_ROOTS:
-            return str(Path(*parts[position:]))
+    positions = [position for position, part in enumerate(parts) if part in NEAR_ROOTS]
+    if positions:
+        return str(Path(*parts[positions[-1] :]))
 
     return Path(path).name
 
