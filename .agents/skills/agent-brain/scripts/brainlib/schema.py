@@ -207,7 +207,7 @@ def is_kit_path(
         return parts[0] in KIT_FILES
 
     if len(parts) == 2 and parts[0] == "spec":
-        return parts[1].endswith(".md")
+        return parts[1].endswith(".md") and parts[1] != INDEX
 
     return len(parts) == 2 and parts[0] in INDEXED_FOLDERS and parts[1] == INDEX
 
