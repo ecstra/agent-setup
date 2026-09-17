@@ -281,21 +281,31 @@ def outcome(
     touch: Touch,
     text: str,
 ) -> Optional[str]:
-    """The file's text as the write would leave it, or None when nothing says."""
+    """The file's text as the write would leave it, or None when nothing says.
+
+    Line endings are folded to one kind first, since the file is read
+    that way and an agent on Windows hands over the other kind.
+    """
     if touch.content is not None:
-        return touch.content
+        return unix(touch.content)
 
     if touch.old_string is not None:
-        new = touch.new_string or ""
+        old, new = unix(touch.old_string), unix(touch.new_string or "")
         if touch.replace_all:
-            return text.replace(touch.old_string, new)
+            return text.replace(old, new)
 
-        return text.replace(touch.old_string, new, 1)
+        return text.replace(old, new, 1)
 
     if touch.hunks:
         return patched(text=text, hunks=touch.hunks)
 
     return None
+
+
+def unix(
+    text: str,
+) -> str:
+    return text.replace("\r\n", "\n")
 
 
 def patched(
