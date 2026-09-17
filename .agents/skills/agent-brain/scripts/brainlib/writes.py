@@ -136,7 +136,7 @@ def retitle(
 
     stem = f"{entry.identifier}-{slug}" if entry.identifier else slug
     target = entry.path.with_name(f"{stem}.md")
-    if store.quietly(target.exists) or store.quietly(target.is_symlink):
+    if occupied(target=target, by=entry.path):
         raise WriteError(f"{target.relative_to(brain.root)} is already on disk, the brain does not write over it")
 
     stamp = stamp or today()
@@ -154,6 +154,27 @@ def retitle(
     brain.refresh()
 
     return brain.read(path=target, kind=entry.kind)
+
+
+def occupied(
+    target: Path,
+    by: Path,
+) -> bool:
+    """Whether something other than the file being renamed already sits at `target`.
+
+    On a file system that folds case, a rename that changes only the
+    case sees itself at the target, and that is not an occupant.
+    """
+    if store.quietly(target.is_symlink):
+        return True
+
+    if not store.quietly(target.exists):
+        return False
+
+    try:
+        return not target.samefile(by)
+    except OSError:
+        return True
 
 
 def convert(
