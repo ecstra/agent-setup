@@ -613,9 +613,9 @@ def check_layout(
     if trouble is not None:
         found.append(
             Finding(
-                path=str(SKILL_LINK),
+                path=str(SKILL_HOME if trouble == SKILL_ITSELF_MISSING else SKILL_LINK),
                 check="layout",
-                message=f"{trouble}, so Claude Code cannot see the skill",
+                message=trouble,
                 repair=None if trouble in LINK_TROUBLE_FOR_A_PERSON else make_skill_link(project),
             )
         )
@@ -625,8 +625,9 @@ def check_layout(
     return found
 
 
-REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs"
-SKILL_ITSELF_MISSING = "the skill itself is missing from .agents/skills/agent-brain, so reinstall the kit"
+CANNOT_SEE = ", so Claude Code cannot see the skill"
+REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs" + CANNOT_SEE
+SKILL_ITSELF_MISSING = "the skill itself is missing from .agents/skills/agent-brain, reinstall the kit"
 LINK_TROUBLE_FOR_A_PERSON = (REAL_FOLDER_WITHOUT_SKILL, SKILL_ITSELF_MISSING)
 
 
@@ -635,30 +636,31 @@ def skill_link_trouble(
 ) -> Optional[str]:
     """What is wrong with the skill link, or None when Claude Code can load the skill.
 
-    What Claude Code needs is `.claude/skills/agent-brain/SKILL.md`. A
-    dead link still counts as a symlink, a ZIP download or a checkout
-    without symlinks leaves a plain file in the link's place, and a real
-    folder is fine only while it carries the skill, so the check asks
-    what is actually there.
+    What Claude Code needs is `.claude/skills/agent-brain/SKILL.md`,
+    through the link or as a real copy, and that is asked first. Then:
+    a dead link still counts as a symlink, a ZIP download or a checkout
+    without symlinks leaves a plain file in the link's place, a real
+    folder is fine only while it carries the skill, and a link can only
+    be made when the skill itself is in the brain to point at.
     """
     link = project / SKILL_LINK
-
-    if not store.readable_file(project / SKILL_HOME / "SKILL.md"):
-        return SKILL_ITSELF_MISSING
 
     if store.readable_file(link / "SKILL.md"):
         return None
 
+    if not store.readable_file(project / SKILL_HOME / "SKILL.md"):
+        return SKILL_ITSELF_MISSING
+
     if store.quietly(link.is_symlink):
-        return "the skill link does not reach the skill"
+        return "the skill link does not reach the skill" + CANNOT_SEE
 
     if store.quietly(link.is_dir):
         return REAL_FOLDER_WITHOUT_SKILL
 
     if store.quietly(link.exists):
-        return "something that is not a link sits where the skill link belongs"
+        return "something that is not a link sits where the skill link belongs" + CANNOT_SEE
 
-    return "the skill link is missing"
+    return "the skill link is missing" + CANNOT_SEE
 
 
 def check_style_copies(
