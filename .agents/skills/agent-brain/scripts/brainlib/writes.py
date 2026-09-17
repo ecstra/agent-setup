@@ -94,9 +94,7 @@ def update(
     changes: dict[str, str],
     stamp: str = "",
 ) -> store.Entry:
-    entry = brain.find(key)
-    if entry is None:
-        raise WriteError(f"nothing in the brain answers to '{key}'")
+    entry = located(brain=brain, key=key)
 
     stamp = stamp or today()
     changes = dict(changes)
@@ -132,9 +130,7 @@ def retitle(
     stamp: str = "",
 ) -> store.Entry:
     """Rename a file for a new title. The id stays, every link follows."""
-    entry = brain.find(key)
-    if entry is None:
-        raise WriteError(f"nothing in the brain answers to '{key}'")
+    entry = located(brain=brain, key=key)
 
     if entry.kind.name == "review":
         raise WriteError("a review keeps the name of its branch")
@@ -204,6 +200,22 @@ def undo_retitle(
         raise OSError(f"{store.explain(error)}, and {links.names_of(stuck)} could not be put back") from error
 
 
+def located(
+    brain: store.Brain,
+    key: str,
+) -> store.Entry:
+    """The one entry a key names, refused in the writer's own words when none or several do."""
+    try:
+        entry = brain.find(key)
+    except store.Ambiguous as clash:
+        raise WriteError(str(clash)) from clash
+
+    if entry is None:
+        raise WriteError(f"nothing in the brain answers to '{key}'")
+
+    return entry
+
+
 def holder_of(
     brain: store.Brain,
     name: str,
@@ -266,9 +278,7 @@ def convert(
     goes through `update`, so the same rules hold as for any status
     change, and a closing that is refused takes the new file with it.
     """
-    source = brain.find(key)
-    if source is None:
-        raise WriteError(f"nothing in the brain answers to '{key}'")
+    source = located(brain=brain, key=key)
 
     if source.kind.name == kind.name:
         raise WriteError(f"{source.name} is already a {kind.name}")
@@ -288,9 +298,7 @@ def convert(
         stamp=stamp,
     )
 
-    source = brain.find(key)
-    if source is None:
-        raise WriteError(f"{key} vanished while converting it")
+    source = located(brain=brain, key=key)
 
     trail = [link for link in source.document.get_list("links") if link != created.relative]
     closing = {"status": "refiled", "links": frontmatter.render_list([*trail, created.relative])}
