@@ -286,7 +286,7 @@ def count_bugs(
             severity = entry.field("severity") or schema.UNKNOWN
             by_severity[severity] = by_severity.get(severity, 0) + 1
 
-        inner = ", ".join(f"{by_severity[s]} {s}" for s in SEVERITY_ORDER if s in by_severity)
+        inner = ", ".join(f"{by_severity[s]} {s}" for s in (*SEVERITY_ORDER, schema.UNKNOWN) if s in by_severity)
         parts[0] += f" ({inner})"
 
     for status in CLOSED_BUG:
@@ -429,10 +429,15 @@ def todos_body(
         lines.append("Nothing closed yet.")
     for area, group in grouped(closed, "area").items():
         done = sum(1 for entry in group if entry.field("status") == "done")
+        dropped = sum(1 for entry in group if entry.field("status") == "dropped")
         refiled = sum(1 for entry in group if entry.field("status") == "refiled")
-        dropped = len(group) - done - refiled
+        unknown = len(group) - done - dropped - refiled
         summary = f"- {area}: {done} done, {dropped} dropped"
-        lines.append(f"{summary}, {refiled} refiled" if refiled else summary)
+        if refiled:
+            summary += f", {refiled} refiled"
+        if unknown:
+            summary += f", {unknown} {schema.UNKNOWN}"
+        lines.append(summary)
 
     return "\n".join(lines).rstrip("\n") + "\n"
 
@@ -456,8 +461,8 @@ def bugs_body(
     lines += ["## Open", ""]
     if not open_ones:
         lines += ["Nothing open.", ""]
-    for severity in SEVERITY_ORDER:
-        group = [entry for entry in open_ones if entry.field("severity") == severity]
+    for severity in (*SEVERITY_ORDER, schema.UNKNOWN):
+        group = [entry for entry in open_ones if (entry.field("severity") or schema.UNKNOWN) == severity]
         if not group:
             continue
 
@@ -474,6 +479,12 @@ def bugs_body(
 
         lines += [f"## {status.title()}", ""]
         lines += [line_for(entry, folder) for entry in group]
+        lines.append("")
+
+    stray = [entry for entry in entries if entry.field("status") not in ("open", "branched", *CLOSED_BUG)]
+    if stray:
+        lines += [f"## {schema.UNKNOWN.title()}", ""]
+        lines += [line_for(entry, folder) for entry in stray]
         lines.append("")
 
     return "\n".join(lines).rstrip("\n") + "\n"
