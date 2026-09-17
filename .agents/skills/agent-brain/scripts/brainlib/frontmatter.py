@@ -30,6 +30,9 @@ FENCE = "---"
 TEMP_SUFFIX = ".tmp"
 TEMP_SHAPE = re.compile(r"^\..+\.md\.[A-Za-z0-9_]+\.tmp$")
 
+# What a field's key looks like: lowercase, digits and hyphens.
+KEY = re.compile(r"^[a-z][a-z0-9-]*$")
+
 
 class FrontmatterError(Exception):
     """A file that cannot be read as frontmatter plus body."""
@@ -112,19 +115,21 @@ def split_field(
 ) -> tuple[Optional[str], Optional[str]]:
     """Split one frontmatter line into its name and its raw value.
 
-    A line with no colon, or one that is indented, is not a field. The
-    parser refuses such a line in a header, and the header guard uses
-    the same answer to tell a field line from prose.
+    A field is a key of lowercase letters, digits and hyphens at the
+    margin, a colon, then a space and the value or nothing. Anything
+    else, an indented line, a capitalised or spaced key, a colon with no
+    space after it, is not a field. The parser refuses such a line in a
+    header, and the header guard uses the same answer to tell a field
+    line from prose.
     """
-    if ":" not in line:
-        return None, None
-
-    if line.startswith(" ") or line.startswith("\t"):
+    if ":" not in line or line[:1] in (" ", "\t"):
         return None, None
 
     name, _, value = line.partition(":")
+    if KEY.match(name) is None or (value and not value.startswith(" ")):
+        return None, None
 
-    return name.strip(), value.strip()
+    return name, value.strip()
 
 
 def parse_list(
