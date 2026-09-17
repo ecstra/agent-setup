@@ -313,7 +313,7 @@ def run_doctor(
 ) -> int:
     found = doctor.run(brain, fix=args.fix)
     if args.json:
-        print(json.dumps([finding.__dict__ | {"repair": None} for finding in found], indent=2, default=str))
+        print(json.dumps([finding.as_dict() for finding in found], indent=2))
     else:
         for finding in found:
             print(finding.line())

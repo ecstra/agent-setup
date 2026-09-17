@@ -60,6 +60,15 @@ class Finding:
 
         return f"{where}: {self.check}: {self.message} [{mark}]"
 
+    def as_dict(self) -> dict:
+        """The finding as plain data, for the JSON form of doctor."""
+        return {
+            "path": self.path,
+            "check": self.check,
+            "message": self.message,
+            "fixable": self.fixable,
+        }
+
 
 def run(
     brain: store.Brain,
