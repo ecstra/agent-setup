@@ -455,11 +455,27 @@ def touches(
                     content=text_field(tool_input=tool_input, key="content"),
                     old_string=text_field(tool_input=tool_input, key="old_string"),
                     new_string=text_field(tool_input=tool_input, key="new_string"),
-                    replace_all=bool(tool_input.get("replace_all") or tool_input.get("allow_multiple")),
+                    replace_all=replaces_more_than_one(tool_input),
                 )
             )
 
     return found
+
+
+def replaces_more_than_one(
+    tool_input: dict,
+) -> bool:
+    """Whether the edit means every occurrence, in the words each tool uses.
+
+    Claude Code says replace_all, Gemini CLI says allow_multiple or
+    counts them in expected_replacements.
+    """
+    if tool_input.get("replace_all") or tool_input.get("allow_multiple"):
+        return True
+
+    expected = tool_input.get("expected_replacements")
+
+    return isinstance(expected, int) and expected > 1
 
 
 def text_field(
