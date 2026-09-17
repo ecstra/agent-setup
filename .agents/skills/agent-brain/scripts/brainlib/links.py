@@ -7,6 +7,7 @@ upgrade turns them into paths.
 
 import os
 import re
+from datetime import date
 from pathlib import Path
 from typing import Optional
 
@@ -149,8 +150,14 @@ def rewrite_references(
     brain: store.Brain,
     old: str,
     new: str,
+    stamp: str = "",
 ) -> list[Path]:
-    """Point every frontmatter link at `old` to `new`. Paths are root relative."""
+    """Point every frontmatter link at `old` to `new`, stamping each file touched.
+
+    Paths are root relative. A file whose links change has changed, so
+    it gets the date like any other edit, per the upkeep rule.
+    """
+    stamp = stamp or date.today().isoformat()
     changed: list[Path] = []
 
     for entry in brain.entries():
@@ -163,6 +170,7 @@ def rewrite_references(
             continue
 
         entry.document.set_list(key="links", values=updated)
+        entry.document.set(key="updated", value=stamp)
         frontmatter.write(path=str(entry.path), document=entry.document)
         changed.append(entry.path)
 
