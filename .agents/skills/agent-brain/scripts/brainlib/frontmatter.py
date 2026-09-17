@@ -237,12 +237,38 @@ def write_text(
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as opened:
             opened.write(text)
+            opened.flush()
+            os.fsync(opened.fileno())
         os.chmod(temporary, mode)
         os.replace(temporary, path)
+        settle(folder)
     except BaseException:
         if os.path.lexists(temporary):
             os.unlink(temporary)
         raise
+
+
+def settle(
+    folder: str,
+) -> None:
+    """Flush the folder's own record of the move, where the platform allows it.
+
+    The text is flushed to disk before the move, and the folder after
+    it, so a crash right then leaves either the old file or the new one
+    and never a shorter one. Windows cannot open a folder this way and
+    gets no worse than before.
+    """
+    try:
+        handle = os.open(folder, os.O_RDONLY)
+    except OSError:
+        return
+
+    try:
+        os.fsync(handle)
+    except OSError:
+        pass
+    finally:
+        os.close(handle)
 
 
 def default_mode() -> int:
