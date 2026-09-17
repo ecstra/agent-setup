@@ -298,17 +298,34 @@ def check(
     kind: schema.Kind,
     fields: dict[str, str],
 ) -> None:
+    """Every field against the spec, the common ones and the kind's own."""
+    check_against(kind=kind, fields=fields, items=schema.fields_for(kind))
+
+
+def check_own(
+    kind: schema.Kind,
+    fields: dict[str, str],
+) -> None:
+    """The kind's own fields only, for a caller that checks the common ones itself."""
+    check_against(kind=kind, fields=fields, items=kind.fields)
+
+
+def check_against(
+    kind: schema.Kind,
+    fields: dict[str, str],
+    items: tuple[schema.Field, ...],
+) -> None:
     known = {item.name for item in schema.fields_for(kind)}
 
     for name in fields:
         if name not in known:
             raise WriteError(f"{kind.name} files carry no '{name}' field")
 
-    for item in schema.fields_for(kind):
+    for item in items:
         value = fields.get(item.name, "")
 
         if item.required and not value:
-            raise WriteError(f"a {kind.name} needs a {item.name}")
+            raise WriteError(f"a {kind.name} needs {item.name} filled in")
 
         if not value:
             continue

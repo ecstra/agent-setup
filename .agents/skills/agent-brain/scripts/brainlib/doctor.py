@@ -304,7 +304,7 @@ def check_fields(
 
     for entry in brain.entries():
         try:
-            writes.check(kind=entry.kind, fields=entry.document.fields())
+            writes.check_own(kind=entry.kind, fields=entry.document.fields())
         except writes.WriteError as error:
             found.append(Finding(path=entry.relative, check="fields", message=str(error)))
 
