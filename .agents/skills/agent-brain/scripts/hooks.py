@@ -315,6 +315,10 @@ def still_broken(
     trouble: str,
     error: str,
 ) -> str:
+    """The refusal for a write that leaves a broken header broken, the reason said once when it is the same."""
+    if trouble == error:
+        return f"{inside} does not read as a header now, {trouble}, and that write would leave it so"
+
     return f"{inside} does not read as a header now, {trouble}, and that write would not make it one, {error}"
 
 
