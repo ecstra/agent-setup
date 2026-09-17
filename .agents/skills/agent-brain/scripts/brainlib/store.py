@@ -177,6 +177,7 @@ class Brain:
             raise StoreError(f"{kind.name} files carry no id")
 
         numbers = [entry.number for entry in self.entries_of(kind)]
+        numbers += [number_in(path.name, kind) for path in self.unreadable if path.parent == self.folder(kind) or self.folder(kind) in path.parents]
         taken = [number for number in numbers if number is not None]
         if not taken:
             return 1
@@ -239,6 +240,22 @@ class Brain:
             return folder / f"{self.next_id(kind)}-{slug}.md"
 
         return folder / f"{slug}.md"
+
+
+def number_in(
+    filename: str,
+    kind: schema.Kind,
+) -> Optional[int]:
+    """The id number a filename of this kind carries, readable or not.
+
+    An id is taken the moment a file holds it in its name, so a file the
+    store could not read still keeps its number out of circulation.
+    """
+    match = schema.FILENAME_WITH_ID.match(filename)
+    if match is None or match.group(1) != kind.id_prefix:
+        return None
+
+    return int(match.group(2))
 
 
 def quietly(
