@@ -159,6 +159,9 @@ def refusal(
     if Path(inside).parts[0] == SKILLS:
         return None
 
+    if store.hidden(Path(inside)):
+        return f"{inside} would be a dotted path, which the brain never lists or checks, so it holds none"
+
     if Path(inside).name == schema.INDEX:
         if schema.is_kit_path(inside):
             return f"{inside} is generated, run brain index instead of writing it"
