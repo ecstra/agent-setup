@@ -148,11 +148,34 @@ def parse(
 
     head, body = rest[:closing], rest[closing:]
     lines = head.split("\n")[:-1] if head else []
+    check_lines(lines)
 
     return Document(
         lines=lines,
         body=body[len(FENCE) + 1 :],
     )
+
+
+def check_lines(
+    lines: list[str],
+) -> None:
+    """Refuse a header the line model cannot hold, saying what to write instead.
+
+    The header is one key per line, each key once. Two lines with one
+    key would leave `get` and `fields` answering differently, so the
+    file is refused before either can.
+    """
+    seen: set[str] = set()
+
+    for line in lines:
+        name, _ = split_field(line)
+        if name is None:
+            continue
+
+        if name in seen:
+            raise FrontmatterError(f"{name} appears twice in the header, one key per line and each key once")
+
+        seen.add(name)
 
 
 def find_closing_fence(
