@@ -237,7 +237,11 @@ def ledger_entry(
     brain: store.Brain,
     key: str,
 ) -> store.Entry:
-    entry = brain.find(key)
+    try:
+        entry = brain.find(key)
+    except store.Ambiguous as clash:
+        raise LedgerError(str(clash)) from clash
+
     if entry is None or entry.kind.name != "review":
         raise LedgerError(f"no review ledger answers to '{key}'")
 
