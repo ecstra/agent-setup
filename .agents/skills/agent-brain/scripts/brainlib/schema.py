@@ -166,8 +166,8 @@ KINDS: dict[str, Kind] = {
     ),
 }
 
-# Files the kit owns. They carry no project content, so doctor judges
-# them against the kit rather than against a kind.
+# Files the kit owns at the root of .agents/. They carry no project
+# content, so doctor judges them against the kit rather than a kind.
 KIT_FILES: tuple[str, ...] = (
     "SYSTEM.md",
     "INDEX.md",
@@ -188,6 +188,28 @@ INDEXED_FOLDERS: tuple[str, ...] = (
     "decisions",
     "reviews",
 )
+
+INDEX = "INDEX.md"
+LEDGER = "ledger.md"
+
+
+def is_kit_path(
+    relative: str,
+) -> bool:
+    """Whether a path inside .agents/ names a file the kit owns.
+
+    That is a root kit file, a spec, or the index of a folder that
+    carries one. Everything else in the brain is an entry or a stray.
+    """
+    parts = relative.split("/")
+
+    if len(parts) == 1:
+        return parts[0] in KIT_FILES
+
+    if len(parts) == 2 and parts[0] == "spec":
+        return parts[1].endswith(".md")
+
+    return len(parts) == 2 and parts[0] in INDEXED_FOLDERS and parts[1] == INDEX
 
 
 def kind_named(

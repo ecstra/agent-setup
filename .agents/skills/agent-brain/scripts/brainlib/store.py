@@ -13,18 +13,6 @@ from typing import Callable, Optional
 
 from . import frontmatter, schema
 
-SKIP_NAMES: frozenset[str] = frozenset(
-    {
-        "INDEX.md",
-        "README.md",
-        "SYSTEM.md",
-        "house-rules.md",
-    }
-)
-
-LEDGER = "ledger.md"
-
-
 class StoreError(Exception):
     """The brain is missing, or something in it cannot be read."""
 
@@ -139,10 +127,10 @@ class Brain:
         found: list[Entry] = []
 
         for path in sorted(folder.rglob("*.md")):
-            if path.name in SKIP_NAMES:
+            if path.name == schema.INDEX:
                 continue
 
-            if kind.name == "review" and path.name != LEDGER:
+            if kind.name == "review" and path.name != schema.LEDGER:
                 continue
 
             try:
@@ -168,6 +156,20 @@ class Brain:
             kind=kind,
             document=document,
         )
+
+    def known(self) -> set[Path]:
+        """Every path the store lists, the entries and the files it could not read."""
+        listed = {entry.path for entry in self.entries()}
+
+        return listed | set(self.unreadable)
+
+    def kit_files(self) -> list[Path]:
+        """The kit's own files that exist here, the rulebook excepted."""
+        candidates = [self.root / name for name in schema.KIT_FILES if name not in schema.NO_FRONTMATTER]
+        candidates += sorted((self.root / "spec").glob("*.md"))
+        candidates += [self.root / folder / schema.INDEX for folder in schema.INDEXED_FOLDERS]
+
+        return [path for path in candidates if readable_file(path)]
 
     def next_number(
         self,
@@ -234,7 +236,7 @@ class Brain:
             folder = folder / category_folder(category)
 
         if kind.name == "review":
-            return folder / slug / LEDGER
+            return folder / slug / schema.LEDGER
 
         if kind.has_ids:
             return folder / f"{self.next_id(kind)}-{slug}.md"

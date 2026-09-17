@@ -184,18 +184,8 @@ def kit_documents(
 ) -> list[tuple[Path, frontmatter.Document]]:
     """The kit's own files that carry frontmatter, so names still resolve."""
     found: list[tuple[Path, frontmatter.Document]] = []
-    candidates = [
-        brain.root / "README.md",
-        brain.root / "house-rules.md",
-        brain.root / "INDEX.md",
-        *sorted((brain.root / "spec").glob("*.md")),
-        *sorted(brain.root.glob("*/INDEX.md")),
-    ]
 
-    for path in candidates:
-        if not store.readable_file(path):
-            continue
-
+    for path in brain.kit_files():
         try:
             found.append((path, frontmatter.read(str(path))))
         except frontmatter.FrontmatterError:

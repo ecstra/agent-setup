@@ -20,15 +20,14 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from brainlib import doctor, frontmatter, links, reads, store
+from brainlib import doctor, frontmatter, links, reads, schema, store
 
 BLOCK = 2
 FAILED = 1
 
 ADD_FILE = re.compile(r"^\*\*\* Add File: (.+)$", re.MULTILINE)
 
-HAND_WRITTEN_OK = ("skills", "spec")
-KIT_FILES = ("SYSTEM.md", "README.md", "house-rules.md", "VERSION")
+SKILLS = "skills"
 
 
 def main(
@@ -154,18 +153,17 @@ def refusal(
     if inside is None:
         return None
 
-    relative = Path(inside)
     if path.suffix != ".md" or store.quietly(path.exists):
         return None
 
-    if relative.parts[0] in HAND_WRITTEN_OK or relative.name in KIT_FILES:
+    if Path(inside).name == schema.INDEX:
+        return f"{inside} is generated, run brain index instead of writing it"
+
+    if Path(inside).parts[0] == SKILLS or schema.is_kit_path(inside):
         return None
 
-    if relative.name == "INDEX.md":
-        return f"{relative} is generated, run brain index instead of writing it"
-
     return (
-        f"{relative} would be a new brain file written by hand. File it with "
+        f"{inside} would be a new brain file written by hand. File it with "
         "brain new so it gets its id, its header block and its index line, "
         "with the prose on standard input."
     )

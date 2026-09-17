@@ -151,20 +151,62 @@ def check_all(
 def markdown_files(
     brain: store.Brain,
 ) -> list[Path]:
-    """Every markdown file the checks look at, the rulebook excepted."""
+    """Every markdown file the checks look at: the entries and the kit's files.
+
+    A file that is neither is a stray, reported once by its own check
+    rather than measured against rules written for something else.
+    """
+    return [path for path in all_markdown(brain) if path in brain.known() or schema.is_kit_path(relative(brain, path))]
+
+
+def all_markdown(
+    brain: store.Brain,
+) -> list[Path]:
+    """Every markdown file under the brain, the skills and the rulebook excepted."""
     found: list[Path] = []
 
     for path in sorted(brain.root.rglob("*.md")):
-        relative = path.relative_to(brain.root)
-        if relative.parts[0] in SKIP_DIRS:
+        parts = path.relative_to(brain.root).parts
+        if parts[0] in SKIP_DIRS:
             continue
 
-        if path.name in schema.NO_FRONTMATTER and len(relative.parts) == 1:
+        if path.name in schema.NO_FRONTMATTER and len(parts) == 1:
             continue
 
         found.append(path)
 
     return found
+
+
+def check_strays(
+    brain: store.Brain,
+) -> list[Finding]:
+    """Files under the brain that neither the store nor the kit accounts for."""
+    accounted = brain.known()
+    found: list[Finding] = []
+
+    for path in all_markdown(brain):
+        where = relative(brain, path)
+        if path in accounted or schema.is_kit_path(where):
+            continue
+
+        found.append(Finding(path=where, check="stray", message=stray_reason(where)))
+
+    return found
+
+
+def stray_reason(
+    where: str,
+) -> str:
+    parts = where.split("/")
+
+    if parts[0] == "reviews":
+        return f"a review folder holds {schema.LEDGER} and nothing else"
+
+    if parts[-1] == schema.INDEX:
+        return "no index belongs here, the tool builds one per tracker, docs/ and memory/"
+
+    return "not a file the brain lists, file it with brain new or move it out"
 
 
 def relative(
@@ -654,6 +696,7 @@ def skill_target(
 
 
 CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
+    check_strays,
     check_frontmatter,
     check_names,
     check_kinds,

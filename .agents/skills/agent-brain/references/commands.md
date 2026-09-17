@@ -66,7 +66,9 @@ headings and nothing else, for filling in afterwards.
 | `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. |
 | `brain doctor --fix` | Applies every fixable repair, in passes until a pass changes nothing, then reports what is left. A repair that fails is reported as a flag with the reason. |
 
-What doctor checks: frontmatter present and complete, `updated` a real
+What doctor checks: no stray files, meaning every markdown file under
+`.agents/` is either an entry the store lists or a file the kit owns,
+frontmatter present and complete, `updated` a real
 date, names matching filenames and unique, kind matching folder, fields
 and values against the spec, required headings, the lifecycle rules,
 filename patterns and duplicate ids, links that resolve, links written
