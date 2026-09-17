@@ -496,7 +496,7 @@ def check_links(
                     path=where,
                     check="link",
                     message="links not written as paths relative to .agents/",
-                    repair=set_links(path, canonical),
+                    repair=set_links(path=path, values=canonical),
                 )
             )
 
@@ -533,7 +533,7 @@ def check_indexes(
             path=relative(brain, path),
             check="index",
             message="differs from what the tool builds for its folder",
-            repair=write_index(path, wanted[path]),
+            repair=write_index(path=path, text=wanted[path]),
         )
         for path in index.stale_among(wanted)
     ]
@@ -683,7 +683,7 @@ def check_style_copies(
             path=str(relative),
             check="layout",
             message="the chat style copy does not match the Claude Code one",
-            repair=write_copy(style.project(brain) / relative, wanted),
+            repair=write_copy(target=style.project(brain) / relative, text=wanted),
         )
         for relative in style.stale_against(brain=brain, wanted=wanted)
     ]
