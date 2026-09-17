@@ -15,6 +15,10 @@ from typing import Optional
 
 FENCE = "---"
 
+# What a write in flight is called, beside its target. Doctor knows the
+# shape, so one left by an interrupted run is found rather than ignored.
+TEMP_SUFFIX = ".tmp"
+
 
 class FrontmatterError(Exception):
     """A file that cannot be read as frontmatter plus body."""
@@ -227,16 +231,23 @@ def write_text(
     if not os.access(folder, os.W_OK) or (real_file and not os.access(path, os.W_OK)):
         raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), path)
 
-    mode = stat.S_IMODE(os.stat(path).st_mode) if real_file else None
-    handle, temporary = tempfile.mkstemp(dir=folder, prefix=f".{os.path.basename(path)}.", suffix=".tmp")
+    mode = stat.S_IMODE(os.stat(path).st_mode) if real_file else default_mode()
+    handle, temporary = tempfile.mkstemp(dir=folder, prefix=f".{os.path.basename(path)}.", suffix=TEMP_SUFFIX)
 
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as opened:
             opened.write(text)
-        if mode is not None:
-            os.chmod(temporary, mode)
+        os.chmod(temporary, mode)
         os.replace(temporary, path)
     except BaseException:
         if os.path.lexists(temporary):
             os.unlink(temporary)
         raise
+
+
+def default_mode() -> int:
+    """The mode a new file gets under the current umask, which mkstemp does not give."""
+    current = os.umask(0)
+    os.umask(current)
+
+    return 0o666 & ~current
