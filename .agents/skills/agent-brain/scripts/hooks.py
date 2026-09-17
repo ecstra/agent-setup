@@ -615,9 +615,11 @@ def emit_nothing(
 ) -> None:
     """Say there is nothing to add, in the form the agent wants.
 
-    Gemini CLI parses standard output as JSON and wants an object even
-    when it is empty. Claude Code takes silence, and for Codex anything
-    printed would become context, so both get nothing.
+    On a pass, exit 0, Gemini CLI parses standard output as JSON, so it
+    gets an empty object. On a refusal, exit 2, every agent takes the
+    reason from standard error and reads nothing else. Claude Code takes
+    silence on a pass, and for Codex anything printed would become
+    context, so both get nothing.
     """
     if agent == "gemini":
         print("{}")
