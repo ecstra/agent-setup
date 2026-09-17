@@ -195,7 +195,7 @@ def check_lines(
             raise FrontmatterError(line_trouble(line=line, number=number))
 
         if name in seen:
-            raise FrontmatterError(f"{name} appears twice in the header, one key per line and each key once")
+            raise FrontmatterError(f"line {number} of the header repeats {name}, one key per line and each key once")
 
         seen.add(name)
 
@@ -205,14 +205,14 @@ def line_trouble(
     number: int,
 ) -> str:
     """Why a header line is not `key: value`, in words that say what to write."""
+    if not line.strip():
+        return f"line {number} of the header is blank, the kit writes one key per line with nothing between"
+
     if line.strip().startswith("- "):
         return f"line {number} of the header is a block list item, the kit writes a list on its key's line as [a, b]"
 
     if line[:1] in (" ", "\t"):
         return f"line {number} of the header is indented, the kit writes one key per line at the margin"
-
-    if not line.strip():
-        return f"line {number} of the header is blank, the kit writes one key per line with nothing between"
 
     return f"line {number} of the header is not key: value"
 
