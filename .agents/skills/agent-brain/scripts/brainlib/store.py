@@ -128,7 +128,7 @@ class Brain:
         found: list[Entry] = []
 
         for path in sorted(folder.rglob("*.md")):
-            if path.name == schema.INDEX:
+            if hidden(path.relative_to(folder)) or path.name == schema.INDEX:
                 continue
 
             if kind.name == "review" and (path.name != schema.LEDGER or path.parent.parent != folder):
@@ -243,6 +243,18 @@ class Brain:
             return folder / f"{self.next_id(kind)}-{slug}.md"
 
         return folder / f"{slug}.md"
+
+
+def hidden(
+    relative: Path,
+) -> bool:
+    """Whether any part of the path starts with a dot.
+
+    A dotfile or anything inside a dot folder is not the brain's: an
+    editor's swap file, a scratch folder a write left behind, a tool's
+    own cache. None of it is filed, listed or checked as an entry.
+    """
+    return any(part.startswith(".") for part in relative.parts)
 
 
 def number_in(

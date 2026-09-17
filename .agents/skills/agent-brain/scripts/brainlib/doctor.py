@@ -176,12 +176,13 @@ def markdown_files(
 def all_markdown(
     brain: store.Brain,
 ) -> list[Path]:
-    """Every markdown file under the brain, the skills and the rulebook excepted."""
+    """Every markdown file under the brain, the skills, the rulebook and dotfiles excepted."""
     found: list[Path] = []
 
     for path in sorted(brain.root.rglob("*.md")):
-        parts = path.relative_to(brain.root).parts
-        if parts[0] in SKIP_DIRS:
+        relative_path = path.relative_to(brain.root)
+        parts = relative_path.parts
+        if parts[0] in SKIP_DIRS or store.hidden(relative_path):
             continue
 
         if path.name in schema.NO_FRONTMATTER and len(parts) == 1:
