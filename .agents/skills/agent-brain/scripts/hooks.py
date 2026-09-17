@@ -17,6 +17,7 @@ import argparse
 import json
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -25,12 +26,28 @@ from brainlib import doctor, frontmatter, links, reads, schema, store
 BLOCK = 2
 FAILED = 1
 
-# A patch written with Windows line endings carries a carriage return
-# before every newline, so the path is taken up to the last visible
-# character rather than to the end of the line.
-ADD_FILE = re.compile(r"^\*\*\* Add File: (.+?)\s*$", re.MULTILINE)
+# The file markers of a Codex patch. A patch written with Windows line
+# endings carries a carriage return before every newline, so the path
+# is taken up to the last visible character rather than the line's end.
+MARKER = re.compile(r"^\*\*\* (Add File|Update File|Delete File|Move to): (.+?)\s*$")
+PATCH_OPENS = "*** Begin Patch"
 
 SKILLS = "skills"
+
+
+@dataclass
+class Touch:
+    """One file a write event reaches, with what the write would do to it.
+
+    `content` is the whole new text when the tool writes a file whole,
+    `old_string` the text an edit replaces, `removed` the lines a patch
+    takes out. Whichever the agent's tool provides, the hook reads.
+    """
+
+    path: Path
+    content: Optional[str] = None
+    old_string: Optional[str] = None
+    removed: tuple[str, ...] = ()
 
 
 def main(
@@ -136,8 +153,8 @@ def pre_write(
     brain: store.Brain,
     event: dict,
 ) -> int:
-    for path in written_paths(event):
-        verdict = refusal(brain, path)
+    for touch in touches(event):
+        verdict = refusal(brain, touch)
         if verdict is None:
             continue
 
@@ -149,9 +166,10 @@ def pre_write(
 
 def refusal(
     brain: store.Brain,
-    path: Path,
+    touch: Touch,
 ) -> Optional[str]:
     """Why this write may not create a brain file by hand, or None if it may."""
+    path = touch.path
     inside = links.within(brain=brain, path=path)
     if inside is None:
         return None
@@ -180,7 +198,8 @@ def refusal(
     return (
         f"{inside} would be a new brain file written by hand. File it with "
         "brain new so it gets its id, its header block and its index line, "
-        "with the prose on standard input."
+        "with the prose on standard input, or rename an existing one with "
+        "brain refile."
     )
 
 
@@ -189,7 +208,7 @@ def post_write(
     event: dict,
     agent: str,
 ) -> int:
-    inside = [path for path in written_paths(event) if is_inside(brain, path)]
+    inside = [touch for touch in touches(event) if is_inside(brain, touch.path)]
     if not inside:
         return 0
 
@@ -210,28 +229,68 @@ def is_inside(
     return links.within(brain=brain, path=path) is not None
 
 
-def written_paths(
+def touches(
     event: dict,
-) -> list[Path]:
+) -> list[Touch]:
     """The files a write event touches, absolute, in the shape each agent sends.
 
-    A relative path is taken against the directory the event names, not
-    the one this process happens to run in. The folder part is then
-    spelled the way the disk spells it, so a project reached through a
-    symlink still compares equal to the brain's real root.
+    Claude Code and Gemini CLI name one file and hand over its new text
+    or the text an edit replaces. Codex hands over a patch that can add,
+    update, delete or move several files. A relative path is taken
+    against the directory the event names, not the one this process
+    happens to run in. The folder part is then spelled the way the disk
+    spells it, so a project reached through a symlink still compares
+    equal to the brain's real root.
     """
     base = Path(event.get("cwd") or Path.cwd())
     tool_input = event.get("tool_input") or {}
-    found: list[Path] = []
+    found: list[Touch] = []
 
     for key in ("file_path", "path", "filePath"):
         value = tool_input.get(key)
         if isinstance(value, str) and value.strip():
-            found.append(absolute(base=base, value=value.strip()))
+            found.append(
+                Touch(
+                    path=absolute(base=base, value=value.strip()),
+                    content=text_field(tool_input, "content"),
+                    old_string=text_field(tool_input, "old_string"),
+                )
+            )
 
     for value in tool_input.values():
-        if isinstance(value, str):
-            found.extend(absolute(base=base, value=match) for match in ADD_FILE.findall(value))
+        if isinstance(value, str) and PATCH_OPENS in value:
+            found.extend(patch_touches(base=base, patch=value))
+
+    return found
+
+
+def text_field(
+    tool_input: dict,
+    key: str,
+) -> Optional[str]:
+    value = tool_input.get(key)
+
+    return value if isinstance(value, str) else None
+
+
+def patch_touches(
+    base: Path,
+    patch: str,
+) -> list[Touch]:
+    """Every file a Codex patch names, with the lines an update takes out."""
+    found: list[Touch] = []
+    removed: list[str] = []
+
+    for line in patch.splitlines():
+        marker = MARKER.match(line)
+        if marker is not None:
+            found.append(Touch(path=absolute(base=base, value=marker.group(2))))
+            removed = []
+            continue
+
+        if found and line.startswith("-"):
+            removed.append(line[1:].rstrip("\r"))
+            found[-1] = Touch(path=found[-1].path, removed=tuple(removed))
 
     return found
 
