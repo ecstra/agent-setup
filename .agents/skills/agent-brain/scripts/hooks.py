@@ -52,6 +52,7 @@ class Touch:
     new_string: Optional[str] = None
     replace_all: bool = False
     hunks: tuple[tuple[str, ...], ...] = ()
+    moved_from: Optional[Path] = None
 
 
 def main(
@@ -176,10 +177,15 @@ def refusal(
 ) -> Optional[str]:
     """Why this write may not touch the brain by hand, or None if it may.
 
-    A new brain file, an index, a dotted path and the header block of
-    an existing file are the tool's. The prose below a header is the
-    agent's to edit, and doctor reads it afterwards.
+    A new brain file, an index, a dotted path, a rename and the header
+    block of an existing file are the tool's. The prose below a header
+    is the agent's to edit, and doctor reads it afterwards.
     """
+    if touch.moved_from is not None:
+        source = entry_path(brain=brain, path=touch.moved_from)
+        if source is not None:
+            return f"{source} is renamed with brain refile, not by hand"
+
     path = touch.path
     inside = links.within(brain=brain, path=path)
     if inside is None or path.suffix != ".md":
@@ -212,6 +218,22 @@ def refusal(
         "with the prose on standard input, or rename an existing one with "
         "brain refile."
     )
+
+
+def entry_path(
+    brain: store.Brain,
+    path: Path,
+) -> Optional[str]:
+    """The brain relative path of an existing entry file, or None for anything else."""
+    inside = links.within(brain=brain, path=path)
+    if inside is None or path.suffix != ".md" or not store.quietly(path.exists):
+        return None
+
+    relative_path = Path(inside)
+    if relative_path.parts[0] == SKILLS or store.hidden(relative_path) or schema.is_kit_path(inside):
+        return None
+
+    return inside
 
 
 HEADER_IS_THE_TOOLS = (
@@ -410,7 +432,12 @@ def patch_touches(
         marker = MARKER.match(line)
         if marker is not None:
             close_hunk()
-            found.append(Touch(path=absolute(base=base, value=marker.group(2))))
+            path = absolute(base=base, value=marker.group(2))
+            if marker.group(1) == "Move to" and updating is not None:
+                found.append(Touch(path=path, moved_from=found[updating].path))
+                continue
+
+            found.append(Touch(path=path))
             updating = len(found) - 1 if marker.group(1) == "Update File" else None
             continue
 
