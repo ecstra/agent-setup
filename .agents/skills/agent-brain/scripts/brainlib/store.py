@@ -180,7 +180,7 @@ class Brain:
             raise StoreError(f"{kind.name} files carry no id")
 
         numbers = [entry.number for entry in self.entries_of(kind)]
-        numbers += [number_in(path.name, kind) for path in self.unreadable if self.folder(kind) in path.parents]
+        numbers += [number_in(filename=path.name, kind=kind) for path in self.unreadable if self.folder(kind) in path.parents]
         taken = [number for number in numbers if number is not None]
         if not taken:
             return 1

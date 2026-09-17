@@ -199,7 +199,7 @@ def check_strays(
     found: list[Finding] = []
 
     for path in all_markdown(brain):
-        where = relative(brain, path)
+        where = relative(brain=brain, path=path)
         if path in accounted or schema.is_kit_path(where):
             continue
 
