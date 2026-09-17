@@ -85,7 +85,7 @@ def run(
         return session_start(brain, args.agent, args.with_rules)
 
     if args.event == "pre-write":
-        return pre_write(brain, event)
+        return pre_write(brain, event, args.agent)
 
     return post_write(brain, event, args.agent)
 
@@ -152,6 +152,7 @@ def text_of(
 def pre_write(
     brain: store.Brain,
     event: dict,
+    agent: str,
 ) -> int:
     for touch in touches(event):
         verdict = refusal(brain, touch)
@@ -161,6 +162,7 @@ def pre_write(
         print(verdict, file=sys.stderr)
         return BLOCK
 
+    emit_nothing(agent)
     return 0
 
 
@@ -298,16 +300,14 @@ def post_write(
     agent: str,
 ) -> int:
     inside = [touch for touch in touches(event) if is_inside(brain, touch.path)]
-    if not inside:
-        return 0
-
-    findings = doctor.run(brain)
+    findings = doctor.run(brain) if inside else []
     if not findings:
+        emit_nothing(agent)
         return 0
 
     lines = [finding.line() for finding in findings]
     text = "brain doctor after that write:\n" + "\n".join(lines) + "\nRun brain doctor --fix for the fixable ones."
-    emit_context(agent, text, event_name="PostToolUse")
+    emit_context(agent, text, event_name=AFTER_WRITE.get(agent, "PostToolUse"))
     return 0
 
 
@@ -411,18 +411,40 @@ def settled(
         return path
 
 
+# What each agent calls the event after a write, which the reply names.
+# Claude Code and Codex say PostToolUse, Gemini CLI says AfterTool.
+AFTER_WRITE = {"claude": "PostToolUse", "codex": "PostToolUse", "gemini": "AfterTool"}
+
+
 def emit_context(
     agent: str,
     text: str,
     event_name: str,
 ) -> None:
-    """Hand text back the way this agent takes context from a hook."""
+    """Hand text back the way this agent takes context from a hook.
+
+    Codex takes plain text on standard output as developer context.
+    Claude Code and Gemini CLI take one JSON object naming the event.
+    """
     if agent == "codex":
         print(text)
         return
 
     payload = {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": text}}
     print(json.dumps(payload))
+
+
+def emit_nothing(
+    agent: str,
+) -> None:
+    """Say there is nothing to add, in the form the agent wants.
+
+    Gemini CLI parses standard output as JSON and wants an object even
+    when it is empty. Claude Code takes silence, and for Codex anything
+    printed would become context, so both get nothing.
+    """
+    if agent == "gemini":
+        print("{}")
 
 
 if __name__ == "__main__":
