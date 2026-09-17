@@ -13,6 +13,7 @@ from typing import Callable, Optional
 
 from . import frontmatter, schema
 
+
 class StoreError(Exception):
     """The brain is missing, or something in it cannot be read."""
 
