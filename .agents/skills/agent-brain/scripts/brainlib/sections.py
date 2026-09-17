@@ -5,11 +5,40 @@ command can refuse to file something the spec says is incomplete.
 """
 
 import re
-from typing import Optional
+from typing import Callable, Optional
 
 from . import schema
 
 HEADING = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.MULTILINE)
+
+# Code in a body, fenced or inline. It keeps its own punctuation and
+# its own links, so the checks and the rewrites step over it.
+CODE = re.compile(r"```.*?```|`[^`\n]*`", re.DOTALL)
+
+
+def prose_of(
+    text: str,
+) -> str:
+    """The text with its code taken out."""
+    return CODE.sub("", text)
+
+
+def map_prose(
+    text: str,
+    transform: Callable[[str], str],
+) -> str:
+    """The text with `transform` applied to the prose and the code left as it is."""
+    pieces: list[str] = []
+    at = 0
+
+    for match in CODE.finditer(text):
+        pieces.append(transform(text[at : match.start()]))
+        pieces.append(match.group(0))
+        at = match.end()
+
+    pieces.append(transform(text[at:]))
+
+    return "".join(pieces)
 
 
 def headings(

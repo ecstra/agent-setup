@@ -22,9 +22,6 @@ SKIP_DIRS: frozenset[str] = frozenset({"skills", ".worktrees"})
 EM_DASH = "—"
 EN_DASH = "–"
 
-FENCED = re.compile(r"```.*?```", re.DOTALL)
-INLINE_CODE = re.compile(r"`[^`\n]*`")
-
 MACHINE_PATH = re.compile(r"(/Users/|/home/|[A-Z]:\\)")
 
 SECRET_SHAPES = (
@@ -627,13 +624,6 @@ def write_index(
     return repair
 
 
-def prose_of(
-    text: str,
-) -> str:
-    """The text with code taken out, since code keeps its own punctuation."""
-    return INLINE_CODE.sub("", FENCED.sub("", text))
-
-
 def check_style(
     brain: store.Brain,
 ) -> list[Finding]:
@@ -641,7 +631,7 @@ def check_style(
 
     for path in all_markdown(brain):
         try:
-            body = prose_of(frontmatter.read(str(path)).body)
+            body = sections.prose_of(frontmatter.read(str(path)).body)
         except frontmatter.FrontmatterError:
             continue
 
@@ -669,7 +659,7 @@ def check_hygiene(
 
         where = relative(brain, path)
 
-        if MACHINE_PATH.search(prose_of(text)):
+        if MACHINE_PATH.search(sections.prose_of(text)):
             found.append(Finding(path=where, check="hygiene", message="names a machine's local path"))
 
         for shape in SECRET_SHAPES:

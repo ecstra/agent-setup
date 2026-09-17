@@ -13,7 +13,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from . import frontmatter, store
+from . import frontmatter, sections, store
 
 MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
@@ -137,14 +137,15 @@ def broken(
 def broken_in_body(
     entry: store.Entry,
 ) -> list[str]:
-    """Markdown links in the body that do not reach a file from where they stand.
+    """Markdown links in the prose that do not reach a file from where they stand.
 
     A body link is relative to its file, so an absolute one is broken
-    however the machine it was written on is laid out.
+    however the machine it was written on is laid out. A link quoted in
+    code is not a link.
     """
     found: list[str] = []
 
-    for match in MARKDOWN_LINK.finditer(entry.document.body):
+    for match in MARKDOWN_LINK.finditer(sections.prose_of(entry.document.body)):
         target = match.group(1)
         if "://" in target or target.startswith("#"):
             continue
@@ -312,7 +313,7 @@ def moved_body(
 
         return head + replacement + tail
 
-    body = MARKDOWN_LINK.sub(moved, entry.document.body)
+    body = sections.map_prose(entry.document.body, lambda prose: MARKDOWN_LINK.sub(moved, prose))
 
     return body if body != entry.document.body else None
 
