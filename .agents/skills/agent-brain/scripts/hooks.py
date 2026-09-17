@@ -440,9 +440,9 @@ def touches(
 
     if agent == "codex":
         for key in PATCH_KEYS:
-            value = tool_input.get(key)
-            if isinstance(value, str) and PATCH_OPENS in value:
-                return patch_touches(base=base, patch=value)
+            for text in texts_in(tool_input.get(key)):
+                if PATCH_OPENS in text:
+                    return patch_touches(base=base, patch=text)
 
         return found
 
@@ -476,6 +476,22 @@ def replaces_more_than_one(
     expected = tool_input.get("expected_replacements")
 
     return isinstance(expected, int) and expected > 1
+
+
+def texts_in(
+    value: object,
+) -> list[str]:
+    """The strings a field holds, whether it is one string or a list of them.
+
+    A shell style call hands the patch over as one element of a list.
+    """
+    if isinstance(value, str):
+        return [value]
+
+    if isinstance(value, list):
+        return [element for element in value if isinstance(element, str)]
+
+    return []
 
 
 def text_field(
