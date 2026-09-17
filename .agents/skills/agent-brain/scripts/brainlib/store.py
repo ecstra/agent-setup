@@ -131,7 +131,7 @@ class Brain:
             if path.name == schema.INDEX:
                 continue
 
-            if kind.name == "review" and path.name != schema.LEDGER:
+            if kind.name == "review" and (path.name != schema.LEDGER or path.parent.parent != folder):
                 continue
 
             try:
