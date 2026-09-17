@@ -214,7 +214,7 @@ def stray_reason(
     parts = where.split("/")
 
     if parts[0] == "reviews" and parts[-1] == schema.LEDGER:
-        return f"a ledger sits directly in its review folder, reviews/<folder>/{schema.LEDGER}, nothing deeper"
+        return f"a ledger sits at reviews/<folder>/{schema.LEDGER}, one folder down, no more and no less"
 
     if parts[0] == "reviews":
         return f"a review folder holds {schema.LEDGER} and nothing else"
@@ -441,6 +441,17 @@ def check_filenames(
     numbers: dict[str, str] = {}
 
     for entry in brain.entries():
+        if entry.kind.name == "review":
+            if not schema.is_review_folder(entry.slug):
+                found.append(
+                    Finding(
+                        path=entry.relative,
+                        check="filename",
+                        message=f"a review folder is named <yyyy-mm>-<branch-slug>, not '{entry.slug}'",
+                    )
+                )
+            continue
+
         if entry.kind.has_ids and entry.identifier is None:
             found.append(
                 Finding(

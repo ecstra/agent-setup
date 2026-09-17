@@ -33,9 +33,13 @@ def create(
 ) -> store.Entry:
     stamp = stamp or today()
 
+    slug = schema.slugify(title)
+    if kind.name == "review" and not schema.is_review_folder(slug):
+        raise WriteError(f"a review folder is named <yyyy-mm>-<branch-slug>, and '{slug}' is not")
+
     taken = brain.with_slug(
         kind=kind,
-        slug=schema.slugify(title),
+        slug=slug,
     )
     if taken is not None:
         raise WriteError(f"{taken.name} already carries that title")
