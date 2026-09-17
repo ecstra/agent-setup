@@ -7,6 +7,7 @@ upgrade turns them into paths.
 
 import os
 import re
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Optional
@@ -156,34 +157,67 @@ def rewrite_references(
 
     Paths are root relative. A file whose links change has changed, so
     it gets the date like any other edit, per the upkeep rule. The
-    writes go all together or not at all: a file that cannot be written
-    puts the ones before it back, so no link points at a path that the
-    rename then never made.
+    writes go all together or not at all: every file is read before any
+    is written, and a file that cannot be written puts the ones before
+    it back as they were, symlink included, so no link points at a path
+    the rename then never made.
     """
     stamp = stamp or date.today().isoformat()
-    planned: list[tuple[store.Entry, list[str]]] = []
+    planned: list[Planned] = []
     for entry in brain.entries():
         moved = moved_links(brain=brain, entry=entry, old=old, new=new)
         if moved is not None:
-            planned.append((entry, moved))
+            planned.append(Planned(entry=entry, links=moved, text=frontmatter.load(str(entry.path)), link=link_target(entry.path)))
 
-    written: dict[Path, str] = {}
+    written: list[Planned] = []
 
     try:
-        for entry, moved in planned:
-            before = frontmatter.load(str(entry.path))
-            entry.document.set_list(key="links", values=moved)
-            entry.document.set(key="updated", value=stamp)
-            frontmatter.write(path=str(entry.path), document=entry.document)
-            written[entry.path] = before
+        for item in planned:
+            item.entry.document.set_list(key="links", values=item.links)
+            item.entry.document.set(key="updated", value=stamp)
+            frontmatter.write(path=str(item.entry.path), document=item.entry.document)
+            written.append(item)
     except OSError:
-        for path, before in written.items():
-            path.write_text(before, encoding="utf-8")
+        for item in written:
+            put_back(item)
         raise
     finally:
         brain.refresh()
 
-    return list(written)
+    return [item.entry.path for item in written]
+
+
+@dataclass
+class Planned:
+    """One file about to have its links moved, with what it was before."""
+
+    entry: store.Entry
+    links: list[str]
+    text: str
+    link: Optional[str]
+
+
+def link_target(
+    path: Path,
+) -> Optional[str]:
+    if not store.quietly(path.is_symlink):
+        return None
+
+    return os.readlink(str(path))
+
+
+def put_back(
+    item: Planned,
+) -> None:
+    """Restore a file the way it was, a symlink as the symlink it was."""
+    path = item.entry.path
+    if item.link is None:
+        path.write_text(item.text, encoding="utf-8")
+        return
+
+    if store.quietly(path.exists) or store.quietly(path.is_symlink):
+        path.unlink()
+    os.symlink(item.link, str(path))
 
 
 def moved_links(
