@@ -257,8 +257,9 @@ def header_change(
     header block, every line between the fences except the updated date
     the upkeep rule asks the agent to move, must come out as it went in.
     A file the hook cannot read is already broken, so the write is taken
-    as the repair and doctor judges the result. A patch whose hunk does
-    not fit the file is not judged either, since it will not apply.
+    as the repair and doctor judges the result. A hunk that fits nowhere
+    is judged by its shape: refused when it carries a fence or a header
+    field, since the hook cannot tell where it would land.
     """
     try:
         text = frontmatter.load(str(touch.path))
@@ -295,7 +296,7 @@ def header_change(
 def field_names(
     current: frontmatter.Document,
     inside: str,
-) -> set:
+) -> set[str]:
     """The fields this file's header carries or could carry, the updated date aside.
 
     What the file holds now plus what its kind's spec allows, so a loose
@@ -303,17 +304,17 @@ def field_names(
     still read as header work, while a prose line with a colon whose
     name is neither is not.
     """
-    names = {frontmatter.split_field(line)[0] for line in current.lines}
+    names = {name for name in (frontmatter.split_field(line)[0] for line in current.lines) if name is not None}
     kind = schema.kind_for_folder(Path(inside).parts[0])
     if kind is not None:
         names |= {field.name for field in schema.fields_for(kind)}
 
-    return names - {None, "updated"}
+    return names - {"updated"}
 
 
 def header_line_in(
     hunk: tuple[str, ...],
-    names: set,
+    names: set[str],
 ) -> Optional[str]:
     """The first line of a hunk, kept, removed or added, that is a fence or a header field."""
     for line in hunk:
