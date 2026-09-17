@@ -297,7 +297,7 @@ def moved_body(
     old_target = os.path.normpath(str(brain.root / old))
     folder = entry.path.parent
 
-    def moved(match: "re.Match[str]") -> str:
+    def moved(match: re.Match) -> str:
         target = match.group(1)
         if "://" in target or target.startswith("#") or Path(target).is_absolute():
             return match.group(0)
