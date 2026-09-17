@@ -209,15 +209,19 @@ def link_target(
 def put_back(
     item: Planned,
 ) -> None:
-    """Restore a file the way it was, a symlink as the symlink it was."""
+    """Restore a file the way it was, a symlink as the symlink it was.
+
+    The symlink is made beside the file and moved into place in one
+    step, so there is no moment with nothing at the path.
+    """
     path = item.entry.path
     if item.link is None:
-        path.write_text(item.text, encoding="utf-8")
+        frontmatter.write_text(path=str(path), text=item.text)
         return
 
-    if store.quietly(path.exists) or store.quietly(path.is_symlink):
-        path.unlink()
-    os.symlink(item.link, str(path))
+    beside = path.with_name(f".{path.name}.link")
+    os.symlink(item.link, str(beside))
+    os.replace(str(beside), str(path))
 
 
 def moved_links(

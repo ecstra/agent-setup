@@ -6,7 +6,10 @@ it. Frontmatter lines are kept as raw text too, so a field nobody edited
 is written back character for character.
 """
 
+import errno
 import os
+import stat
+import tempfile
 from dataclasses import dataclass
 from typing import Optional
 
@@ -201,15 +204,39 @@ def write(
     path: str,
     document: Document,
 ) -> None:
-    """Write the document as a real file.
+    """Write the document as a real file, whole or not at all."""
+    write_text(path=path, text=render(document))
 
-    The brain holds real files. A symlink standing in a file's place is
-    replaced rather than written through. A folder somebody linked into
-    the brain is theirs, and a file filed in it lives where they put the
-    folder.
+
+def write_text(
+    path: str,
+    text: str,
+) -> None:
+    """Write text as a real file, whole or not at all.
+
+    The text goes to a temporary file beside the target and is moved
+    into place in one step, so a failure part way leaves the old file
+    as it was. The brain holds real files: a symlink standing in the
+    file's place is replaced rather than written through, while a
+    folder somebody linked into the brain is theirs, and a file filed
+    in it lives where they put the folder. A file or folder the process
+    may not write is refused before anything is touched.
     """
-    if os.path.islink(path):
-        os.unlink(path)
+    folder = os.path.dirname(path) or "."
+    real_file = os.path.isfile(path) and not os.path.islink(path)
+    if not os.access(folder, os.W_OK) or (real_file and not os.access(path, os.W_OK)):
+        raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), path)
 
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(render(document))
+    mode = stat.S_IMODE(os.stat(path).st_mode) if real_file else None
+    handle, temporary = tempfile.mkstemp(dir=folder, prefix=f".{os.path.basename(path)}.", suffix=".tmp")
+
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as opened:
+            opened.write(text)
+        if mode is not None:
+            os.chmod(temporary, mode)
+        os.replace(temporary, path)
+    except BaseException:
+        if os.path.lexists(temporary):
+            os.unlink(temporary)
+        raise

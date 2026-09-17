@@ -6,6 +6,7 @@ thing, so each gets the same text as a plain file inside its own config
 folder, and doctor keeps the copies identical to the source.
 """
 
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -95,13 +96,12 @@ def write_one(
     target: Path,
     text: str,
 ) -> None:
-    """Write one copy as a fresh real file.
+    """Write one copy as a fresh real file, whole or not at all.
 
-    Whatever stands there goes first, a symlink so the text is not
-    written through it, a file so one the process may not open does not
-    stop the rewrite. The copies are the tool's, so nothing is lost.
+    A copy the process may not write goes first, since the copies are
+    the tool's and nothing in one is worth keeping.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
-    if target.is_symlink() or target.is_file():
+    if store.readable_file(target) and not os.access(str(target), os.W_OK):
         target.unlink()
-    target.write_text(text, encoding="utf-8")
+    frontmatter.write_text(path=str(target), text=text)
