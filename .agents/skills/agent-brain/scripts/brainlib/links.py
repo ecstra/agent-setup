@@ -15,7 +15,11 @@ from typing import Optional
 
 from . import frontmatter, sections, store
 
+# The two ways markdown writes a link: inline, `[text](target)`, and by
+# reference, `[label]: target` on a line of its own. Group 1 is the
+# target in both, so one rewrite serves both.
 MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+REFERENCE_LINK = re.compile(r"^\[[^\]]+\]:[ \t]+(\S+)", re.MULTILINE)
 
 # The scratch folder a symlink is put back through, the prefix and the
 # random tail TemporaryDirectory adds. Doctor knows the exact shape, so
@@ -135,7 +139,8 @@ def broken(
 
 
 def broken_in_body(
-    entry: store.Entry,
+    path: Path,
+    document: frontmatter.Document,
 ) -> list[str]:
     """Markdown links in the prose that do not reach a file from where they stand.
 
@@ -144,17 +149,26 @@ def broken_in_body(
     code is not a link.
     """
     found: list[str] = []
+    prose = sections.prose_of(document.body)
 
-    for match in MARKDOWN_LINK.finditer(sections.prose_of(entry.document.body)):
-        target = match.group(1)
+    for target in [match.group(1) for pattern in (MARKDOWN_LINK, REFERENCE_LINK) for match in pattern.finditer(prose)]:
         if "://" in target or target.startswith("#"):
             continue
 
         file_part = target.split("#")[0]
-        if Path(file_part).is_absolute() or not store.quietly((entry.path.parent / file_part).exists):
+        if Path(file_part).is_absolute() or not store.quietly((path.parent / file_part).exists):
             found.append(target)
 
     return found
+
+
+def documents(
+    brain: store.Brain,
+) -> list[tuple[Path, frontmatter.Document]]:
+    """Every file that carries links: the entries and the kit's own files."""
+    found = [(entry.path, entry.document) for entry in brain.entries()]
+
+    return found + kit_documents(brain)
 
 
 @dataclass
@@ -166,7 +180,8 @@ class Planned:
     links moved, or None when none of them point there.
     """
 
-    entry: store.Entry
+    path: Path
+    document: frontmatter.Document
     links: Optional[list[str]]
     body: Optional[str]
     text: str
@@ -180,7 +195,7 @@ def rewrite_references(
     stamp: str = "",
 ) -> list[Path]:
     """Point every frontmatter link at `old` to `new`, and say which files changed."""
-    return [item.entry.path for item in move_links(brain=brain, old=old, new=new, stamp=stamp)]
+    return [item.path for item in move_links(brain=brain, old=old, new=new, stamp=stamp)]
 
 
 def move_links(
@@ -203,24 +218,24 @@ def move_links(
     """
     stamp = stamp or date.today().isoformat()
     planned: list[Planned] = []
-    for entry in brain.entries():
-        moved = moved_links(brain=brain, entry=entry, old=old, new=new)
-        body = moved_body(brain=brain, entry=entry, old=old, new=new)
+    for path, document in documents(brain):
+        moved = moved_links(brain=brain, document=document, old=old, new=new)
+        body = moved_body(brain=brain, path=path, document=document, old=old, new=new)
         if moved is None and body is None:
             continue
 
-        planned.append(Planned(entry=entry, links=moved, body=body, text=frontmatter.load(str(entry.path)), link=link_target(entry.path)))
+        planned.append(Planned(path=path, document=document, links=moved, body=body, text=frontmatter.load(str(path)), link=link_target(path)))
 
     written: list[Planned] = []
 
     try:
         for item in planned:
             if item.links is not None:
-                item.entry.document.set_list(key="links", values=item.links)
+                item.document.set_list(key="links", values=item.links)
             if item.body is not None:
-                item.entry.document.body = item.body
-            item.entry.document.set(key="updated", value=stamp)
-            frontmatter.write(path=str(item.entry.path), document=item.entry.document)
+                item.document.body = item.body
+            item.document.set(key="updated", value=stamp)
+            frontmatter.write(path=str(item.path), document=item.document)
             written.append(item)
     except OSError as error:
         stuck = put_back_all(written)
@@ -243,7 +258,7 @@ def put_back_all(
         try:
             put_back(item)
         except OSError:
-            stuck.append(item.entry.path)
+            stuck.append(item.path)
 
     return stuck
 
@@ -272,7 +287,7 @@ def put_back(
     into place in one step, so there is no moment with nothing at the
     path, and no fixed name for a leftover to collide with.
     """
-    path = item.entry.path
+    path = item.path
     if item.link is None:
         frontmatter.write_text(path=str(path), text=item.text)
         return
@@ -285,18 +300,19 @@ def put_back(
 
 def moved_body(
     brain: store.Brain,
-    entry: store.Entry,
+    path: Path,
+    document: frontmatter.Document,
     old: str,
     new: str,
 ) -> Optional[str]:
-    """The entry's prose with every markdown link at `old` pointed at `new`, or None when none is.
+    """The file's prose with every markdown link at `old` pointed at `new`, or None when none is.
 
     A body link is relative to the file it sits in, so the new target is
     written relative to that file too, anchor kept. Everything else in
     the prose is left character for character.
     """
     old_target = os.path.normpath(str(brain.root / old))
-    folder = entry.path.parent
+    folder = path.parent
 
     def moved(match: re.Match) -> str:
         target = match.group(1)
@@ -313,19 +329,19 @@ def moved_body(
 
         return head + replacement + tail
 
-    body = sections.map_prose(entry.document.body, lambda prose: MARKDOWN_LINK.sub(moved, prose))
+    body = sections.map_prose(document.body, lambda prose: REFERENCE_LINK.sub(moved, MARKDOWN_LINK.sub(moved, prose)))
 
-    return body if body != entry.document.body else None
+    return body if body != document.body else None
 
 
 def moved_links(
     brain: store.Brain,
-    entry: store.Entry,
+    document: frontmatter.Document,
     old: str,
     new: str,
 ) -> Optional[list[str]]:
-    """The entry's links with `old` pointed at `new`, or None when none point there."""
-    current = outgoing(entry)
+    """The header's links with `old` pointed at `new`, or None when none point there."""
+    current = document.get_list("links")
     moved = [new if link == old or canonical(brain, link) == old else link for link in current]
     if moved == current:
         return None

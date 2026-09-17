@@ -307,7 +307,7 @@ def folder_body(
         "review": reviews_body,
     }
 
-    return renderers[kind.name](brain.entries_of(kind))
+    return renderers[kind.name](entries=brain.entries_of(kind), filed=filed_per(brain=brain, kind=kind))
 
 
 def line_for(
@@ -324,25 +324,36 @@ def line_for(
 def header(
     title: str,
     intro: str,
-    spec: str,
+    filed: str,
 ) -> list[str]:
-    return [
-        f"# {title}",
-        "",
-        intro,
-        f"Filed per [spec/{spec}.md](../spec/{spec}.md).",
-        "Built by the brain tool from the folder it lists.",
-        "",
-    ]
+    lines = [f"# {title}", "", intro]
+    if filed:
+        lines.append(filed)
+    lines += ["Built by the brain tool from the folder it lists.", ""]
+
+    return lines
+
+
+def filed_per(
+    brain: store.Brain,
+    kind: schema.Kind,
+) -> str:
+    """The line naming the folder's spec, or nothing when the spec is not there to link."""
+    spec = f"spec/{kind.folder}.md"
+    if not store.readable_file(brain.root / spec):
+        return ""
+
+    return f"Filed per [{spec}](../{spec})."
 
 
 def docs_body(
     entries: list[store.Entry],
+    filed: str,
 ) -> str:
     lines = header(
         title="Docs Index",
         intro="The knowledge library, one line per doc, grouped by category folder.",
-        spec="docs",
+        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -365,11 +376,12 @@ def docs_body(
 
 def memory_body(
     entries: list[store.Entry],
+    filed: str,
 ) -> str:
     lines = header(
         title="Memory Index",
         intro="Project facts, one line each.",
-        spec="memory",
+        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -383,6 +395,7 @@ def memory_body(
 
 def todos_body(
     entries: list[store.Entry],
+    filed: str,
 ) -> str:
     lines = header(
         title="Todos Index",
@@ -390,7 +403,7 @@ def todos_body(
             "Open items first, grouped by area. Done and dropped are summarized\n"
             "by area with counts."
         ),
-        spec="todos",
+        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -421,11 +434,12 @@ def todos_body(
 
 def bugs_body(
     entries: list[store.Entry],
+    filed: str,
 ) -> str:
     lines = header(
         title="Bugs Index",
         intro="Open bugs first, grouped by severity. Fixed and wontfix below.",
-        spec="bugs",
+        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -462,11 +476,12 @@ def bugs_body(
 
 def decisions_body(
     entries: list[store.Entry],
+    filed: str,
 ) -> str:
     lines = header(
         title="Decisions Index",
         intro="Every decision taken, newest first.",
-        spec="decisions",
+        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -490,11 +505,12 @@ def decisions_body(
 
 def reviews_body(
     entries: list[store.Entry],
+    filed: str,
 ) -> str:
     lines = header(
         title="Reviews Index",
         intro="Code review ledgers, open first.",
-        spec="reviews",
+        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")

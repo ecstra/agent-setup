@@ -575,10 +575,10 @@ def check_links(
                 )
             )
 
-    for entry in brain.entries():
-        for target in links.broken_in_body(entry):
+    for path, document in documents:
+        for target in links.broken_in_body(path=path, document=document):
             found.append(
-                Finding(path=entry.relative, check="link", message=f"body link '{target}' reaches nothing")
+                Finding(path=relative(brain=brain, path=path), check="link", message=f"body link '{target}' reaches nothing")
             )
 
     return found
