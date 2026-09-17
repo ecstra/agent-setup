@@ -36,6 +36,10 @@ SECRET_SHAPES = (
 SKILL_LINK = Path(".claude") / "skills" / "agent-brain"
 SKILL_HOME = Path(".agents") / "skills" / "agent-brain"
 
+# How many repair passes one --fix may take. Two is the longest chain
+# the checks can form, a name put right and then its index rebuilt.
+PASSES = 5
+
 
 @dataclass
 class Finding:
@@ -61,18 +65,67 @@ def run(
     brain: store.Brain,
     fix: bool = False,
 ) -> list[Finding]:
-    """Every finding in the brain, after repairs when `fix` is set."""
+    """Every finding in the brain, after repairs when `fix` is set.
+
+    Repairs run in passes. One pass applies every repair on offer, then
+    the brain is read again, since one repair changes what another check
+    sees, an index built before a name was put right for one. It stops
+    when nothing fixable is left or a pass changed nothing. A repair
+    that fails turns its finding into a flag that carries the reason.
+    """
     found = check_all(brain)
     if not fix:
         return found
 
-    for finding in found:
-        if finding.repair is not None:
-            finding.repair()
+    failed: dict[tuple[str, str], str] = {}
 
-    brain.refresh()
+    for _ in range(PASSES):
+        pending = [finding for finding in found if finding.fixable and key_of(finding) not in failed]
+        if not pending:
+            break
 
-    return check_all(brain)
+        for finding in pending:
+            try:
+                finding.repair()
+            except (OSError, frontmatter.FrontmatterError) as error:
+                failed[key_of(finding)] = store.explain(error)
+
+        brain.refresh()
+        again = check_all(brain)
+        if lines_of(again) == lines_of(found):
+            break
+
+        found = again
+
+    return [flagged(finding, failed) for finding in found]
+
+
+def key_of(
+    finding: Finding,
+) -> tuple[str, str]:
+    return finding.path, finding.check
+
+
+def lines_of(
+    found: list[Finding],
+) -> list[str]:
+    return [finding.line() for finding in found]
+
+
+def flagged(
+    finding: Finding,
+    failed: dict[tuple[str, str], str],
+) -> Finding:
+    """The finding as it stands, or as a flag when its repair failed."""
+    reason = failed.get(key_of(finding))
+    if reason is None:
+        return finding
+
+    return Finding(
+        path=finding.path,
+        check=finding.check,
+        message=f"{finding.message}, and the repair failed: {reason}",
+    )
 
 
 def check_all(

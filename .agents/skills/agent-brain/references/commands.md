@@ -64,7 +64,7 @@ headings and nothing else, for filling in afterwards.
 | Command | What it does |
 |---|---|
 | `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. |
-| `brain doctor --fix` | Applies every fixable repair, then reports what is left. |
+| `brain doctor --fix` | Applies every fixable repair, in passes until a pass changes nothing, then reports what is left. A repair that fails is reported as a flag with the reason. |
 
 What doctor checks: frontmatter present and complete, `updated` a real
 date, names matching filenames and unique, kind matching folder, fields
