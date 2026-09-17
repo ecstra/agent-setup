@@ -162,12 +162,16 @@ def check_lines(
     """Refuse a header the line model cannot hold, saying what to write instead.
 
     The header is one key per line, each key once. Two lines with one
-    key would leave `get` and `fields` answering differently, so the
-    file is refused before either can.
+    key would leave `get` and `fields` answering differently, and a
+    block list under a key would read as nothing, so the file is refused
+    before either can happen.
     """
     seen: set[str] = set()
 
-    for line in lines:
+    for number, line in enumerate(lines, start=2):
+        if line[:1] in (" ", "\t"):
+            raise FrontmatterError(indented_trouble(line=line, number=number))
+
         name, _ = split_field(line)
         if name is None:
             continue
@@ -176,6 +180,16 @@ def check_lines(
             raise FrontmatterError(f"{name} appears twice in the header, one key per line and each key once")
 
         seen.add(name)
+
+
+def indented_trouble(
+    line: str,
+    number: int,
+) -> str:
+    if line.strip().startswith("- "):
+        return f"line {number} of the header is a block list item, the kit writes a list on its key's line as [a, b]"
+
+    return f"line {number} of the header is indented, the kit writes one key per line at the margin"
 
 
 def find_closing_fence(
