@@ -167,7 +167,9 @@ def markdown_files(
     style and hygiene scans read every file regardless, since a pasted
     secret is most likely in exactly the file nobody filed.
     """
-    return [path for path in all_markdown(brain) if path in brain.known() or schema.is_kit_path(relative(brain, path))]
+    accounted = brain.known()
+
+    return [path for path in all_markdown(brain) if path in accounted or schema.is_kit_path(relative(brain=brain, path=path))]
 
 
 def all_markdown(
