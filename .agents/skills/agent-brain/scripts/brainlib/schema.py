@@ -38,8 +38,25 @@ class Section:
 
 
 @dataclass(frozen=True)
+class Rule:
+    """What a file in one status must carry, in the words used when it does not.
+
+    One rule names one thing: a field that must be filled, a section
+    that must be filled, or a link to a file of another kind. The writer
+    refuses a status change that breaks a rule and doctor reports a file
+    that sits in a status breaking one, with the same words.
+    """
+
+    status: str
+    says: str
+    field: str = ""
+    section: str = ""
+    link_kind: str = ""
+
+
+@dataclass(frozen=True)
 class Kind:
-    """A kind of brain file, its home, and what it must carry."""
+    """A kind of brain file, its home, what it must carry, and the rules its statuses hold to."""
 
     name: str
     folder: str
@@ -47,6 +64,7 @@ class Kind:
     sections: tuple[Section, ...] = ()
     id_prefix: str = ""
     frontmatter_kind: str = ""
+    rules: tuple[Rule, ...] = ()
 
     @property
     def kind_value(self) -> str:
@@ -103,6 +121,10 @@ KINDS: dict[str, Kind] = {
             Section(title="Fix", required=False),
             Section(title="Verification", required=False),
         ),
+        rules=(
+            Rule(status="fixed", says="a bug goes fixed once its Fix section names the cause and the commit", section="Fix"),
+            Rule(status="wontfix", says="a wontfix needs its reason written under Problem", section="Problem"),
+        ),
     ),
     "todo": Kind(
         name="todo",
@@ -126,6 +148,11 @@ KINDS: dict[str, Kind] = {
             Section(title="Why", required=False),
             Section(title="Done when"),
         ),
+        rules=(
+            Rule(status="done", says="a todo goes done with its closing date, done=YYYY-MM-DD", field="done"),
+            Rule(status="done", says="a todo goes done once Done when names what closed it", section="Done when"),
+            Rule(status="dropped", says="a todo goes dropped with its closing date, done=YYYY-MM-DD", field="done"),
+        ),
     ),
     "decision": Kind(
         name="decision",
@@ -144,6 +171,9 @@ KINDS: dict[str, Kind] = {
             Section(title="Decision"),
             Section(title="Alternatives", required=False),
             Section(title="Consequences", required=False),
+        ),
+        rules=(
+            Rule(status="superseded", says="a superseded decision names the one that replaced it", field="superseded-by"),
         ),
     ),
     "review": Kind(

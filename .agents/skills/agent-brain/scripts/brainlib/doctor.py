@@ -461,41 +461,10 @@ def check_sections(
                 Finding(path=entry.relative, check="sections", message=f"no {title} heading")
             )
 
-        for message in lifecycle_gaps(entry):
+        for message in sections.lifecycle_gaps(kind=entry.kind, fields=entry.document.fields(), body=body):
             found.append(Finding(path=entry.relative, check="lifecycle", message=message))
 
     return found
-
-
-def lifecycle_gaps(
-    entry: store.Entry,
-) -> list[str]:
-    """What a file in its current status is required to carry and does not."""
-    status = entry.field("status")
-    body = entry.document.body
-    gaps: list[str] = []
-
-    if entry.kind.name == "bug" and status == "fixed":
-        if not sections.is_filled(body=body, title="Fix"):
-            gaps.append("fixed, with nothing under Fix")
-
-    if entry.kind.name == "bug" and status == "wontfix":
-        if not sections.is_filled(body=body, title="Problem"):
-            gaps.append("wontfix, with no reason under Problem")
-
-    if entry.kind.name == "todo" and status in ("done", "dropped"):
-        if not entry.field("done"):
-            gaps.append(f"{status}, with no done date")
-
-    if entry.kind.name == "todo" and status == "done":
-        if not sections.is_filled(body=body, title="Done when"):
-            gaps.append("done, with nothing under Done when")
-
-    if entry.kind.name == "decision" and status == "superseded":
-        if not entry.field("superseded-by"):
-            gaps.append("superseded, with no superseded-by")
-
-    return gaps
 
 
 def check_filenames(

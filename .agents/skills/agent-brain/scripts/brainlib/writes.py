@@ -407,30 +407,10 @@ def check_transition(
     changes: dict[str, str],
     fields: dict[str, str],
 ) -> None:
-    """The lifecycle rules a status change has to satisfy."""
-    status = changes.get("status")
-    if status is None:
+    """The lifecycle rules a status change has to satisfy, the kind's own table."""
+    if "status" not in changes:
         return
 
-    body = entry.document.body
-
-    if entry.kind.name == "bug" and status == "fixed":
-        if not sections.is_filled(body=body, title="Fix"):
-            raise WriteError(
-                "a bug goes fixed once its Fix section names the cause and the commit"
-            )
-
-    if entry.kind.name == "bug" and status == "wontfix":
-        if not sections.is_filled(body=body, title="Problem"):
-            raise WriteError("a wontfix needs its reason written in the body")
-
-    if entry.kind.name == "todo" and status == "done":
-        if not fields.get("done"):
-            raise WriteError("a todo goes done with its closing date, done=YYYY-MM-DD")
-
-        if not sections.is_filled(body=body, title="Done when"):
-            raise WriteError("a todo goes done once Done when names what closed it")
-
-    if entry.kind.name == "decision" and status == "superseded":
-        if not fields.get("superseded-by"):
-            raise WriteError("a superseded decision names the one that replaced it")
+    gaps = sections.lifecycle_gaps(kind=entry.kind, fields=fields, body=entry.document.body)
+    if gaps:
+        raise WriteError(gaps[0])

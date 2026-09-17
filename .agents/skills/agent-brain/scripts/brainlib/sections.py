@@ -7,7 +7,7 @@ command can refuse to file something the spec says is incomplete.
 import re
 from typing import Optional
 
-from . import schema
+from . import frontmatter, schema
 
 HEADING = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 
@@ -89,6 +89,43 @@ def missing(
         for section in kind.sections
         if section.required and not has(body=body, title=section.title)
     ]
+
+
+def lifecycle_gaps(
+    kind: schema.Kind,
+    fields: dict[str, str],
+    body: str,
+) -> list[str]:
+    """What a file in its status is required to carry and does not, per the kind's rules.
+
+    The writer asks this before a status change lands, doctor asks it of
+    every file as it stands, so the two never disagree on a rule.
+    """
+    status = fields.get("status", "")
+    gaps: list[str] = []
+
+    for rule in kind.rules:
+        if rule.status != status:
+            continue
+
+        if rule.field and not fields.get(rule.field, "").strip():
+            gaps.append(rule.says)
+
+        if rule.section and not is_filled(body=body, title=rule.section):
+            gaps.append(rule.says)
+
+        if rule.link_kind and not links_into(fields=fields, folder=schema.KINDS[rule.link_kind].folder):
+            gaps.append(rule.says)
+
+    return gaps
+
+
+def links_into(
+    fields: dict[str, str],
+    folder: str,
+) -> bool:
+    """Whether the header's links reach into the named folder."""
+    return any(link.startswith(f"{folder}/") for link in frontmatter.parse_list(fields.get("links", "")))
 
 
 def skeleton(
