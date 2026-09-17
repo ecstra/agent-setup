@@ -216,10 +216,11 @@ def check_leftovers(
     """What an interrupted write left beside its target, safe to remove.
 
     Only the tool's own shapes count, a real file named the way a write
-    in flight is named and a real folder named the way a put back
-    scratch is named. A person's own dotfile is nobody's to delete. The
-    chat style copies are written the same way outside the brain, so
-    their folders are looked at too.
+    in flight is named and, inside the brain, a real folder named the
+    way a put back scratch is named. A person's own dotfile is nobody's
+    to delete. The chat style copies are written the same way outside
+    the brain, so their folders are looked at for a write in flight,
+    the one shape the tool leaves there.
     """
     found: list[Finding] = []
     candidates = [path for path in brain.root.rglob(".*") if path.relative_to(brain.root).parts[0] not in SKIP_DIRS]
@@ -232,7 +233,7 @@ def check_leftovers(
             continue
 
         in_flight = store.quietly(path.is_file) and frontmatter.TEMP_SHAPE.match(path.name) is not None
-        scratch = store.quietly(path.is_dir) and links.SCRATCH_SHAPE.match(path.name) is not None
+        scratch = brain.root in path.parents and store.quietly(path.is_dir) and links.SCRATCH_SHAPE.match(path.name) is not None
         if not in_flight and not scratch:
             continue
 
