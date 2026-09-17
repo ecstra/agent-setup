@@ -403,8 +403,8 @@ def todos_body(
     lines = header(
         title="Todos Index",
         intro=(
-            "Open items first, grouped by area. Done and dropped are summarized\n"
-            "by area with counts."
+            "Open items first, grouped by area. Done, dropped and refiled are\n"
+            "summarized by area with counts."
         ),
         filed=filed,
     )
@@ -424,7 +424,7 @@ def todos_body(
         lines += [line_for(entry, folder) for entry in group]
         lines.append("")
 
-    lines += ["## Done and dropped", ""]
+    lines += ["## Closed", ""]
     if not closed:
         lines.append("Nothing closed yet.")
     for area, group in grouped(closed, "area").items():
@@ -443,7 +443,7 @@ def bugs_body(
 ) -> str:
     lines = header(
         title="Bugs Index",
-        intro="Open bugs first, grouped by severity. Fixed and wontfix below.",
+        intro="Open bugs first, grouped by severity. Fixed, wontfix and refiled below.",
         filed=filed,
     )
     if not entries:

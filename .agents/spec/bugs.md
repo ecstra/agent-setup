@@ -17,9 +17,9 @@ bug's history.
 A bug has evidence of wrong behavior. A todo is work to do. Neither may
 hold the other: a wish filed here is refiled as a todo, a defect filed
 there as a bug, both through `brain refile --kind`. The old file stays,
-marked `refiled`, and the two link to each other. The agent classifies on intake
-without asking, and cross links carry any relationship (`links:`,
-`parent:`).
+marked `refiled`, and the two link to each other. The agent classifies
+on intake without asking, and cross links carry any relationship
+(`links:`, `parent:`).
 
 ## Format
 
@@ -59,4 +59,4 @@ How it was proven gone.
 Born on intake (a field report, a hunter find, a review finding deferred
 past its branch). Fixed bugs keep their file with status flipped and the
 Fix section filled, nothing is deleted. The INDEX lists open bugs first,
-grouped by severity, fixed below.
+grouped by severity, then fixed, wontfix and refiled.
