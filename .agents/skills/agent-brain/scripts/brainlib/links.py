@@ -52,12 +52,14 @@ def inside(
 
     An absolute path replaces the root when joined, and `..` climbs out
     of it, so both are checked against the root before anything is read.
+    A dotted path is nobody's entry, so a link to one reaches nothing.
     """
     if not reference:
         return None
 
     candidate = brain.root / reference
-    if within(brain=brain, path=candidate) is None:
+    relative = within(brain=brain, path=candidate)
+    if relative is None or store.hidden(Path(relative)):
         return None
 
     return candidate
