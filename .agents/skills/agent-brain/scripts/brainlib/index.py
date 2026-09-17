@@ -269,7 +269,7 @@ def count_by_status(
     counts: dict[str, int] = {}
 
     for entry in entries:
-        status = entry.field("status") or "unknown"
+        status = entry.field("status") or schema.UNKNOWN
         counts[status] = counts.get(status, 0) + 1
 
     return ", ".join(f"{count} {status}" for status, count in counts.items())
@@ -283,7 +283,7 @@ def count_bugs(
     if open_ones:
         by_severity: dict[str, int] = {}
         for entry in open_ones:
-            severity = entry.field("severity") or "unknown"
+            severity = entry.field("severity") or schema.UNKNOWN
             by_severity[severity] = by_severity.get(severity, 0) + 1
 
         inner = ", ".join(f"{by_severity[s]} {s}" for s in SEVERITY_ORDER if s in by_severity)

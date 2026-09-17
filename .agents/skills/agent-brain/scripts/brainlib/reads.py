@@ -61,7 +61,7 @@ def tally(
     counts: dict[str, int] = {}
 
     for entry in entries:
-        value = entry.field(field) or "none"
+        value = entry.field(field) or schema.UNKNOWN
         counts[value] = counts.get(value, 0) + 1
 
     return counts

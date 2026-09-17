@@ -228,6 +228,9 @@ INDEXED_FOLDERS: tuple[str, ...] = (
 INDEX = "INDEX.md"
 LEDGER = "ledger.md"
 
+# The one word for a status a file does not carry, wherever it is counted.
+UNKNOWN = "unknown"
+
 
 def is_hidden(
     relative: str,
