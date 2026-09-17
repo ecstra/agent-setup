@@ -151,10 +151,12 @@ def check_all(
 def markdown_files(
     brain: store.Brain,
 ) -> list[Path]:
-    """Every markdown file the checks look at: the entries and the kit's files.
+    """The files the frontmatter checks look at: the entries and the kit's files.
 
     A file that is neither is a stray, reported once by its own check
-    rather than measured against rules written for something else.
+    rather than measured against rules written for something else. The
+    style and hygiene scans read every file regardless, since a pasted
+    secret is most likely in exactly the file nobody filed.
     """
     return [path for path in all_markdown(brain) if path in brain.known() or schema.is_kit_path(relative(brain, path))]
 
@@ -532,7 +534,7 @@ def check_style(
 ) -> list[Finding]:
     found: list[Finding] = []
 
-    for path in markdown_files(brain):
+    for path in all_markdown(brain):
         try:
             body = prose_of(frontmatter.read(str(path)).body)
         except frontmatter.FrontmatterError:
@@ -554,7 +556,7 @@ def check_hygiene(
 ) -> list[Finding]:
     found: list[Finding] = []
 
-    for path in markdown_files(brain):
+    for path in all_markdown(brain):
         try:
             text = path.read_bytes().decode("utf-8", errors="replace")
         except OSError:
