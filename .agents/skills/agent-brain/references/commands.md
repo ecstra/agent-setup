@@ -77,10 +77,11 @@ semicolons in prose, no machine paths, nothing shaped like a secret, the
 version stamp, and the skill link Claude Code needs, which must reach
 the skill rather than point at nothing or be a plain file.
 
-What `--fix` repairs: a missing `updated` date, a name that disagrees
-with its filename, a link written as a name, a stale index, and the
-skill link when it is missing, dead or a plain file. Each repaired file
-gets today's date.
+What `--fix` repairs: a missing or blank `updated` date, blank `links`
+written as `[]`, a name that disagrees with its filename, a link written
+as a name, a stale index, a stale chat style copy, and the skill link
+when it is missing, dead or a plain file. Each repaired file gets
+today's date.
 
 ## Hooks
 
@@ -90,7 +91,7 @@ standard input:
 | Event | What happens |
 |---|---|
 | `session-start` | Prints `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy, for an agent that does not expand imports. |
-| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, or an `INDEX.md`. Edits to existing files, spec files and skill files pass. |
+| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, or a file nested under `spec/`. Edits to existing files, the kit's own files, files directly under `spec/` and anything under `skills/` pass. |
 | `post-write` | After a write inside `.agents/`, runs doctor and hands its findings back as context. |
 
 The config files that wire them up ship with the kit: `.claude/settings.json`,
