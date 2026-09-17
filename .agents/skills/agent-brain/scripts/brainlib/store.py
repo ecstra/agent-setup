@@ -321,13 +321,19 @@ def explain(
     return str(error)
 
 
+# The folders a message may name a path from, so it reads the same on
+# every machine: the brain and the three agents' own folders.
+NEAR_ROOTS = (".agents", ".claude", ".codex", ".gemini")
+
+
 def near(
     path: str,
 ) -> str:
-    """A path from `.agents/` down, or just the filename when it lies elsewhere."""
+    """A path from the brain or an agent folder down, or just the filename elsewhere."""
     parts = Path(path).parts
-    if ".agents" in parts:
-        return str(Path(*parts[parts.index(".agents") :]))
+    for position, part in enumerate(parts):
+        if part in NEAR_ROOTS:
+            return str(Path(*parts[position:]))
 
     return Path(path).name
 

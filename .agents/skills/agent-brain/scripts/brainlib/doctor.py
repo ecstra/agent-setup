@@ -6,6 +6,7 @@ applies those before it reports, so what comes back is only what needs a
 person or an agent to decide.
 """
 
+import errno
 import os
 import re
 import shutil
@@ -788,6 +789,9 @@ def make_skill_link(
     def repair() -> None:
         link = project / SKILL_LINK
         link.parent.mkdir(parents=True, exist_ok=True)
+        if not os.access(str(link.parent), os.W_OK):
+            raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), str(link.parent))
+
         if link.is_symlink() or (link.exists() and not link.is_dir()):
             link.unlink()
         os.symlink(skill_target(project=project, link=link), str(link))
