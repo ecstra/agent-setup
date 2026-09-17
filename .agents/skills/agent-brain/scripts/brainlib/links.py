@@ -7,6 +7,7 @@ upgrade turns them into paths.
 
 import os
 import re
+import tempfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -15,6 +16,10 @@ from typing import Optional
 from . import frontmatter, store
 
 MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+
+# The scratch folder a symlink is put back through. Doctor knows the
+# shape, so one left by an interrupted run is found rather than ignored.
+SCRATCH_PREFIX = ".putback."
 
 
 def resolve(
@@ -245,17 +250,19 @@ def put_back(
 ) -> None:
     """Restore a file the way it was, a symlink as the symlink it was.
 
-    The symlink is made beside the file and moved into place in one
-    step, so there is no moment with nothing at the path.
+    The symlink is made in a scratch folder beside the file and moved
+    into place in one step, so there is no moment with nothing at the
+    path, and no fixed name for a leftover to collide with.
     """
     path = item.entry.path
     if item.link is None:
         frontmatter.write_text(path=str(path), text=item.text)
         return
 
-    beside = path.with_name(f".{path.name}.link")
-    os.symlink(item.link, str(beside))
-    os.replace(str(beside), str(path))
+    with tempfile.TemporaryDirectory(dir=str(path.parent), prefix=SCRATCH_PREFIX) as scratch:
+        beside = os.path.join(scratch, path.name)
+        os.symlink(item.link, beside)
+        os.replace(beside, str(path))
 
 
 def moved_links(
