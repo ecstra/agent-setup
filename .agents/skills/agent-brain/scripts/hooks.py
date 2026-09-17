@@ -491,7 +491,7 @@ def patch_touches(
     base: Path,
     patch: str,
 ) -> list[Touch]:
-    """Every file a Codex patch names, an update carrying its hunks.
+    """Every file a Codex patch names, an add carrying its text, an update its hunks.
 
     A hunk opens at `@@` and holds context, removed and added lines,
     each with its leading character. It closes at the next `@@`, the
@@ -502,6 +502,7 @@ def patch_touches(
     found: list[Touch] = []
     hunk: list[str] = []
     updating: Optional[int] = None
+    adding: Optional[int] = None
 
     def close_hunk() -> None:
         while hunk and hunk[-1] == " ":
@@ -520,8 +521,13 @@ def patch_touches(
                 found.append(Touch(path=path, moved_from=found[updating].path))
                 continue
 
-            found.append(Touch(path=path))
+            found.append(Touch(path=path, content="" if marker.group(1) == "Add File" else None))
             updating = len(found) - 1 if marker.group(1) == "Update File" else None
+            adding = len(found) - 1 if marker.group(1) == "Add File" else None
+            continue
+
+        if adding is not None and line[:1] == "+":
+            found[adding] = replace(found[adding], content=(found[adding].content or "") + line[1:] + "\n")
             continue
 
         if line.startswith("@@") or line.startswith("*** End"):
