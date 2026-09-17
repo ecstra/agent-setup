@@ -155,6 +155,21 @@ def parse(
     )
 
 
+def header_end(
+    text: str,
+) -> Optional[int]:
+    """The offset just past the closing fence line, or None when there is no header."""
+    if not text.startswith(FENCE + "\n"):
+        return None
+
+    opening = len(FENCE) + 1
+    closing = find_closing_fence(text[opening:])
+    if closing is None:
+        return None
+
+    return opening + closing + len(FENCE) + 1
+
+
 def find_closing_fence(
     rest: str,
 ) -> Optional[int]:

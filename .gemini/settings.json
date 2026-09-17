@@ -13,7 +13,7 @@
     ],
     "BeforeTool": [
       {
-        "matcher": "write_file",
+        "matcher": "write_file|replace",
         "hooks": [
           {
             "type": "command",

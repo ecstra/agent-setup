@@ -168,13 +168,15 @@ def refusal(
     brain: store.Brain,
     touch: Touch,
 ) -> Optional[str]:
-    """Why this write may not create a brain file by hand, or None if it may."""
+    """Why this write may not touch the brain by hand, or None if it may.
+
+    A new brain file, an index, a dotted path and the header block of
+    an existing file are the tool's. The prose below a header is the
+    agent's to edit, and doctor reads it afterwards.
+    """
     path = touch.path
     inside = links.within(brain=brain, path=path)
-    if inside is None:
-        return None
-
-    if path.suffix != ".md" or store.quietly(path.exists):
+    if inside is None or path.suffix != ".md":
         return None
 
     if Path(inside).parts[0] == SKILLS:
@@ -192,6 +194,9 @@ def refusal(
     if schema.is_kit_path(inside):
         return None
 
+    if store.quietly(path.exists):
+        return header_change(touch=touch, inside=inside)
+
     if Path(inside).parts[0] == "spec":
         return f"{inside} would nest inside spec/, which holds its files directly"
 
@@ -201,6 +206,90 @@ def refusal(
         "with the prose on standard input, or rename an existing one with "
         "brain refile."
     )
+
+
+HEADER_IS_THE_TOOLS = (
+    "the header block changes through brain set or brain refile, not by hand. "
+    "The prose below it is yours to edit."
+)
+
+
+def header_change(
+    touch: Touch,
+    inside: str,
+) -> Optional[str]:
+    """Why this write to an existing brain file may not go ahead, or None if it may.
+
+    The header block is every line between the fences except the
+    updated date, which the upkeep rule asks the agent to move. A tool
+    that writes the file whole shows its new text, one that edits shows
+    the text it replaces, a patch shows the lines it takes out, and each
+    is judged by whether it reaches the header.
+    """
+    try:
+        text = frontmatter.load(str(touch.path))
+        current = frontmatter.parse(text)
+    except frontmatter.FrontmatterError:
+        return None
+
+    header = header_lines(current)
+
+    if touch.content is not None:
+        try:
+            wanted = frontmatter.parse(touch.content)
+        except frontmatter.FrontmatterError:
+            return f"{inside} would lose its header block, and {HEADER_IS_THE_TOOLS}"
+
+        if header_lines(wanted) != header:
+            return f"{inside}: {HEADER_IS_THE_TOOLS}"
+
+    if touch.old_string and edit_reaches_header(text=text, old_string=touch.old_string):
+        return f"{inside}: {HEADER_IS_THE_TOOLS}"
+
+    if any(line in header for line in touch.removed):
+        return f"{inside}: {HEADER_IS_THE_TOOLS}"
+
+    return None
+
+
+def header_lines(
+    document: frontmatter.Document,
+) -> list[str]:
+    return [line for line in document.lines if frontmatter.split_field(line)[0] != "updated"]
+
+
+def edit_reaches_header(
+    text: str,
+    old_string: str,
+) -> bool:
+    """Whether the text an edit replaces lies in the header, the updated line aside."""
+    end = frontmatter.header_end(text)
+    if end is None:
+        return False
+
+    start = 0
+    while True:
+        found = text.find(old_string, start)
+        if found < 0 or found >= end:
+            return False
+
+        if not within_updated_line(text=text, start=found, stop=found + len(old_string)):
+            return True
+
+        start = found + 1
+
+
+def within_updated_line(
+    text: str,
+    start: int,
+    stop: int,
+) -> bool:
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", line_start)
+    if line_end < 0:
+        line_end = len(text)
+
+    return text[line_start:line_end].startswith("updated:") and stop <= line_end
 
 
 def post_write(

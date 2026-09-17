@@ -94,7 +94,7 @@ standard input:
 | Event | What happens |
 |---|---|
 | `session-start` | Prints `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy, for an agent that does not expand imports. |
-| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, or a dotted path, which the brain never lists or checks. Edits to existing files, the kit's own files, files directly under `spec/` and anything under `skills/` pass. |
+| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, or a change to the header block of an existing brain file, its `updated` date aside. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header check reads what the agent's tool hands over: the whole new text, the text an edit replaces, or the lines a patch takes out, so a patch that only adds a header line is not caught. |
 | `post-write` | After a write inside `.agents/`, runs doctor and hands its findings back as context. |
 
 The config files that wire them up ship with the kit: `.claude/settings.json`,
