@@ -99,8 +99,13 @@ def update(
     stamp = stamp or today()
     changes = dict(changes)
     if "links" in changes:
-        wanted = path_links(brain=brain, references=frontmatter.parse_list(changes["links"]))
-        changes["links"] = frontmatter.render_list(wanted)
+        changes["links"] = frontmatter.render_list(
+            settled_links(
+                brain=brain,
+                wanted=frontmatter.parse_list(changes["links"]),
+                existing=entry.document.get_list("links"),
+            )
+        )
 
     fields = entry.document.fields()
     fields.update(changes)
@@ -323,6 +328,28 @@ def entry_name(
         return path.parent.name
 
     return path.stem
+
+
+def settled_links(
+    brain: store.Brain,
+    wanted: list[str],
+    existing: list[str],
+) -> list[str]:
+    """The links a change leaves, a new one in path form or refused, an old one as it was.
+
+    A link the file already carried is not this change's to answer for.
+    If it is stale, doctor reports it, and a change that only adds a
+    link beside it, a refile for one, is not blocked by it.
+    """
+    found: list[str] = []
+
+    for link in wanted:
+        if link in existing:
+            found.append(link)
+        else:
+            found.extend(path_links(brain=brain, references=[link]))
+
+    return found
 
 
 def path_links(
