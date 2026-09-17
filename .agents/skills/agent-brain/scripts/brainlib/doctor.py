@@ -233,23 +233,11 @@ def check_frontmatter(
             continue
 
         for item in schema.COMMON_FIELDS:
-            if document.get(item.name) is not None:
+            value = document.get(item.name)
+            if value:
                 continue
 
-            if item.name == "updated":
-                found.append(
-                    Finding(
-                        path=where,
-                        check="frontmatter",
-                        message="no updated date",
-                        repair=stamp_today(path),
-                    )
-                )
-                continue
-
-            found.append(
-                Finding(path=where, check="frontmatter", message=f"no {item.name} field")
-            )
+            found.append(common_field_gap(path=path, where=where, name=item.name, present=value is not None))
 
         updated = document.get("updated")
         if updated and not schema.is_date(updated):
@@ -258,6 +246,29 @@ def check_frontmatter(
             )
 
     return found
+
+
+def common_field_gap(
+    path: Path,
+    where: str,
+    name: str,
+    present: bool,
+) -> Finding:
+    """A common field that is missing or blank. The date and the links can be filled in."""
+    if name == "updated":
+        return Finding(path=where, check="frontmatter", message="no updated date", repair=stamp_today(path))
+
+    if name == "links":
+        return Finding(
+            path=where,
+            check="frontmatter",
+            message="links is blank, none is written as []",
+            repair=set_field(path, "links", "[]"),
+        )
+
+    state = "is blank" if present else "field is missing"
+
+    return Finding(path=where, check="frontmatter", message=f"{name} {state}")
 
 
 def stamp_today(
