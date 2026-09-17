@@ -527,7 +527,8 @@ def patch_touches(
     each with its leading character. It closes at the next `@@`, the
     next file marker, or the end of file mark. A bare empty line inside
     a hunk is a blank context line, as apply_patch reads it, and blank
-    lines trailing a hunk are the patch's spacing, not the file's.
+    lines trailing a hunk are the patch's spacing, not the file's. An
+    added file reads a bare empty line as a blank line of its own.
     """
     found: list[Touch] = []
     hunk: list[str] = []
@@ -556,7 +557,7 @@ def patch_touches(
             adding = len(found) - 1 if marker.group(1) == "Add File" else None
             continue
 
-        if adding is not None and line[:1] == "+":
+        if adding is not None and (line[:1] == "+" or line == ""):
             found[adding] = replace(found[adding], content=(found[adding].content or "") + line[1:] + "\n")
             continue
 
