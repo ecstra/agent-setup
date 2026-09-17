@@ -551,8 +551,7 @@ def check_links(
     brain: store.Brain,
 ) -> list[Finding]:
     found: list[Finding] = []
-    documents = [(entry.path, entry.document) for entry in brain.entries()]
-    documents += links.kit_documents(brain)
+    documents = links.documents(brain)
 
     for path, document in documents:
         where = relative(brain, path)
