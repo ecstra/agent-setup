@@ -8,6 +8,7 @@ person or an agent to decide.
 
 import os
 import re
+import shutil
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -206,6 +207,46 @@ def check_strays(
         found.append(Finding(path=where, check="stray", message=stray_reason(where)))
 
     return found
+
+
+def check_leftovers(
+    brain: store.Brain,
+) -> list[Finding]:
+    """What an interrupted write left beside its target, safe to remove."""
+    found: list[Finding] = []
+
+    for path in sorted(brain.root.rglob(".*")):
+        parts = path.relative_to(brain.root).parts
+        if parts[0] in SKIP_DIRS:
+            continue
+
+        in_flight = store.quietly(path.is_file) and path.name.endswith(frontmatter.TEMP_SUFFIX)
+        scratch = store.quietly(path.is_dir) and path.name.startswith(links.SCRATCH_PREFIX)
+        if not in_flight and not scratch:
+            continue
+
+        found.append(
+            Finding(
+                path=relative(brain=brain, path=path),
+                check="leftover",
+                message="left by an interrupted write, nothing in it is the brain's",
+                repair=remove(path),
+            )
+        )
+
+    return found
+
+
+def remove(
+    path: Path,
+) -> Callable[[], None]:
+    def repair() -> None:
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+
+    return repair
 
 
 def stray_reason(
@@ -743,6 +784,7 @@ def skill_target(
 
 
 CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
+    check_leftovers,
     check_strays,
     check_frontmatter,
     check_names,
