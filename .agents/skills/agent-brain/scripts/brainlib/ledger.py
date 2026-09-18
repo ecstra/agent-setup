@@ -73,7 +73,7 @@ def add_batch(
 
     entry = ledger_entry(brain=brain, key=key)
     number = max((row["number"] for row in batches(entry)), default=0) + 1
-    row = batch_row(number=number, theme=theme, status="pending", ack="") + "\n"
+    row = "\n" + batch_row(number=number, theme=theme, status="pending", ack="")
 
     body = entry.document.body
     table_end = end_of_table(body)
@@ -407,17 +407,19 @@ def finding_span(
 def end_of_table(
     body: str,
 ) -> int:
-    """The offset just past the last batch row, or past the table header."""
+    """The offset at the end of the last batch row's line, or of the table header's, before the line break."""
     rows = batch_rows(body)
     if rows:
-        return rows[-1].end() + 1
+        return rows[-1].end()
 
     start, end = batches_section(body)
-    header = TABLE_HEADER.search(string=body, pos=start, endpos=end)
-    if header is None:
-        raise LedgerError("the ledger has no batch table")
+    spans = sections.code_spans(body)
 
-    return header.end() + 1
+    for header in TABLE_HEADER.finditer(string=body, pos=start, endpos=end):
+        if not sections.in_code(spans=spans, position=header.start()):
+            return header.end()
+
+    raise LedgerError("the ledger has no batch table")
 
 
 def end_of_section(
