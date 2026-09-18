@@ -534,10 +534,12 @@ def check_links(
 
         for link in current:
             resolved = links.canonical(brain=brain, reference=link)
+            if (resolved or link) in canonical:
+                continue
+
             if resolved is None:
                 found.append(Finding(path=where, check="link", message=f"'{link}' reaches nothing"))
-            if (resolved or link) not in canonical:
-                canonical.append(resolved or link)
+            canonical.append(resolved or link)
 
         if canonical != current:
             found.append(
