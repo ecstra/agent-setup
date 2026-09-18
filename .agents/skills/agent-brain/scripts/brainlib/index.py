@@ -541,8 +541,11 @@ def reviews_body(
         return "\n".join(lines) + "\n"
 
     folder = entries[0].root / "reviews"
-    for status in ("open", "closed"):
-        group = [entry for entry in entries if entry.field("status") == status]
+    for status in ("open", "closed", schema.UNKNOWN):
+        if status == schema.UNKNOWN:
+            group = [entry for entry in entries if entry.field("status") not in ("open", "closed")]
+        else:
+            group = [entry for entry in entries if entry.field("status") == status]
         if not group:
             continue
 
