@@ -64,7 +64,7 @@ def add_batch(
     theme: str,
 ) -> int:
     entry = ledger_entry(brain, key)
-    number = len(batches(entry)) + 1
+    number = max((row["number"] for row in batches(entry)), default=0) + 1
     row = f"| {number} | {theme} | pending | |\n"
 
     body = entry.document.body
@@ -123,7 +123,7 @@ def add_finding(
         raise LedgerError(f"found-by is review or hunter, not '{found_by}'")
 
     entry = ledger_entry(brain, key)
-    number = len(findings(entry)) + 1
+    number = max((int(record["id"][2:]) for record in findings(entry)), default=0) + 1
     identifier = f"F-{number:02d}"
     block = (
         f"\n### {identifier}: {one_line(value=claim, what='claim')}\n\n"
