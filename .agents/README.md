@@ -26,8 +26,8 @@ one, agents read this.
 ## The map
 
 - `SYSTEM.md`: the rules every agent works by. Claude Code and Gemini
-  CLI pull it in through the root `AGENTS.md`. An agent that does not
-  expand imports, Codex among them, opens it first.
+  CLI pull it in through the root `AGENTS.md`. Codex gets it from its
+  session start hook. An agent that has neither opens it first.
 - `spec/`: the law of this directory, one spec per content folder plus
   the shared conventions.
 - `docs/`: the knowledge, categorized. What the product is and how it
