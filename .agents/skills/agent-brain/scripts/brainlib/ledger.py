@@ -21,6 +21,10 @@ BATCH_ROW = re.compile(
 
 BATCH_HEADER = "| # | Theme | Status | Ack |\n|---|---|---|---|\n"
 
+# The table's header line and the rule under it, however the words are
+# cased. It ends at the end of the rule line.
+TABLE_HEADER = re.compile(r"^\|\s*#\s*\|[^\n]*\n\|\s*:?-+:?\s*\|[^\n]*$", re.MULTILINE)
+
 SEVERITIES = ("breaks", "bug", "debt", "nit")
 FOUND_BY = ("review", "hunter")
 FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred")
@@ -376,11 +380,11 @@ def end_of_table(
         return rows[-1].end() + 1
 
     start, end = batches_section(body)
-    header_at = body.find(BATCH_HEADER, start, end)
-    if header_at < 0:
+    header = TABLE_HEADER.search(string=body, pos=start, endpos=end)
+    if header is None:
         raise LedgerError("the ledger has no batch table")
 
-    return header_at + len(BATCH_HEADER)
+    return header.end() + 1
 
 
 def end_of_section(
