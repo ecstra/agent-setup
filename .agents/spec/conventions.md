@@ -35,11 +35,11 @@ inside it is fine and nothing is ever quoted. A list sits on its key's
 line as `[a, b]`. The brain tool writes headers this way and refuses to
 read one written any other way, naming the line and the fix.
 
-`SYSTEM.md` is the one exception. It is the rulebook, and an agent takes
-it exactly as it stands, so it carries no frontmatter. `skills/` is the
-tool's own folder, and its files follow the Agent Skills standard
-rather than this spec. Doctor reads them for the prose rules and
-nothing else.
+Two places sit outside this rule. `SYSTEM.md` carries no frontmatter at
+all, since it is the rulebook and an agent takes it exactly as it
+stands. `skills/` is the tool's own folder, and its files follow the
+Agent Skills standard rather than this spec, so doctor reads them for
+the prose rules and nothing else.
 
 ## Naming and ids
 
