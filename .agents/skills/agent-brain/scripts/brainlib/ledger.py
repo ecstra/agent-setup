@@ -178,8 +178,6 @@ def set_finding(
     changes: dict[str, str],
 ) -> None:
     changes = {field: checked(field=field, value=value) for field, value in changes.items()}
-    if changes.get("status") == "fixed" and not changes.get("fix"):
-        raise LedgerError("a fixed finding names its commit, fix=<hash>")
 
     entry = ledger_entry(brain=brain, key=key)
     body = entry.document.body
@@ -189,9 +187,13 @@ def set_finding(
 
     start, end = span
     block = body[start:end]
+    after = dict(bullets(block))
+    after.update(changes)
+    if after.get("status") == "fixed" and not after.get("fix"):
+        raise LedgerError("a fixed finding names its commit, fix=<hash>")
 
     for field, value in changes.items():
-        line = re.search(pattern=rf"^- {re.escape(field)}:.*$", string=block, flags=re.MULTILINE)
+        line = bullet_line(block=block, field=field)
         if line is None:
             raise LedgerError(f"a finding carries no '{field}' line")
 
@@ -199,6 +201,20 @@ def set_finding(
 
     entry.document.body = body[:start] + block + body[end:]
     save(brain=brain, entry=entry)
+
+
+def bullet_line(
+    block: str,
+    field: str,
+) -> Optional[re.Match]:
+    """The `- field:` line of a block that sits outside code, or None."""
+    spans = sections.code_spans(block)
+
+    for match in re.finditer(pattern=rf"^- {re.escape(field)}:.*$", string=block, flags=re.MULTILINE):
+        if not sections.in_code(spans=spans, position=match.start()):
+            return match
+
+    return None
 
 
 def close(
