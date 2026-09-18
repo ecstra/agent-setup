@@ -186,7 +186,7 @@ def links_of(
 
     return {
         "path": entry.relative,
-        "links": [links.canonical(brain, link) or link for link in links.outgoing(entry)],
+        "links": [links.canonical(brain=brain, reference=link) or link for link in links.outgoing(entry)],
         "backlinks": [other.relative for other in links.backlinks(brain=brain, target=entry)],
     }
 
