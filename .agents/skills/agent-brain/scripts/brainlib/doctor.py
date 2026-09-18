@@ -723,9 +723,13 @@ def check_style_copies(
 ) -> list[Finding]:
     """Codex and Gemini CLI carry the chat style as copies of the Claude Code one.
 
-    The source is read once, and each stale copy gets a repair that
-    writes only itself.
+    A copy is owed only where the project keeps that agent's folder. The
+    source is read once, and each stale copy gets a repair that writes
+    only itself.
     """
+    if not style.expected(brain):
+        return []
+
     try:
         wanted = style.source_body(brain)
     except style.StyleError as error:

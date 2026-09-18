@@ -77,8 +77,9 @@ links that resolve, links written as paths with each file once, body
 links that resolve, indexes current, no dashes or semicolons in prose,
 no machine paths, nothing shaped like a secret, the version stamp, the
 chat style copies for Codex and Gemini CLI matching the Claude Code
-one, and the skill link Claude Code needs, which must reach the skill
-rather than point at nothing or be a plain file.
+one where the project keeps those agents' folders, and the skill link
+Claude Code needs, which must reach the skill rather than point at
+nothing or be a plain file.
 
 What `--fix` repairs: a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written

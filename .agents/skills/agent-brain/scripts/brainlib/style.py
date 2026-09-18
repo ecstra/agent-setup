@@ -60,12 +60,27 @@ def stale(
     return stale_against(brain=brain, wanted=source_body(brain))
 
 
+def expected(
+    brain: store.Brain,
+) -> list[Path]:
+    """The copies the project owes, one per agent folder it keeps.
+
+    A project with no `.codex/` or `.gemini/` folder runs no such agent,
+    so it owes no copy there and the tool never conjures the folder.
+    """
+    return [
+        relative
+        for relative in COPIES
+        if store.quietly(lambda: (project(brain) / relative.parent).is_dir())
+    ]
+
+
 def stale_against(
     brain: store.Brain,
     wanted: str,
 ) -> list[Path]:
-    """The copies that do not say `wanted`, for a caller that read the source once."""
-    return [relative for relative in COPIES if copy_text(project(brain) / relative) != wanted]
+    """The copies owed that do not say `wanted`, for a caller that read the source once."""
+    return [relative for relative in expected(brain) if copy_text(project(brain) / relative) != wanted]
 
 
 def copy_text(
@@ -103,12 +118,11 @@ def write_one(
     target: Path,
     text: str,
 ) -> None:
-    """Write one copy as a fresh real file, whole or not at all.
+    """Write one copy as a fresh real file, whole or not at all, into a folder that is there.
 
     A copy the process may not write goes first, since the copies are
     the tool's and nothing in one is worth keeping.
     """
-    target.parent.mkdir(parents=True, exist_ok=True)
     if store.readable_file(target) and not os.access(str(target), os.W_OK):
         target.unlink()
     frontmatter.write_text(path=str(target), text=text)
