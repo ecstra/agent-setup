@@ -38,6 +38,10 @@ one, agents read this.
 - `decisions/`: decisions taken and why, one per file.
 - `reviews/`: one folder per code review, the ledger inside.
 - `handover/`: session handoffs, born with its first file.
+- `skills/`: the brain tool, the `agent-brain` skill, the one way
+  anything here is filed, changed, counted or checked. Its files follow
+  the Agent Skills standard rather than the specs above.
+- `VERSION`: the kit release this brain is on, read by the tool.
 
 ## Two absolutes
 

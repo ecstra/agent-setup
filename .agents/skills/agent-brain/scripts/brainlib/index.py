@@ -20,6 +20,9 @@ SPINE_INTRO = (
 )
 
 SYSTEM_HOOK = "the rulebook every agent works by, reached through AGENTS.md"
+SKILL_PATH = "skills/agent-brain/SKILL.md"
+SKILL_HOOK = "the brain tool, the one way anything here is filed, changed or checked"
+VERSION_HOOK = "the kit release this brain is on"
 
 SEVERITY_ORDER = ("breaks", "bug", "debt", "nit")
 
@@ -182,6 +185,10 @@ def spine_body(
 
     for relative in kit_listing(brain):
         lines.append(f"- [{relative}]({relative}), {hook_of(brain.root / relative)}")
+
+    for relative, hook in ((SKILL_PATH, SKILL_HOOK), ("VERSION", VERSION_HOOK)):
+        if store.readable_file(brain.root / relative):
+            lines.append(f"- [{relative}]({relative}), {hook}")
 
     lines += ["", "## The knowledge", ""]
     lines.append(spine_line(brain, "doc", "the knowledge library", count_docs))
