@@ -342,8 +342,12 @@ def batch_table(
     position = header.end()
 
     while position < end and body[position] == "\n":
-        row = BATCH_ROW.match(string=body, pos=position + 1, endpos=end)
+        line_start = position + 1
+        row = BATCH_ROW.match(string=body, pos=line_start, endpos=end)
         if row is None:
+            if body[line_start:end].split("\n", 1)[0].lstrip().startswith("|"):
+                raise LedgerError("a line of the batch table is not a whole row, a row is | number | theme | status | ack |")
+
             break
 
         rows.append(row)
