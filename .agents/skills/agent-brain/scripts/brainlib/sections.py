@@ -10,7 +10,6 @@ from typing import Optional
 from . import frontmatter, schema
 
 HEADING = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.MULTILINE)
-ANY_HEADING = re.compile(r"^#{1,6}[ \t]", re.MULTILINE)
 
 # Code in a body, fenced or inline. It keeps its own punctuation and
 # its own links, so the checks and the rewrites step over it. A fence
@@ -47,11 +46,17 @@ def in_code(
 def heading_after(
     body: str,
     start: int,
+    depth: int = 6,
 ) -> int:
-    """The offset of the next heading line outside code at or after `start`, else the body's end."""
-    spans = code_spans(body)
+    """The offset of the next heading outside code at or after `start`, else the body's end.
 
-    for match in ANY_HEADING.finditer(body, start):
+    `depth` is the deepest heading level that counts, so 2 finds the
+    next `#` or `##` line and steps over the `###` lines under it.
+    """
+    spans = code_spans(body)
+    heading = re.compile(rf"^#{{1,{depth}}}[ \t]", re.MULTILINE)
+
+    for match in heading.finditer(string=body, pos=start):
         if not in_code(spans=spans, position=match.start()):
             return match.start()
 

@@ -162,7 +162,10 @@ def add_finding(
         "- fix:\n"
     )
 
-    entry.document.body = entry.document.body.rstrip("\n") + "\n" + block
+    body = entry.document.body
+    section_start = section_span(body=body, title="Findings")[0]
+    section_end = sections.heading_after(body=body, start=section_start, depth=2)
+    entry.document.body = body[:section_end].rstrip("\n") + "\n" + block + ("\n" if section_end < len(body) else "") + body[section_end:]
     save(brain, entry)
 
     return identifier
