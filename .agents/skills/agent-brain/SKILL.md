@@ -118,5 +118,6 @@ Doctor reports each defect on its own line, marked `fixable` or `flag`.
 `--fix` repairs the mechanical ones, a stale index, a name that
 disagrees with its filename, a link written as a name or repeated in
 one header, a chat style copy that drifted from the Claude Code one, a
-missing or dead skill link, and stamps every file it touches. Whatever is left needs a decision, so read it and act on it.
-Silencing a finding is never the answer.
+missing or dead skill link, and stamps every file it touches. Whatever
+is left needs a decision, so read it and act on it. Silencing a finding
+is never the answer.
