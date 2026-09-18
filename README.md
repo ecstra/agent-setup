@@ -97,7 +97,13 @@ Unzip it and move `.agents`, `.claude`, `.codex`, `.gemini`,
 `CODEOWNERS` into your project's root folder, then add the lines from
 its `.gitignore` to yours. Five of those (the four dot folders and
 `.gitignore`) are hidden, so if you are in Finder press
-`Cmd + Shift + .` to see them.
+`Cmd + Shift + .` to see them. Then run the tool's doctor once from
+your project's root, which builds the indexes and checks the skill
+link.
+
+```bash
+python3 .agents/skills/agent-brain/scripts/brain.py doctor --fix
+```
 
 > **Set up by hand?** The agent path does these three for you. The
 > terminal and download paths leave them to you.
