@@ -89,7 +89,7 @@ def set_batch(
     body = entry.document.body
     replaced = False
 
-    for match in BATCH_ROW.finditer(body):
+    for match in batch_rows(body):
         if int(match.group(1)) != number:
             continue
 
@@ -200,23 +200,57 @@ def findings(
     body = entry.document.body
     found: list[dict] = []
 
-    for match in FINDING.finditer(body):
-        span = finding_span(body, match.group(1))
-        block = body[span[0] : span[1]] if span else ""
+    for match in finding_headings(body):
+        start, end = finding_span(body=body, identifier=match.group(1)) or (match.start(), match.end())
+        block = body[start:end]
         record = {"id": match.group(1), "claim": match.group(2)}
-        record.update({name: value for name, value in BULLET.findall(block)})
+        record.update({name: value for name, value in BULLET.findall(sections.prose_of(block))})
         found.append(record)
 
     return found
+
+
+def finding_headings(
+    body: str,
+) -> list[re.Match]:
+    """Every finding heading outside code, in order."""
+    spans = sections.code_spans(body)
+
+    return [match for match in FINDING.finditer(body) if not sections.in_code(spans=spans, position=match.start())]
 
 
 def batches(
     entry: store.Entry,
 ) -> list[dict]:
     return [
-        {"number": int(number), "theme": theme, "status": status, "ack": ack}
-        for number, theme, status, ack in BATCH_ROW.findall(entry.document.body)
+        {"number": int(match.group(1)), "theme": match.group(2), "status": match.group(3), "ack": match.group(4)}
+        for match in batch_rows(entry.document.body)
     ]
+
+
+def batch_rows(
+    body: str,
+) -> list[re.Match]:
+    """Every row of the batch table, read from the Batches section and nowhere else."""
+    start, end = batches_section(body)
+    spans = sections.code_spans(body)
+
+    return [
+        match
+        for match in BATCH_ROW.finditer(body, start, end)
+        if not sections.in_code(spans=spans, position=match.start())
+    ]
+
+
+def batches_section(
+    body: str,
+) -> tuple[int, int]:
+    """Where the Batches section's text starts and ends."""
+    match = re.search(r"^## Batches[ \t]*$", body, re.MULTILINE)
+    if match is None:
+        raise LedgerError("the ledger has no Batches section")
+
+    return match.end(), sections.heading_after(body=body, start=match.end())
 
 
 def tally(
@@ -274,16 +308,12 @@ def finding_span(
     body: str,
     identifier: str,
 ) -> Optional[tuple[int, int]]:
-    """Where one finding's block starts and ends, up to the next heading."""
-    for match in FINDING.finditer(body):
+    """Where one finding's block starts and ends, up to the next heading outside code."""
+    for match in finding_headings(body):
         if match.group(1) != identifier:
             continue
 
-        rest = body[match.end() :]
-        following = re.search(r"^#{1,6}[ \t]", rest, re.MULTILINE)
-        end = match.end() + (following.start() if following else len(rest))
-
-        return match.start(), end
+        return match.start(), sections.heading_after(body=body, start=match.end())
 
     return None
 
@@ -292,11 +322,12 @@ def end_of_table(
     body: str,
 ) -> int:
     """The offset just past the last batch row, or past the table header."""
-    rows = list(BATCH_ROW.finditer(body))
+    rows = batch_rows(body)
     if rows:
         return rows[-1].end() + 1
 
-    header_at = body.find(BATCH_HEADER)
+    start, end = batches_section(body)
+    header_at = body.find(BATCH_HEADER, start, end)
     if header_at < 0:
         raise LedgerError("the ledger has no batch table")
 
@@ -307,15 +338,12 @@ def end_of_section(
     body: str,
     title: str,
 ) -> int:
-    """The offset where the named section ends, at the next heading."""
+    """The offset where the named section ends, at the next heading outside code."""
     match = re.search(rf"^## {re.escape(title)}[ \t]*$", body, re.MULTILINE)
     if match is None:
         raise LedgerError(f"the ledger has no {title} section")
 
-    rest = body[match.end() :]
-    following = re.search(r"^#{1,6}[ \t]", rest, re.MULTILINE)
-
-    return match.end() + (following.start() if following else len(rest))
+    return sections.heading_after(body=body, start=match.end())
 
 
 def is_ledger_body(

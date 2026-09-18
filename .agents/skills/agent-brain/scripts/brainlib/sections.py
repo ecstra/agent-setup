@@ -10,6 +10,7 @@ from typing import Optional
 from . import frontmatter, schema
 
 HEADING = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.MULTILINE)
+ANY_HEADING = re.compile(r"^#{1,6}[ \t]", re.MULTILINE)
 
 # Code in a body, fenced or inline. It keeps its own punctuation and
 # its own links, so the checks and the rewrites step over it.
@@ -38,10 +39,33 @@ def in_code(
     return any(start <= position < end for start, end in spans)
 
 
+def heading_after(
+    body: str,
+    start: int,
+) -> int:
+    """The offset of the next heading line outside code at or after `start`, else the body's end."""
+    spans = code_spans(body)
+
+    for match in ANY_HEADING.finditer(body, start):
+        if not in_code(spans=spans, position=match.start()):
+            return match.start()
+
+    return len(body)
+
+
+def heading_matches(
+    body: str,
+) -> list[re.Match]:
+    """Every `## Heading` line outside code, in order."""
+    spans = code_spans(body)
+
+    return [match for match in HEADING.finditer(body) if not in_code(spans=spans, position=match.start())]
+
+
 def headings(
     body: str,
 ) -> list[str]:
-    return [match.group(1) for match in HEADING.finditer(body)]
+    return [match.group(1) for match in heading_matches(body)]
 
 
 def has(
@@ -56,14 +80,11 @@ def block(
     title: str,
 ) -> Optional[str]:
     """The text under one heading, up to the next heading of any level."""
-    for match in HEADING.finditer(body):
+    for match in heading_matches(body):
         if match.group(1).lower() != title.lower():
             continue
 
-        rest = body[match.end() :]
-        end = re.search(r"^#{1,6}[ \t]", rest, re.MULTILINE)
-
-        return rest[: end.start()] if end else rest
+        return body[match.end() : heading_after(body=body, start=match.end())]
 
     return None
 
