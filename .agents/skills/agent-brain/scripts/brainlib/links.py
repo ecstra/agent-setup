@@ -379,11 +379,11 @@ def moved_links(
 ) -> Optional[list[str]]:
     """The header's links with `old` pointed at `new`, or None when none point there."""
     current = document.get_list("links")
-    moved = [new if link == old or canonical(brain, link) == old else link for link in current]
+    moved = [new if link == old or canonical(brain=brain, reference=link) == old else link for link in current]
     if moved == current:
         return None
 
-    return moved
+    return list(dict.fromkeys(moved))
 
 
 def kit_documents(
