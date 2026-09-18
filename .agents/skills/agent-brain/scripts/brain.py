@@ -376,6 +376,10 @@ def run_ledger_batch(
     args: argparse.Namespace,
 ) -> int:
     if args.number is None:
+        if args.status or args.ack:
+            print("give the batch's number to set its status or ack", file=sys.stderr)
+            return REFUSED
+
         if not args.theme:
             print("a new batch needs --theme", file=sys.stderr)
             return REFUSED

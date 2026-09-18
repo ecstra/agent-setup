@@ -146,6 +146,7 @@ def add_finding(
 ) -> str:
     severity = checked(field="severity", value=severity)
     found_by = checked(field="found-by", value=found_by)
+    batch_cell = checked(field="batch", value=str(batch) if batch else "")
     claim = one_line(value=claim, what="claim")
     if not claim:
         raise LedgerError("a finding needs a claim")
@@ -157,7 +158,7 @@ def add_finding(
         f"\n### {identifier}: {claim}\n\n"
         f"- severity: {severity}\n"
         f"- found-by: {found_by}\n"
-        f"- batch: {batch or ''}\n"
+        f"- batch: {batch_cell}\n"
         "- status: open\n"
         "- fix:\n"
     )
@@ -363,8 +364,8 @@ def checked(
     if field == "status" and value not in FINDING_STATUSES:
         raise LedgerError(f"a finding is {' or '.join(FINDING_STATUSES)}, not '{value}'")
 
-    if field == "batch" and value and not value.isdigit():
-        raise LedgerError(f"batch is a number, not '{value}'")
+    if field == "batch" and value and not re.fullmatch(pattern=r"[1-9][0-9]*", string=value):
+        raise LedgerError(f"batch is a number from 1, or blank, not '{value}'")
 
     return value
 
