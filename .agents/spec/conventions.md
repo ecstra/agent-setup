@@ -80,9 +80,9 @@ doctor rebuilds.
 
 A brain written before the tool existed reads these rules as its
 target. Doctor names every way it falls short, `--fix` repairs the
-mechanical part (indexes, name links, dates, the style copies and the
-skill link), and what is left is fixed by hand through the tool, one
-finding at a time.
+mechanical part (indexes, names, links, dates, the style copies and
+the skill link), and what is left is fixed by hand through the tool,
+one finding at a time.
 
 ## Prose
 
