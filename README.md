@@ -287,8 +287,10 @@ branch, and then the list above on top.
 3. Work through the list above, new over old. Then copy in the kit's
    `CLAUDE.md` and `GEMINI.md`, which your layout has stale or missing,
    and paste your section 0 at the top of the new `AGENTS.md`.
-4. Add a `SYSTEM.md` line to `.agents/INDEX.md`, since the spine carries
-   one line per file in the folder.
+4. Run `python3 .agents/skills/agent-brain/scripts/brain.py doctor --fix`,
+   which rebuilds the spine and every folder index from the files, since
+   the older layout's indexes were typed by hand and the tool owns them
+   now.
 5. Replace the kit's old block in your `.gitignore`, where the worktree
    path moved with the folder.
 
