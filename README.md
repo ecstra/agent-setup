@@ -147,16 +147,18 @@ goes back into `CODEOWNERS`, and your own hooks sit beside the kit's.
 
 1. **Sync with the new rulebook first**: read the new `AGENTS.md` and
    the rules it points at, then work by them from the first move. The
-   port itself obeys the kit's rules, so every file is written by hand
-   with the proper edit tools, no scripts, and the house style holds
-   throughout.
+   port itself obeys the kit's rules, so every file outside `.agents/`
+   is edited with the proper edit tools, no scripts, and the house style
+   holds throughout.
 2. **Read everything**: the whole project, the code, every doc and note
    it can find, then the specs in `.agents/spec/` so it knows the target
    format. It shows you a plan before it moves anything.
 3. **File each thing where it belongs**: on its own branch, one file at
-   a time, with the header block and index line each file needs, per
-   the map below. Your wording is kept in todos and nothing gets
-   shortened on the way.
+   a time, through the brain tool, `brain new` with the prose on
+   standard input, per the map below. The tool writes the header block,
+   the id and the index line, so none of them is typed, and the hook
+   refuses a brain file written any other way. Your wording is kept in
+   todos and nothing gets shortened on the way.
 4. **Port the old rules, never paste them**: your old `AGENTS.md`,
    `CLAUDE.md`, or `GEMINI.md` is read against the new rules. Whatever
    the general sections already say is dropped, and only what is truly
@@ -205,27 +207,29 @@ above.
 ```text
 We are adopting the agent kit that now sits in this repo. Do the port
 on a new branch. Before anything else, read the new AGENTS.md and the
-rules it points at, and work by them from here on: every file written
-by hand with the proper edit tools, no scripts or heredocs, house
-style throughout. Then read the whole project: the code, every doc and
-note, our old AGENTS.md, CLAUDE.md, GEMINI.md or CONTRIBUTING.md if we
-have any, and every TODO list. Then read .agents/INDEX.md and
-everything in .agents/spec/ so you know the target format. Show me a
-plan of what goes where before you move anything. Then file it all into
-.agents/ (docs, decisions, todos, bugs, memory, everything) one file at
-a time with correct frontmatter and index lines, keeping my wording in
-todos. Do not paste any of our old rulebook files into section 0: read
-them against the new rulebook, drop what the general sections already
-cover, and rewrite only the truly project specific parts into
-"## 0. Project Rules" at the top of AGENTS.md, and our old
+rules it points at, and work by them from here on: files outside
+.agents/ edited with the proper edit tools, no scripts or heredocs,
+house style throughout. Then read the whole project: the code, every
+doc and note, our old AGENTS.md, CLAUDE.md, GEMINI.md or CONTRIBUTING.md
+if we have any, and every TODO list. Then read .agents/INDEX.md,
+everything in .agents/spec/, and the agent-brain skill so you know the
+target format and the tool that writes it. Show me a plan of what goes
+where before you move anything. Then file it all into .agents/ (docs,
+decisions, todos, bugs, memory, everything) one file at a time through
+brain new with the prose on standard input, never by hand, keeping my
+wording in todos. Do not paste any of our old rulebook files into
+section 0: read them against the new rulebook, drop what the general
+sections already cover, and rewrite only the truly project specific
+parts into "## 0. Project Rules" at the top of AGENTS.md, and our old
 CONTRIBUTING.md the same way, its extra rules into section 0. This may
 be hundreds or thousands of files. Do every one, never a sample. If the
 volume needs it, list everything in a ledger first and work in batches,
 ticking each file off. When it is all filed, delete the old copies of
 the docs you moved, but leave anything a human wrote by hand where it
 is and list those for me. If we set an old CODEOWNERS aside, put our
-own ownership rules back into it. Then tell me what you did and where,
-and wait for me to call the review.
+own ownership rules back into it. Run brain doctor --fix and leave it
+clean. Then tell me what you did and where, and wait for me to call
+the review.
 ```
 
 ## Keeping the kit current
