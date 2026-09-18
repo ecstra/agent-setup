@@ -173,14 +173,23 @@ def markdown_files(
 
 def all_markdown(
     brain: store.Brain,
+    with_skills: bool = False,
 ) -> list[Path]:
-    """Every markdown file under the brain, the skills, the rulebook and dotfiles excepted."""
+    """Every markdown file under the brain, the rulebook and dotfiles excepted, the skills only when asked.
+
+    The skills folder is the tool's own, its files follow the Agent
+    Skills standard rather than the specs, so only the prose checks read
+    them.
+    """
     found: list[Path] = []
 
     for path in sorted(brain.root.rglob("*.md")):
         relative_path = path.relative_to(brain.root)
         parts = relative_path.parts
-        if parts[0] in SKIP_DIRS or store.hidden(relative_path):
+        if store.hidden(relative_path):
+            continue
+
+        if parts[0] in SKIP_DIRS and not (with_skills and parts[0] == "skills"):
             continue
 
         if path.name in schema.NO_FRONTMATTER and len(parts) == 1:
@@ -605,10 +614,10 @@ def check_style(
 ) -> list[Finding]:
     found: list[Finding] = []
 
-    for path in all_markdown(brain):
+    for path in all_markdown(brain=brain, with_skills=True):
         try:
-            body = sections.prose_of(frontmatter.read(str(path)).body)
-        except frontmatter.FrontmatterError:
+            body = sections.prose_of(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
             continue
 
         where = relative(brain, path)
@@ -627,7 +636,7 @@ def check_hygiene(
 ) -> list[Finding]:
     found: list[Finding] = []
 
-    for path in all_markdown(brain):
+    for path in all_markdown(brain=brain, with_skills=True):
         try:
             text = path.read_bytes().decode("utf-8", errors="replace")
         except OSError:

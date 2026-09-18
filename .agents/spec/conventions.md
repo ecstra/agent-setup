@@ -36,7 +36,10 @@ line as `[a, b]`. The brain tool writes headers this way and refuses to
 read one written any other way, naming the line and the fix.
 
 `SYSTEM.md` is the one exception. It is the rulebook, and an agent takes
-it exactly as it stands, so it carries no frontmatter.
+it exactly as it stands, so it carries no frontmatter. `skills/` is the
+tool's own folder, and its files follow the Agent Skills standard
+rather than this spec. Doctor reads them for the prose rules and
+nothing else.
 
 ## Naming and ids
 
