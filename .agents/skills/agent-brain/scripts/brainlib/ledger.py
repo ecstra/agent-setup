@@ -14,16 +14,20 @@ from . import frontmatter, schema, sections, store, writes
 
 FINDING = re.compile(r"^### (F-\d+): (.+?)[ \t]*$", re.MULTILINE)
 BULLET = re.compile(r"^- ([a-z-]+):[ \t]*(.*?)[ \t]*$", re.MULTILINE)
+# One row of the batch table, on one line: the number, then three cells.
 BATCH_ROW = re.compile(
-    r"^\|\s*(\d+)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|[ \t]*$",
+    r"^\|[ \t]*(\d+)[ \t]*\|[ \t]*(.*?)[ \t]*\|[ \t]*(.*?)[ \t]*\|[ \t]*(.*?)[ \t]*\|[ \t]*$",
     re.MULTILINE,
 )
 
 BATCH_HEADER = "| # | Theme | Status | Ack |\n|---|---|---|---|\n"
 
-# The table's header line and the rule under it, however the words are
-# cased. It ends at the end of the rule line.
-TABLE_HEADER = re.compile(r"^\|\s*#\s*\|[^\n]*\n\|\s*:?-+:?\s*\|[^\n]*$", re.MULTILINE)
+# The batch table's header line and the rule under it, however the words
+# are cased. It ends at the end of the rule line.
+TABLE_HEADER = re.compile(
+    r"^\|[ \t]*#[ \t]*\|[ \t]*theme[ \t]*\|[ \t]*status[ \t]*\|[ \t]*ack[ \t]*\|[ \t]*\n\|[ \t]*:?-+:?[ \t]*\|[^\n]*$",
+    re.MULTILINE | re.IGNORECASE,
+)
 
 FIELDS = ("severity", "found-by", "batch", "status", "fix")
 SEVERITIES = ("breaks", "bug", "debt", "nit")
@@ -318,8 +322,9 @@ def batch_table(
 
     The header is the first one in the Batches section outside code, and
     the rows are the lines directly under it, the way markdown reads a
-    table. Another table in the section, or a row shaped line further
-    down, is not the batch table.
+    table. A row shaped line anywhere else in the section is refused
+    rather than read or ignored, since a table a hand edit pulled apart
+    would otherwise be numbered twice.
     """
     start, end = batches_section(body)
     spans = sections.code_spans(body)
@@ -343,6 +348,11 @@ def batch_table(
 
         rows.append(row)
         position = row.end()
+
+    read = {row.start() for row in rows}
+    for match in BATCH_ROW.finditer(string=body, pos=start, endpos=end):
+        if match.start() not in read and not sections.in_code(spans=spans, position=match.start()):
+            raise LedgerError("a batch row sits apart from the table, put it directly under the header")
 
     return header, rows
 
