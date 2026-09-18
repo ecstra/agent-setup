@@ -35,15 +35,20 @@ only accurate word.
 ## Punctuation
 
 No em-dashes anywhere. No semicolons. Hyphens only in fixed compounds
-and literal names. Colons as labels: before names it, after expands it.
-Code, paths, and URLs are exempt.
+and literal names. Colons only inside a list item as a label, never mid
+sentence and never in a heading. Code, paths, and URLs are exempt.
 
 ## AI tells
 
-Ban the shape, not the phrase. No "not X, it's Y" contrast framing. No
-habitual triplets. No sentences opened with Moreover, Furthermore,
-Consequently, or However. No delve, pivotal, leverage, unlock, elevate,
-underscore, tapestry. No safe generic claims that fit any topic.
+Ban the shape, not the phrase. No contrast framing, the move that
+negates a claim then swaps in a grander one, "not X, it's Y" or "not
+just X but Y". No reflexive triplets, three parallel items out of
+habit, when two is fine and four is fine. No sentences led by Moreover,
+Furthermore, Consequently, or However, stacked one after another. No
+inflated vocabulary, delve, underscore, pivotal, tapestry, testament,
+realm, navigate the complexities, paradigm shift, unlock, elevate. No
+padding, openers like "It's important to note that" or closers that
+restate what was just said. No safe generic claims that fit any topic.
 
 ## Voice and format
 
