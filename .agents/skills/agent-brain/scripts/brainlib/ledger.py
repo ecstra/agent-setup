@@ -190,8 +190,8 @@ def close(
         raise LedgerError(f"{names} still open, a ledger closes when every finding has landed")
 
     counts = tally(findings(entry))
-    summary_end = end_of_section(entry.document.body, "Summary")
-    line = f"Closed with {counts}.\n"
+    summary_end = end_of_section(body=entry.document.body, title="Summary")
+    line = f"Closed with {counts}.\n\n"
     entry.document.body = (
         entry.document.body[:summary_end].rstrip("\n") + "\n\n" + line + entry.document.body[summary_end:]
     )
@@ -251,11 +251,19 @@ def batches_section(
     body: str,
 ) -> tuple[int, int]:
     """Where the Batches section's text starts and ends."""
-    match = re.search(r"^## Batches[ \t]*$", body, re.MULTILINE)
-    if match is None:
-        raise LedgerError("the ledger has no Batches section")
+    return section_span(body=body, title="Batches")
 
-    return match.end(), sections.heading_after(body=body, start=match.end())
+
+def section_span(
+    body: str,
+    title: str,
+) -> tuple[int, int]:
+    """Where the named section's text starts and ends, refused when the ledger has none."""
+    found = sections.span(body=body, title=title)
+    if found is None:
+        raise LedgerError(f"the ledger has no {title} section")
+
+    return found
 
 
 def tally(
@@ -357,11 +365,7 @@ def end_of_section(
     title: str,
 ) -> int:
     """The offset where the named section ends, at the next heading outside code."""
-    match = re.search(rf"^## {re.escape(title)}[ \t]*$", body, re.MULTILINE)
-    if match is None:
-        raise LedgerError(f"the ledger has no {title} section")
-
-    return sections.heading_after(body=body, start=match.end())
+    return section_span(body=body, title=title)[1]
 
 
 def is_ledger_body(

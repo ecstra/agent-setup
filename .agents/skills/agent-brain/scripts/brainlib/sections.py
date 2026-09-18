@@ -75,18 +75,34 @@ def has(
     return title.lower() in [found.lower() for found in headings(body)]
 
 
+def span(
+    body: str,
+    title: str,
+) -> Optional[tuple[int, int]]:
+    """Where the text under one heading starts and ends, up to the next heading of any level.
+
+    The title is matched without regard to case, the one rule for every
+    reader of a section.
+    """
+    for match in heading_matches(body):
+        if match.group(1).lower() != title.lower():
+            continue
+
+        return match.end(), heading_after(body=body, start=match.end())
+
+    return None
+
+
 def block(
     body: str,
     title: str,
 ) -> Optional[str]:
     """The text under one heading, up to the next heading of any level."""
-    for match in heading_matches(body):
-        if match.group(1).lower() != title.lower():
-            continue
+    found = span(body=body, title=title)
+    if found is None:
+        return None
 
-        return body[match.end() : heading_after(body=body, start=match.end())]
-
-    return None
+    return body[found[0] : found[1]]
 
 
 def is_filled(
