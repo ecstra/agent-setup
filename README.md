@@ -251,10 +251,10 @@ and leave everything your project wrote alone.
   first time.
 - `CONTRIBUTING.md` and `.agents/house-rules.md`: new over old. They
   carry the same rules in shorter form, so they move with the rulebook.
-- `.agents/README.md` and `.agents/spec/`: new over old, along with the
-  kit's own lines at the top of `.agents/INDEX.md` when a release adds
-  or renames one of its files. Nothing else inside `.agents/` is
-  touched, because the rest of it is your project's.
+- `.agents/README.md` and `.agents/spec/`: new over old. The spine and
+  the folder indexes are rebuilt by the doctor run at the end, never
+  edited. Nothing else inside `.agents/` is touched, because the rest of
+  it is your project's.
 - `.agents/skills/`, `.agents/VERSION`, and the hook files in `.claude/`,
   `.codex/` and `.gemini/`: new over old. The tool and the hooks move
   with the release, and the stamp says which release you are on.
