@@ -334,7 +334,7 @@ def add_ledger(
     opening.add_argument("--summary", required=True)
     opening.set_defaults(handler=run_ledger_open)
 
-    batch = actions.add_parser("batch", help="add a batch, or set one's status and ack")
+    batch = actions.add_parser("batch", help="add a batch, or set one's status, ack or theme")
     batch.add_argument("key")
     batch.add_argument("number", nargs="?", type=int)
     batch.add_argument("--theme")
@@ -389,6 +389,7 @@ def run_ledger_batch(
         number=args.number,
         status=args.status or "",
         ack=args.ack or "",
+        theme=args.theme or "",
     )
     return 0
 

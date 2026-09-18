@@ -69,7 +69,7 @@ def add_batch(
 
     entry = ledger_entry(brain, key)
     number = max((row["number"] for row in batches(entry)), default=0) + 1
-    row = f"| {number} | {theme} | pending | |\n"
+    row = batch_row(number=number, theme=theme, status="pending", ack="") + "\n"
 
     body = entry.document.body
     table_end = end_of_table(body)
@@ -85,11 +85,16 @@ def set_batch(
     number: int,
     status: str = "",
     ack: str = "",
+    theme: str = "",
 ) -> None:
     if status and status not in BATCH_STATUSES:
         raise LedgerError(f"a batch is {' or '.join(BATCH_STATUSES)}, not '{status}'")
 
     ack = cell(value=ack, what="ack")
+    theme = cell(value=theme, what="theme")
+    if not (status or ack or theme):
+        raise LedgerError("nothing to set, give a status, an ack or a theme")
+
     entry = ledger_entry(brain, key)
     body = entry.document.body
     replaced = False
@@ -98,10 +103,12 @@ def set_batch(
         if int(match.group(1)) != number:
             continue
 
-        theme = match.group(2)
-        new_status = status or match.group(3)
-        new_ack = ack or match.group(4)
-        row = f"| {number} | {theme} | {new_status} | {new_ack} |"
+        row = batch_row(
+            number=number,
+            theme=theme or match.group(2),
+            status=status or match.group(3),
+            ack=ack or match.group(4),
+        )
         body = body[: match.start()] + row + body[match.end() :]
         replaced = True
         break
@@ -111,6 +118,18 @@ def set_batch(
 
     entry.document.body = body
     save(brain, entry)
+
+
+def batch_row(
+    number: int,
+    theme: str,
+    status: str,
+    ack: str,
+) -> str:
+    """One row of the batch table, an empty cell written as one space."""
+    cells = [str(number), theme, status, ack]
+
+    return "|" + "|".join(f" {value} " if value else " " for value in cells) + "|"
 
 
 def add_finding(
