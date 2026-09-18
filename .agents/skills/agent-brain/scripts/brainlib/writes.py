@@ -352,10 +352,17 @@ def settled_links(
     link beside it, a refile for one, is not blocked by it.
     """
     found: list[str] = []
+    reached: list[str] = []
 
     for link in wanted:
         settled = [link] if link in existing else path_links(brain=brain, references=[link])
-        found += [path for path in settled if path not in found]
+        for candidate in settled:
+            target = links.canonical(brain=brain, reference=candidate) or candidate
+            if target in reached:
+                continue
+
+            reached.append(target)
+            found.append(candidate)
 
     return found
 
