@@ -236,10 +236,23 @@ def findings(
         start, end = finding_span(body=body, identifier=match.group(1)) or (match.start(), match.end())
         block = body[start:end]
         record = {"id": match.group(1), "claim": match.group(2)}
-        record.update({name: value for name, value in BULLET.findall(sections.prose_of(block))})
+        record.update(bullets(block))
         found.append(record)
 
     return found
+
+
+def bullets(
+    block: str,
+) -> dict[str, str]:
+    """The `- name: value` lines of a block that sit outside code, each value as written."""
+    spans = sections.code_spans(block)
+
+    return {
+        match.group(1): match.group(2)
+        for match in BULLET.finditer(block)
+        if not sections.in_code(spans=spans, position=match.start())
+    }
 
 
 def finding_headings(
