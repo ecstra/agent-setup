@@ -275,6 +275,14 @@ def count_by_status(
     return ", ".join(f"{count} {status}" for status, count in counts.items())
 
 
+def severity_of(
+    entry: store.Entry,
+) -> str:
+    """A severity the spec knows, or the one word for anything else."""
+    severity = entry.field("severity")
+    return severity if severity in SEVERITY_ORDER else schema.UNKNOWN
+
+
 def count_bugs(
     entries: list[store.Entry],
 ) -> str:
@@ -283,7 +291,7 @@ def count_bugs(
     if open_ones:
         by_severity: dict[str, int] = {}
         for entry in open_ones:
-            severity = entry.field("severity") or schema.UNKNOWN
+            severity = severity_of(entry)
             by_severity[severity] = by_severity.get(severity, 0) + 1
 
         inner = ", ".join(f"{by_severity[s]} {s}" for s in (*SEVERITY_ORDER, schema.UNKNOWN) if s in by_severity)
@@ -462,7 +470,7 @@ def bugs_body(
     if not open_ones:
         lines += ["Nothing open.", ""]
     for severity in (*SEVERITY_ORDER, schema.UNKNOWN):
-        group = [entry for entry in open_ones if (entry.field("severity") or schema.UNKNOWN) == severity]
+        group = [entry for entry in open_ones if severity_of(entry) == severity]
         if not group:
             continue
 
