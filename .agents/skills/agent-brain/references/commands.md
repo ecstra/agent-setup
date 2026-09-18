@@ -57,7 +57,7 @@ headings and nothing else, for filling in afterwards.
 | `brain ledger batch <ledger> --theme T` | Adds the next batch, numbered past the highest one, status pending, and prints its number. The theme is one line with no pipe. |
 | `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. Refuses when given none of them. The ack, like the theme, is one line with no pipe. |
 | `brain ledger add <ledger> "claim" --severity S [--found-by review\|hunter] [--batch n]` | Records the next finding, numbered past the highest one, and prints its id. The claim is one line. |
-| `brain ledger set <ledger> F-NN field=value ...` | Changes a finding, each value one line taken as written. `status=fixed` needs `fix=<hash>`. Statuses: open, fixed, wontfix, deferred. |
+| `brain ledger set <ledger> F-NN field=value ...` | Changes a finding, each value one line taken as written. The fields are severity, found-by, batch, status and fix, and a line a hand edit lost comes back. A fixed finding always names its commit, `fix=<hash>`. Statuses: open, fixed, wontfix, deferred. |
 | `brain ledger close <ledger>` | Flips the ledger to closed and writes the count under Summary. Refuses while a finding is open or has no status. |
 
 ## Doctor
