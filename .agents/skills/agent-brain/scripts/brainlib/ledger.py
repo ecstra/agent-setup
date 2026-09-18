@@ -71,14 +71,14 @@ def add_batch(
     if not theme:
         raise LedgerError("a batch needs a theme")
 
-    entry = ledger_entry(brain, key)
+    entry = ledger_entry(brain=brain, key=key)
     number = max((row["number"] for row in batches(entry)), default=0) + 1
     row = batch_row(number=number, theme=theme, status="pending", ack="") + "\n"
 
     body = entry.document.body
     table_end = end_of_table(body)
     entry.document.body = body[:table_end] + row + body[table_end:]
-    save(brain, entry)
+    save(brain=brain, entry=entry)
 
     return number
 
@@ -99,7 +99,7 @@ def set_batch(
     if not (status or ack or theme):
         raise LedgerError("nothing to set, give a status, an ack or a theme")
 
-    entry = ledger_entry(brain, key)
+    entry = ledger_entry(brain=brain, key=key)
     body = entry.document.body
     replaced = False
 
@@ -121,7 +121,7 @@ def set_batch(
         raise LedgerError(f"{entry.name} has no batch {number}")
 
     entry.document.body = body
-    save(brain, entry)
+    save(brain=brain, entry=entry)
 
 
 def batch_row(
@@ -150,7 +150,7 @@ def add_finding(
     if not claim:
         raise LedgerError("a finding needs a claim")
 
-    entry = ledger_entry(brain, key)
+    entry = ledger_entry(brain=brain, key=key)
     number = max((int(record["id"][2:]) for record in findings(entry)), default=0) + 1
     identifier = f"F-{number:02d}"
     block = (
@@ -166,7 +166,7 @@ def add_finding(
     section_start = section_span(body=body, title="Findings")[0]
     section_end = sections.heading_after(body=body, start=section_start, depth=2)
     entry.document.body = body[:section_end].rstrip("\n") + "\n" + block + ("\n" if section_end < len(body) else "") + body[section_end:]
-    save(brain, entry)
+    save(brain=brain, entry=entry)
 
     return identifier
 
@@ -181,7 +181,7 @@ def set_finding(
     if changes.get("status") == "fixed" and not changes.get("fix"):
         raise LedgerError("a fixed finding names its commit, fix=<hash>")
 
-    entry = ledger_entry(brain, key)
+    entry = ledger_entry(brain=brain, key=key)
     body = entry.document.body
     span = finding_span(body=body, identifier=identifier)
     if span is None:
@@ -198,7 +198,7 @@ def set_finding(
         block = block[: line.start()] + f"- {field}: {value}" + block[line.end() :]
 
     entry.document.body = body[:start] + block + body[end:]
-    save(brain, entry)
+    save(brain=brain, entry=entry)
 
 
 def close(
@@ -206,7 +206,7 @@ def close(
     key: str,
     stamp: str = "",
 ) -> None:
-    entry = ledger_entry(brain, key)
+    entry = ledger_entry(brain=brain, key=key)
     if entry.field("status") == "closed":
         raise LedgerError(f"{entry.name} is already closed")
 
@@ -222,7 +222,7 @@ def close(
         entry.document.body[:summary_end].rstrip("\n") + "\n\n" + line + entry.document.body[summary_end:]
     )
     entry.document.set(key="status", value="closed")
-    save(brain, entry, stamp=stamp)
+    save(brain=brain, entry=entry, stamp=stamp)
 
 
 def findings(
@@ -281,7 +281,7 @@ def batch_rows(
 
     return [
         match
-        for match in BATCH_ROW.finditer(body, start, end)
+        for match in BATCH_ROW.finditer(string=body, pos=start, endpos=end)
         if not sections.in_code(spans=spans, position=match.start())
     ]
 
