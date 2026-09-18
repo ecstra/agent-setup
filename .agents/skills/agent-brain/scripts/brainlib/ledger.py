@@ -144,12 +144,8 @@ def add_finding(
     found_by: str = "review",
     batch: int = 0,
 ) -> str:
-    if severity not in SEVERITIES:
-        raise LedgerError(f"severity is {' or '.join(SEVERITIES)}, not '{severity}'")
-
-    if found_by not in FOUND_BY:
-        raise LedgerError(f"found-by is review or hunter, not '{found_by}'")
-
+    severity = checked(field="severity", value=severity)
+    found_by = checked(field="found-by", value=found_by)
     claim = one_line(value=claim, what="claim")
     if not claim:
         raise LedgerError("a finding needs a claim")
@@ -178,16 +174,13 @@ def set_finding(
     identifier: str,
     changes: dict[str, str],
 ) -> None:
-    status = changes.get("status")
-    if status and status not in FINDING_STATUSES:
-        raise LedgerError(f"a finding is {' or '.join(FINDING_STATUSES)}, not '{status}'")
-
-    if status == "fixed" and not changes.get("fix", "").strip():
+    changes = {field: checked(field=field, value=value) for field, value in changes.items()}
+    if changes.get("status") == "fixed" and not changes.get("fix"):
         raise LedgerError("a fixed finding names its commit, fix=<hash>")
 
     entry = ledger_entry(brain, key)
     body = entry.document.body
-    span = finding_span(body, identifier)
+    span = finding_span(body=body, identifier=identifier)
     if span is None:
         raise LedgerError(f"{entry.name} has no finding {identifier}")
 
@@ -195,11 +188,11 @@ def set_finding(
     block = body[start:end]
 
     for field, value in changes.items():
-        line = re.search(rf"^- {re.escape(field)}:.*$", block, re.MULTILINE)
+        line = re.search(pattern=rf"^- {re.escape(field)}:.*$", string=block, flags=re.MULTILINE)
         if line is None:
             raise LedgerError(f"a finding carries no '{field}' line")
 
-        block = block[: line.start()] + f"- {field}: {one_line(value=value, what=field)}" + block[line.end() :]
+        block = block[: line.start()] + f"- {field}: {value}" + block[line.end() :]
 
     entry.document.body = body[:start] + block + body[end:]
     save(brain, entry)
@@ -329,6 +322,27 @@ def one_line(
     value = value.strip()
     if "\n" in value or "\r" in value:
         raise LedgerError(f"the {what} is one line")
+
+    return value
+
+
+def checked(
+    field: str,
+    value: str,
+) -> str:
+    """A finding's value as the record takes it, refused when the spec has no room for it."""
+    value = one_line(value=value, what=field)
+    if field == "severity" and value not in SEVERITIES:
+        raise LedgerError(f"severity is {' or '.join(SEVERITIES)}, not '{value}'")
+
+    if field == "found-by" and value not in FOUND_BY:
+        raise LedgerError(f"found-by is review or hunter, not '{value}'")
+
+    if field == "status" and value not in FINDING_STATUSES:
+        raise LedgerError(f"a finding is {' or '.join(FINDING_STATUSES)}, not '{value}'")
+
+    if field == "batch" and value and not value.isdigit():
+        raise LedgerError(f"batch is a number, not '{value}'")
 
     return value
 
