@@ -127,11 +127,15 @@ def add_finding(
     if found_by not in FOUND_BY:
         raise LedgerError(f"found-by is review or hunter, not '{found_by}'")
 
+    claim = one_line(value=claim, what="claim")
+    if not claim:
+        raise LedgerError("a finding needs a claim")
+
     entry = ledger_entry(brain, key)
     number = max((int(record["id"][2:]) for record in findings(entry)), default=0) + 1
     identifier = f"F-{number:02d}"
     block = (
-        f"\n### {identifier}: {one_line(value=claim, what='claim')}\n\n"
+        f"\n### {identifier}: {claim}\n\n"
         f"- severity: {severity}\n"
         f"- found-by: {found_by}\n"
         f"- batch: {batch or ''}\n"
