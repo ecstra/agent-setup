@@ -63,6 +63,10 @@ def add_batch(
     key: str,
     theme: str,
 ) -> int:
+    theme = cell(value=theme, what="theme")
+    if not theme:
+        raise LedgerError("a batch needs a theme")
+
     entry = ledger_entry(brain, key)
     number = max((row["number"] for row in batches(entry)), default=0) + 1
     row = f"| {number} | {theme} | pending | |\n"
@@ -85,6 +89,7 @@ def set_batch(
     if status and status not in BATCH_STATUSES:
         raise LedgerError(f"a batch is {' or '.join(BATCH_STATUSES)}, not '{status}'")
 
+    ack = cell(value=ack, what="ack")
     entry = ledger_entry(brain, key)
     body = entry.document.body
     replaced = False
@@ -274,7 +279,19 @@ def one_line(
     """The value trimmed, refused when it would break the record it goes into."""
     value = value.strip()
     if "\n" in value or "\r" in value:
-        raise LedgerError(f"a {what} is one line")
+        raise LedgerError(f"the {what} is one line")
+
+    return value
+
+
+def cell(
+    value: str,
+    what: str,
+) -> str:
+    """One line with no pipe, since the batch table's columns are pipes."""
+    value = one_line(value=value, what=what)
+    if "|" in value:
+        raise LedgerError(f"the {what} cannot hold a pipe, the batch table's columns are pipes")
 
     return value
 
