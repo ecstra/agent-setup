@@ -460,6 +460,9 @@ def check_against(
         if "\n" in value or "\r" in value:
             raise WriteError(f"{item.name} is one line, and this one has a line break in it")
 
+        for slip in sections.style_slips(value):
+            raise WriteError(f"{item.name} {slip}")
+
         if item.required and not value:
             raise WriteError(f"a {kind.name} needs {item.name} filled in")
 

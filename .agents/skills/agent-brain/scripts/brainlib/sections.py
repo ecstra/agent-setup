@@ -11,6 +11,11 @@ from . import frontmatter, schema
 
 HEADING = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 
+# The two characters the house style bans outright, in prose and in a
+# header value alike, since a value flows into an index's prose.
+EM_DASH = "—"
+EN_DASH = "–"
+
 # Code in a body, fenced or inline. It keeps its own punctuation and
 # its own links, so the checks and the rewrites step over it. A fence
 # opens and closes at the start of a line, the way markdown reads it, so
@@ -26,6 +31,20 @@ def prose_of(
 ) -> str:
     """The text with its code taken out."""
     return CODE.sub("", text)
+
+
+def style_slips(
+    text: str,
+) -> list[str]:
+    """What the house style bans in the text, each said the way doctor says it."""
+    found: list[str] = []
+    if EM_DASH in text or EN_DASH in text:
+        found.append("carries a dash the house style bans")
+
+    if ";" in text:
+        found.append("carries a semicolon")
+
+    return found
 
 
 def code_spans(

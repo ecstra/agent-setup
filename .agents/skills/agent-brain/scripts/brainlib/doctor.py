@@ -19,8 +19,9 @@ from . import frontmatter, index, links, schema, sections, store, style, writes
 
 SKIP_DIRS: frozenset[str] = frozenset({"skills", ".worktrees"})
 
-EM_DASH = "—"
-EN_DASH = "–"
+# A header block the parser refuses, taken off by its fences alone so
+# the prose under it is still read.
+HEADER_BLOCK = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
 
 MACHINE_PATH = re.compile(r"(/Users/|/home/|[A-Z]:\\)")
 
@@ -455,10 +456,15 @@ def check_fields(
     found: list[Finding] = []
 
     for entry in brain.entries():
+        fields = entry.document.fields()
         try:
-            writes.check_own(kind=entry.kind, fields=entry.document.fields())
+            writes.check_own(kind=entry.kind, fields=fields)
         except writes.WriteError as error:
             found.append(Finding(path=entry.relative, check="fields", message=str(error)))
+
+        for item in schema.COMMON_FIELDS:
+            for slip in sections.style_slips(fields.get(item.name, "")):
+                found.append(Finding(path=entry.relative, check="fields", message=f"{item.name} {slip}"))
 
     return found
 
@@ -615,20 +621,35 @@ def check_style(
     found: list[Finding] = []
 
     for path in all_markdown(brain=brain, with_skills=True):
-        try:
-            body = sections.prose_of(path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError):
+        prose = prose_in(path)
+        if prose is None:
             continue
 
-        where = relative(brain, path)
-
-        if EM_DASH in body or EN_DASH in body:
-            found.append(Finding(path=where, check="style", message="carries a dash the house style bans"))
-
-        if ";" in body:
-            found.append(Finding(path=where, check="style", message="carries a semicolon"))
+        where = relative(brain=brain, path=path)
+        found += [Finding(path=where, check="style", message=slip) for slip in sections.style_slips(prose)]
 
     return found
+
+
+def prose_in(
+    path: Path,
+) -> Optional[str]:
+    """The file's prose, its header block and its code stepped over, or None when it cannot be read.
+
+    A header the tool can read is taken off by the parser, one it
+    cannot, the Agent Skills shape in `skills/` for one, by its fences.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+    try:
+        body = frontmatter.parse(text).body
+    except frontmatter.FrontmatterError:
+        body = HEADER_BLOCK.sub("", text, count=1)
+
+    return sections.prose_of(body)
 
 
 def check_hygiene(
