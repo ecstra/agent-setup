@@ -13,8 +13,13 @@ HEADING = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 ANY_HEADING = re.compile(r"^#{1,6}[ \t]", re.MULTILINE)
 
 # Code in a body, fenced or inline. It keeps its own punctuation and
-# its own links, so the checks and the rewrites step over it.
-CODE = re.compile(r"```.*?```|`[^`\n]*`", re.DOTALL)
+# its own links, so the checks and the rewrites step over it. A fence
+# opens and closes at the start of a line, the way markdown reads it, so
+# three backticks in the middle of a sentence are just backticks and a
+# fence with no closer fences nothing.
+FENCE = r"^[ \t]{0,3}```[^\n]*\n.*?^[ \t]{0,3}```[ \t]*$"
+INLINE = r"`[^`\n]*`"
+CODE = re.compile(f"{FENCE}|{INLINE}", re.DOTALL | re.MULTILINE)
 
 
 def prose_of(
