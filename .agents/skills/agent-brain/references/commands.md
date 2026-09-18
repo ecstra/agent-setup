@@ -70,14 +70,14 @@ headings and nothing else, for filling in afterwards.
 What doctor checks: nothing left behind by an interrupted write, no
 stray files, meaning every markdown file under `.agents/` is either an
 entry the store lists or a file the kit owns, frontmatter present and
-complete, `updated` a real
-date, names matching filenames and unique, kind matching folder, fields
-and values against the spec, required headings, the lifecycle rules,
-filename patterns and duplicate ids, links that resolve, links written
-as paths with each file once, body links that resolve, indexes current, no dashes or
-semicolons in prose, no machine paths, nothing shaped like a secret, the
-version stamp, and the skill link Claude Code needs, which must reach
-the skill rather than point at nothing or be a plain file.
+complete, `updated` a real date, names matching filenames and unique,
+kind matching folder, fields and values against the spec, required
+headings, the lifecycle rules, filename patterns and duplicate ids,
+links that resolve, links written as paths with each file once, body
+links that resolve, indexes current, no dashes or semicolons in prose,
+no machine paths, nothing shaped like a secret, the version stamp, and
+the skill link Claude Code needs, which must reach the skill rather
+than point at nothing or be a plain file.
 
 What `--fix` repairs: a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written
@@ -86,7 +86,7 @@ first, a stale index, a stale chat style copy, and the skill link
 when it is missing, dead or a plain file. Each repaired file gets
 today's date. The one thing `--fix` deletes is what an interrupted
 write left behind, a temporary file or a scratch folder named the way
-the tool names them. Nothing else is ever removed.
+the tool names them. No other file is ever removed.
 
 ## Hooks
 
