@@ -126,7 +126,7 @@ def add_finding(
     number = len(findings(entry)) + 1
     identifier = f"F-{number:02d}"
     block = (
-        f"\n### {identifier}: {claim.strip()}\n\n"
+        f"\n### {identifier}: {one_line(value=claim, what='claim')}\n\n"
         f"- severity: {severity}\n"
         f"- found-by: {found_by}\n"
         f"- batch: {batch or ''}\n"
@@ -150,7 +150,7 @@ def set_finding(
     if status and status not in FINDING_STATUSES:
         raise LedgerError(f"a finding is {' or '.join(FINDING_STATUSES)}, not '{status}'")
 
-    if status == "fixed" and not changes.get("fix"):
+    if status == "fixed" and not changes.get("fix", "").strip():
         raise LedgerError("a fixed finding names its commit, fix=<hash>")
 
     entry = ledger_entry(brain, key)
@@ -163,11 +163,11 @@ def set_finding(
     block = body[start:end]
 
     for field, value in changes.items():
-        pattern = re.compile(rf"^- {re.escape(field)}:.*$", re.MULTILINE)
-        if pattern.search(block) is None:
+        line = re.search(rf"^- {re.escape(field)}:.*$", block, re.MULTILINE)
+        if line is None:
             raise LedgerError(f"a finding carries no '{field}' line")
 
-        block = pattern.sub(f"- {field}: {value}", block, count=1)
+        block = block[: line.start()] + f"- {field}: {one_line(value=value, what=field)}" + block[line.end() :]
 
     entry.document.body = body[:start] + block + body[end:]
     save(brain, entry)
@@ -231,6 +231,18 @@ def tally(
     parts = ", ".join(f"{count} {status}" for status, count in counts.items())
 
     return f"{total} {noun}" + (f", {parts}" if parts else "")
+
+
+def one_line(
+    value: str,
+    what: str,
+) -> str:
+    """The value trimmed, refused when it would break the record it goes into."""
+    value = value.strip()
+    if "\n" in value or "\r" in value:
+        raise LedgerError(f"a {what} is one line")
+
+    return value
 
 
 def ledger_entry(
