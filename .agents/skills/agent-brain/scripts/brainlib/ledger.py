@@ -204,6 +204,9 @@ def close(
     stamp: str = "",
 ) -> None:
     entry = ledger_entry(brain, key)
+    if entry.field("status") == "closed":
+        raise LedgerError(f"{entry.name} is already closed")
+
     still_open = [item for item in findings(entry) if (item.get("status") or "open") == "open"]
     if still_open:
         names = ", ".join(item["id"] for item in still_open)
