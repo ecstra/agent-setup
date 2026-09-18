@@ -50,8 +50,9 @@ Two forms, each with its job:
 
 - Frontmatter `links:` lists paths relative to `.agents/`, such as
   `bugs/BUG-004-token-loop.md`, so an agent opens the file without
-  searching for it. The brain tool rewrites every one when a file moves,
-  and doctor turns a link written as a name into its path.
+  searching for it. Each file is listed once. The brain tool rewrites
+  every one when a file moves, and doctor turns a link written as a
+  name into its path and drops a repeat.
 - Body links are real markdown relative links that actually resolve, to
   files in .agents and to project files both. A link that does not
   resolve is a bug.
