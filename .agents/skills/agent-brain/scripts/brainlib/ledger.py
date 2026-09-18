@@ -25,6 +25,7 @@ BATCH_HEADER = "| # | Theme | Status | Ack |\n|---|---|---|---|\n"
 # cased. It ends at the end of the rule line.
 TABLE_HEADER = re.compile(r"^\|\s*#\s*\|[^\n]*\n\|\s*:?-+:?\s*\|[^\n]*$", re.MULTILINE)
 
+FIELDS = ("severity", "found-by", "batch", "status", "fix")
 SEVERITIES = ("breaks", "bug", "debt", "nit")
 FOUND_BY = ("review", "hunter")
 FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred")
@@ -194,28 +195,37 @@ def set_finding(
         raise LedgerError("a fixed finding names its commit, fix=<hash>")
 
     for field, value in changes.items():
-        line = bullet_line(block=block, field=field)
-        if line is None:
-            raise LedgerError(f"a finding carries no '{field}' line")
-
-        block = block[: line.start()] + f"- {field}: {value}" + block[line.end() :]
+        block = with_bullet(block=block, field=field, value=value)
 
     entry.document.body = body[:start] + block + body[end:]
     save(brain=brain, entry=entry)
 
 
-def bullet_line(
+def with_bullet(
     block: str,
     field: str,
-) -> Optional[re.Match]:
-    """The `- field:` line of a block that sits outside code, or None."""
+    value: str,
+) -> str:
+    """The block with its `- field:` line saying `value`.
+
+    The first such line outside code is rewritten. A block that lost the
+    line gets it back, after the last bullet it still has, so a finding
+    edited by hand can be put right through the tool.
+    """
+    line = f"- {field}: {value}"
     spans = sections.code_spans(block)
+    lines = [match for match in BULLET.finditer(block) if not sections.in_code(spans=spans, position=match.start())]
 
-    for match in re.finditer(pattern=rf"^- {re.escape(field)}:.*$", string=block, flags=re.MULTILINE):
-        if not sections.in_code(spans=spans, position=match.start()):
-            return match
+    for match in lines:
+        if match.group(1) == field:
+            return block[: match.start()] + line + block[match.end() :]
 
-    return None
+    if lines:
+        at = lines[-1].end()
+        return block[:at] + "\n" + line + block[at:]
+
+    heading_end = block.index("\n") if "\n" in block else len(block)
+    return block[:heading_end] + "\n\n" + line + block[heading_end:]
 
 
 def close(
@@ -261,14 +271,19 @@ def findings(
 def bullets(
     block: str,
 ) -> dict[str, str]:
-    """The `- name: value` lines of a block that sit outside code, each value as written."""
-    spans = sections.code_spans(block)
+    """The `- name: value` lines of a block that sit outside code, each value as written.
 
-    return {
-        match.group(1): match.group(2)
-        for match in BULLET.finditer(block)
-        if not sections.in_code(spans=spans, position=match.start())
-    }
+    A name that appears twice counts once, by its first line, which is
+    the line a change rewrites, so reading and writing agree.
+    """
+    spans = sections.code_spans(block)
+    found: dict[str, str] = {}
+
+    for match in BULLET.finditer(block):
+        if not sections.in_code(spans=spans, position=match.start()):
+            found.setdefault(match.group(1), match.group(2))
+
+    return found
 
 
 def finding_headings(
@@ -292,15 +307,44 @@ def batches(
 def batch_rows(
     body: str,
 ) -> list[re.Match]:
-    """Every row of the batch table, read from the Batches section and nowhere else."""
+    """Every row of the batch table, the lines right under its header and nothing else."""
+    return batch_table(body)[1]
+
+
+def batch_table(
+    body: str,
+) -> tuple[re.Match, list[re.Match]]:
+    """The batch table's header and its rows.
+
+    The header is the first one in the Batches section outside code, and
+    the rows are the lines directly under it, the way markdown reads a
+    table. Another table in the section, or a row shaped line further
+    down, is not the batch table.
+    """
     start, end = batches_section(body)
     spans = sections.code_spans(body)
+    header = None
 
-    return [
-        match
-        for match in BATCH_ROW.finditer(string=body, pos=start, endpos=end)
-        if not sections.in_code(spans=spans, position=match.start())
-    ]
+    for match in TABLE_HEADER.finditer(string=body, pos=start, endpos=end):
+        if not sections.in_code(spans=spans, position=match.start()):
+            header = match
+            break
+
+    if header is None:
+        raise LedgerError("the ledger has no batch table")
+
+    rows: list[re.Match] = []
+    position = header.end()
+
+    while position < end and body[position] == "\n":
+        row = BATCH_ROW.match(string=body, pos=position + 1, endpos=end)
+        if row is None:
+            break
+
+        rows.append(row)
+        position = row.end()
+
+    return header, rows
 
 
 def batches_section(
@@ -354,6 +398,9 @@ def checked(
     value: str,
 ) -> str:
     """A finding's value as the record takes it, refused when the spec has no room for it."""
+    if field not in FIELDS:
+        raise LedgerError(f"a finding has no '{field}' field, its fields are {', '.join(FIELDS)}")
+
     value = one_line(value=value, what=field)
     if field == "severity" and value not in SEVERITIES:
         raise LedgerError(f"severity is {' or '.join(SEVERITIES)}, not '{value}'")
@@ -425,18 +472,9 @@ def end_of_table(
     body: str,
 ) -> int:
     """The offset at the end of the last batch row's line, or of the table header's, before the line break."""
-    rows = batch_rows(body)
-    if rows:
-        return rows[-1].end()
+    header, rows = batch_table(body)
 
-    start, end = batches_section(body)
-    spans = sections.code_spans(body)
-
-    for header in TABLE_HEADER.finditer(string=body, pos=start, endpos=end):
-        if not sections.in_code(spans=spans, position=header.start()):
-            return header.end()
-
-    raise LedgerError("the ledger has no batch table")
+    return rows[-1].end() if rows else header.end()
 
 
 def end_of_section(
