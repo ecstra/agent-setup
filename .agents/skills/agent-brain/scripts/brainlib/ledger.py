@@ -184,7 +184,7 @@ def close(
     stamp: str = "",
 ) -> None:
     entry = ledger_entry(brain, key)
-    still_open = [item for item in findings(entry) if item["status"] == "open"]
+    still_open = [item for item in findings(entry) if (item.get("status") or "open") == "open"]
     if still_open:
         names = ", ".join(item["id"] for item in still_open)
         raise LedgerError(f"{names} still open, a ledger closes when every finding has landed")
@@ -263,7 +263,8 @@ def tally(
 ) -> str:
     counts: dict[str, int] = {}
     for item in items:
-        counts[item["status"]] = counts.get(item["status"], 0) + 1
+        status = item.get("status") or schema.UNKNOWN
+        counts[status] = counts.get(status, 0) + 1
 
     total = len(items)
     noun = "finding" if total == 1 else "findings"
