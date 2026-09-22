@@ -436,7 +436,7 @@ def to_agents_folder(
 def brain_markdown(
     brain: Path,
 ) -> list[Path]:
-    """The markdown the folder migration points at the new name: every file under the brain outside skills/.
+    """The markdown the folder migration points at the new name: every file under the brain outside its skills/ folder.
 
     The guard lists the same files, so the two never disagree about
     what a migration writes into.
@@ -444,7 +444,7 @@ def brain_markdown(
     if not store.quietly(brain.is_dir):
         return []
 
-    return sorted(path for path in brain.rglob("*.md") if path.is_file() and "skills" not in path.relative_to(brain).parts)
+    return sorted(path for path in brain.rglob("*.md") if path.is_file() and path.relative_to(brain).parts[0] != "skills")
 
 
 MIGRATIONS: tuple[Migration, ...] = (
