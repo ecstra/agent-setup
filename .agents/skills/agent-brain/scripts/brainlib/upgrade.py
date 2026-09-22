@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional, TextIO
 
-from . import doctor, frontmatter, schema, store
+from . import doctor, frontmatter, schema, sections, store
 
 FOLDER = ".agents"
 OLD_FOLDER = ".agent"
@@ -26,6 +26,7 @@ VERSION = "VERSION"
 NO_VERSION = "0"
 
 FRONT_DOORS = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
+OLD_LAYOUT_DOORS = ("CLAUDE.md", "AGENTS.md", "GEMINI.md")
 ROOT_FILES = (*FRONT_DOORS, "CONTRIBUTING.md")
 AGENT_FOLDERS = (".claude", ".codex", ".gemini")
 
@@ -38,10 +39,13 @@ IGNORE_FILE = ".gitignore"
 IGNORE_HEADING = "# The agent kit's own ignores."
 
 # The project's own section, whatever it was called before, takes the
-# heading the rulebook names.
-SECTION_ZERO = re.compile(r"^## 0\..*$", re.MULTILINE)
+# heading the rulebook names. In the kit's AGENTS.md it ends at the
+# comment line that says where the kit's words start, so nothing is
+# told apart by the kit's wording, which changes between releases.
 SECTION_ZERO_HEADING = "## 0. Project Rules"
-NEXT_SECTION = re.compile(r"^## ", re.MULTILINE)
+KIT_MARK = "<!-- The kit's words start here. Section 0 goes above this line. -->"
+COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+IMPORT_LINE = re.compile(r"^[ \t]*@\S+[ \t]*$", re.MULTILINE)
 
 
 class UpgradeError(Exception):
@@ -308,6 +312,7 @@ class Prepared:
     stamp: str
     front_doors: dict[str, str]
     configs: dict[Path, str]
+    from_old_layout: bool
 
 
 def prepare(
@@ -321,6 +326,9 @@ def prepare(
 
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
+    if KIT_MARK not in front_doors["AGENTS.md"]:
+        raise UpgradeError("the kit's AGENTS.md has no line saying where its words start, so section 0 has no place to end")
+
     configs: dict[Path, str] = {}
 
     for relative in kit.agent_files():
@@ -328,7 +336,12 @@ def prepare(
         if relative.name in MERGED and store.readable_file(target):
             configs[relative] = merged_config(existing=read(target), kit=kit.text(relative), where=str(relative))
 
-    return Prepared(stamp=stamp, front_doors=front_doors, configs=configs)
+    return Prepared(
+        stamp=stamp,
+        front_doors=front_doors,
+        configs=configs,
+        from_old_layout=project.state() == "old",
+    )
 
 
 def install(
@@ -346,14 +359,19 @@ def install(
     stamp = prepared.stamp
     configs = prepared.configs
     front_doors = dict(prepared.front_doors)
-    zero = section_zero_of(project=project, kit_text=front_doors["AGENTS.md"])
+    zero = section_zero_of(project=project, from_old_layout=prepared.from_old_layout)
     if zero is not None:
-        front_doors["AGENTS.md"] = with_section_zero(text=front_doors["AGENTS.md"], zero=zero[1])
-        report.done(f"kept section 0 from {zero[0]}")
+        front_doors["AGENTS.md"] = with_section_zero(text=front_doors["AGENTS.md"], zero=zero.text)
+        report.done(zero.says)
 
+    replaced: list[str] = []
     for name in ROOT_FILES:
         settle_case(project=project, name=name, report=report)
-        put(project=project, relative=Path(name), text=front_doors[name], report=report)
+        if put(project=project, relative=Path(name), text=front_doors[name], report=report):
+            replaced.append(name)
+
+    if replaced and inside_repository(project):
+        report.done(f"git keeps the old {', '.join(replaced)} at HEAD, git show HEAD:<file> reads one")
 
     skill_home = project.brain / "skills" / "agent-brain"
     shipped = [Path(FOLDER) / relative for relative in kit.brain_files() if relative.name != VERSION]
@@ -533,75 +551,106 @@ def git(
         return None
 
 
+@dataclass
+class Zero:
+    """The project's own rules as they go under the kit's title, and the report line saying where they came from."""
+
+    text: str
+    says: str
+
+
 def section_zero_of(
     project: Project,
-    kit_text: str,
-) -> Optional[tuple[str, str]]:
-    """The project's own rules, found in whichever front door carries a `## 0.` section.
+    from_old_layout: bool,
+) -> Optional[Zero]:
+    """The project's own rules, from the first front door that carries a `## 0.` section with words in it.
 
-    In an AGENTS.md the kit already wrote, the section ends where the
-    kit's own words begin, so an upgrade run twice carries it once.
+    On the old layout CLAUDE.md held the rules and AGENTS.md copied it,
+    so CLAUDE.md is read first there. Otherwise AGENTS.md is, since that
+    is where the kit keeps section 0. With no such section anywhere, a
+    front door that says something of its own goes whole under the
+    heading, for the agent to read against the rulebook, because the
+    kit's copy is about to replace it. Not on the old layout, where the
+    rest of CLAUDE.md was the old kit's own rulebook.
     """
-    stop = kit_body(kit_text)
-
-    for name in FRONT_DOORS:
+    texts: dict[str, str] = {}
+    for name in OLD_LAYOUT_DOORS if from_old_layout else FRONT_DOORS:
         path = any_case(project.root, name)
         if path is None:
             continue
 
         try:
-            text = path.read_text(encoding="utf-8")
+            texts[path.name] = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
 
-        zero = section_zero_in(text=text, stop=stop)
+    for name, text in texts.items():
+        zero = section_zero_in(text)
         if zero is not None:
-            return path.name, zero
+            return Zero(text=zero, says=f"kept section 0 from {name}")
+
+    if from_old_layout:
+        return None
+
+    for name, text in texts.items():
+        words = own_words(text)
+        if words:
+            return Zero(
+                text=f"{SECTION_ZERO_HEADING}\n\n{words}\n",
+                says=f"carried {name} whole into section 0, read it against the rulebook and keep only what the kit does not cover",
+            )
 
     return None
 
 
-def kit_body(
-    kit_text: str,
-) -> str:
-    """The first paragraph of the kit's AGENTS.md after its title, the mark where the kit's words start."""
-    rest = kit_text.split("\n", 1)[1] if "\n" in kit_text else ""
-
-    return rest.strip().split("\n\n", 1)[0]
-
-
 def section_zero_in(
     text: str,
-    stop: str = "",
 ) -> Optional[str]:
-    """The `## 0.` section of a file, heading included, up to the next `## ` heading or the `stop` text."""
-    match = SECTION_ZERO.search(text)
-    if match is None:
+    """The `## 0.` section of a file under the rulebook's heading, or None when there is none or it says nothing.
+
+    In an AGENTS.md the kit wrote, the section is everything down to
+    the kit's marker line, headings included, so the file gives back the
+    section it was given whatever the kit's own words say now. Anywhere
+    else it runs to the next `#` or `##` heading outside code, so a
+    `## ` inside a fenced block stays in it.
+    """
+    heading = next((match for match in sections.heading_matches(text) if match.group(1).startswith("0.")), None)
+    if heading is None:
         return None
 
-    rest = text[match.start() :]
-    ends = [len(rest)]
-    following = NEXT_SECTION.search(rest, 1)
-    if following:
-        ends.append(following.start())
+    mark = text.find(KIT_MARK, heading.end())
+    end = mark if mark != -1 else sections.heading_after(body=text, start=heading.end(), depth=2)
 
-    if stop and stop in rest:
-        ends.append(rest.index(stop))
+    body = text[heading.end() : end].strip()
+    if not body:
+        return None
 
-    block = rest[: min(ends)].rstrip() + "\n"
-    heading, body = block.split("\n", 1)
+    return f"{SECTION_ZERO_HEADING}\n\n{body}\n"
 
-    return f"{SECTION_ZERO_HEADING}\n{body}"
+
+def own_words(
+    text: str,
+) -> str:
+    """What a front door says on its own: the text before the kit's marker, without the title, the comments and the `@path` import lines."""
+    own = text.split(KIT_MARK, 1)[0]
+    own = COMMENT.sub("", own)
+    own = IMPORT_LINE.sub("", own)
+
+    lines = own.strip().split("\n")
+    if lines and lines[0].startswith("# "):
+        lines = lines[1:]
+
+    return "\n".join(lines).strip()
 
 
 def with_section_zero(
     text: str,
     zero: str,
 ) -> str:
-    """The kit's AGENTS.md with the project's section 0 directly under the title."""
-    title, rest = text.split("\n", 1)
+    """The kit's AGENTS.md with the project's section 0 between the title and the kit's marker line."""
+    title, rest = text.split(KIT_MARK, 1)
 
-    return f"{title}\n\n{zero.rstrip()}\n\n{rest.lstrip()}"
+    return f"{title.rstrip()}\n\n{zero.rstrip()}\n\n{KIT_MARK}{rest}"
 
 
 def merged_config(
@@ -913,15 +962,35 @@ def put(
     text: str,
     report: Report,
     quiet: bool = False,
-) -> None:
-    """Write one file whole, and say whether it was new or replaced."""
+) -> bool:
+    """Write one file whole, and say whether it was new or replaced. True when a file that said something else was written over.
+
+    A target that already holds the text is left alone, so a run that
+    changes nothing touches nothing.
+    """
     target = project.root / relative
     was_there = store.readable_file(target)
+    if was_there and holds(path=target, data=text.encode("utf-8")):
+        return False
+
     target.parent.mkdir(parents=True, exist_ok=True)
     frontmatter.write_text(path=str(target), text=text)
 
     if not quiet:
         report.done(f"{'replaced' if was_there else 'created'} {relative}")
+
+    return was_there
+
+
+def holds(
+    path: Path,
+    data: bytes,
+) -> bool:
+    """Whether the file already holds exactly these bytes, false when it cannot be read."""
+    try:
+        return path.read_bytes() == data
+    except OSError:
+        return False
 
 
 def read(
@@ -945,12 +1014,8 @@ def copy(
     """
     data, mode = kit.data(relative)
     target = project.root / relative
-    if store.readable_file(target):
-        try:
-            if target.read_bytes() == data:
-                return False
-        except OSError:
-            pass
+    if store.readable_file(target) and holds(path=target, data=data):
+        return False
 
     write_bytes(path=target, data=data, mode=mode)
 

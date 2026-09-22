@@ -74,7 +74,9 @@ cp ../agent-setup/CODEOWNERS .
 
 Adjust the `../agent-setup` path if you cloned somewhere else. The port
 puts the kit's files in place, keeps any `## 0. Project Rules` and any
-hooks of your own beside the kit's, adds the kit's ignore lines to your
+hooks of your own beside the kit's, carries a `CLAUDE.md` or `AGENTS.md`
+of your own whole into section 0 when you had no such section, for your
+agent to trim against the rulebook, adds the kit's ignore lines to your
 `.gitignore`, runs the tool's doctor once, which builds the indexes and
 makes the skill link, and ends by listing what it found that belongs in
 the brain. It refuses while a file it would replace holds uncommitted
@@ -227,9 +229,10 @@ and leave everything your project wrote alone.
 - `.agents/SYSTEM.md`: new over old. The rules are the kit's from end to
   end, so nothing of yours is in there to save.
 - `AGENTS.md`: keep your `## 0. Project Rules` and take the kit's wording
-  for the rest. `CLAUDE.md` and `GEMINI.md` never change from one
-  release to the next, though the move below puts them in place the
-  first time.
+  for the rest. The comment line under the title marks where the kit's
+  words start, so section 0 stays above it. `CLAUDE.md` and `GEMINI.md`
+  never change from one release to the next, though the move below puts
+  them in place the first time.
 - `CONTRIBUTING.md` and `.agents/house-rules.md`: new over old. They
   carry the same rules in shorter form, so they move with the rulebook.
 - `.agents/README.md` and `.agents/spec/`: new over old. The spine and
@@ -251,7 +254,8 @@ python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py upgrade
 ```
 
 It refuses while a file it would replace holds uncommitted work, so
-commit first. Or hand your agent this.
+commit first. The root files it replaces stay in your last commit, and
+the report names them. Or hand your agent this.
 
 ```text
 The agent kit at https://forge.example.com/example/agent-setup has a new
