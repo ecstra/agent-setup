@@ -1,11 +1,12 @@
-"""Bringing a project to the kit: port when it has no brain, upgrade when it has one.
+"""Bringing a project to the kit, a port when it has no brain and an upgrade when it has one.
 
 The kit is a checkout of agent-setup, by default the one this tool runs
 from. The project is the folder the command runs in. Both commands
 install the kit's own files, keep everything the project wrote, carry
 its section 0 into AGENTS.md, and end with doctor --fix. Between the two
 sits the migration table, one step per layout change the kit has made,
-keyed by the version stamp the project carries.
+each gated on the tree it changes, while the version stamp names the
+release the project is on.
 """
 
 import codecs
@@ -24,13 +25,13 @@ from . import doctor, frontmatter, schema, sections, store, style
 
 FOLDER = ".agents"
 OLD_FOLDER = ".agent"
-VERSION = "VERSION"
+VERSION = schema.VERSION_FILE
 NO_VERSION = "0"
 
 FRONT_DOORS = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
 OLD_LAYOUT_DOORS = ("CLAUDE.md", "AGENTS.md", "GEMINI.md")
 ROOT_FILES = (*FRONT_DOORS, "CONTRIBUTING.md")
-AGENT_FOLDERS = (".claude", ".codex", ".gemini")
+AGENT_FOLDERS = store.NEAR_ROOTS[1:]
 
 # The hook configs are merged into what the project has, so its own hooks
 # stay beside the kit's. Everything else the kit ships is copied whole.
@@ -324,7 +325,7 @@ def upgrade(
         raise UpgradeError(f"the project is on {project.version()} and this kit is {prepared.stamp}, use a kit at least that new")
 
     for migration in pending_migrations(project=project, want=prepared.stamp):
-        migration.apply(project, report)
+        migration.apply(project=project, report=report)
         report.done(f"migrated to {migration.to}: {migration.says}")
 
     install(kit=kit, project=project, prepared=prepared, report=report)
@@ -424,7 +425,7 @@ def prepare(
     for relative in kit.agent_files():
         target = project.root / relative
         if relative.name in MERGED and store.readable_file(target):
-            merged_config(existing=read(target), kit=kit.text(relative), where=str(relative))
+            merged_config(existing=read_as_is(target), kit=kit.text(relative), where=str(relative))
             merged.append(relative)
 
     return Prepared(
@@ -479,7 +480,11 @@ def install(
 
     for relative in kit.agent_files():
         if relative in prepared.merged:
-            merged = merged_config(existing=read(project.root / relative), kit=kit.text(relative), where=str(relative))
+            merged = merged_config(
+                existing=read_as_is(project.root / relative),
+                kit=kit.text(relative),
+                where=str(relative),
+            )
             put(project=project, relative=relative, text=merged, report=report)
             continue
 
@@ -519,10 +524,21 @@ def candidates(
     the root markdown and the usual folder names.
     """
     kept = {name.lower() for name in (*ROOT_FILES, "README.md", "CODEOWNERS", "LICENSE.md", "CHANGELOG.md", "SECURITY.md")}
-    listed = git(project=project, arguments=["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"])
+    listed = git(
+        project=project,
+        arguments=["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"],
+    )
     if listed is None or listed.returncode != 0:
-        found = [path.name for path in sorted(project.root.glob("*.md")) if path.name.lower() not in kept and not path.name.startswith(".")]
-        found += [f"{folder}/" for folder in ("docs", "doc", "notes", "adr", "decisions") if store.quietly((project.root / folder).is_dir)]
+        found = [
+            path.name
+            for path in sorted(project.root.glob("*.md"))
+            if path.name.lower() not in kept and not path.name.startswith(".")
+        ]
+        found += [
+            f"{folder}/"
+            for folder in ("docs", "doc", "notes", "adr", "decisions")
+            if store.quietly((project.root / folder).is_dir)
+        ]
 
         return found
 
@@ -599,7 +615,11 @@ def migration_targets(
         paths += [project.root / IGNORE_FILE, *brain_markdown(brain)]
         paths = [path for path in paths if names_old_folder(path)]
 
-    return [path for path in paths if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path)]
+    return [
+        path
+        for path in paths
+        if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path)
+    ]
 
 
 def names_old_folder(
@@ -628,7 +648,11 @@ def brain_markdown(
     if not store.quietly(brain.is_dir):
         return []
 
-    return sorted(path for path in brain.rglob("*.md") if path.is_file() and path.relative_to(brain).parts[:2] != ("skills", "agent-brain"))
+    return sorted(
+        path
+        for path in brain.rglob("*.md")
+        if path.is_file() and path.relative_to(brain).parts[:2] != ("skills", "agent-brain")
+    )
 
 
 def has_old_folder(
@@ -694,11 +718,12 @@ def move(
     passing name, since a case folding file system would otherwise call
     it no change at all.
     """
-    result = git(project=project, arguments=["ls-files", "--error-unmatch", str(old.relative_to(project.root))])
-    if result is not None and result.returncode == 0:
-        moved = git(project=project, arguments=["mv", "-f", str(old.relative_to(project.root)), str(new.relative_to(project.root))])
-        if moved is not None and moved.returncode == 0:
-            return
+    moved = git(
+        project=project,
+        arguments=["mv", "-f", str(old.relative_to(project.root)), str(new.relative_to(project.root))],
+    )
+    if moved is not None and moved.returncode == 0:
+        return
 
     if old.name.lower() == new.name.lower() and old.parent == new.parent:
         passing = old.parent / f".{new.name}.renaming"
@@ -862,7 +887,9 @@ def without(
         if match is None:
             break
 
-        if sections.in_code(spans=spans, position=match.start()) or sections.in_code(spans=spans, position=match.end() - 1):
+        starts_in_code = sections.in_code(spans=spans, position=match.start())
+        ends_in_code = sections.in_code(spans=spans, position=match.end() - 1)
+        if starts_in_code or ends_in_code:
             cursor = match.start() + 1
             continue
 
@@ -1240,7 +1267,7 @@ def settle_case(
     report: Report,
 ) -> None:
     """A front door spelled in another case, `Agents.md` for one, takes the kit's spelling first."""
-    found = any_case(project.root, name)
+    found = any_case(folder=project.root, name=name)
     if found is None or found.name == name:
         return
 
@@ -1253,11 +1280,11 @@ def any_case(
     name: str,
 ) -> Optional[Path]:
     """The file in the folder whose name matches in any case, the exact spelling first."""
-    exact = folder / name
-    if store.readable_file(exact) and exact.name == name and exact in list_names(folder):
-        return exact
+    listed = list_names(folder)
+    if folder / name in listed:
+        return folder / name
 
-    for path in list_names(folder):
+    for path in listed:
         if path.name.lower() == name.lower():
             return path
 
@@ -1308,15 +1335,6 @@ def holds(
         return path.read_bytes() == data
     except OSError:
         return False
-
-
-def read(
-    path: Path,
-) -> str:
-    try:
-        return path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as error:
-        raise UpgradeError(f"{path.name} cannot be read: {error}") from error
 
 
 def copy(

@@ -244,8 +244,6 @@ and leave everything your project wrote alone.
   `.codex/` and `.gemini/`: new over old. The tool and the hooks move
   with the release, and the stamp says which release you are on.
 
-Or hand your agent this.
-
 The tool does all of that in one command. Clone the new release beside
 your project and run its upgrade from your project's root.
 
