@@ -271,21 +271,31 @@ def upgrade(
     prepared = prepare(kit=kit, project=project)
     report = Report(out=out)
     refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
-    have = as_tuple(project.version())
-    want = as_tuple(prepared.stamp)
-    if have is not None and want is not None and have > want:
+    if as_tuple(project.version()) > as_tuple(prepared.stamp):
         raise UpgradeError(f"the project is on {project.version()} and this kit is {prepared.stamp}, use a kit at least that new")
 
-    for migration in MIGRATIONS:
-        target = as_tuple(migration.to)
-        if have is not None and want is not None and have < target <= want:
-            migration.apply(project, report)
-            report.done(f"migrated to {migration.to}: {migration.says}")
+    for migration in pending_migrations(have=project.version(), want=prepared.stamp):
+        migration.apply(project, report)
+        report.done(f"migrated to {migration.to}: {migration.says}")
 
     install(kit=kit, project=project, prepared=prepared, report=report)
     report.findings = check(project)
 
     return report
+
+
+def pending_migrations(
+    have: str,
+    want: str,
+) -> list[Migration]:
+    """The migrations a project stamped `have` goes through to reach a kit stamped `want`, in order.
+
+    Both stamps have passed read_version, so both parse.
+    """
+    low = as_tuple(have)
+    high = as_tuple(want)
+
+    return [migration for migration in MIGRATIONS if low < as_tuple(migration.to) <= high]
 
 
 @dataclass
@@ -678,7 +688,7 @@ def guarded_paths(
     if store.quietly(old.is_dir):
         paths += files_under(root=project.root, folder=old, taken=migration_rewrites)
 
-    migrating = project.state() != "none" and as_tuple(project.version()) == as_tuple(NO_VERSION)
+    migrating = project.state() != "none" and bool(pending_migrations(have=project.version(), want=kit.version()))
     if migrating:
         paths += [path.name for path in list_names(project.root) if path.suffix == ".md"]
         paths += [
@@ -756,13 +766,23 @@ def refuse_when_dirty(
     base = folded(prefix.stdout.strip())
     wanted = {base + folded(path): path for path in paths}
     dirty: list[str] = []
+    ignored: list[str] = []
     for status, entry in changed_paths(result.stdout):
         path = wanted.get(folded(entry))
-        if path is not None and not (status in ("??", "!!") and same_as_kit(kit=kit, project=project, relative=path)):
-            dirty.append(path)
+        if path is None or (status in ("??", "!!") and same_as_kit(kit=kit, project=project, relative=path)):
+            continue
 
+        (ignored if status == "!!" else dirty).append(path)
+
+    reasons: list[str] = []
     if dirty:
-        raise UpgradeError("commit, stash or move these first, they would be written over or removed: " + ", ".join(sorted(dirty)))
+        reasons.append("commit, stash or move these first, they would be written over or removed: " + ", ".join(sorted(dirty)))
+
+    if ignored:
+        reasons.append("git ignores these and they would be written over or removed, copy them aside first: " + ", ".join(sorted(ignored)))
+
+    if reasons:
+        raise UpgradeError("; ".join(reasons) if len(reasons) == 2 else reasons[0])
 
 
 def inside_repository(
