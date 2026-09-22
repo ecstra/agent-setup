@@ -24,23 +24,11 @@ SKILL_PATH = "skills/agent-brain/SKILL.md"
 SKILL_HOOK = "the brain tool, the one way anything here is filed, changed or checked"
 VERSION_HOOK = "the kit release this brain is on"
 
-SEVERITY_ORDER = ("breaks", "bug", "debt", "nit")
-
 # The ways a bug stops being open, in the order the index lists them.
 CLOSED_BUG = ("fixed", "wontfix", "refiled")
 
 SPINE_DESCRIPTION = "the spine of the agent directory, what exists and where"
 SPINE_LINKS = ("README.md", "spec/conventions.md", "house-rules.md")
-
-DESCRIPTIONS: dict[str, str] = {
-    "docs": "index of the knowledge library, one line per doc",
-    "memory": "index of project memory, one line per fact",
-    "todos": "the work tracker's index, open items first",
-    "bugs": "the defect tracker's index, open bugs first",
-    "decisions": "index of every decision taken, newest first",
-    "reviews": "index of code review ledgers, active first",
-}
-
 
 def build(
     brain: store.Brain,
@@ -56,18 +44,17 @@ def build(
         ),
     }
 
-    for folder in schema.INDEXED_FOLDERS:
-        kind = schema.kind_for_folder(folder)
-        if kind is None:
+    for kind in schema.KINDS.values():
+        if not kind.indexed:
             continue
 
-        path = brain.root / folder / "INDEX.md"
+        path = brain.root / kind.folder / "INDEX.md"
         wanted[path] = render_index(
             brain=brain,
             body=folder_body(brain=brain, kind=kind),
-            name=f"{folder}-index",
-            description=DESCRIPTIONS[folder],
-            links=["INDEX.md", f"spec/{folder}.md"],
+            name=f"{kind.folder}-index",
+            description=kind.index_description,
+            links=["INDEX.md", f"spec/{kind.folder}.md"],
         )
 
     return wanted
@@ -287,7 +274,7 @@ def severity_of(
 ) -> str:
     """A severity the spec knows, or the one word for anything else."""
     severity = entry.field("severity")
-    return severity if severity in SEVERITY_ORDER else schema.UNKNOWN
+    return severity if severity in schema.SEVERITIES else schema.UNKNOWN
 
 
 def count_bugs(
@@ -301,7 +288,7 @@ def count_bugs(
             severity = severity_of(entry)
             by_severity[severity] = by_severity.get(severity, 0) + 1
 
-        inner = ", ".join(f"{by_severity[s]} {s}" for s in (*SEVERITY_ORDER, schema.UNKNOWN) if s in by_severity)
+        inner = ", ".join(f"{by_severity[s]} {s}" for s in (*schema.SEVERITIES, schema.UNKNOWN) if s in by_severity)
         parts[0] += f" ({inner})"
 
     for status in CLOSED_BUG:
@@ -476,7 +463,7 @@ def bugs_body(
     lines += ["## Open", ""]
     if not open_ones:
         lines += ["Nothing open.", ""]
-    for severity in (*SEVERITY_ORDER, schema.UNKNOWN):
+    for severity in (*schema.SEVERITIES, schema.UNKNOWN):
         group = [entry for entry in open_ones if severity_of(entry) == severity]
         if not group:
             continue

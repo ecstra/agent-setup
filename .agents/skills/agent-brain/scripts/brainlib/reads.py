@@ -10,17 +10,6 @@ from typing import Optional
 
 from . import doctor, frontmatter, links, schema, store
 
-COLUMNS: dict[str, tuple[str, ...]] = {
-    "todo": ("status", "area"),
-    "bug": ("status", "severity", "area"),
-    "decision": ("status", "date", "area"),
-    "review": ("status", "branch"),
-    "memory": ("type",),
-    "doc": (),
-    "handover": (),
-}
-
-
 def version(
     brain: store.Brain,
 ) -> str:
@@ -124,7 +113,7 @@ def rows(
             "path": entry.relative,
             "description": entry.field("description") or "",
         }
-        for column in COLUMNS[kind.name]:
+        for column in kind.columns:
             row[column] = entry.field(column) or ""
 
         found.append(row)
@@ -139,7 +128,7 @@ def render_rows(
     if not found:
         return f"no {kind.folder} match"
 
-    columns = ["id", *COLUMNS[kind.name]]
+    columns = ["id", *kind.columns]
     widths = {column: max(len(column), *(len(row[column]) for row in found)) for column in columns}
     lines: list[str] = []
 

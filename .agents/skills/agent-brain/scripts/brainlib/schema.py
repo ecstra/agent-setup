@@ -11,6 +11,9 @@ from typing import Optional
 
 DATE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
 SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+# A bug's severities, worst first, the one order every reader uses.
+SEVERITIES: tuple[str, ...] = ("breaks", "bug", "debt", "nit")
 FILENAME_WITH_ID = re.compile(r"^(BUG|TODO|DEC)-(\d{3})-(.+)\.md$")
 
 # A review folder is <yyyy-mm>-<branch-slug>, per spec/reviews.md.
@@ -65,6 +68,10 @@ class Kind:
     id_prefix: str = ""
     frontmatter_kind: str = ""
     rules: tuple[Rule, ...] = ()
+    # The fields `brain list` shows beside the id, and the description of
+    # the folder's INDEX.md, empty for a folder that carries none.
+    columns: tuple[str, ...] = ()
+    index_description: str = ""
 
     @property
     def kind_value(self) -> str:
@@ -73,6 +80,10 @@ class Kind:
     @property
     def has_ids(self) -> bool:
         return bool(self.id_prefix)
+
+    @property
+    def indexed(self) -> bool:
+        return bool(self.index_description)
 
 
 COMMON_FIELDS: tuple[Field, ...] = (
@@ -87,6 +98,7 @@ KINDS: dict[str, Kind] = {
     "doc": Kind(
         name="doc",
         folder="docs",
+        index_description="index of the knowledge library, one line per doc",
     ),
     "memory": Kind(
         name="memory",
@@ -97,11 +109,15 @@ KINDS: dict[str, Kind] = {
                 values=("project", "feedback", "reference"),
             ),
         ),
+        columns=("type",),
+        index_description="index of project memory, one line per fact",
     ),
     "bug": Kind(
         name="bug",
         folder="bugs",
         id_prefix="BUG",
+        columns=("status", "severity", "area"),
+        index_description="the defect tracker's index, open bugs first",
         fields=(
             Field(
                 name="status",
@@ -109,7 +125,7 @@ KINDS: dict[str, Kind] = {
             ),
             Field(
                 name="severity",
-                values=("breaks", "bug", "debt", "nit"),
+                values=SEVERITIES,
             ),
             Field(name="area"),
             Field(name="reported", is_date=True),
@@ -143,6 +159,8 @@ KINDS: dict[str, Kind] = {
         name="todo",
         folder="todos",
         id_prefix="TODO",
+        columns=("status", "area"),
+        index_description="the work tracker's index, open items first",
         fields=(
             Field(
                 name="status",
@@ -193,6 +211,8 @@ KINDS: dict[str, Kind] = {
         name="decision",
         folder="decisions",
         id_prefix="DEC",
+        columns=("status", "date", "area"),
+        index_description="index of every decision taken, newest first",
         fields=(
             Field(name="date", is_date=True),
             Field(name="area"),
@@ -218,6 +238,8 @@ KINDS: dict[str, Kind] = {
     "review": Kind(
         name="review",
         folder="reviews",
+        columns=("status", "branch"),
+        index_description="index of code review ledgers, active first",
         fields=(
             Field(name="branch"),
             Field(
@@ -252,15 +274,9 @@ KIT_FILES: tuple[str, ...] = (
 # tool's own docs under skills/ follow the Agent Skills standard instead.
 NO_FRONTMATTER: tuple[str, ...] = ("SYSTEM.md",)
 
-# The folders that carry their own INDEX.md, per spec/conventions.md.
-INDEXED_FOLDERS: tuple[str, ...] = (
-    "docs",
-    "memory",
-    "todos",
-    "bugs",
-    "decisions",
-    "reviews",
-)
+# The folders that carry their own INDEX.md, per spec/conventions.md,
+# read off the kinds so the table lives in one place.
+INDEXED_FOLDERS: tuple[str, ...] = tuple(kind.folder for kind in KINDS.values() if kind.indexed)
 
 INDEX = "INDEX.md"
 LEDGER = "ledger.md"

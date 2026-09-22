@@ -345,7 +345,7 @@ def add_ledger(
     adding = actions.add_parser("add", help="record a finding")
     adding.add_argument("key")
     adding.add_argument("claim")
-    adding.add_argument("--severity", required=True, choices=ledger.SEVERITIES)
+    adding.add_argument("--severity", required=True, choices=schema.SEVERITIES)
     adding.add_argument("--found-by", default="review", choices=ledger.FOUND_BY)
     adding.add_argument("--batch", type=int, default=0)
     adding.set_defaults(handler=run_ledger_add)

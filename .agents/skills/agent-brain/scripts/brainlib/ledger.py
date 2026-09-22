@@ -30,7 +30,6 @@ TABLE_HEADER = re.compile(
 )
 
 FIELDS = ("severity", "found-by", "batch", "status", "fix")
-SEVERITIES = ("breaks", "bug", "debt", "nit")
 FOUND_BY = ("review", "hunter")
 FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred")
 BATCH_STATUSES = ("pending", "fixing", "verified", "done")
@@ -416,8 +415,8 @@ def checked(
         raise LedgerError(f"a finding has no '{field}' field, its fields are {', '.join(FIELDS)}")
 
     value = one_line(value=value, what=field)
-    if field == "severity" and value not in SEVERITIES:
-        raise LedgerError(f"severity is {' or '.join(SEVERITIES)}, not '{value}'")
+    if field == "severity" and value not in schema.SEVERITIES:
+        raise LedgerError(f"severity is {' or '.join(schema.SEVERITIES)}, not '{value}'")
 
     if field == "found-by" and value not in FOUND_BY:
         raise LedgerError(f"found-by is review or hunter, not '{value}'")
