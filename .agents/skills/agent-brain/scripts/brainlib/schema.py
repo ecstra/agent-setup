@@ -248,7 +248,8 @@ KIT_FILES: tuple[str, ...] = (
 )
 
 # SYSTEM.md is the rulebook. An agent takes it as it stands, so it is the
-# one markdown file in the directory with no frontmatter.
+# one markdown file at the root of the directory with no frontmatter. The
+# tool's own docs under skills/ follow the Agent Skills standard instead.
 NO_FRONTMATTER: tuple[str, ...] = ("SYSTEM.md",)
 
 # The folders that carry their own INDEX.md, per spec/conventions.md.
