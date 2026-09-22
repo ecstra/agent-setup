@@ -301,6 +301,9 @@ def prepare(
     project: Project,
 ) -> Prepared:
     """Read the kit's stamp and front doors and merge the hook configs, so a refusal comes before the first write."""
+    if (project.brain / "skills" / "agent-brain").is_symlink():
+        raise UpgradeError(f"{FOLDER}/skills/agent-brain is a symlink, replace it with a real folder first")
+
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
     configs: dict[Path, str] = {}
@@ -338,9 +341,6 @@ def install(
         put(project=project, relative=Path(name), text=front_doors[name], report=report)
 
     skill_home = project.brain / "skills" / "agent-brain"
-    if skill_home.is_symlink():
-        raise UpgradeError(f"{FOLDER}/skills/agent-brain is a symlink, replace it with a real folder first")
-
     shipped = [Path(FOLDER) / relative for relative in kit.brain_files() if relative.name != VERSION]
     written = sum(copy(kit=kit, project=project, relative=relative) for relative in shipped)
     retired = retire(project=project, folder=skill_home, keep=set(shipped))
@@ -682,11 +682,11 @@ def files_under(
     root: Path,
     folder: Path,
 ) -> list[str]:
-    """Every file below the folder, relative to the root, nothing when the folder is not there."""
+    """Every file below the folder that a run would touch, relative to the root, bytecode and dotfiles left out."""
     if not store.quietly(folder.is_dir):
         return []
 
-    return [str(path.relative_to(root)) for path in sorted(folder.rglob("*")) if path.is_file()]
+    return [str(path.relative_to(root)) for path in sorted(folder.rglob("*")) if ships(path)]
 
 
 def refuse_when_dirty(
@@ -696,13 +696,16 @@ def refuse_when_dirty(
 ) -> None:
     """Refuse while a file about to be written over or removed holds uncommitted work.
 
-    Git is asked for the whole working tree once and the answer is
-    matched against the paths without regard to case, so a front door
-    spelled `Agents.md` is seen. A repository whose git fails is refused
-    too, since nothing would be guarded. A project outside git gets no
+    Git is asked for the whole working tree once, ignored files
+    included since a removed one is lost all the same, and the answer
+    is matched against the paths without regard to case, so a front
+    door spelled `Agents.md` is seen. Git names paths from the
+    repository's root, so the project's place below it is put in front
+    of each path first. A repository whose git fails is refused too,
+    since nothing would be guarded. A project outside git gets no
     guard, and the report says so.
     """
-    result = git(project=project, arguments=["status", "--porcelain", "--untracked-files=all", "-z"])
+    result = git(project=project, arguments=["status", "--porcelain", "--untracked-files=all", "--ignored=matching", "-z"])
     if result is None:
         report.done("git is not on this machine, so nothing is saved before a file is replaced")
         return
@@ -714,10 +717,15 @@ def refuse_when_dirty(
 
         raise UpgradeError(f"git could not read the working tree, so nothing is guarded: {result.stderr.strip()}")
 
-    wanted = {path.replace("\\", "/").lower() for path in paths}
-    dirty = sorted(path for path in changed_paths(result.stdout) if path.lower() in wanted)
+    prefix = git(project=project, arguments=["rev-parse", "--show-prefix"])
+    if prefix is None or prefix.returncode != 0:
+        raise UpgradeError(f"git could not place the project in its repository, so nothing is guarded: {(prefix.stderr if prefix else '').strip()}")
+
+    base = prefix.stdout.strip().replace("\\", "/")
+    wanted = {(base + path.replace("\\", "/")).lower() for path in paths}
+    dirty = sorted(path[len(base) :] for path in changed_paths(result.stdout) if path.lower() in wanted)
     if dirty:
-        raise UpgradeError("commit or stash these first, they would be written over: " + ", ".join(dirty))
+        raise UpgradeError("commit, stash or move these first, they would be written over or removed: " + ", ".join(dirty))
 
 
 def changed_paths(
@@ -879,7 +887,7 @@ def retire(
     retired: list[str] = []
     for path in sorted(folder.rglob("*"), reverse=True):
         relative = path.relative_to(project.root)
-        if path.is_file() and relative not in keep and not path.name.startswith("."):
+        if ships(path) and relative not in keep:
             path.unlink()
             retired.append(str(relative))
         elif path.is_dir() and not path.is_symlink() and not any(path.iterdir()):
