@@ -30,6 +30,7 @@ CLOSED_BUG = ("fixed", "wontfix", "refiled")
 SPINE_DESCRIPTION = "the spine of the agent directory, what exists and where"
 SPINE_LINKS = ("README.md", "spec/conventions.md", "house-rules.md")
 
+
 def build(
     brain: store.Brain,
 ) -> dict[Path, str]:

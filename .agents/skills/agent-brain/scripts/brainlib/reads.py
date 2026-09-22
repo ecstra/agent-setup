@@ -10,6 +10,7 @@ from typing import Optional
 
 from . import doctor, frontmatter, links, schema, store
 
+
 def version(
     brain: store.Brain,
 ) -> str:
