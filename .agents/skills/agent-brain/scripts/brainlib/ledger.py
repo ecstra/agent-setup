@@ -497,9 +497,3 @@ def end_of_section(
 ) -> int:
     """The offset where the named section ends, at the next heading outside code."""
     return section_span(body=body, title=title)[1]
-
-
-def is_ledger_body(
-    body: str,
-) -> bool:
-    return all(sections.has(body=body, title=title) for title in ("Summary", "Batches", "Findings"))

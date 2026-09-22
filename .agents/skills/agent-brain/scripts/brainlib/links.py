@@ -128,20 +128,6 @@ def backlinks(
     return found
 
 
-def broken(
-    brain: store.Brain,
-) -> list[tuple[store.Entry, str]]:
-    """Every frontmatter link in the brain that reaches nothing."""
-    found: list[tuple[store.Entry, str]] = []
-
-    for entry in brain.entries():
-        for link in outgoing(entry):
-            if resolve(brain=brain, reference=link) is None:
-                found.append((entry, link))
-
-    return found
-
-
 def broken_in_body(
     path: Path,
     document: frontmatter.Document,
