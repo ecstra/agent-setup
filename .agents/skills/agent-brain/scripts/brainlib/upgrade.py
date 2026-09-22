@@ -12,6 +12,7 @@ import codecs
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import unicodedata
@@ -526,7 +527,7 @@ def candidates(
         return found
 
     files = [Path(entry) for entry in listed.stdout.split("\0") if entry]
-    found = [str(path) for path in files if len(path.parts) == 1 and path.name.lower() not in kept]
+    found = [str(path) for path in files if len(path.parts) == 1 and path.name.lower() not in kept and not path.name.startswith(".")]
     counts: dict[str, int] = {}
     for path in files:
         if len(path.parts) > 1 and not path.parts[0].startswith("."):
@@ -930,7 +931,10 @@ def merged_config(
 
     for event, mine in hooks.items():
         if not isinstance(mine, list):
-            raise UpgradeError(f"hooks.{event} in {where} is not a JSON list")
+            if event in want.get("hooks", {}):
+                raise UpgradeError(f"hooks.{event} in {where} is not a JSON list")
+
+            continue
 
         hooks[event] = [group for group in mine if not is_kit_group(group)]
 
@@ -966,10 +970,10 @@ def indent_of(
 def is_kit_group(
     group: object,
 ) -> bool:
-    if not isinstance(group, dict):
+    if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
         return False
 
-    return any(KIT_HOOK.match(str(hook.get("command", ""))) for hook in group.get("hooks", []) if isinstance(hook, dict))
+    return any(KIT_HOOK.match(str(hook.get("command", ""))) for hook in group["hooks"] if isinstance(hook, dict))
 
 
 def ignore(
@@ -1047,6 +1051,7 @@ def guarded_paths(
     """
     paths = [*ROOT_FILES]
     paths += [str(relative) for relative in kit.agent_files() if relative.name not in MERGED]
+    paths += [str(relative) for relative in style.COPIES]
 
     brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
     paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
@@ -1374,6 +1379,8 @@ def retire(
         if retire_takes(path) and relative not in keep:
             path.unlink()
             retired.append(str(relative))
+        elif path.name == "__pycache__" and path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
         elif path.is_dir() and not path.is_symlink() and not any(path.iterdir()):
             path.rmdir()
 
