@@ -302,8 +302,9 @@ def prepare(
     project: Project,
 ) -> Prepared:
     """Read the kit's stamp and front doors and merge the hook configs, so a refusal comes before the first write."""
-    if store.quietly((project.brain / "skills" / "agent-brain").is_symlink):
-        raise UpgradeError(f"{FOLDER}/skills/agent-brain is a symlink, replace it with a real folder first")
+    for folder in (FOLDER, OLD_FOLDER):
+        if store.quietly((project.root / folder / "skills" / "agent-brain").is_symlink):
+            raise UpgradeError(f"{folder}/skills/agent-brain is a symlink, replace it with a real folder first")
 
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
@@ -671,11 +672,11 @@ def guarded_paths(
     paths = [*ROOT_FILES]
     paths += [str(relative) for relative in kit.agent_files() if relative.name not in MERGED]
     paths += [str(Path(FOLDER) / relative) for relative in kit.brain_files()]
-    paths += files_under(root=project.root, folder=project.brain / "skills" / "agent-brain")
+    paths += files_under(root=project.root, folder=project.brain / "skills" / "agent-brain", shipped_only=True)
 
     old = project.root / OLD_FOLDER
     if store.quietly(old.is_dir):
-        paths += files_under(root=project.root, folder=old)
+        paths += files_under(root=project.root, folder=old, shipped_only=False)
 
     if store.quietly(old.is_dir) or as_tuple(project.version()) == as_tuple(NO_VERSION):
         paths += [path.name for path in list_names(project.root) if path.suffix == ".md"]
@@ -691,12 +692,22 @@ def guarded_paths(
 def files_under(
     root: Path,
     folder: Path,
+    shipped_only: bool,
 ) -> list[str]:
-    """Every file below the folder that a run would touch, relative to the root, bytecode and dotfiles left out."""
+    """Every file below the folder, relative to the root, nothing when the folder is not there.
+
+    The skill folder is judged by what the kit ships, since retire takes
+    only that. The old folder is moved and rewritten whole, dotfiles
+    included, so every file in it counts.
+    """
     if not store.quietly(folder.is_dir):
         return []
 
-    return [str(path.relative_to(root)) for path in sorted(folder.rglob("*")) if ships(path)]
+    return [
+        str(path.relative_to(root))
+        for path in sorted(folder.rglob("*"))
+        if ships(path) or (not shipped_only and path.is_file())
+    ]
 
 
 def refuse_when_dirty(
@@ -708,7 +719,9 @@ def refuse_when_dirty(
     """Refuse while a file about to be written over or removed holds uncommitted work.
 
     Git is asked for the whole working tree once, ignored files
-    included since a removed one is lost all the same, and the answer
+    included since a removed one is lost all the same (`--ignored` with
+    no mode, which every git reads and which names the files inside an
+    ignored folder when every untracked file is asked for), and the answer
     is matched against the paths without regard to case, so a front
     door spelled `Agents.md` is seen. Git names paths from the
     repository's root, so the project's place below it is put in front
@@ -725,7 +738,7 @@ def refuse_when_dirty(
         report.done("git is not on this machine, so nothing is saved before a file is replaced")
         return
 
-    result = git(project=project, arguments=["status", "--porcelain", "--untracked-files=all", "--ignored=traditional", "-z"])
+    result = git(project=project, arguments=["status", "--porcelain", "--untracked-files=all", "--ignored", "-z"])
     if prefix.returncode != 0 or result is None or result.returncode != 0:
         words = (prefix.stderr if prefix.returncode != 0 else (result.stderr if result else "")).strip()
         raise UpgradeError(f"git could not read the working tree, so nothing is guarded: {words}")
@@ -958,7 +971,7 @@ def retire(
     retired: list[str] = []
     for path in sorted(folder.rglob("*"), reverse=True):
         relative = path.relative_to(project.root)
-        if ships(path) and relative not in keep:
+        if (ships(path) or path.is_symlink()) and relative not in keep:
             path.unlink()
             retired.append(str(relative))
         elif path.is_dir() and not path.is_symlink() and not any(path.iterdir()):
