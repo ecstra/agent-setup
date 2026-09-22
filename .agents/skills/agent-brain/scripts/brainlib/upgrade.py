@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional, TextIO
 
-from . import doctor, frontmatter, schema, sections, store
+from . import doctor, frontmatter, schema, sections, store, style
 
 FOLDER = ".agents"
 OLD_FOLDER = ".agent"
@@ -85,6 +85,7 @@ class Report:
     out: Optional[TextIO] = None
     lines: list[str] = field(default_factory=list)
     findings: list[doctor.Finding] = field(default_factory=list)
+    kits_own: list[doctor.Finding] = field(default_factory=list)
     candidates: list[str] = field(default_factory=list)
 
     def done(
@@ -106,6 +107,11 @@ class Report:
         else:
             parts.append("")
             parts.append("Doctor is clean.")
+
+        if self.kits_own:
+            parts.append("")
+            parts.append("In the kit's own files, for the kit to put right, not counted here:")
+            parts += [f"  {finding.line()}" for finding in self.kits_own]
 
         if self.candidates:
             parts.append("")
@@ -136,30 +142,33 @@ class Kit:
         return read_version(stamp)
 
     def brain_files(self) -> list[Path]:
-        """The kit's own files under .agents/, relative to it, the indexes left out since the tool builds those."""
+        """The kit's own files under .agents/, relative to it, the indexes left out since the tool builds those, and the tool's tests too."""
         found = [Path(name) for name in schema.KIT_FILES if name != schema.INDEX]
         found += sorted(path.relative_to(self.brain) for path in (self.brain / "spec").glob("*.md"))
         found += sorted(
             path.relative_to(self.brain)
             for path in (self.brain / "skills").rglob("*")
-            if ships(path)
+            if ships(path) and "tests" not in path.relative_to(self.brain / "skills").parts
         )
         found.append(Path(VERSION))
 
         return found
 
     def agent_files(self) -> list[Path]:
-        """The hook configs and chat style files under the agent folders, relative to the kit root.
+        """The hook configs and the chat style source under the agent folders, relative to the kit root.
 
-        A symlink is the doctor's to make, and a personal settings file
+        A symlink is the doctor's to make, and so are the chat style
+        copies, from the source, so a copy the project made read only is
+        replaced rather than written through. A personal settings file
         never ships.
         """
         found: list[Path] = []
 
         for folder in AGENT_FOLDERS:
             for path in sorted((self.root / folder).rglob("*")):
-                if ships(path) and path.name not in NOT_SHIPPED:
-                    found.append(path.relative_to(self.root))
+                relative = path.relative_to(self.root)
+                if ships(path) and path.name not in NOT_SHIPPED and relative not in style.COPIES:
+                    found.append(relative)
 
         return found
 
@@ -288,7 +297,7 @@ def port(
     refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     install(kit=kit, project=project, prepared=prepared, report=report)
     report.candidates = candidates(project)
-    report.findings = check(project)
+    report.findings, report.kits_own = check(project)
 
     return report
 
@@ -318,7 +327,7 @@ def upgrade(
         report.done(f"migrated to {migration.to}: {migration.says}")
 
     install(kit=kit, project=project, prepared=prepared, report=report)
-    report.findings = check(project)
+    report.findings, report.kits_own = check(project)
 
     return report
 
@@ -484,11 +493,17 @@ def install(
 
 def check(
     project: Project,
-) -> list[doctor.Finding]:
-    """Doctor with --fix over the brain as installed, and what it could not clear."""
-    brain = store.Brain(root=project.brain)
+) -> tuple[list[doctor.Finding], list[doctor.Finding]]:
+    """Doctor with --fix over the brain as installed: what it could not clear in the project's files, and what sits in the kit's own.
 
-    return doctor.run(brain=brain, fix=True)
+    A finding under the kit's skill folder is in a file the install
+    replaces every time, so it is the kit's to put right, reported
+    apart and never counted against the project.
+    """
+    found = doctor.run(brain=store.Brain(root=project.brain), fix=True)
+    kits = [finding for finding in found if finding.path.startswith("skills/agent-brain/")]
+
+    return [finding for finding in found if finding not in kits], kits
 
 
 def candidates(

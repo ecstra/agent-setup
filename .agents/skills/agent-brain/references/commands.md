@@ -119,7 +119,12 @@ the tool's script in their command. A rename goes through git where git
 tracks the file, so the move shows as one, and a root file the kit
 replaces is named in the report along with where git keeps the old one.
 The exit code is doctor's: 0 clean, 2 while findings remain, and those
-are the project's own prose to put right.
+are the project's own prose to put right. A finding in the kit's own
+files under `skills/agent-brain/` is the kit's to fix, printed apart
+and never counted, since the install replaces those files every time.
+The tool ships without its own tests, and the chat style copies in
+`.codex/` and `.gemini/` are the doctor's to make from the source in
+`.claude/output-styles/`.
 
 ## Hooks
 
