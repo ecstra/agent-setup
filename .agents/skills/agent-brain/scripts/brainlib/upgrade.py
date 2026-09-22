@@ -509,17 +509,33 @@ def check(
 def candidates(
     project: Project,
 ) -> list[str]:
-    """What an unported project usually holds that belongs in the brain, for the agent to file."""
-    found: list[str] = []
-    kept = {*ROOT_FILES, "README.md", "CODEOWNERS", "LICENSE.md", "CHANGELOG.md"}
+    """What an unported project holds that belongs in the brain, for the agent to file.
 
-    for path in sorted(project.root.glob("*.md")):
-        if path.name not in kept and path.name.lower() not in {name.lower() for name in kept}:
-            found.append(path.name)
+    Where git runs, every markdown file it tracks or sees outside the
+    dot folders, the brain and the agent folders among them, the root
+    files one by one and deeper ones counted by their top folder, with
+    docs/ marked as the one the rules let a project keep. Outside git,
+    the root markdown and the usual folder names.
+    """
+    kept = {name.lower() for name in (*ROOT_FILES, "README.md", "CODEOWNERS", "LICENSE.md", "CHANGELOG.md", "SECURITY.md")}
+    listed = git(project=project, arguments=["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"])
+    if listed is None or listed.returncode != 0:
+        found = [path.name for path in sorted(project.root.glob("*.md")) if path.name.lower() not in kept]
+        found += [f"{folder}/" for folder in ("docs", "doc", "notes", "adr", "decisions") if store.quietly((project.root / folder).is_dir)]
 
-    for folder in ("docs", "doc", "notes", "adr", "decisions"):
-        if store.quietly((project.root / folder).is_dir):
-            found.append(f"{folder}/")
+        return found
+
+    files = [Path(entry) for entry in listed.stdout.split("\0") if entry]
+    found = [str(path) for path in files if len(path.parts) == 1 and path.name.lower() not in kept]
+    counts: dict[str, int] = {}
+    for path in files:
+        if len(path.parts) > 1 and not path.parts[0].startswith("."):
+            counts[path.parts[0]] = counts.get(path.parts[0], 0) + 1
+
+    for folder, count in sorted(counts.items()):
+        noun = "markdown file" if count == 1 else "markdown files"
+        note = ", may stay per the rules, linked into the brain" if folder == "docs" else ""
+        found.append(f"{folder}/ ({count} {noun}{note})")
 
     return found
 
