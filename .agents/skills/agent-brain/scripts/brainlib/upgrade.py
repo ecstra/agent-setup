@@ -49,10 +49,16 @@ COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 IMPORT_LINE = re.compile(r"^[ \t]*@\S+[ \t]*$", re.MULTILINE)
 
 # Before 1.1.0 the kit's AGENTS.md carried no marker line, so in a file
-# that kit wrote, section 0 ends where that release's first line stood.
-# The line is history and never changes, which is what makes it safe to
-# match, unlike the kit's current wording.
-LEAD_BEFORE_MARK = "The rules for working in this repo are in @.agents/SYSTEM.md and every\n"
+# that kit wrote, section 0 ends where that release's first paragraph
+# stood. The paragraph is history and never changes, which is what makes
+# it safe to match, unlike the kit's current wording.
+FIRST_KIT_WORDS = (
+    "The rules for working in this repo are in @.agents/SYSTEM.md and every\n"
+    "agent works by them. Claude Code and Gemini CLI pull that file into\n"
+    "context on their own. Codex gets it from its session start hook. Anything\n"
+    "else that reads this file as plain text opens it first.\n"
+)
+FIRST_KIT = re.compile(re.escape(FIRST_KIT_WORDS))
 
 
 class UpgradeError(Exception):
@@ -373,7 +379,7 @@ def install(
 
     replaced: list[str] = []
     for name in ROOT_FILES:
-        found = any_case(project.root, name)
+        found = any_case(folder=project.root, name=name)
         settle_case(project=project, name=name, report=report)
         if put(project=project, relative=Path(name), text=front_doors[name], report=report):
             replaced.append(name if found is None else found.name)
@@ -623,18 +629,19 @@ def section_zero_in(
     section it was given whatever the kit's own words say now. In one
     the first kit wrote, before the marker, it ends where that kit's
     words stood. Anywhere else it runs to the next `#` or `##` heading
-    outside code, so a `## ` inside a fenced block stays in it.
+    outside code. Code never ends it, so a `## ` or a quoted marker
+    inside a fenced block stays in it.
     """
     heading = next((match for match in sections.heading_matches(text) if match.group(1).startswith("0.")), None)
     if heading is None:
         return None
 
-    end = mark_after(text=text, start=heading.end())
+    end = first_outside_code(text=text, pattern=MARK, start=heading.end())
     if end == -1:
         end = sections.heading_after(body=text, start=heading.end(), depth=2)
-        lead = text.find(LEAD_BEFORE_MARK, heading.end(), end)
-        if lead != -1:
-            end = lead
+        words = first_outside_code(text=text, pattern=FIRST_KIT, start=heading.end(), end=end)
+        if words != -1:
+            end = words
 
     body = text[heading.end() : end].strip()
     if not body:
@@ -643,13 +650,15 @@ def section_zero_in(
     return f"{SECTION_ZERO_HEADING}\n\n{body}\n"
 
 
-def mark_after(
+def first_outside_code(
     text: str,
+    pattern: "re.Pattern[str]",
     start: int,
+    end: Optional[int] = None,
 ) -> int:
-    """Where the kit's marker line stands outside code at or after `start`, or -1 when it does not."""
+    """Where the pattern first matches outside code between `start` and `end`, or -1 when it does not."""
     spans = sections.code_spans(text)
-    for match in MARK.finditer(text, start):
+    for match in pattern.finditer(text, start, len(text) if end is None else end):
         if not sections.in_code(spans=spans, position=match.start()):
             return match.start()
 
@@ -663,29 +672,35 @@ def own_words(
 
     Code keeps its comments and its `@` lines, a decorator for one.
     """
-    mark = mark_after(text=text, start=0)
+    mark = first_outside_code(text=text, pattern=MARK, start=0)
     own = text if mark == -1 else text[:mark]
+    for pattern in (COMMENT, IMPORT_LINE):
+        own = without(text=own, pattern=pattern)
 
-    pieces: list[str] = []
-    last = 0
-    for start, end in sections.code_spans(own):
-        pieces.append(scaffolding_free(own[last:start]))
-        pieces.append(own[start:end])
-        last = end
-    pieces.append(scaffolding_free(own[last:]))
-
-    lines = "".join(pieces).strip().split("\n")
+    lines = own.strip().split("\n")
     if lines and lines[0].startswith("# "):
         lines = lines[1:]
 
     return "\n".join(lines).strip()
 
 
-def scaffolding_free(
-    prose: str,
+def without(
+    text: str,
+    pattern: "re.Pattern[str]",
 ) -> str:
-    """The prose without HTML comments and without lines that only pull another file in."""
-    return IMPORT_LINE.sub("", COMMENT.sub("", prose))
+    """The text without the pattern's matches that start outside code."""
+    spans = sections.code_spans(text)
+    kept: list[str] = []
+    last = 0
+    for match in pattern.finditer(text):
+        if sections.in_code(spans=spans, position=match.start()):
+            continue
+
+        kept.append(text[last : match.start()])
+        last = match.end()
+    kept.append(text[last:])
+
+    return "".join(kept)
 
 
 def kept_in_git(
