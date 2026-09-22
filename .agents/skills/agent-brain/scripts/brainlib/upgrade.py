@@ -930,7 +930,7 @@ def ignore(
     existing = read_as_is(target) if store.readable_file(target) else ""
     ending = "\r\n" if "\r\n" in existing else "\n"
     mark = BOM if existing.startswith(BOM) else ""
-    lines = [line.rstrip("\r") for line in existing[len(mark) :].split("\n")]
+    lines = [line[:-1] if line.endswith("\r") else line for line in existing[len(mark) :].split("\n")]
 
     rest: list[str] = []
     in_block = False
