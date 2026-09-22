@@ -462,11 +462,24 @@ def check_fields(
         except writes.WriteError as error:
             found.append(Finding(path=entry.relative, check="fields", message=str(error)))
 
-        for item in schema.COMMON_FIELDS:
-            for slip in sections.style_slips(fields.get(item.name, "")):
-                found.append(Finding(path=entry.relative, check="fields", message=f"{item.name} {slip}"))
+        found += [Finding(path=entry.relative, check="fields", message=slip) for slip in common_slips(fields)]
+
+    for path, document in links.kit_documents(brain):
+        where = relative(brain=brain, path=path)
+        found += [Finding(path=where, check="fields", message=slip) for slip in common_slips(document.fields())]
 
     return found
+
+
+def common_slips(
+    fields: dict[str, str],
+) -> list[str]:
+    """What the house style bans in the common header values, since each flows into an index."""
+    return [
+        f"{item.name} {slip}"
+        for item in schema.COMMON_FIELDS
+        for slip in sections.style_slips(fields.get(item.name, ""))
+    ]
 
 
 def check_sections(
@@ -618,9 +631,18 @@ def write_index(
 def check_style(
     brain: store.Brain,
 ) -> list[Finding]:
+    """The prose rules over every file but the indexes.
+
+    An index is the tool's rendering of other files' header values, each
+    checked at its source by the fields check, so a slip is named on the
+    file a person can put right rather than on one nobody may edit.
+    """
     found: list[Finding] = []
 
     for path in all_markdown(brain=brain, with_skills=True):
+        if path.name == schema.INDEX:
+            continue
+
         prose = prose_in(path)
         if prose is None:
             continue
