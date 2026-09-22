@@ -34,7 +34,10 @@ KIT_HOOK_MARK = "agent-brain/scripts/hooks.py"
 IGNORE_FILE = ".gitignore"
 IGNORE_HEADING = "# The agent kit's own ignores."
 
+# The project's own section, whatever it was called before, takes the
+# heading the rulebook names.
 SECTION_ZERO = re.compile(r"^## 0\..*$", re.MULTILINE)
+SECTION_ZERO_HEADING = "## 0. Project Rules"
 NEXT_SECTION = re.compile(r"^## ", re.MULTILINE)
 
 
@@ -486,7 +489,10 @@ def section_zero_in(
     if stop and stop in rest:
         ends.append(rest.index(stop))
 
-    return rest[: min(ends)].rstrip() + "\n"
+    block = rest[: min(ends)].rstrip() + "\n"
+    heading, body = block.split("\n", 1)
+
+    return f"{SECTION_ZERO_HEADING}\n{body}"
 
 
 def with_section_zero(
