@@ -272,6 +272,8 @@ def upgrade(
     refuse_when_dirty(project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     have = as_tuple(project.version())
     want = as_tuple(prepared.stamp)
+    if have is not None and want is not None and have > want:
+        raise UpgradeError(f"the project is on {project.version()} and this kit is {prepared.stamp}, use a kit at least that new")
 
     for migration in MIGRATIONS:
         target = as_tuple(migration.to)
