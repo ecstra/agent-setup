@@ -376,12 +376,4 @@ def kit_documents(
     brain: store.Brain,
 ) -> list[tuple[Path, frontmatter.Document]]:
     """The kit's own files that carry frontmatter, so names still resolve."""
-    found: list[tuple[Path, frontmatter.Document]] = []
-
-    for path in brain.kit_files():
-        try:
-            found.append((path, frontmatter.read(str(path))))
-        except frontmatter.FrontmatterError:
-            continue
-
-    return found
+    return brain.kit_documents()

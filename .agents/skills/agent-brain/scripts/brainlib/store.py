@@ -88,10 +88,14 @@ class Brain:
     def __post_init__(self) -> None:
         self.loaded: dict[str, list[Entry]] = {}
         self.unreadable: dict[Path, str] = {}
+        self.keyed: Optional[dict[str, list[Entry]]] = None
+        self.kit_read: Optional[list[tuple[Path, frontmatter.Document]]] = None
 
     def refresh(self) -> None:
         self.loaded = {}
         self.unreadable = {}
+        self.keyed = None
+        self.kit_read = None
 
     def folder(
         self,
@@ -210,16 +214,41 @@ class Brain:
         the ledger.md every review is, is refused with the paths named,
         rather than answered with whichever came first.
         """
-        found = [
-            entry
-            for entry in self.entries()
-            if key in (entry.identifier, entry.name, entry.relative, entry.path.stem)
-        ]
+        found = self.by_key().get(key, [])
         if len(found) > 1:
             paths = ", ".join(entry.relative for entry in found)
             raise Ambiguous(f"'{key}' names {len(found)} files, use the path: {paths}")
 
         return found[0] if found else None
+
+    def by_key(self) -> dict[str, list[Entry]]:
+        """Every entry under each key it answers to, built once per scan.
+
+        A link check asks `find` once per link, so the answer is a
+        lookup rather than a walk of every entry each time.
+        """
+        if self.keyed is None:
+            keyed: dict[str, list[Entry]] = {}
+            for entry in self.entries():
+                keys = {entry.identifier, entry.name, entry.relative, entry.path.stem} - {None}
+                for key in keys:
+                    keyed.setdefault(key, []).append(entry)
+            self.keyed = keyed
+
+        return self.keyed
+
+    def kit_documents(self) -> list[tuple[Path, frontmatter.Document]]:
+        """The kit's own files that carry a header the tool reads, read once per scan."""
+        if self.kit_read is None:
+            found: list[tuple[Path, frontmatter.Document]] = []
+            for path in self.kit_files():
+                try:
+                    found.append((path, frontmatter.read(str(path))))
+                except frontmatter.FrontmatterError:
+                    continue
+            self.kit_read = found
+
+        return list(self.kit_read)
 
     def with_slug(
         self,
