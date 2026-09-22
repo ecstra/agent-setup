@@ -238,7 +238,11 @@ class Brain:
         return self.keyed
 
     def kit_documents(self) -> list[tuple[Path, frontmatter.Document]]:
-        """The kit's own files that carry a header the tool reads, read once per scan."""
+        """The kit's own files that carry a header the tool reads, read once per scan.
+
+        Each caller gets its own copy of every document, so a change one
+        makes in memory never shows up in another's read.
+        """
         if self.kit_read is None:
             found: list[tuple[Path, frontmatter.Document]] = []
             for path in self.kit_files():
@@ -248,7 +252,10 @@ class Brain:
                     continue
             self.kit_read = found
 
-        return list(self.kit_read)
+        return [
+            (path, frontmatter.Document(lines=list(document.lines), body=document.body))
+            for path, document in self.kit_read
+        ]
 
     def with_slug(
         self,
