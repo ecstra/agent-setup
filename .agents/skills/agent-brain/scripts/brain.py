@@ -312,7 +312,7 @@ def run_doctor(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    found = doctor.run(brain, fix=args.fix)
+    found = doctor.run(brain=brain, fix=args.fix)
     if args.json:
         print(json.dumps([finding.as_dict() for finding in found], indent=2))
     else:
