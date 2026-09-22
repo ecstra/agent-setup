@@ -179,8 +179,8 @@ def all_markdown(
     """Every markdown file under the brain, the rulebook and dotfiles excepted, the skills only when asked.
 
     The skills folder is the tool's own, its files follow the Agent
-    Skills standard rather than the specs, so only the prose checks read
-    them.
+    Skills standard rather than the specs, so only the prose and
+    boundary checks (style and hygiene) read them.
     """
     found: list[Path] = []
 
