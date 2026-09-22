@@ -518,6 +518,12 @@ def check_filenames(
                 )
             continue
 
+        for folder in Path(entry.relative).parts[1:-1]:
+            if not schema.is_slug(folder):
+                found.append(
+                    Finding(path=entry.relative, check="filename", message=f"sits in a folder that is not a slug, '{folder}'")
+                )
+
         if entry.kind.has_ids and entry.identifier is None:
             found.append(
                 Finding(
@@ -532,12 +538,6 @@ def check_filenames(
             found.append(
                 Finding(path=entry.relative, check="filename", message=f"'{entry.slug}' is not a slug")
             )
-
-        for folder in Path(entry.relative).parts[1:-1]:
-            if not schema.is_slug(folder):
-                found.append(
-                    Finding(path=entry.relative, check="filename", message=f"sits in a folder that is not a slug, '{folder}'")
-                )
 
         if entry.identifier is None:
             continue
