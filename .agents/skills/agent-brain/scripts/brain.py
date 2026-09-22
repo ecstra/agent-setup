@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from brainlib import doctor, frontmatter, index, ledger, reads, schema, store, writes
+from brainlib import doctor, frontmatter, index, ledger, reads, schema, store, upgrade, writes
 
 REFUSED = 1
 FINDINGS_REMAIN = 2
@@ -34,12 +34,16 @@ def main(
         return REFUSED
 
     try:
+        if not args.needs_brain:
+            return args.handler(brain=None, args=args)
+
         brain = store.find_brain(Path.cwd())
         return args.handler(brain=brain, args=args)
     except (
         store.StoreError,
         writes.WriteError,
         ledger.LedgerError,
+        upgrade.UpgradeError,
         frontmatter.FrontmatterError,
         schema.UnknownKind,
         OSError,
@@ -55,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="file, change, count and check what is in .agents/",
     )
     commands = parser.add_subparsers(dest="command")
+    parser.set_defaults(needs_brain=True)
 
     add_version(commands)
     add_status(commands)
@@ -68,6 +73,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_index(commands)
     add_doctor(commands)
     add_ledger(commands)
+    add_port(commands)
+    add_upgrade(commands)
 
     return parser
 
@@ -475,6 +482,79 @@ def missing(
 ) -> int:
     print(f"nothing in the brain answers to '{key}'", file=sys.stderr)
     return REFUSED
+
+
+def add_port(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser("port", help="install the kit into a project that has no brain yet")
+    add_kit_arguments(command)
+    command.set_defaults(handler=run_port, needs_brain=False)
+
+
+def add_upgrade(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser("upgrade", help="bring a project's brain up to this kit, migrations included")
+    add_kit_arguments(command)
+    command.set_defaults(handler=run_upgrade, needs_brain=False)
+
+
+def add_kit_arguments(
+    command: argparse.ArgumentParser,
+) -> None:
+    command.add_argument("--kit", help="a checkout of agent-setup, by default the one this tool runs from")
+    command.add_argument("--project", help="the project's root folder, by default the git root above the current one")
+
+
+def run_port(
+    brain: Optional[store.Brain],
+    args: argparse.Namespace,
+) -> int:
+    report = upgrade.port(kit=kit_of(args), project=project_of(args))
+    print(report.render(), end="")
+
+    return FINDINGS_REMAIN if report.findings else 0
+
+
+def run_upgrade(
+    brain: Optional[store.Brain],
+    args: argparse.Namespace,
+) -> int:
+    report = upgrade.upgrade(kit=kit_of(args), project=project_of(args))
+    print(report.render(), end="")
+
+    return FINDINGS_REMAIN if report.findings else 0
+
+
+def kit_of(
+    args: argparse.Namespace,
+) -> upgrade.Kit:
+    if args.kit:
+        return upgrade.Kit(root=Path(args.kit).resolve())
+
+    return upgrade.default_kit()
+
+
+def project_of(
+    args: argparse.Namespace,
+) -> upgrade.Project:
+    if args.project:
+        return upgrade.Project(root=Path(args.project).resolve())
+
+    return upgrade.Project(root=project_root(Path.cwd()))
+
+
+def project_root(
+    start: Path,
+) -> Path:
+    """The git root above `start`, or `start` itself outside git."""
+    here = start.resolve()
+    for candidate in [here, *here.parents]:
+        if store.quietly((candidate / ".git").exists):
+            return candidate
+
+    return here
 
 
 if __name__ == "__main__":
