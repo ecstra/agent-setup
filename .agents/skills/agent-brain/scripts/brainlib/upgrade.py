@@ -917,16 +917,23 @@ def ignore(
     repeated, since repeating it below a line the project wrote later
     would override that line. An exception, a line starting with `!`,
     goes in only below a pattern going in that matches the path it
-    names, so `.env.*` never lands below `!.env.example`, and a project
-    that ignores `.env.example` on purpose is left to it.
+    names, so `.env.*` never lands below `!.env.example`, and never when
+    a pattern of the project's own already matches that path, so a
+    project that ignores `.env.example` on purpose is left to it.
     """
     wanted = [line for line in kit.text(Path(IGNORE_FILE)).splitlines() if line.strip() and not line.startswith("#")]
     target = project.root / IGNORE_FILE
     existing = read_as_is(target) if store.readable_file(target) else ""
     present = {line.strip() for line in existing.splitlines()}
+    own = [line for line in present if line and not line.startswith(("#", "!"))]
 
     patterns = [line for line in wanted if not line.startswith("!") and line not in present]
-    block = [line for line in wanted if line in patterns or (line.startswith("!") and excepts_one_of(exception=line, patterns=patterns))]
+    block = [
+        line
+        for line in wanted
+        if line in patterns
+        or (line.startswith("!") and names_a_match(exception=line, patterns=patterns) and not names_a_match(exception=line, patterns=own))
+    ]
     if not block:
         return
 
@@ -937,7 +944,7 @@ def ignore(
     report.done(f"added to {IGNORE_FILE} from the kit's ignores: " + ", ".join(block))
 
 
-def excepts_one_of(
+def names_a_match(
     exception: str,
     patterns: list[str],
 ) -> bool:
