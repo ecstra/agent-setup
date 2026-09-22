@@ -227,16 +227,16 @@ todos, bugs, memory, everything) one file at a time through brain new
 with the prose on standard input, never by hand, keeping my wording in
 todos. Do not paste any of our old rulebook files into section 0: read
 them against the new rulebook, drop what the general sections already
-cover, and rewrite only the truly project specific parts into section
-0 at the top of AGENTS.md, and our old CONTRIBUTING.md the same way,
-its extra rules into section 0. This may be hundreds or thousands of
-files. Do every one, never a sample. If the volume needs it, list
-everything in a ledger first and work in batches, ticking each file
-off. When it is all filed, delete the old copies of the docs you
-moved, but leave anything a human wrote by hand where it is and list
-those for me. If we set an old CODEOWNERS aside, put our own ownership
-rules back into it. Run brain doctor --fix and leave it clean. Then
-tell me what you did and where, and wait for me to call the review.
+cover, and rewrite only the truly project specific parts into section 0
+at the top of AGENTS.md, and our old CONTRIBUTING.md the same way, its
+extra rules into section 0. This may be hundreds or thousands of files.
+Do every one, never a sample. If the volume needs it, list everything
+in a ledger first and work in batches, ticking each file off. When it
+is all filed, delete the old copies of the docs you moved, but leave
+anything a human wrote by hand where it is and list those for me. If we
+set an old CODEOWNERS aside, put our own ownership rules back into it.
+Run brain doctor --fix and leave it clean. Then tell me what you did
+and where, and wait for me to call the review.
 ```
 
 ## Keeping the kit current
