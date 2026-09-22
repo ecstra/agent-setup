@@ -215,10 +215,10 @@ We are adopting the agent kit that now sits in this repo. Do the port
 on a new branch. Before anything else, read the new AGENTS.md and the
 rules it points at, and work by them from here on: prose edited with
 the proper edit tools, no scripts or heredocs, the header blocks and
-indexes inside .agents/ left to the brain tool, house style
-throughout. Then read the whole project: the code, every
-doc and note, our old AGENTS.md, CLAUDE.md, GEMINI.md or CONTRIBUTING.md
-if we have any, and every TODO list. Then read .agents/INDEX.md,
+indexes inside .agents/ left to the brain tool, house style throughout.
+Then read the whole project: the code, every doc and note, our old
+AGENTS.md, CLAUDE.md, GEMINI.md or CONTRIBUTING.md if we have any, and
+every TODO list. Then read .agents/INDEX.md,
 everything in .agents/spec/, and the agent-brain skill so you know the
 target format and the tool that writes it. Show me a plan of what goes
 where before you move anything. Then file it all into .agents/ (docs,
