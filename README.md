@@ -270,8 +270,8 @@ me what changed.
 A project that took the kit before the rulebook moved has a `.agent/`
 folder, a root `CLAUDE.md` carrying all the rules, and an `AGENTS.md`
 that copies it. The same `upgrade` command carries it over: the folder
-moves to `.agents/`, every file that named the old folder is pointed at
-the new one, your `## 0. Project Rules` comes out of `CLAUDE.md` into
+moves to `.agents/`, every file git sees that named the old folder is
+pointed at the new one, your `## 0. Project Rules` comes out of `CLAUDE.md` into
 the new `AGENTS.md`, the kit's files land, the ignore lines follow, and
 doctor rebuilds every index from the files. The moves go through git,
 so the diff shows renames. Run it on its own branch and read the diff.

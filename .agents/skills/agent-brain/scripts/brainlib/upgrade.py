@@ -328,32 +328,40 @@ def named_root(
 def port_root(
     start: Path,
 ) -> Path:
-    """Where a port lands without `--project`: the top of the git repository around `start`, else `start` itself.
-
-    The home folder is refused, since a loose folder under a git tracked
-    home would otherwise get the kit installed into the home itself.
-    """
+    """Where a port lands without `--project`: the top of the git repository around `start`, else `start` itself, never the home folder."""
     top = git(project=Project(root=start), arguments=["rev-parse", "--show-toplevel"])
     if top is None or top.returncode != 0:
-        return start.resolve()
+        return never_home(root=start.resolve(), start=start)
 
-    root = Path(top.stdout.strip()).resolve()
-    if root == Path.home().resolve():
-        raise UpgradeError(f"the git repository around {start} is your home folder, name the project with --project")
-
-    return root
+    return never_home(root=Path(top.stdout.strip()).resolve(), start=start)
 
 
 def upgrade_root(
     start: Path,
 ) -> Path:
-    """Where an upgrade works without `--project`: the nearest folder at or above `start` that carries a brain, else `start` itself."""
+    """Where an upgrade works without `--project`: the nearest folder at or above `start` that carries a brain, else `start` itself, never the home folder."""
     here = start.resolve()
     for candidate in [here, *here.parents]:
         if Project(root=candidate).state() != "none":
-            return candidate
+            return never_home(root=candidate, start=start)
 
-    return here
+    return never_home(root=here, start=start)
+
+
+def never_home(
+    root: Path,
+    start: Path,
+) -> Path:
+    """The root found around `start`, refused when it is the home folder.
+
+    A loose folder under the home, or a home that carries a brain or a
+    repository of its own, would otherwise get the kit installed into
+    the home itself and its own agent configs merged.
+    """
+    if root == Path.home().resolve():
+        raise UpgradeError(f"the project folder found around {start} is your home folder, name the project with --project")
+
+    return root
 
 
 def pending_migrations(
@@ -520,9 +528,13 @@ def migration_targets(
 
     Outside git the root markdown, the ignore file and the brain's own
     markdown are read instead. The guard lists the same files, so the
-    two never disagree about what the migration writes into.
+    two never disagree about what the migration writes into. Git is
+    asked for names relative to the project whatever grep.fullName says.
     """
-    found = git(project=project, arguments=["grep", "-I", "-l", "-z", "--untracked", "--fixed-strings", "-e", f"{OLD_FOLDER}/"])
+    found = git(
+        project=project,
+        arguments=["grep", "-I", "-l", "-z", "--no-full-name", "--untracked", "--fixed-strings", "-e", f"{OLD_FOLDER}/"],
+    )
     if found is not None and found.returncode in (0, 1):
         paths = [project.root / entry for entry in found.stdout.split("\0") if entry]
     else:
@@ -547,20 +559,20 @@ def in_skill_folder(
     project: Project,
     path: Path,
 ) -> bool:
-    """Whether the path sits under the brain's skills/ folder, by either name of the brain."""
+    """Whether the path sits under the kit's own skill folder, by either name of the brain."""
     parts = path.relative_to(project.root).parts
 
-    return len(parts) > 1 and parts[0] in (OLD_FOLDER, FOLDER) and parts[1] == "skills"
+    return len(parts) > 2 and parts[0] in (OLD_FOLDER, FOLDER) and parts[1:3] == ("skills", "agent-brain")
 
 
 def brain_markdown(
     brain: Path,
 ) -> list[Path]:
-    """Every markdown file under the brain outside its skills/ folder, what the folder migration reads outside git."""
+    """Every markdown file under the brain outside the kit's own skill folder, what the folder migration reads outside git."""
     if not store.quietly(brain.is_dir):
         return []
 
-    return sorted(path for path in brain.rglob("*.md") if path.is_file() and path.relative_to(brain).parts[0] != "skills")
+    return sorted(path for path in brain.rglob("*.md") if path.is_file() and path.relative_to(brain).parts[:2] != ("skills", "agent-brain"))
 
 
 def has_old_folder(
@@ -895,26 +907,30 @@ def ignore(
     kit: Kit,
     report: Report,
 ) -> None:
-    """The kit's ignore patterns present in the project's .gitignore, added as one block under one heading when any is missing.
+    """The kit's ignore patterns present in the project's .gitignore, the missing ones added under one heading in the kit's order.
 
-    The block goes in whole and in the kit's order, never the missing
-    lines alone, because git reads the file top down and the last match
-    wins: `.env.*` added below a project's own `!.env.example` would
-    ignore the example file. A line the project already had is repeated
-    inside the block, which git does not mind.
+    Git reads the file top down and the last match wins, so the order
+    matters both ways. The kit's own exceptions, the lines starting
+    with `!`, always go in with the block, below the patterns they
+    except, so `.env.*` never lands below `!.env.example`. A pattern
+    the project already has is never repeated, since repeating it below
+    an exception the project wrote, `!.env.sample` for one, would ignore
+    that file.
     """
     wanted = [line for line in kit.text(Path(IGNORE_FILE)).splitlines() if line.strip() and not line.startswith("#")]
     target = project.root / IGNORE_FILE
     existing = read_as_is(target) if store.readable_file(target) else ""
     present = {line.strip() for line in existing.splitlines()}
-    if all(line in present for line in wanted):
+    missing = [line for line in wanted if line not in present]
+    if not missing:
         return
 
+    block = [line for line in wanted if line in missing or line.startswith("!")]
     ending = "\r\n" if "\r\n" in existing else "\n"
-    tail = ending.join([IGNORE_HEADING, *wanted]) + ending
+    tail = ending.join([IGNORE_HEADING, *block]) + ending
     text = existing.rstrip("\r\n") + (ending * 2 if existing.strip() else "") + tail
     frontmatter.write_text(path=str(target), text=text)
-    report.done(f"added the kit's {len(wanted)} ignore lines to {IGNORE_FILE}")
+    report.done(f"added {len(block)} of the kit's ignore lines to {IGNORE_FILE}")
 
 
 def guarded_paths(
