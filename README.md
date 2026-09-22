@@ -76,8 +76,9 @@ Adjust the `../agent-setup` path if you cloned somewhere else. The port
 puts the kit's files in place, keeps any `## 0. Project Rules` and any
 hooks of your own beside the kit's, carries a `CLAUDE.md` or `AGENTS.md`
 of your own whole into section 0 when you had no such section, for your
-agent to trim against the rulebook, adds the kit's ignore lines to your
-`.gitignore`, runs the tool's doctor once, which builds the indexes and
+agent to trim against the rulebook, puts the kit's ignore lines in a
+block at the top of your `.gitignore` with your own lines kept below it,
+where they win, runs the tool's doctor once, which builds the indexes and
 makes the skill link, and ends by listing what it found that belongs in
 the brain. It refuses while a file it would replace holds uncommitted
 changes, so commit first. `CODEOWNERS` is the one file it leaves to

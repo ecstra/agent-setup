@@ -916,39 +916,46 @@ def ignore(
     exception of the project's, a file it ignores by name, a spelling
     of its own, all stand as written, and the kit's lines reach only
     what the project says nothing about. The block holds the kit's
-    lines in the kit's order under one heading, is rebuilt at the top
-    on a later run wherever it sat, and keeps any line the project put
-    inside it, below the kit's. A file already in that shape is left
-    alone.
+    lines in the kit's order under one heading, and is rebuilt at the
+    top on a later run wherever it sat. Every other line stays in the
+    order the project wrote it, a line the project put inside an
+    earlier block included, which stays where that block was, so no
+    two of the project's own lines ever swap places. A file already in
+    that shape is left alone.
     """
     wanted = [line for line in kit.text(Path(IGNORE_FILE)).splitlines() if line.strip() and not line.startswith("#")]
     target = project.root / IGNORE_FILE
     existing = read_as_is(target) if store.readable_file(target) else ""
     ending = "\r\n" if "\r\n" in existing else "\n"
-    lines = existing.splitlines()
+    mark = "﻿" if existing.startswith("﻿") else ""
+    lines = existing[len(mark) :].splitlines()
 
-    rest = lines
-    inside: list[str] = []
-    if IGNORE_HEADING in lines:
-        start = lines.index(IGNORE_HEADING)
-        end = start + 1
-        while end < len(lines) and lines[end].strip():
-            end += 1
+    rest: list[str] = []
+    index = 0
+    while index < len(lines):
+        if lines[index] != IGNORE_HEADING:
+            rest.append(lines[index])
+            index += 1
+            continue
 
-        inside = [line for line in lines[start + 1 : end] if line not in wanted and not line.startswith("#")]
-        rest = lines[:start] + lines[end:]
+        index += 1
+        while index < len(lines) and lines[index].strip():
+            if lines[index] not in wanted:
+                rest.append(lines[index])
+            index += 1
 
     spaced: list[str] = []
     for line in rest:
         if line.strip() or (spaced and spaced[-1].strip()):
             spaced.append(line)
+    while spaced and not spaced[-1].strip():
+        spaced.pop()
 
-    body = [IGNORE_HEADING, *wanted, *inside]
-    rest = spaced
-    if rest:
-        body += ["", *rest]
+    body = [IGNORE_HEADING, *wanted]
+    if spaced:
+        body += ["", *spaced]
 
-    text = ending.join(body) + ending
+    text = mark + ending.join(body) + ending
     if text == existing:
         return
 
