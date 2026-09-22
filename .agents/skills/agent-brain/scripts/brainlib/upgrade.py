@@ -1079,7 +1079,7 @@ def refuse_when_dirty(
         reasons.append("commit, stash or move these first, they would be written over or removed: " + ", ".join(sorted(dirty)))
 
     if ignored:
-        reasons.append("git ignores these and they would be written over or removed, copy them aside first: " + ", ".join(sorted(ignored)))
+        reasons.append("git ignores these and they would be written over or removed, move them out of the way first: " + ", ".join(sorted(ignored)))
 
     if reasons:
         raise UpgradeError(". ".join(reasons))
