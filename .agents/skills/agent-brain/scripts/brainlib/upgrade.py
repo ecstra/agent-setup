@@ -8,6 +8,7 @@ sits the migration table, one step per layout change the kit has made,
 keyed by the version stamp the project carries.
 """
 
+import codecs
 import json
 import os
 import re
@@ -37,6 +38,7 @@ NOT_SHIPPED = ("settings.local.json",)
 KIT_HOOK_MARK = "agent-brain/scripts/hooks.py"
 IGNORE_FILE = ".gitignore"
 IGNORE_HEADING = "# The agent kit's own ignores."
+BOM = codecs.BOM_UTF8.decode("utf-8")
 
 # The project's own section, whatever it was called before, takes the
 # heading the rulebook names. In the kit's AGENTS.md it ends at the
@@ -927,22 +929,21 @@ def ignore(
     target = project.root / IGNORE_FILE
     existing = read_as_is(target) if store.readable_file(target) else ""
     ending = "\r\n" if "\r\n" in existing else "\n"
-    mark = "﻿" if existing.startswith("﻿") else ""
-    lines = existing[len(mark) :].splitlines()
+    mark = BOM if existing.startswith(BOM) else ""
+    lines = existing[len(mark) :].replace("\r\n", "\n").split("\n")
 
     rest: list[str] = []
-    index = 0
-    while index < len(lines):
-        if lines[index] != IGNORE_HEADING:
-            rest.append(lines[index])
-            index += 1
+    in_block = False
+    for line in lines:
+        if line.rstrip() == IGNORE_HEADING:
+            in_block = True
             continue
 
-        index += 1
-        while index < len(lines) and lines[index].strip():
-            if lines[index] not in wanted:
-                rest.append(lines[index])
-            index += 1
+        if not line.strip():
+            in_block = False
+
+        if not (in_block and line in wanted):
+            rest.append(line)
 
     spaced: list[str] = []
     for line in rest:
