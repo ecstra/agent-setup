@@ -35,7 +35,7 @@ def main(
 
     try:
         brain = store.find_brain(Path.cwd())
-        return args.handler(brain, args)
+        return args.handler(brain=brain, args=args)
     except (
         store.StoreError,
         writes.WriteError,

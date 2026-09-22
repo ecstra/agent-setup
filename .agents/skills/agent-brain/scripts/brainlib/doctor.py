@@ -315,7 +315,7 @@ def check_frontmatter(
     found: list[Finding] = []
 
     for path in markdown_files(brain):
-        where = relative(brain, path)
+        where = relative(brain=brain, path=path)
 
         try:
             document = frontmatter.read(str(path))
@@ -562,7 +562,7 @@ def check_links(
     documents = links.documents(brain)
 
     for path, document in documents:
-        where = relative(brain, path)
+        where = relative(brain=brain, path=path)
         current = document.get_list("links")
         canonical: list[str] = []
 
@@ -615,7 +615,7 @@ def check_indexes(
 
     return [
         Finding(
-            path=relative(brain, path),
+            path=relative(brain=brain, path=path),
             check="index",
             message="differs from what the tool builds for its folder",
             repair=write_index(path=path, text=wanted[path]),
@@ -692,7 +692,7 @@ def check_hygiene(
         except OSError:
             continue
 
-        where = relative(brain, path)
+        where = relative(brain=brain, path=path)
 
         if MACHINE_PATH.search(sections.prose_of(text)):
             found.append(Finding(path=where, check="hygiene", message="names a machine's local path"))

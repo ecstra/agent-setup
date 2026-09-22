@@ -178,16 +178,16 @@ def spine_body(
             lines.append(f"- [{relative}]({relative}), {hook}")
 
     lines += ["", "## The knowledge", ""]
-    lines.append(spine_line(brain, "doc", "the knowledge library", count_docs))
+    lines.append(spine_line(brain=brain, kind_name="doc", label="the knowledge library", counter=count_docs))
 
     lines += ["", "## The trackers", ""]
-    lines.append(spine_line(brain, "todo", "the work tracker", count_by_status))
-    lines.append(spine_line(brain, "bug", "the defect tracker", count_bugs))
-    lines.append(spine_line(brain, "decision", "the decision record", count_by_status))
-    lines.append(spine_line(brain, "review", "code review ledgers", count_by_status))
+    lines.append(spine_line(brain=brain, kind_name="todo", label="the work tracker", counter=count_by_status))
+    lines.append(spine_line(brain=brain, kind_name="bug", label="the defect tracker", counter=count_bugs))
+    lines.append(spine_line(brain=brain, kind_name="decision", label="the decision record", counter=count_by_status))
+    lines.append(spine_line(brain=brain, kind_name="review", label="code review ledgers", counter=count_by_status))
 
     lines += ["", "## Memory and handovers", ""]
-    lines.append(spine_line(brain, "memory", "project facts", count_plain))
+    lines.append(spine_line(brain=brain, kind_name="memory", label="project facts", counter=count_plain))
     lines.append(handover_line(brain))
 
     return "\n".join(lines) + "\n"
@@ -373,7 +373,7 @@ def docs_body(
 
     for category in sorted(by_category):
         lines += [f"## {category}", ""]
-        lines += [line_for(entry, folder) for entry in by_category[category]]
+        lines += [line_for(entry=entry, from_folder=folder) for entry in by_category[category]]
         lines.append("")
 
     return "\n".join(lines).rstrip("\n") + "\n"
@@ -393,7 +393,7 @@ def memory_body(
         return "\n".join(lines) + "\n"
 
     folder = entries[0].root / "memory"
-    lines += [line_for(entry, folder) for entry in sorted(entries, key=lambda e: e.name)]
+    lines += [line_for(entry=entry, from_folder=folder) for entry in sorted(entries, key=lambda e: e.name)]
 
     return "\n".join(lines) + "\n"
 
@@ -421,15 +421,15 @@ def todos_body(
     lines += ["## Open", ""]
     if not open_ones:
         lines += ["Nothing open.", ""]
-    for area, group in grouped(open_ones, "area").items():
+    for area, group in grouped(entries=open_ones, field="area").items():
         lines += [f"### {area}", ""]
-        lines += [line_for(entry, folder) for entry in group]
+        lines += [line_for(entry=entry, from_folder=folder) for entry in group]
         lines.append("")
 
     lines += ["## Closed", ""]
     if not closed:
         lines.append("Nothing closed yet.")
-    for area, group in grouped(closed, "area").items():
+    for area, group in grouped(entries=closed, field="area").items():
         done = sum(1 for entry in group if entry.field("status") == "done")
         dropped = sum(1 for entry in group if entry.field("status") == "dropped")
         refiled = sum(1 for entry in group if entry.field("status") == "refiled")
@@ -471,7 +471,7 @@ def bugs_body(
         lines += [f"### {severity}", ""]
         for entry in group:
             suffix = " (branched)" if entry.field("status") == "branched" else ""
-            lines.append(line_for(entry, folder) + suffix)
+            lines.append(line_for(entry=entry, from_folder=folder) + suffix)
         lines.append("")
 
     for status in CLOSED_BUG:
@@ -480,13 +480,13 @@ def bugs_body(
             continue
 
         lines += [f"## {status.title()}", ""]
-        lines += [line_for(entry, folder) for entry in group]
+        lines += [line_for(entry=entry, from_folder=folder) for entry in group]
         lines.append("")
 
     stray = [entry for entry in entries if entry.field("status") not in ("open", "branched", *CLOSED_BUG)]
     if stray:
         lines += [f"## {schema.UNKNOWN.title()}", ""]
-        lines += [line_for(entry, folder) for entry in stray]
+        lines += [line_for(entry=entry, from_folder=folder) for entry in stray]
         lines.append("")
 
     return "\n".join(lines).rstrip("\n") + "\n"
@@ -513,7 +513,7 @@ def decisions_body(
     )
 
     for entry in newest_first:
-        line = line_for(entry, folder)
+        line = line_for(entry=entry, from_folder=folder)
         if entry.field("status") == "superseded":
             line += f" (superseded by {entry.field('superseded-by') or 'a later one'})"
         lines.append(line)
@@ -544,7 +544,7 @@ def reviews_body(
             continue
 
         lines += [f"## {status.title()}", ""]
-        lines += [line_for(entry, folder) for entry in sorted(group, key=lambda e: e.name, reverse=True)]
+        lines += [line_for(entry=entry, from_folder=folder) for entry in sorted(group, key=lambda e: e.name, reverse=True)]
         lines.append("")
 
     return "\n".join(lines).rstrip("\n") + "\n"
