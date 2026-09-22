@@ -179,7 +179,8 @@ goes back into `CODEOWNERS`, and your own hooks sit beside the kit's.
    deleted. The one exception is anything a person wrote by hand, which
    stays where it is, untouched. The agent tells the two apart by the
    writing itself, since a human's notes do not read like generated
-   docs, and it lists what it left alone so you can decide.
+   docs, and it lists what it left alone so you can decide. Then it runs
+   the tool's doctor with `--fix` and leaves the brain clean.
 7. **Hand you the branch**: you say when it is ready for review, and
    the agent runs the review the way the house rules describe, findings
    in a ledger, fixed batch by batch with your ack on each. Then it
