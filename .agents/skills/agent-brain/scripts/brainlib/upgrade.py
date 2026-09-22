@@ -851,20 +851,26 @@ def ignore(
     kit: Kit,
     report: Report,
 ) -> None:
-    """The kit's ignore patterns present in the project's .gitignore, added under one heading when missing."""
+    """The kit's ignore patterns present in the project's .gitignore, added as one block under one heading when any is missing.
+
+    The block goes in whole and in the kit's order, never the missing
+    lines alone, because git reads the file top down and the last match
+    wins: `.env.*` added below a project's own `!.env.example` would
+    ignore the example file. A line the project already had is repeated
+    inside the block, which git does not mind.
+    """
     wanted = [line for line in kit.text(Path(IGNORE_FILE)).splitlines() if line.strip() and not line.startswith("#")]
     target = project.root / IGNORE_FILE
     existing = read_as_is(target) if store.readable_file(target) else ""
     present = {line.strip() for line in existing.splitlines()}
-    missing = [line for line in wanted if line not in present]
-    if not missing:
+    if all(line in present for line in wanted):
         return
 
     ending = "\r\n" if "\r\n" in existing else "\n"
-    tail = ending.join([IGNORE_HEADING, *missing]) + ending
+    tail = ending.join([IGNORE_HEADING, *wanted]) + ending
     text = existing.rstrip("\r\n") + (ending * 2 if existing.strip() else "") + tail
     frontmatter.write_text(path=str(target), text=text)
-    report.done(f"added {len(missing)} lines to {IGNORE_FILE}")
+    report.done(f"added the kit's {len(wanted)} ignore lines to {IGNORE_FILE}")
 
 
 def guarded_paths(
