@@ -216,10 +216,16 @@ class Project:
 
 @dataclass
 class Migration:
-    """One layout change, applied to a project stamped below `to`."""
+    """One layout change, applied while the tree calls for it and the kit is at least `to`.
+
+    The tree, not the stamp, says whether a migration runs. A stamp can
+    be missing or wrong, and a migration applied to a tree that does not
+    need it rewrites what it should not.
+    """
 
     to: str
     says: str
+    needed: Callable[[Project], bool]
     apply: Callable[[Project, Report], None]
 
 
@@ -242,12 +248,14 @@ def read_version(
 def as_tuple(
     version: str,
 ) -> tuple[int, ...]:
-    """The version as numbers to compare, or a ValueError when the text is not one."""
+    """The version as numbers to compare, padded to three so 1.0 is 1.0.0, or a ValueError when the text is not one."""
     parts = version.split(".")
     if not all(part.isdecimal() and part.isascii() for part in parts):
         raise ValueError(f"'{version}', not a version like 1.0.0")
 
-    return tuple(int(part) for part in parts)
+    numbers = [int(part) for part in parts]
+
+    return tuple(numbers + [0] * (3 - len(numbers)))
 
 
 def default_kit() -> Kit:
@@ -294,7 +302,7 @@ def upgrade(
     if as_tuple(project.version()) > as_tuple(prepared.stamp):
         raise UpgradeError(f"the project is on {project.version()} and this kit is {prepared.stamp}, use a kit at least that new")
 
-    for migration in pending_migrations(have=project.version(), want=prepared.stamp):
+    for migration in pending_migrations(project=project, want=prepared.stamp):
         migration.apply(project, report)
         report.done(f"migrated to {migration.to}: {migration.says}")
 
@@ -305,17 +313,13 @@ def upgrade(
 
 
 def pending_migrations(
-    have: str,
+    project: Project,
     want: str,
 ) -> list[Migration]:
-    """The migrations a project stamped `have` goes through to reach a kit stamped `want`, in order.
-
-    Both stamps have passed read_version, so both parse.
-    """
-    low = as_tuple(have)
+    """The migrations the project's tree calls for, up to a kit stamped `want`, in order."""
     high = as_tuple(want)
 
-    return [migration for migration in MIGRATIONS if low < as_tuple(migration.to) <= high]
+    return [migration for migration in MIGRATIONS if as_tuple(migration.to) <= high and migration.needed(project)]
 
 
 @dataclass
@@ -446,12 +450,11 @@ def to_agents_folder(
 ) -> None:
     """The layout before 1.0.0 kept the brain in .agent/ and the rules in CLAUDE.md."""
     old = project.root / OLD_FOLDER
-    if store.quietly(old.is_dir):
-        if store.quietly(project.brain.exists):
-            raise UpgradeError(f"both {OLD_FOLDER}/ and {FOLDER}/ exist, fold one into the other by hand first")
+    if store.quietly(project.brain.exists):
+        raise UpgradeError(f"both {OLD_FOLDER}/ and {FOLDER}/ exist, fold one into the other by hand first")
 
-        move(project=project, old=old, new=project.brain)
-        report.done(f"renamed {OLD_FOLDER}/ to {FOLDER}/")
+    move(project=project, old=old, new=project.brain)
+    report.done(f"renamed {OLD_FOLDER}/ to {FOLDER}/")
 
     changed = 0
     for path in sorted(project.root.glob("*.md")) + [project.root / IGNORE_FILE]:
@@ -480,10 +483,17 @@ def brain_markdown(
     return sorted(path for path in brain.rglob("*.md") if path.is_file() and path.relative_to(brain).parts[0] != "skills")
 
 
+def has_old_folder(
+    project: Project,
+) -> bool:
+    return store.quietly((project.root / OLD_FOLDER).is_dir)
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         to="1.0.0",
         says=f"the brain lives in {FOLDER}/, the rules in the kit's own files, and section 0 in AGENTS.md",
+        needed=has_old_folder,
         apply=to_agents_folder,
     ),
 )
@@ -843,7 +853,7 @@ def guarded_paths(
     paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
     paths += files_under(root=project.root, folder=brain / "skills" / "agent-brain", taken=retire_takes)
 
-    migrating = project.state() != "none" and bool(pending_migrations(have=project.version(), want=kit.version()))
+    migrating = bool(pending_migrations(project=project, want=kit.version()))
     if migrating:
         paths += [path.name for path in list_names(project.root) if path.suffix == ".md"]
         paths += [str(path.relative_to(project.root)) for path in brain_markdown(brain)]
