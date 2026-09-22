@@ -328,7 +328,7 @@ class Prepared:
 
     stamp: str
     front_doors: dict[str, str]
-    configs: dict[Path, str]
+    merged: list[Path]
     layout: str
 
 
@@ -346,17 +346,18 @@ def prepare(
     if KIT_MARK not in front_doors["AGENTS.md"]:
         raise UpgradeError("the kit's AGENTS.md has no line saying where its words start, so section 0 has no place to end")
 
-    configs: dict[Path, str] = {}
+    merged: list[Path] = []
 
     for relative in kit.agent_files():
         target = project.root / relative
         if relative.name in MERGED and store.readable_file(target):
-            configs[relative] = merged_config(existing=read(target), kit=kit.text(relative), where=str(relative))
+            merged_config(existing=read(target), kit=kit.text(relative), where=str(relative))
+            merged.append(relative)
 
     return Prepared(
         stamp=stamp,
         front_doors=front_doors,
-        configs=configs,
+        merged=merged,
         layout=project.state(),
     )
 
@@ -369,12 +370,12 @@ def install(
 ) -> None:
     """Copy the kit's own files in, leaving the project's alone, the version stamp last.
 
-    The kit's texts and the merged configs were read and checked by
-    `prepare` before anything was touched. Section 0 is read here, after
-    the migration has pointed it at the new folder name.
+    The kit's texts were read and the hook configs merged once by
+    `prepare` before anything was touched, so a refusal came first.
+    Section 0 is read here and the configs are merged again here, from
+    the files as the migration left them, pointed at the new folder name.
     """
     stamp = prepared.stamp
-    configs = prepared.configs
     front_doors = dict(prepared.front_doors)
     zero = section_zero_of(project=project, layout=prepared.layout)
     if zero is not None:
@@ -404,8 +405,9 @@ def install(
         (project.brain / kind.folder).mkdir(parents=True, exist_ok=True)
 
     for relative in kit.agent_files():
-        if relative in configs:
-            put(project=project, relative=relative, text=configs[relative], report=report)
+        if relative in prepared.merged:
+            merged = merged_config(existing=read(project.root / relative), kit=kit.text(relative), where=str(relative))
+            put(project=project, relative=relative, text=merged, report=report)
             continue
 
         if copy(kit=kit, project=project, relative=relative):
@@ -453,30 +455,64 @@ def to_agents_folder(
     if store.quietly(project.brain.exists):
         raise UpgradeError(f"both {OLD_FOLDER}/ and {FOLDER}/ exist, fold one into the other by hand first")
 
+    targets = migration_targets(project)
     move(project=project, old=old, new=project.brain)
     report.done(f"renamed {OLD_FOLDER}/ to {FOLDER}/")
 
     changed = 0
-    for path in sorted(project.root.glob("*.md")) + [project.root / IGNORE_FILE]:
-        if rewrite_folder_name(path):
-            changed += 1
-
-    for path in brain_markdown(project.brain):
-        if rewrite_folder_name(path):
+    for path in targets:
+        moved = project.brain / path.relative_to(old) if path.is_relative_to(old) else path
+        if rewrite_folder_name(moved):
             changed += 1
 
     if changed:
         report.done(f"pointed {changed} files at {FOLDER}/ instead of {OLD_FOLDER}/")
 
 
+def migration_targets(
+    project: Project,
+) -> list[Path]:
+    """The files the folder migration points at the new name: every file naming .agent/ that git tracks or sees, symlinks and the kit's own skill folder left out.
+
+    Outside git the root markdown, the ignore file and the brain's own
+    markdown are read instead. The guard lists the same files, so the
+    two never disagree about what the migration writes into.
+    """
+    found = git(project=project, arguments=["grep", "-I", "-l", "-z", "--untracked", "--fixed-strings", "-e", f"{OLD_FOLDER}/"])
+    if found is not None and found.returncode in (0, 1):
+        paths = [project.root / entry for entry in found.stdout.split("\0") if entry]
+    else:
+        brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
+        paths = [path for path in list_names(project.root) if path.suffix == ".md"]
+        paths += [project.root / IGNORE_FILE, *brain_markdown(brain)]
+        paths = [path for path in paths if names_old_folder(path)]
+
+    return [path for path in paths if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path)]
+
+
+def names_old_folder(
+    path: Path,
+) -> bool:
+    try:
+        return f"{OLD_FOLDER}/" in read_as_is(path)
+    except UpgradeError:
+        return False
+
+
+def in_skill_folder(
+    project: Project,
+    path: Path,
+) -> bool:
+    """Whether the path sits under the brain's skills/ folder, by either name of the brain."""
+    parts = path.relative_to(project.root).parts
+
+    return len(parts) > 1 and parts[0] in (OLD_FOLDER, FOLDER) and parts[1] == "skills"
+
+
 def brain_markdown(
     brain: Path,
 ) -> list[Path]:
-    """The markdown the folder migration points at the new name: every file under the brain outside its skills/ folder.
-
-    The guard lists the same files, so the two never disagree about
-    what a migration writes into.
-    """
+    """Every markdown file under the brain outside its skills/ folder, what the folder migration reads outside git."""
     if not store.quietly(brain.is_dir):
         return []
 
@@ -839,12 +875,12 @@ def guarded_paths(
 
     The front doors and CONTRIBUTING.md are replaced whole, so are the
     kit's files under the brain and the style files in the agent
-    folders, the skill folder is cleared and rewritten, and a migration
-    rewrites the root markdown and the brain's markdown outside skills/.
-    On the old layout the brain is still .agent/, and git names its
-    files by that spelling, so the list uses it too. The ignore file and
-    the hook configs keep what they hold, so an edit there is safe and
-    not listed.
+    folders, the skill folder is cleared and rewritten, and the folder
+    migration rewrites every file that names the old folder. On the old
+    layout the brain is still .agent/, and git names its files by that
+    spelling, so the list uses it too. The ignore file and the hook
+    configs keep what they hold, so an edit there is safe and not
+    listed, unless the migration is about to rewrite them.
     """
     paths = [*ROOT_FILES]
     paths += [str(relative) for relative in kit.agent_files() if relative.name not in MERGED]
@@ -853,10 +889,8 @@ def guarded_paths(
     paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
     paths += files_under(root=project.root, folder=brain / "skills" / "agent-brain", taken=retire_takes)
 
-    migrating = bool(pending_migrations(project=project, want=kit.version()))
-    if migrating:
-        paths += [path.name for path in list_names(project.root) if path.suffix == ".md"]
-        paths += [str(path.relative_to(project.root)) for path in brain_markdown(brain)]
+    if pending_migrations(project=project, want=kit.version()):
+        paths += [str(path.relative_to(project.root)) for path in migration_targets(project)]
 
     return paths
 
@@ -917,7 +951,8 @@ def refuse_when_dirty(
         words = (prefix.stderr if prefix.returncode != 0 else (result.stderr if result else "")).strip()
         raise UpgradeError(f"git could not read the working tree, so nothing is guarded: {words}")
 
-    base = folded(prefix.stdout.strip())
+    raw = prefix.stdout.strip()
+    base = folded(raw)
     wanted = {base + folded(path): path for path in paths}
     dirty: list[str] = []
     ignored: list[str] = []
@@ -926,7 +961,8 @@ def refuse_when_dirty(
         if path is None or (status in ("??", "!!") and same_as_kit(kit=kit, project=project, relative=path)):
             continue
 
-        (ignored if status == "!!" else dirty).append(path)
+        shown = entry[len(raw) :] if folded(entry[: len(raw)]) == base else path
+        (ignored if status == "!!" else dirty).append(shown)
 
     reasons: list[str] = []
     if dirty:
