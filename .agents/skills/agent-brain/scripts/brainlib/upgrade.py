@@ -275,6 +275,7 @@ def port(
 
     prepared = prepare(kit=kit, project=project)
     report = Report(out=out)
+    report.done(f"porting {project.root.resolve()}")
     refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     install(kit=kit, project=project, prepared=prepared, report=report)
     report.candidates = candidates(project)
@@ -298,6 +299,7 @@ def upgrade(
 
     prepared = prepare(kit=kit, project=project)
     report = Report(out=out)
+    report.done(f"upgrading {project.root.resolve()}")
     refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     if as_tuple(project.version()) > as_tuple(prepared.stamp):
         raise UpgradeError(f"the project is on {project.version()} and this kit is {prepared.stamp}, use a kit at least that new")
@@ -310,6 +312,48 @@ def upgrade(
     report.findings = check(project)
 
     return report
+
+
+def named_root(
+    text: str,
+) -> Path:
+    """The folder `--project` names, which has to be there."""
+    root = Path(text)
+    if not store.quietly(root.is_dir):
+        raise UpgradeError(f"no folder at {root}, so --project names nothing")
+
+    return root.resolve()
+
+
+def port_root(
+    start: Path,
+) -> Path:
+    """Where a port lands without `--project`: the top of the git repository around `start`, else `start` itself.
+
+    The home folder is refused, since a loose folder under a git tracked
+    home would otherwise get the kit installed into the home itself.
+    """
+    top = git(project=Project(root=start), arguments=["rev-parse", "--show-toplevel"])
+    if top is None or top.returncode != 0:
+        return start.resolve()
+
+    root = Path(top.stdout.strip()).resolve()
+    if root == Path.home().resolve():
+        raise UpgradeError(f"the git repository around {start} is your home folder, name the project with --project")
+
+    return root
+
+
+def upgrade_root(
+    start: Path,
+) -> Path:
+    """Where an upgrade works without `--project`: the nearest folder at or above `start` that carries a brain, else `start` itself."""
+    here = start.resolve()
+    for candidate in [here, *here.parents]:
+        if Project(root=candidate).state() != "none":
+            return candidate
+
+    return here
 
 
 def pending_migrations(

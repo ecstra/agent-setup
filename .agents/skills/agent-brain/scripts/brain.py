@@ -14,7 +14,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from brainlib import doctor, frontmatter, index, ledger, reads, schema, store, upgrade, writes
 
@@ -504,14 +504,14 @@ def add_kit_arguments(
     command: argparse.ArgumentParser,
 ) -> None:
     command.add_argument("--kit", help="a checkout of agent-setup, by default the one this tool runs from")
-    command.add_argument("--project", help="the project's root folder, by default the git root above the current one")
+    command.add_argument("--project", help="the project's root folder, by default the git root around the current one for a port and the nearest brain above it for an upgrade")
 
 
 def run_port(
     brain: Optional[store.Brain],
     args: argparse.Namespace,
 ) -> int:
-    report = upgrade.port(kit=kit_of(args), project=project_of(args), out=sys.stdout)
+    report = upgrade.port(kit=kit_of(args), project=project_of(args=args, found_by=upgrade.port_root), out=sys.stdout)
     print(report.tail(), end="")
 
     return FINDINGS_REMAIN if report.findings else 0
@@ -521,7 +521,7 @@ def run_upgrade(
     brain: Optional[store.Brain],
     args: argparse.Namespace,
 ) -> int:
-    report = upgrade.upgrade(kit=kit_of(args), project=project_of(args), out=sys.stdout)
+    report = upgrade.upgrade(kit=kit_of(args), project=project_of(args=args, found_by=upgrade.upgrade_root), out=sys.stdout)
     print(report.tail(), end="")
 
     return FINDINGS_REMAIN if report.findings else 0
@@ -538,23 +538,13 @@ def kit_of(
 
 def project_of(
     args: argparse.Namespace,
+    found_by: Callable[[Path], Path],
 ) -> upgrade.Project:
+    """The project named with --project, which has to exist, or the one `found_by` finds around the current folder."""
     if args.project:
-        return upgrade.Project(root=Path(args.project).resolve())
+        return upgrade.Project(root=upgrade.named_root(args.project))
 
-    return upgrade.Project(root=project_root(Path.cwd()))
-
-
-def project_root(
-    start: Path,
-) -> Path:
-    """The git root above `start`, or `start` itself outside git."""
-    here = start.resolve()
-    for candidate in [here, *here.parents]:
-        if store.quietly((candidate / ".git").exists):
-            return candidate
-
-    return here
+    return upgrade.Project(root=found_by(Path.cwd()))
 
 
 if __name__ == "__main__":
