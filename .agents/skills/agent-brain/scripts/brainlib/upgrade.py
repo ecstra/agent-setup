@@ -15,7 +15,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, TextIO
 
 from . import doctor, frontmatter, schema, store
 
@@ -49,8 +49,13 @@ class UpgradeError(Exception):
 
 @dataclass
 class Report:
-    """What a port or upgrade did, one line each, in the order it happened."""
+    """What a port or upgrade did, one line each, in the order it happened.
 
+    Given a stream, each line goes out the moment it is done, so a run
+    that fails part way leaves the record of what it changed on screen.
+    """
+
+    out: Optional[TextIO] = None
     lines: list[str] = field(default_factory=list)
     findings: list[doctor.Finding] = field(default_factory=list)
     candidates: list[str] = field(default_factory=list)
@@ -60,15 +65,19 @@ class Report:
         text: str,
     ) -> None:
         self.lines.append(text)
+        if self.out is not None:
+            print(text, file=self.out)
 
-    def render(self) -> str:
-        parts = list(self.lines)
+    def tail(self) -> str:
+        """The doctor's answer and what is left to file, after the lines."""
+        parts: list[str] = []
 
         if self.findings:
             parts.append("")
             parts.append("Doctor still finds:")
             parts += [f"  {finding.line()}" for finding in self.findings]
         else:
+            parts.append("")
             parts.append("Doctor is clean.")
 
         if self.candidates:
@@ -77,6 +86,9 @@ class Report:
             parts += [f"  {candidate}" for candidate in self.candidates]
 
         return "\n".join(parts) + "\n"
+
+    def render(self) -> str:
+        return "\n".join(self.lines) + "\n" + self.tail()
 
 
 @dataclass
@@ -225,15 +237,17 @@ def default_kit() -> Kit:
 def port(
     kit: Kit,
     project: Project,
+    out: Optional[TextIO] = None,
 ) -> Report:
     """Install the kit into a project that has no brain yet, and say what is left to file."""
     state = project.state()
     if state != "none":
         raise UpgradeError(f"{project.root} already carries a brain, run brain upgrade instead")
 
-    report = Report()
+    prepared = prepare(kit=kit, project=project)
+    report = Report(out=out)
     refuse_when_dirty(project=project, paths=guarded_paths(kit=kit, project=project), report=report)
-    install(kit=kit, project=project, report=report)
+    install(kit=kit, project=project, prepared=prepared, report=report)
     report.candidates = candidates(project)
     report.findings = check(project)
 
@@ -243,6 +257,7 @@ def port(
 def upgrade(
     kit: Kit,
     project: Project,
+    out: Optional[TextIO] = None,
 ) -> Report:
     """Bring a project that has a brain up to the kit, migrations first, then the kit's files."""
     state = project.state()
@@ -252,10 +267,11 @@ def upgrade(
     if kit.root.resolve() == project.root.resolve():
         raise UpgradeError("the kit is the project, there is nothing to install")
 
-    report = Report()
+    prepared = prepare(kit=kit, project=project)
+    report = Report(out=out)
     refuse_when_dirty(project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     have = as_tuple(project.version())
-    want = as_tuple(kit.version())
+    want = as_tuple(prepared.stamp)
 
     for migration in MIGRATIONS:
         target = as_tuple(migration.to)
@@ -263,29 +279,61 @@ def upgrade(
             migration.apply(project, report)
             report.done(f"migrated to {migration.to}: {migration.says}")
 
-    install(kit=kit, project=project, report=report)
+    install(kit=kit, project=project, prepared=prepared, report=report)
     report.findings = check(project)
 
     return report
 
 
+@dataclass
+class Prepared:
+    """What a run composes from the kit and the project's own configs, read and checked before any write."""
+
+    stamp: str
+    front_doors: dict[str, str]
+    configs: dict[Path, str]
+
+
+def prepare(
+    kit: Kit,
+    project: Project,
+) -> Prepared:
+    """Read the kit's stamp and front doors and merge the hook configs, so a refusal comes before the first write."""
+    stamp = kit.version()
+    front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
+    configs: dict[Path, str] = {}
+
+    for relative in kit.agent_files():
+        target = project.root / relative
+        if relative.name in MERGED and store.readable_file(target):
+            configs[relative] = merged_config(existing=read(target), kit=kit.text(relative), where=str(relative))
+
+    return Prepared(stamp=stamp, front_doors=front_doors, configs=configs)
+
+
 def install(
     kit: Kit,
     project: Project,
+    prepared: Prepared,
     report: Report,
 ) -> None:
-    """Copy the kit's own files in, leaving the project's alone, the version stamp last."""
-    zero = section_zero_of(project=project, kit_text=kit.text(Path("AGENTS.md")))
+    """Copy the kit's own files in, leaving the project's alone, the version stamp last.
+
+    The kit's texts and the merged configs were read and checked by
+    `prepare` before anything was touched. Section 0 is read here, after
+    the migration has pointed it at the new folder name.
+    """
+    stamp = prepared.stamp
+    configs = prepared.configs
+    front_doors = dict(prepared.front_doors)
+    zero = section_zero_of(project=project, kit_text=front_doors["AGENTS.md"])
     if zero is not None:
+        front_doors["AGENTS.md"] = with_section_zero(text=front_doors["AGENTS.md"], zero=zero[1])
         report.done(f"kept section 0 from {zero[0]}")
 
     for name in ROOT_FILES:
         settle_case(project=project, name=name, report=report)
-        text = kit.text(Path(name))
-        if name == "AGENTS.md" and zero is not None:
-            text = with_section_zero(text=text, zero=zero[1])
-
-        put(project=project, relative=Path(name), text=text, report=report)
+        put(project=project, relative=Path(name), text=front_doors[name], report=report)
 
     skill_home = project.brain / "skills" / "agent-brain"
     if skill_home.is_symlink():
@@ -300,9 +348,8 @@ def install(
         (project.brain / kind.folder).mkdir(parents=True, exist_ok=True)
 
     for relative in kit.agent_files():
-        target = project.root / relative
-        if relative.name in MERGED and store.readable_file(target):
-            put(project=project, relative=relative, text=merged_config(existing=read(target), kit=kit.text(relative), where=str(relative)), report=report)
+        if relative in configs:
+            put(project=project, relative=relative, text=configs[relative], report=report)
             continue
 
         if copy(kit=kit, project=project, relative=relative):
@@ -310,8 +357,8 @@ def install(
 
     ignore(project=project, kit=kit, report=report)
 
-    put(project=project, relative=Path(FOLDER) / VERSION, text=kit.version() + "\n", report=report, quiet=True)
-    report.done(f"stamped {FOLDER}/{VERSION} {kit.version()}")
+    put(project=project, relative=Path(FOLDER) / VERSION, text=stamp + "\n", report=report, quiet=True)
+    report.done(f"stamped {FOLDER}/{VERSION} {stamp}")
 
 
 def check(
@@ -548,8 +595,15 @@ def merged_config(
         raise UpgradeError(f"{where} is not a JSON object")
 
     hooks = have.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise UpgradeError(f"hooks in {where} is not a JSON object")
+
     for event, groups in want.get("hooks", {}).items():
-        kept = [group for group in hooks.get(event, []) if not is_kit_group(group)]
+        mine = hooks.get(event, [])
+        if not isinstance(mine, list):
+            raise UpgradeError(f"hooks.{event} in {where} is not a JSON list")
+
+        kept = [group for group in mine if not is_kit_group(group)]
         hooks[event] = kept + groups
 
     for key, value in want.items():

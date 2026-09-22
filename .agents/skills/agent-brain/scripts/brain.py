@@ -48,6 +48,7 @@ def main(
         schema.UnknownKind,
         OSError,
         KeyError,
+        ValueError,
     ) as error:
         print(store.explain(error), file=sys.stderr)
         return REFUSED
@@ -511,8 +512,8 @@ def run_port(
     brain: Optional[store.Brain],
     args: argparse.Namespace,
 ) -> int:
-    report = upgrade.port(kit=kit_of(args), project=project_of(args))
-    print(report.render(), end="")
+    report = upgrade.port(kit=kit_of(args), project=project_of(args), out=sys.stdout)
+    print(report.tail(), end="")
 
     return FINDINGS_REMAIN if report.findings else 0
 
@@ -521,8 +522,8 @@ def run_upgrade(
     brain: Optional[store.Brain],
     args: argparse.Namespace,
 ) -> int:
-    report = upgrade.upgrade(kit=kit_of(args), project=project_of(args))
-    print(report.render(), end="")
+    report = upgrade.upgrade(kit=kit_of(args), project=project_of(args), out=sys.stdout)
+    print(report.tail(), end="")
 
     return FINDINGS_REMAIN if report.findings else 0
 
