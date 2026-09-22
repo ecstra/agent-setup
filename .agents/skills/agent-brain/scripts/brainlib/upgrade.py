@@ -915,12 +915,15 @@ def ignore(
     Git reads the file top down and the last match wins, so a pattern
     the project already has is never repeated, since repeating it below
     a line the project wrote later would override that line. The
-    patterns go in first, and then every path an exception names, the
-    kit's `!.env.example` or the project's own `!` lines, that was
-    visible before and is ignored after gets its exception put back
-    below them. What the file decides is git's own answer, so the
+    patterns go in first, and below them the exception of every path
+    an exception names, the kit's `!.env.example` or the project's own
+    `!` lines, that the file left visible before and would ignore after,
+    when the exception can bring it back at all. A project exception
+    written as a glob names no one path to ask about, so it goes back
+    in whole. What the file decides is git's own answer, so the
     project's spelling of a rule, `.env*`, a leading slash, an exception
-    of its own, is read the way git reads it.
+    of its own, is read the way git reads it, and the file is written
+    once, whole.
     """
     wanted = [line for line in kit.text(Path(IGNORE_FILE)).splitlines() if line.strip() and not line.startswith("#")]
     target = project.root / IGNORE_FILE
@@ -932,34 +935,45 @@ def ignore(
         return
 
     excepted = list(dict.fromkeys(line[1:] for line in [*wanted, *lines] if line.startswith("!")))
-    visible = [path for path in excepted if not ignores(project=project, path=path, lines=lines)]
+    named = [path for path in excepted if not any(mark in path for mark in "*?[")]
+    globbed = [path for path in excepted if path not in named]
+    after = [*lines, *patterns]
+    lost = [
+        path
+        for path in named
+        if not ignored_by(lines=lines, path=path)
+        and ignored_by(lines=after, path=path)
+        and not ignored_by(lines=[*after, f"!{path}"], path=path)
+    ]
+    block = patterns + [f"!{path}" for path in [*lost, *globbed]]
 
     ending = "\r\n" if "\r\n" in existing else "\n"
-    head = existing.rstrip("\r\n") + (ending * 2 if existing.strip() else "")
-    frontmatter.write_text(path=str(target), text=head + ending.join([IGNORE_HEADING, *patterns]) + ending)
-
-    block = patterns + [f"!{path}" for path in visible if ignores(project=project, path=path, lines=[*lines, *patterns])]
-    if len(block) > len(patterns):
-        frontmatter.write_text(path=str(target), text=head + ending.join([IGNORE_HEADING, *block]) + ending)
-
+    tail = ending.join([IGNORE_HEADING, *block]) + ending
+    text = existing.rstrip("\r\n") + (ending * 2 if existing.strip() else "") + tail
+    frontmatter.write_text(path=str(target), text=text)
     report.done(f"added to {IGNORE_FILE} from the kit's ignores: " + ", ".join(block))
 
 
-def ignores(
-    project: Project,
-    path: str,
+def ignored_by(
     lines: list[str],
+    path: str,
 ) -> bool:
-    """Whether the project's ignore file, as it stands on disk, ignores the path.
+    """Whether an ignore file holding these lines ignores the path.
 
-    Git answers where git runs, since only git knows its own spellings
-    and the other ignore files that apply. Elsewhere the lines are read
-    top down as shell patterns, the last match deciding, which covers
-    the plain spellings.
+    Git answers where git runs, in a scratch repository holding only
+    that file, so no exclude file of this machine or of this clone
+    weighs in on a file the whole project shares. Elsewhere the lines
+    are read top down as shell patterns, the last match deciding, which
+    covers the plain spellings.
     """
-    answer = git(project=project, arguments=["check-ignore", "-q", "--no-index", "--", path])
-    if answer is not None and answer.returncode in (0, 1):
-        return answer.returncode == 0
+    with tempfile.TemporaryDirectory() as scratch:
+        made = git(project=Project(root=Path(scratch)), arguments=["init", "-q", "--template="])
+        if made is not None and made.returncode == 0:
+            (Path(scratch) / IGNORE_FILE).write_text("\n".join(lines) + "\n", encoding="utf-8")
+            asked = ["-c", "core.excludesFile=/dev/null", "check-ignore", "-q", "--no-index", "--", path]
+            answer = git(project=Project(root=Path(scratch)), arguments=asked)
+            if answer is not None and answer.returncode in (0, 1):
+                return answer.returncode == 0
 
     verdict = False
     for line in lines:
