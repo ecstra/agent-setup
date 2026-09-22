@@ -49,78 +49,58 @@ If your machine can already reach the forge (you have cloned from
 your project and paste this prompt.
 
 ```text
-Clone https://forge.example.com/example/agent-setup into a temp folder.
-If we already have an AGENTS.md, CLAUDE.md, GEMINI.md, CONTRIBUTING.md
-or CODEOWNERS, or a .claude, .codex or .gemini folder, show me what is
-in them and keep a copy, because the next step lands on top of them.
-Then copy its .agents, .claude, .codex and .gemini folders and its
-AGENTS.md, CLAUDE.md, GEMINI.md, CONTRIBUTING.md and CODEOWNERS into
-this repo, merging into any folder we already had rather than replacing
-it. Append its .gitignore lines to ours. Put my handle in CODEOWNERS.
-If this project already has test, build, or lint commands, add a
-"## 0. Project Rules" section at the top of AGENTS.md naming them as
-the gates. Run python3 .agents/skills/agent-brain/scripts/brain.py
-doctor --fix, then tell me what you did.
+Clone https://forge.example.com/example/agent-setup into a folder beside
+this repo, then run its port from our root:
+python3 <that folder>/.agents/skills/agent-brain/scripts/brain.py port.
+It keeps any "## 0. Project Rules" we already have and our own hooks,
+and it refuses while a file it would replace has uncommitted changes,
+so commit first. Copy the kit's CODEOWNERS in with my handle in place
+of @ecstra. If this project already has test, build, or lint commands,
+add a "## 0. Project Rules" section at the top of AGENTS.md naming
+them as the gates. Read what the port printed, and tell me what you
+did and what it listed as left to file.
 ```
 
 ### Terminal
 
-Clone, then copy the files across.
+Clone the kit beside your project, then run its port from your
+project's root.
 
 ```bash
-git clone https://forge.example.com/example/agent-setup
-cd your-project
-cp -R ../agent-setup/.agents ../agent-setup/.claude ../agent-setup/.codex \
-      ../agent-setup/.gemini ../agent-setup/AGENTS.md ../agent-setup/CLAUDE.md \
-      ../agent-setup/GEMINI.md ../agent-setup/CONTRIBUTING.md \
-      ../agent-setup/CODEOWNERS .
-echo >> .gitignore
-cat ../agent-setup/.gitignore >> .gitignore
-python3 .agents/skills/agent-brain/scripts/brain.py doctor --fix
+git clone https://forge.example.com/example/agent-setup ../agent-setup
+python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py port
+cp ../agent-setup/CODEOWNERS .
 ```
 
-Adjust the `../agent-setup` path if you cloned somewhere else. The two
-`.gitignore` lines append to yours rather than replacing it, which is
-what you want whether or not you already have one. The `echo` guarantees
-a line break before the kit's rules, so its first line cannot fuse onto
-the end of yours. The last line runs the tool's doctor once, which
-builds the indexes and checks the skill link. If you already have a
-`.claude`, `.codex` or `.gemini` folder, `cp` would nest the kit's
-inside it, so copy those three's files across one by one instead, or
-take the agent path, which merges.
+Adjust the `../agent-setup` path if you cloned somewhere else. The port
+puts the kit's files in place, keeps any `## 0. Project Rules` and any
+hooks of your own beside the kit's, adds the kit's ignore lines to your
+`.gitignore`, runs the tool's doctor once, which builds the indexes and
+makes the skill link, and ends by listing what it found that belongs in
+the brain. It refuses while a file it would replace holds uncommitted
+changes, so commit first. `CODEOWNERS` is the one file it leaves to
+you, since it needs your handle in place of `@ecstra`.
 
 ### Download
 
 Use the Code button at the top of this page and download the ZIP.
-Unzip it and move `.agents`, `.claude`, `.codex`, `.gemini`,
-`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md`, and
-`CODEOWNERS` into your project's root folder, then add the lines from
-its `.gitignore` to yours. Five of those (the four dot folders and
-`.gitignore`) are hidden, so if you are in Finder press
-`Cmd + Shift + .` to see them. Then run the tool's doctor once from
-your project's root, which builds the indexes and checks the skill
-link.
+Unzip it beside your project, then run the port from your project's
+root exactly as the terminal path does, with the unzipped folder's
+path in place of `../agent-setup`.
 
-```bash
-python3 .agents/skills/agent-brain/scripts/brain.py doctor --fix
-```
-
-> **Set up by hand?** The agent path does these three for you. The
-> terminal and download paths leave them to you.
+> **Two things every path leaves to you.**
 >
-> 1. Anything you already have at `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`,
->    `CONTRIBUTING.md`, or `CODEOWNERS`, or inside `.claude/`, `.codex/`
->    or `.gemini/`: read it and keep a copy before you copy anything
->    across, because the kit's copies land on top.
-> 2. `CODEOWNERS`: replace `@ecstra` with your own handle.
-> 3. `## 0. Project Rules`: optional. It goes at the top of `AGENTS.md`,
+> 1. `CODEOWNERS`: copy the kit's in and replace `@ecstra` with your
+>    own handle.
+> 2. `## 0. Project Rules`: optional. It goes at the top of `AGENTS.md`,
 >    directly under the title, and holds what the general rules cannot
 >    know about your project. The gates (the exact test suites,
 >    analyzers, builds, and validators that must be green before a
 >    review), the tooling (how PRs are opened, how the app runs),
 >    anything else the general sections do not cover. A project with no
 >    gates yet has nothing to put there, so skip it and add it when the
->    first gate exists.
+>    first gate exists. A section 0 you already had in an old
+>    `CLAUDE.md` or `AGENTS.md` is carried over by the port.
 
 Commit, and start your first session. The agent reads `.agents/INDEX.md`
 on its own, you do not need to point at anything.
@@ -262,40 +242,35 @@ and leave everything your project wrote alone.
 
 Or hand your agent this.
 
+The tool does all of that in one command. Clone the new release beside
+your project and run its upgrade from your project's root.
+
+```bash
+git clone https://forge.example.com/example/agent-setup ../agent-setup
+python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py upgrade
+```
+
+It refuses while a file it would replace holds uncommitted work, so
+commit first. Or hand your agent this.
+
 ```text
 The agent kit at https://forge.example.com/example/agent-setup has a new
-release. Clone it into a temp folder and copy only these over ours:
-.agents/SYSTEM.md, .agents/README.md, everything in .agents/spec/,
-.agents/house-rules.md, everything in .agents/skills/, .agents/VERSION,
-CONTRIBUTING.md, and the kit's own hook files in .claude, .codex and
-.gemini. Take the kit's AGENTS.md wording but keep our
-"## 0. Project Rules" section at the top of it. Touch nothing else
-inside .agents/, the rest of it is ours. Then run
-python3 .agents/skills/agent-brain/scripts/brain.py doctor --fix, which
-rebuilds the indexes, and tell me what changed.
+release. Clone it into a folder beside this repo, then run its upgrade
+from our root: python3 <that folder>/.agents/skills/agent-brain/scripts/brain.py upgrade.
+Read what it printed, fix by hand whatever doctor still names, and tell
+me what changed.
 ```
 
 ### Coming from the older layout
 
 A project that took the kit before the rulebook moved has a `.agent/`
 folder, a root `CLAUDE.md` carrying all the rules, and an `AGENTS.md`
-that copies it. That one takes a move first, best done on its own
-branch, and then the list above on top.
-
-1. Rename `.agent/` to `.agents/` and fix every path that named the old
-   folder.
-2. Cut your `## 0. Project Rules` out of `CLAUDE.md` and keep it aside.
-3. Work through the list above, new over old. Then copy in the kit's
-   `CLAUDE.md` and `GEMINI.md`, which your layout has stale or missing,
-   and paste your section 0 at the top of the new `AGENTS.md`.
-4. Run `python3 .agents/skills/agent-brain/scripts/brain.py doctor --fix`,
-   which rebuilds the spine and every folder index from the files, since
-   the older layout's indexes were typed by hand and the tool owns them
-   now.
-5. Replace the kit's old block in your `.gitignore`, where the worktree
-   path moved with the folder.
-
-Ask your agent to run those steps and show you the diff.
+that copies it. The same `upgrade` command carries it over: the folder
+moves to `.agents/`, every file that named the old folder is pointed at
+the new one, your `## 0. Project Rules` comes out of `CLAUDE.md` into
+the new `AGENTS.md`, the kit's files land, the ignore lines follow, and
+doctor rebuilds every index from the files. The moves go through git,
+so the diff shows renames. Run it on its own branch and read the diff.
 
 ## What `.agents/` looks like
 
