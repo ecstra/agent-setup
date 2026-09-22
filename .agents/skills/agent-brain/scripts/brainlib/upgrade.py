@@ -658,11 +658,13 @@ def move(
 def git(
     project: Project,
     arguments: list[str],
+    stdin: Optional[str] = None,
 ) -> Optional["subprocess.CompletedProcess[str]"]:
     """Run git in the project, or None when git is not there to run."""
     try:
         return subprocess.run(
             ["git", "-C", str(project.root), *arguments],
+            input=stdin,
             capture_output=True,
             text=True,
             check=False,
@@ -920,10 +922,11 @@ def ignore(
     `!` lines, that the file left visible before and would ignore after,
     when the exception can bring it back at all. A project exception
     written as a glob names no one path to ask about, so it goes back
-    in whole. What the file decides is git's own answer, so the
-    project's spelling of a rule, `.env*`, a leading slash, an exception
-    of its own, is read the way git reads it, and the file is written
-    once, whole.
+    in whole when a file it protects, in the tree as it is, would be
+    lost. What the file decides is git's own answer, so the project's
+    spelling of a rule, `.env*`, a leading slash, an exception of its
+    own, is read the way git reads it, and the file is written once,
+    whole.
     """
     wanted = [line for line in kit.text(Path(IGNORE_FILE)).splitlines() if line.strip() and not line.startswith("#")]
     target = project.root / IGNORE_FILE
@@ -941,11 +944,11 @@ def ignore(
     lost = [
         path
         for path in named
-        if not ignored_by(lines=lines, path=path)
-        and ignored_by(lines=after, path=path)
-        and not ignored_by(lines=[*after, f"!{path}"], path=path)
+        if path not in ignored_by(lines=lines, paths=[path])
+        and path in ignored_by(lines=after, paths=[path])
+        and path not in ignored_by(lines=[*after, f"!{path}"], paths=[path])
     ]
-    block = patterns + [f"!{path}" for path in [*lost, *globbed]]
+    block = patterns + [f"!{path}" for path in [*lost, *globs_to_put_back(project=project, globbed=globbed, lines=lines, after=after)]]
 
     ending = "\r\n" if "\r\n" in existing else "\n"
     tail = ending.join([IGNORE_HEADING, *block]) + ending
@@ -954,33 +957,76 @@ def ignore(
     report.done(f"added to {IGNORE_FILE} from the kit's ignores: " + ", ".join(block))
 
 
+def globs_to_put_back(
+    project: Project,
+    globbed: list[str],
+    lines: list[str],
+    after: list[str],
+) -> list[str]:
+    """The project's glob exceptions that protect a file in the tree the kit's patterns would newly ignore.
+
+    Git lists the tree, tracked and untracked, an untracked folder as
+    one entry, and each glob is tried as a pattern of its own to learn
+    which of those files it names. Outside git there is no tree to
+    ask, so every glob goes back.
+    """
+    listed = git(project=project, arguments=["ls-files", "-z", "--cached", "--others", "--directory"])
+    if listed is None or listed.returncode != 0:
+        return globbed
+
+    files = [entry for entry in listed.stdout.split("\0") if entry]
+    before = ignored_by(lines=lines, paths=files)
+    later = ignored_by(lines=after, paths=files)
+    newly = {path for path in later if path not in before}
+
+    return [pattern for pattern in globbed if newly & ignored_by(lines=[pattern], paths=files)]
+
+
 def ignored_by(
+    lines: list[str],
+    paths: list[str],
+) -> set[str]:
+    """The paths an ignore file holding these lines ignores.
+
+    Git answers where git runs, in a scratch repository holding only
+    that file, its place named outright so no GIT_DIR of the caller's
+    and no exclude file of this machine or of this clone weighs in on a
+    file the whole project shares. Elsewhere the lines are read top
+    down the way git reads them for plain spellings: a pattern without
+    a slash matches a name at any depth, one with a slash the path from
+    the file's own folder, the last match deciding.
+    """
+    if not paths:
+        return set()
+
+    with tempfile.TemporaryDirectory() as scratch:
+        where = ["--git-dir", os.path.join(scratch, ".git"), "--work-tree", scratch]
+        made = git(project=Project(root=Path(scratch)), arguments=[*where, "init", "-q", "--template="])
+        if made is not None and made.returncode == 0:
+            (Path(scratch) / IGNORE_FILE).write_text("\n".join(lines) + "\n", encoding="utf-8")
+            asked = [*where, "-c", "core.excludesFile=/dev/null", "check-ignore", "--no-index", "-z", "--stdin"]
+            answer = git(project=Project(root=Path(scratch)), arguments=asked, stdin="\0".join(paths) + "\0")
+            if answer is not None and answer.returncode in (0, 1):
+                return {entry for entry in answer.stdout.split("\0") if entry}
+
+    return {path for path in paths if read_top_down(lines=lines, path=path)}
+
+
+def read_top_down(
     lines: list[str],
     path: str,
 ) -> bool:
-    """Whether an ignore file holding these lines ignores the path.
-
-    Git answers where git runs, in a scratch repository holding only
-    that file, so no exclude file of this machine or of this clone
-    weighs in on a file the whole project shares. Elsewhere the lines
-    are read top down as shell patterns, the last match deciding, which
-    covers the plain spellings.
-    """
-    with tempfile.TemporaryDirectory() as scratch:
-        made = git(project=Project(root=Path(scratch)), arguments=["init", "-q", "--template="])
-        if made is not None and made.returncode == 0:
-            (Path(scratch) / IGNORE_FILE).write_text("\n".join(lines) + "\n", encoding="utf-8")
-            asked = ["-c", "core.excludesFile=/dev/null", "check-ignore", "-q", "--no-index", "--", path]
-            answer = git(project=Project(root=Path(scratch)), arguments=asked)
-            if answer is not None and answer.returncode in (0, 1):
-                return answer.returncode == 0
-
+    """Whether the lines, read as git reads plain spellings, ignore the path, for a machine without git."""
     verdict = False
+    target = path.rstrip("/")
     for line in lines:
         exception = line.startswith("!")
         pattern = line.lstrip("!").rstrip("/")
-        pattern = pattern[3:] if pattern.startswith("**/") else pattern.lstrip("/")
-        if fnmatch.fnmatchcase(path.rstrip("/"), pattern):
+        pattern = pattern[3:] if pattern.startswith("**/") else pattern
+        whole = "/" in pattern
+        pattern = pattern.lstrip("/")
+        hit = fnmatch.fnmatchcase(target, pattern) if whole else any(fnmatch.fnmatchcase(part, pattern) for part in target.split("/"))
+        if hit:
             verdict = not exception
 
     return verdict
