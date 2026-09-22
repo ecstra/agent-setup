@@ -7,7 +7,7 @@ commits, ledgers and links that nobody can rewrite.
 """
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -253,7 +253,7 @@ class Brain:
             self.kit_read = found
 
         return [
-            (path, frontmatter.Document(lines=list(document.lines), body=document.body))
+            (path, replace(document, lines=list(document.lines)))
             for path, document in self.kit_read
         ]
 
