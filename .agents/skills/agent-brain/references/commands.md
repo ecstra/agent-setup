@@ -90,6 +90,26 @@ today's date. The one thing `--fix` deletes is what an interrupted
 write left behind, a temporary file or a scratch folder named the way
 the tool names them. No other file is ever removed.
 
+## Port and upgrade
+
+Both run from a checkout of the kit, since a project without the tool
+has nothing to run: `python3 <kit>/.agents/skills/agent-brain/scripts/brain.py port`
+from the project's root. A project that already carries the tool can
+run its own copy with `--kit` pointing at the newer checkout.
+
+| Command | What it does |
+|---|---|
+| `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain: the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `CLAUDE.md`, `AGENTS.md` or `GEMINI.md`, the hook configs merged beside the project's own hooks, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what an unported project usually holds that belongs in the brain, for the agent to file through `brain new`. Refuses when a brain exists. |
+| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs every migration between the project's stamp and the kit's first, then the same install. The first migration, to 1.0.0, moves `.agent/` to `.agents/`, points every file at the new name, and carries section 0 out of the old `CLAUDE.md`. Refuses without a brain, and refuses while a file it would replace holds uncommitted work. |
+
+What is the project's stays the project's: everything under `.agents/`
+that is not the kit's, section 0, `README.md`, `CODEOWNERS`, and any
+hook or setting of its own in the agent folders. The kit's earlier hooks
+are replaced, told apart by the tool's script in their command. A rename
+goes through git where git tracks the file, so the move shows as one.
+The exit code is doctor's: 0 clean, 2 while findings remain, and those
+are the project's own prose to put right.
+
 ## Hooks
 
 `scripts/hooks.py` is what the agents call, with the event JSON on
