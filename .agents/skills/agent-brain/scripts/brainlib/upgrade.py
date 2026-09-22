@@ -912,46 +912,64 @@ def ignore(
 ) -> None:
     """The kit's ignore patterns present in the project's .gitignore, the missing ones added under one heading in the kit's order.
 
-    Git reads the file top down and the last match wins, so the order
-    matters both ways. A pattern the project already has is never
-    repeated, since repeating it below a line the project wrote later
-    would override that line. An exception, a line starting with `!`,
-    goes in only below a pattern going in that matches the path it
-    names, so `.env.*` never lands below `!.env.example`, and never when
-    a pattern of the project's own already matches that path, so a
-    project that ignores `.env.example` on purpose is left to it.
+    Git reads the file top down and the last match wins, so a pattern
+    the project already has is never repeated, since repeating it below
+    a line the project wrote later would override that line. The
+    patterns go in first, and then every path an exception names, the
+    kit's `!.env.example` or the project's own `!` lines, that was
+    visible before and is ignored after gets its exception put back
+    below them. What the file decides is git's own answer, so the
+    project's spelling of a rule, `.env*`, a leading slash, an exception
+    of its own, is read the way git reads it.
     """
     wanted = [line for line in kit.text(Path(IGNORE_FILE)).splitlines() if line.strip() and not line.startswith("#")]
     target = project.root / IGNORE_FILE
     existing = read_as_is(target) if store.readable_file(target) else ""
-    present = {line.strip() for line in existing.splitlines()}
-    own = [line for line in present if line and not line.startswith(("#", "!"))]
+    lines = [line.strip() for line in existing.splitlines() if line.strip() and not line.startswith("#")]
 
-    patterns = [line for line in wanted if not line.startswith("!") and line not in present]
-    block = [
-        line
-        for line in wanted
-        if line in patterns
-        or (line.startswith("!") and names_a_match(exception=line, patterns=patterns) and not names_a_match(exception=line, patterns=own))
-    ]
-    if not block:
+    patterns = [line for line in wanted if not line.startswith("!") and line not in lines]
+    if not patterns:
         return
 
+    excepted = list(dict.fromkeys(line[1:] for line in [*wanted, *lines] if line.startswith("!")))
+    visible = [path for path in excepted if not ignores(project=project, path=path, lines=lines)]
+
     ending = "\r\n" if "\r\n" in existing else "\n"
-    tail = ending.join([IGNORE_HEADING, *block]) + ending
-    text = existing.rstrip("\r\n") + (ending * 2 if existing.strip() else "") + tail
-    frontmatter.write_text(path=str(target), text=text)
+    head = existing.rstrip("\r\n") + (ending * 2 if existing.strip() else "")
+    frontmatter.write_text(path=str(target), text=head + ending.join([IGNORE_HEADING, *patterns]) + ending)
+
+    block = patterns + [f"!{path}" for path in visible if ignores(project=project, path=path, lines=[*lines, *patterns])]
+    if len(block) > len(patterns):
+        frontmatter.write_text(path=str(target), text=head + ending.join([IGNORE_HEADING, *block]) + ending)
+
     report.done(f"added to {IGNORE_FILE} from the kit's ignores: " + ", ".join(block))
 
 
-def names_a_match(
-    exception: str,
-    patterns: list[str],
+def ignores(
+    project: Project,
+    path: str,
+    lines: list[str],
 ) -> bool:
-    """Whether the `!path` exception names something one of the patterns matches, read as shell patterns, which covers the kit's own lines."""
-    path = exception[1:].rstrip("/")
+    """Whether the project's ignore file, as it stands on disk, ignores the path.
 
-    return any(fnmatch.fnmatchcase(path, pattern.rstrip("/")) for pattern in patterns)
+    Git answers where git runs, since only git knows its own spellings
+    and the other ignore files that apply. Elsewhere the lines are read
+    top down as shell patterns, the last match deciding, which covers
+    the plain spellings.
+    """
+    answer = git(project=project, arguments=["check-ignore", "-q", "--no-index", "--", path])
+    if answer is not None and answer.returncode in (0, 1):
+        return answer.returncode == 0
+
+    verdict = False
+    for line in lines:
+        exception = line.startswith("!")
+        pattern = line.lstrip("!").rstrip("/")
+        pattern = pattern[3:] if pattern.startswith("**/") else pattern.lstrip("/")
+        if fnmatch.fnmatchcase(path.rstrip("/"), pattern):
+            verdict = not exception
+
+    return verdict
 
 
 def guarded_paths(
