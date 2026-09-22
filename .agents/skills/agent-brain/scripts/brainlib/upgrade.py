@@ -214,18 +214,21 @@ def read_version(
     except (OSError, UnicodeDecodeError) as error:
         raise UpgradeError(f"{stamp.name} cannot be read: {error}") from error
 
-    if as_tuple(text) is None:
-        raise UpgradeError(f"{stamp.name} says '{text}', not a version like 1.0.0")
+    try:
+        as_tuple(text)
+    except ValueError as error:
+        raise UpgradeError(f"{stamp.name} says {error}") from error
 
     return text
 
 
 def as_tuple(
     version: str,
-) -> Optional[tuple[int, ...]]:
+) -> tuple[int, ...]:
+    """The version as numbers to compare, or a ValueError when the text is not one."""
     parts = version.split(".")
-    if not parts or not all(part.isdecimal() and part.isascii() for part in parts):
-        return None
+    if not all(part.isdecimal() and part.isascii() for part in parts):
+        raise ValueError(f"'{version}', not a version like 1.0.0")
 
     return tuple(int(part) for part in parts)
 
@@ -782,7 +785,7 @@ def refuse_when_dirty(
         reasons.append("git ignores these and they would be written over or removed, copy them aside first: " + ", ".join(sorted(ignored)))
 
     if reasons:
-        raise UpgradeError("; ".join(reasons) if len(reasons) == 2 else reasons[0])
+        raise UpgradeError(". ".join(reasons))
 
 
 def inside_repository(
