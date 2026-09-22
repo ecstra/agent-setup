@@ -2,8 +2,8 @@
 name: spec-todos
 kind: doc
 description: format and lifecycle for .agents/todos, the work tracker
-updated: 2026-09-16
-links: [conventions, spec-bugs]
+updated: 2026-09-17
+links: [spec/conventions.md, spec/bugs.md]
 ---
 
 # Spec: todos/
@@ -18,7 +18,7 @@ in a session's head, so any session can pick it up.
 Standard frontmatter, `kind: todo`, plus:
 
 ```
-status: open | done | dropped
+status: open | done | dropped | refiled
 by: owner | agent
 area: <the project's own area vocabulary, kept consistent>
 born: <YYYY-MM-DD>
@@ -51,7 +51,10 @@ own notes to tick, by name.
 Done and dropped items keep their files with status flipped, nothing is
 deleted and nothing grows inline paragraphs: completion notes go in Done
 when, never appended to What. The INDEX lists every open item one per
-line, grouped by area, and summarizes done and dropped by area with
-counts (each closed file carries its own description, the id finds it).
-A todo that turns out to describe a defect moves to bugs/ keeping its id
-trail in `links:`.
+line, grouped by area, and summarizes done, dropped and refiled by area
+with counts (each closed file carries its own description, the id finds
+it).
+A todo that turns out to describe a defect is refiled as a bug through
+the tool, `brain refile --kind bug`. The todo stays, marked `refiled`
+with its closing date, and the two link to each other, so the id trail
+holds and no id is ever reused. A refiled todo always links to a bug.

@@ -2,11 +2,14 @@
 name: decisions-index
 kind: doc
 description: index of every decision taken, newest first
-updated: 2026-08-12
-links: [agent-index, spec-decisions]
+updated: 2026-09-16
+links: [INDEX.md, spec/decisions.md]
 ---
 
 # Decisions Index
 
-Nothing here yet. Decisions land per
-[spec/decisions.md](../spec/decisions.md), newest first, one line each.
+Every decision taken, newest first.
+Filed per [spec/decisions.md](../spec/decisions.md).
+Built by the brain tool from the folder it lists.
+
+Nothing here yet.

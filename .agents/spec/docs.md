@@ -2,8 +2,8 @@
 name: spec-docs
 kind: doc
 description: format and folder rules for .agents/docs, the knowledge library
-updated: 2026-09-16
-links: [conventions]
+updated: 2026-09-22
+links: [spec/conventions.md]
 ---
 
 # Spec: docs/
@@ -31,13 +31,15 @@ sensible starting set, none mandatory:
 - `research/`: studied, not built.
 
 The agent creates a new category folder when docs accumulate that fit
-none of the existing ones (three or more is the bar), adding it to the
-indexes in the same commit. A single stray doc goes in the nearest
+none of the existing ones (three or more is the bar). The tool files
+the first doc into it with `brain new --category`, and the index picks
+the folder up on the same run. A single stray doc goes in the nearest
 existing category instead.
 
 ## Lifecycle
 
 Docs are living: a code change that falsifies a doc updates the doc in
-the same round, and the frontmatter date plus index line move with it
-(the conventions rule). A doc for a removed feature is deleted, not
-archived, git remembers.
+the same round, its `updated:` date moves through `brain set`, and the
+index follows on the tool's next run, per the upkeep rule in
+conventions.md. A doc for a removed feature is deleted, not archived,
+git remembers.

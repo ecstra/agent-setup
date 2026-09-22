@@ -512,11 +512,11 @@ Blocking one wording does little, because the same shape returns in new words. P
 
 **`.agents/` at the repo root is the project's brain, committed, so any agent on any machine resumes cold.**
 
-Read `.agents/INDEX.md` before working. It is the spine: the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug.
+Read `.agents/INDEX.md` before working. It is the spine: the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked.
 
 ### 8.1 Upkeep
 
-The brain is maintained in the same motion as the work, never as a separate chore. A change to any file in `.agents/` updates its frontmatter date and its index line in the same commit. A code change that falsifies a knowledge doc updates the doc in the same round. A session that learns a durable project fact writes it to `.agents/memory/` before it ends.
+The brain is maintained in the same motion as the work, never as a separate chore. A change to any file in `.agents/` updates its frontmatter date in the same commit, and the tool rebuilds the indexes, which are never edited by hand. A code change that falsifies a knowledge doc updates the doc in the same round. A session that learns a durable project fact writes it to `.agents/memory/` before it ends.
 
 ### 8.2 Boundaries
 
@@ -526,7 +526,7 @@ The brain is maintained in the same motion as the work, never as a separate chor
 
 ### 8.3 The Trackers
 
-Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each per their specs. The agent classifies on intake without asking (a bug has evidence of wrong behavior, a todo has a done-when) and uses todos extensively: multi step work gets filed, not carried in a session's head. Any todo the user writes anywhere, the agent picks up, cleans, and files with the user's wording preserved, and on completing one it tells the user which of their own notes to tick.
+Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each, filed through the tool so the id, the header block, and the index line are never typed by hand. The agent classifies on intake without asking (a bug has evidence of wrong behavior, a todo has a done-when) and uses todos extensively: multi step work gets filed, not carried in a session's head. Any todo the user writes anywhere, the agent picks up, cleans, and files with the user's wording preserved, and on completing one it tells the user which of their own notes to tick.
 
 ---
 
@@ -549,6 +549,6 @@ Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each per 
 
 1. **Git.** Commits are allowed and expected: one commit per change, so every change is undoable and addressable by hash. Single author, never add yourself (Claude) as a co-author, no AI attribution anywhere. Messages in the user's voice, short. Push after each commit. Never commit to main directly, and PRs and merges only on the user's explicit ask.
 2. **No worktrees.** Git worktrees are disabled: never create one, and never use a worktree isolation mode for sub-agents. In the rare case the user explicitly asks for one, it lives under `.agents/.worktrees/` (gitignored) and nowhere else, and dies when the task does.
-3. **Real tools only for writes.** DO NOT use python, sed, awk, heredocs, or any scripting to create or edit files, code or docs. Every write goes through the proper edit tools: read the file, then edit it exactly. Scripted writes shred text (random line breaks, lines cut mid word, half lost sentences) and bypass reading what you change. And never leave a line broken mid sentence or cut mid word: wrap prose naturally or not at all. Scripting stays fine for read only inspection (grep, counts, link checks), never for writing.
-4. **Project Rules.** A `## 0. Project Rules` section may be added to `AGENTS.md`, directly under its title, to hold instructions specific to the current project. Add it only when a project needs rules the general ones do not cover. `CLAUDE.md` and `GEMINI.md` are one line each pulling in `AGENTS.md`, and this file stays exactly as the kit ships it.
+3. **Real tools only for writes.** DO NOT use python, sed, awk, heredocs, or any scripting to create or edit files, code or docs. Every write goes through the proper edit tools: read the file, then edit it exactly. Scripted writes shred text (random line breaks, lines cut mid word, half lost sentences) and bypass reading what you change. And never leave a line broken mid sentence or cut mid word: wrap prose naturally or not at all. Scripting stays fine for read only inspection (grep, counts, link checks), never for writing. The one exception is the brain tool, which does every write inside `.agents/` that is structure rather than prose: a file enters through `brain new` with its prose handed over on standard input inside a quoted heredoc, its header changes through `brain set`, it moves through `brain refile`, a review ledger's records go through `brain ledger`, and the indexes come from `brain index` or `brain doctor --fix`. The tool writes the structure and passes the prose through untouched, and the prose below a header block is edited with the proper edit tools like any other file.
+4. **Project Rules.** A `## 0. Project Rules` section may be added to `AGENTS.md`, directly under its title, to hold instructions specific to the current project. Add it only when a project needs rules the general ones do not cover. `CLAUDE.md` and `GEMINI.md` only pull in `AGENTS.md`, plus the chat style file in the agent's own folder, and this file stays exactly as the kit ships it.
 5. **Sub agent models.** In Claude Code, every sub agent runs on the latest Opus. Not Fable above it, not Sonnet or Haiku below it, unless the user asks for a different one.

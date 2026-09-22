@@ -2,11 +2,14 @@
 name: docs-index
 kind: doc
 description: index of the knowledge library, one line per doc
-updated: 2026-08-12
-links: [agent-index, spec-docs]
+updated: 2026-09-16
+links: [INDEX.md, spec/docs.md]
 ---
 
 # Docs Index
 
-Nothing here yet. The project's knowledge docs land in category folders
-per [spec/docs.md](../spec/docs.md), one line each here as they arrive.
+The knowledge library, one line per doc, grouped by category folder.
+Filed per [spec/docs.md](../spec/docs.md).
+Built by the brain tool from the folder it lists.
+
+Nothing here yet.
