@@ -528,16 +528,29 @@ def to_agents_folder(
 def migration_targets(
     project: Project,
 ) -> list[Path]:
-    """The files the folder migration points at the new name: every file naming .agent/ that git tracks or sees, symlinks and the kit's own skill folder left out.
+    """The files the folder migration points at the new name: every file naming .agent/ that git tracks, sees or ignores, symlinks and the kit's own skill folder left out.
 
     Outside git the root markdown, the ignore file and the brain's own
     markdown are read instead. The guard lists the same files, so the
-    two never disagree about what the migration writes into. Git is
-    asked for names relative to the project whatever grep.fullName says.
+    two never disagree about what the migration writes into, and a
+    file git ignores is refused there rather than half migrated. Git
+    is asked for names relative to the project whatever grep.fullName
+    says.
     """
     found = git(
         project=project,
-        arguments=["grep", "-I", "-l", "-z", "--no-full-name", "--untracked", "--fixed-strings", "-e", f"{OLD_FOLDER}/"],
+        arguments=[
+            "grep",
+            "-I",
+            "-l",
+            "-z",
+            "--no-full-name",
+            "--untracked",
+            "--no-exclude-standard",
+            "--fixed-strings",
+            "-e",
+            f"{OLD_FOLDER}/",
+        ],
     )
     if found is not None and found.returncode in (0, 1):
         paths = [project.root / entry for entry in found.stdout.split("\0") if entry]
