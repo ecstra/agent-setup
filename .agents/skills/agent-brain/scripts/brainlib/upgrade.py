@@ -207,7 +207,7 @@ def port(
         raise UpgradeError(f"{project.root} already carries a brain, run brain upgrade instead")
 
     report = Report()
-    refuse_when_dirty(project=project, paths=replaced_paths(kit))
+    refuse_when_dirty(project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     install(kit=kit, project=project, report=report)
     report.candidates = candidates(project)
     report.findings = check(project)
@@ -228,7 +228,7 @@ def upgrade(
         raise UpgradeError("the kit is the project, there is nothing to install")
 
     report = Report()
-    refuse_when_dirty(project=project, paths=replaced_paths(kit))
+    refuse_when_dirty(project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     have = as_tuple(project.version())
     want = as_tuple(kit.version())
 
@@ -574,28 +574,94 @@ def ignore(
     report.done(f"added {len(missing)} lines to {IGNORE_FILE}")
 
 
-def replaced_paths(
+def guarded_paths(
     kit: Kit,
+    project: Project,
 ) -> list[str]:
-    """The project files a port or upgrade writes over, checked for uncommitted changes first."""
-    return [*ROOT_FILES, IGNORE_FILE, *(str(relative) for relative in kit.agent_files())]
+    """Every project path a port or upgrade writes over or removes, relative to the project.
+
+    The front doors and CONTRIBUTING.md are replaced whole, so are the
+    kit's files under .agents/ and the style files in the agent folders,
+    the skill folder is cleared and rewritten, and the migration
+    rewrites the root markdown and every file under the old folder.
+    The ignore file and the hook configs keep what they hold, so an edit
+    there is safe and not listed.
+    """
+    paths = [*ROOT_FILES]
+    paths += [str(relative) for relative in kit.agent_files() if relative.name not in MERGED]
+    paths += [str(Path(FOLDER) / relative) for relative in kit.brain_files()]
+    paths += files_under(root=project.root, folder=project.brain / "skills" / "agent-brain")
+
+    old = project.root / OLD_FOLDER
+    if store.quietly(old.is_dir):
+        paths += files_under(root=project.root, folder=old)
+        paths += [path.name for path in list_names(project.root) if path.suffix == ".md"]
+
+    return paths
+
+
+def files_under(
+    root: Path,
+    folder: Path,
+) -> list[str]:
+    """Every file below the folder, relative to the root, nothing when the folder is not there."""
+    if not store.quietly(folder.is_dir):
+        return []
+
+    return [str(path.relative_to(root)) for path in sorted(folder.rglob("*")) if path.is_file()]
 
 
 def refuse_when_dirty(
     project: Project,
     paths: list[str],
+    report: Report,
 ) -> None:
-    """Refuse while a file about to be replaced holds uncommitted work, so nothing is lost.
+    """Refuse while a file about to be written over or removed holds uncommitted work.
 
-    A project outside git gets no such guard.
+    Git is asked for the whole working tree once and the answer is
+    matched against the paths without regard to case, so a front door
+    spelled `Agents.md` is seen. A repository whose git fails is refused
+    too, since nothing would be guarded. A project outside git gets no
+    guard, and the report says so.
     """
-    result = git(project=project, arguments=["status", "--porcelain", "--", *paths])
-    if result is None or result.returncode != 0:
+    result = git(project=project, arguments=["status", "--porcelain", "--untracked-files=all", "-z"])
+    if result is None:
+        report.done("git is not on this machine, so nothing is saved before a file is replaced")
         return
 
-    dirty = [line[3:] for line in result.stdout.splitlines() if line.strip()]
+    if result.returncode != 0:
+        if "not a git repository" in result.stderr:
+            report.done("not a git repository, so nothing is saved before a file is replaced")
+            return
+
+        raise UpgradeError(f"git could not read the working tree, so nothing is guarded: {result.stderr.strip()}")
+
+    wanted = {path.replace("\\", "/").lower() for path in paths}
+    dirty = sorted(path for path in changed_paths(result.stdout) if path.lower() in wanted)
     if dirty:
         raise UpgradeError("commit or stash these first, they would be written over: " + ", ".join(dirty))
+
+
+def changed_paths(
+    porcelain: str,
+) -> list[str]:
+    """The paths in a NUL separated porcelain listing, a rename's old name included."""
+    found: list[str] = []
+    tokens = porcelain.split("\0")
+    index = 0
+
+    while index < len(tokens):
+        entry = tokens[index]
+        index += 1
+        if len(entry) < 4:
+            continue
+
+        found.append(entry[3:])
+        if entry[0] in "RC" and index < len(tokens):
+            found.append(tokens[index])
+            index += 1
+
+    return found
 
 
 def settle_case(
