@@ -9,8 +9,10 @@ keyed by the version stamp the project carries.
 """
 
 import json
+import os
 import re
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
@@ -101,7 +103,7 @@ class Kit:
         found += sorted(
             path.relative_to(self.brain)
             for path in (self.brain / "skills").rglob("*")
-            if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
+            if ships(path)
         )
         found.append(Path(VERSION))
 
@@ -117,10 +119,8 @@ class Kit:
 
         for folder in AGENT_FOLDERS:
             for path in sorted((self.root / folder).rglob("*")):
-                if path.is_symlink() or not path.is_file() or path.name in NOT_SHIPPED:
-                    continue
-
-                found.append(path.relative_to(self.root))
+                if ships(path) and path.name not in NOT_SHIPPED:
+                    found.append(path.relative_to(self.root))
 
         return found
 
@@ -128,7 +128,32 @@ class Kit:
         self,
         relative: Path,
     ) -> str:
-        return (self.root / relative).read_text(encoding="utf-8")
+        """A kit file the run composes with, read as text."""
+        try:
+            return (self.root / relative).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            raise UpgradeError(f"the kit's {relative} cannot be read: {error}") from error
+
+    def data(
+        self,
+        relative: Path,
+    ) -> tuple[bytes, int]:
+        """A kit file copied whole, its bytes and its mode, whatever it holds."""
+        path = self.root / relative
+        try:
+            return path.read_bytes(), os.stat(path).st_mode & 0o777
+        except OSError as error:
+            raise UpgradeError(f"the kit's {relative} cannot be read: {error}") from error
+
+
+def ships(
+    path: Path,
+) -> bool:
+    """Whether a file in the kit's tree is one the kit ships: a real file, not bytecode, not a dotfile."""
+    if path.is_symlink() or not path.is_file():
+        return False
+
+    return "__pycache__" not in path.parts and path.suffix != ".pyc" and not path.name.startswith(".")
 
 
 @dataclass
@@ -263,17 +288,13 @@ def install(
         put(project=project, relative=Path(name), text=text, report=report)
 
     skill_home = project.brain / "skills" / "agent-brain"
-    if store.quietly(skill_home.is_dir):
-        remove_tree(skill_home)
-        report.done("cleared the old skills/agent-brain")
+    if skill_home.is_symlink():
+        raise UpgradeError(f"{FOLDER}/skills/agent-brain is a symlink, replace it with a real folder first")
 
-    for relative in kit.brain_files():
-        if relative.name == VERSION:
-            continue
-
-        put(project=project, relative=Path(FOLDER) / relative, text=kit.text(Path(FOLDER) / relative), report=report, quiet=True)
-
-    report.done(f"copied the kit's {len(kit.brain_files()) - 1} files under {FOLDER}/")
+    shipped = [Path(FOLDER) / relative for relative in kit.brain_files() if relative.name != VERSION]
+    written = sum(copy(kit=kit, project=project, relative=relative) for relative in shipped)
+    retired = retire(project=project, folder=skill_home, keep=set(shipped))
+    report.done(f"the kit's {len(shipped)} files under {FOLDER}/, {written} written, {len(retired)} retired")
 
     for kind in schema.KINDS.values():
         (project.brain / kind.folder).mkdir(parents=True, exist_ok=True)
@@ -284,7 +305,8 @@ def install(
             put(project=project, relative=relative, text=merged_config(existing=read(target), kit=kit.text(relative), where=str(relative)), report=report)
             continue
 
-        put(project=project, relative=relative, text=kit.text(relative), report=report)
+        if copy(kit=kit, project=project, relative=relative):
+            report.done(f"wrote {relative}")
 
     ignore(project=project, kit=kit, report=report)
 
@@ -729,13 +751,82 @@ def read(
         raise UpgradeError(f"{path.name} cannot be read: {error}") from error
 
 
-def remove_tree(
-    folder: Path,
+def copy(
+    kit: Kit,
+    project: Project,
+    relative: Path,
+) -> bool:
+    """Copy one kit file whole, bytes and mode, and say whether anything was written.
+
+    A target that already holds the same bytes is left alone, so a run
+    that changes nothing touches nothing.
+    """
+    data, mode = kit.data(relative)
+    target = project.root / relative
+    if store.readable_file(target):
+        try:
+            if target.read_bytes() == data:
+                return False
+        except OSError:
+            pass
+
+    write_bytes(path=target, data=data, mode=mode)
+
+    return True
+
+
+def write_bytes(
+    path: Path,
+    data: bytes,
+    mode: int,
 ) -> None:
+    """Write a file whole or not at all, through a temporary file beside it, with the mode given.
+
+    The temporary file takes the same shape as the tool's other writes,
+    so one left beside a markdown file by an interrupted run is found
+    and removed by doctor.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle, passing = tempfile.mkstemp(prefix=f".{path.name}.", suffix=frontmatter.TEMP_SUFFIX, dir=str(path.parent))
+    try:
+        with os.fdopen(handle, "wb") as out:
+            out.write(data)
+            out.flush()
+            os.fsync(out.fileno())
+
+        os.chmod(passing, mode)
+        os.replace(passing, path)
+    except BaseException:
+        try:
+            os.unlink(passing)
+        except OSError:
+            pass
+
+        raise
+
+
+def retire(
+    project: Project,
+    folder: Path,
+    keep: set[Path],
+) -> list[str]:
+    """Remove the files under the skill folder the kit no longer ships, and the folders that emptied.
+
+    The kit's new files are written before this runs, so the tool is
+    never half gone. The folder is the tool's own, so what the kit does
+    not ship goes, named in the report, and the guard has already
+    refused if any of it held uncommitted work. A dotfile is left.
+    """
+    if not store.quietly(folder.is_dir):
+        return []
+
+    retired: list[str] = []
     for path in sorted(folder.rglob("*"), reverse=True):
-        if path.is_symlink() or path.is_file():
+        relative = path.relative_to(project.root)
+        if path.is_file() and relative not in keep and not path.name.startswith("."):
             path.unlink()
-        else:
+            retired.append(str(relative))
+        elif path.is_dir() and not path.is_symlink() and not any(path.iterdir()):
             path.rmdir()
 
-    folder.rmdir()
+    return retired
