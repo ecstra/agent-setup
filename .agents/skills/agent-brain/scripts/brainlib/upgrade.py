@@ -591,7 +591,7 @@ def section_zero_of(
     """
     texts: dict[str, str] = {}
     for name in OLD_LAYOUT_DOORS if layout == "old" else FRONT_DOORS:
-        path = any_case(project.root, name)
+        path = any_case(folder=project.root, name=name)
         if path is None:
             continue
 
@@ -688,16 +688,29 @@ def without(
     text: str,
     pattern: "re.Pattern[str]",
 ) -> str:
-    """The text without the pattern's matches that start outside code."""
+    """The text without the pattern's matches that lie outside code.
+
+    A match that starts or ends inside code is no match, and the search
+    goes on one character past its start, so a comment opened in prose
+    and closed inside a fence stays, and a lone opener inside a fence
+    hides nothing after it.
+    """
     spans = sections.code_spans(text)
     kept: list[str] = []
     last = 0
-    for match in pattern.finditer(text):
-        if sections.in_code(spans=spans, position=match.start()):
+    cursor = 0
+    while True:
+        match = pattern.search(text, cursor)
+        if match is None:
+            break
+
+        if sections.in_code(spans=spans, position=match.start()) or sections.in_code(spans=spans, position=match.end() - 1):
+            cursor = match.start() + 1
             continue
 
         kept.append(text[last : match.start()])
         last = match.end()
+        cursor = match.end()
     kept.append(text[last:])
 
     return "".join(kept)

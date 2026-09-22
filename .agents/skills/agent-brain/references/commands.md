@@ -109,11 +109,10 @@ comment line in `AGENTS.md` that says where the kit's words start, so
 it is found the same way whatever a release says after that line. In a
 file the first release wrote, before that line existed, it ends where
 that release's opening paragraph stood, and that paragraph is history,
-so it never moves. The
-kit's earlier hooks are replaced, told apart by the tool's script in
-their command. A rename goes through git where git tracks the file, so
-the move shows as one, and a root file the kit replaces is named in
-the report along with where git keeps the old one.
+so it never moves. The kit's earlier hooks are replaced, told apart by
+the tool's script in their command. A rename goes through git where git
+tracks the file, so the move shows as one, and a root file the kit
+replaces is named in the report along with where git keeps the old one.
 The exit code is doctor's: 0 clean, 2 while findings remain, and those
 are the project's own prose to put right.
 
