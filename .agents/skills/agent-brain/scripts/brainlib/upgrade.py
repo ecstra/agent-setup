@@ -356,9 +356,11 @@ def never_home(
 
     A loose folder under the home, or a home that carries a brain or a
     repository of its own, would otherwise get the kit installed into
-    the home itself and its own agent configs merged.
+    the home itself and its own agent configs merged. The two are
+    compared as files, not as spellings, so a case folding file system
+    cannot slip the home past by another case.
     """
-    if root == Path.home().resolve():
+    if store.quietly(lambda: root.samefile(Path.home())):
         raise UpgradeError(f"the project folder found around {start} is your home folder, name the project with --project")
 
     return root
@@ -910,27 +912,49 @@ def ignore(
     """The kit's ignore patterns present in the project's .gitignore, the missing ones added under one heading in the kit's order.
 
     Git reads the file top down and the last match wins, so the order
-    matters both ways. The kit's own exceptions, the lines starting
-    with `!`, always go in with the block, below the patterns they
-    except, so `.env.*` never lands below `!.env.example`. A pattern
-    the project already has is never repeated, since repeating it below
-    an exception the project wrote, `!.env.sample` for one, would ignore
-    that file.
+    matters both ways. The kit's file is read in groups, the lines
+    between blank lines, and a group's exceptions, the lines starting
+    with `!`, go in below the group's patterns whenever one of those
+    patterns goes in, so `.env.*` never lands below `!.env.example`. A
+    line the project already has goes in only that way, never on its
+    own, since repeating it below a line the project wrote later, an
+    exception like `!.env.sample` or an ignore of `.env.example`, would
+    override that line.
     """
-    wanted = [line for line in kit.text(Path(IGNORE_FILE)).splitlines() if line.strip() and not line.startswith("#")]
     target = project.root / IGNORE_FILE
     existing = read_as_is(target) if store.readable_file(target) else ""
     present = {line.strip() for line in existing.splitlines()}
-    missing = [line for line in wanted if line not in present]
-    if not missing:
+
+    block: list[str] = []
+    for group in ignore_groups(kit.text(Path(IGNORE_FILE))):
+        missing = [line for line in group if line not in present]
+        patterns_missing = any(not line.startswith("!") for line in missing)
+        block += [line for line in group if line in missing or (patterns_missing and line.startswith("!"))]
+
+    if not block:
         return
 
-    block = [line for line in wanted if line in missing or line.startswith("!")]
     ending = "\r\n" if "\r\n" in existing else "\n"
     tail = ending.join([IGNORE_HEADING, *block]) + ending
     text = existing.rstrip("\r\n") + (ending * 2 if existing.strip() else "") + tail
     frontmatter.write_text(path=str(target), text=text)
-    report.done(f"added {len(block)} of the kit's ignore lines to {IGNORE_FILE}")
+    report.done(f"added {len(block)} lines from the kit's ignores to {IGNORE_FILE}")
+
+
+def ignore_groups(
+    text: str,
+) -> list[list[str]]:
+    """The kit's ignore file as groups of pattern lines, split where a blank line or a comment sits."""
+    groups: list[list[str]] = [[]]
+    for line in text.splitlines():
+        if not line.strip() or line.startswith("#"):
+            if groups[-1]:
+                groups.append([])
+            continue
+
+        groups[-1].append(line)
+
+    return [group for group in groups if group]
 
 
 def guarded_paths(

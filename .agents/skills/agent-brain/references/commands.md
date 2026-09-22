@@ -97,10 +97,10 @@ has nothing to run: `python3 <kit>/.agents/skills/agent-brain/scripts/brain.py p
 from the project's root. A project that already carries the tool can
 run its own copy with `--kit` pointing at the newer checkout. Without
 `--project`, a port works on the top of the git repository around the
-current folder, never on your home folder, and an upgrade on the
-nearest folder at or above the current one that carries a brain. The
-report's first line names the folder either one works on, and
-`--project` has to name a folder that is there.
+current folder and an upgrade on the nearest folder at or above the
+current one that carries a brain, and neither ever works on your home
+folder. The report's first line names the folder either one works on,
+and `--project` has to name a folder that is there.
 
 | Command | What it does |
 |---|---|
