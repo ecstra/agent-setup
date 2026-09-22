@@ -44,8 +44,15 @@ IGNORE_HEADING = "# The agent kit's own ignores."
 # told apart by the kit's wording, which changes between releases.
 SECTION_ZERO_HEADING = "## 0. Project Rules"
 KIT_MARK = "<!-- The kit's words start here. Section 0 goes above this line. -->"
+MARK = re.compile(re.escape(KIT_MARK))
 COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 IMPORT_LINE = re.compile(r"^[ \t]*@\S+[ \t]*$", re.MULTILINE)
+
+# Before 1.1.0 the kit's AGENTS.md carried no marker line, so in a file
+# that kit wrote, section 0 ends where that release's first line stood.
+# The line is history and never changes, which is what makes it safe to
+# match, unlike the kit's current wording.
+LEAD_BEFORE_MARK = "The rules for working in this repo are in @.agents/SYSTEM.md and every\n"
 
 
 class UpgradeError(Exception):
@@ -312,7 +319,7 @@ class Prepared:
     stamp: str
     front_doors: dict[str, str]
     configs: dict[Path, str]
-    from_old_layout: bool
+    layout: str
 
 
 def prepare(
@@ -340,7 +347,7 @@ def prepare(
         stamp=stamp,
         front_doors=front_doors,
         configs=configs,
-        from_old_layout=project.state() == "old",
+        layout=project.state(),
     )
 
 
@@ -359,19 +366,21 @@ def install(
     stamp = prepared.stamp
     configs = prepared.configs
     front_doors = dict(prepared.front_doors)
-    zero = section_zero_of(project=project, from_old_layout=prepared.from_old_layout)
+    zero = section_zero_of(project=project, layout=prepared.layout)
     if zero is not None:
         front_doors["AGENTS.md"] = with_section_zero(text=front_doors["AGENTS.md"], zero=zero.text)
         report.done(zero.says)
 
     replaced: list[str] = []
     for name in ROOT_FILES:
+        found = any_case(project.root, name)
         settle_case(project=project, name=name, report=report)
         if put(project=project, relative=Path(name), text=front_doors[name], report=report):
-            replaced.append(name)
+            replaced.append(name if found is None else found.name)
 
-    if replaced and inside_repository(project):
-        report.done(f"git keeps the old {', '.join(replaced)} at HEAD, git show HEAD:<file> reads one")
+    specs = kept_in_git(project=project, names=replaced)
+    if specs:
+        report.done("the old ones are still in git: " + ", ".join(f"git show {spec}" for spec in specs))
 
     skill_home = project.brain / "skills" / "agent-brain"
     shipped = [Path(FOLDER) / relative for relative in kit.brain_files() if relative.name != VERSION]
@@ -561,26 +570,27 @@ class Zero:
 
 def section_zero_of(
     project: Project,
-    from_old_layout: bool,
+    layout: str,
 ) -> Optional[Zero]:
     """The project's own rules, from the first front door that carries a `## 0.` section with words in it.
 
-    On the old layout CLAUDE.md held the rules and AGENTS.md copied it,
-    so CLAUDE.md is read first there. Otherwise AGENTS.md is, since that
-    is where the kit keeps section 0. With no such section anywhere, a
+    `layout` is the project's state before any migration. On the old
+    layout CLAUDE.md held the rules and AGENTS.md copied it, so CLAUDE.md
+    is read first there. Otherwise AGENTS.md is, since that is where the
+    kit keeps section 0. On a port, with no such section anywhere, a
     front door that says something of its own goes whole under the
     heading, for the agent to read against the rulebook, because the
-    kit's copy is about to replace it. Not on the old layout, where the
-    rest of CLAUDE.md was the old kit's own rulebook.
+    kit's copy is about to replace it. Never on an upgrade, where a front
+    door without a section is the kit's own earlier text.
     """
     texts: dict[str, str] = {}
-    for name in OLD_LAYOUT_DOORS if from_old_layout else FRONT_DOORS:
+    for name in OLD_LAYOUT_DOORS if layout == "old" else FRONT_DOORS:
         path = any_case(project.root, name)
         if path is None:
             continue
 
         try:
-            texts[path.name] = path.read_text(encoding="utf-8")
+            texts[path.name] = path.read_text(encoding="utf-8-sig")
         except (OSError, UnicodeDecodeError):
             continue
 
@@ -589,7 +599,7 @@ def section_zero_of(
         if zero is not None:
             return Zero(text=zero, says=f"kept section 0 from {name}")
 
-    if from_old_layout:
+    if layout != "none":
         return None
 
     for name, text in texts.items():
@@ -610,16 +620,21 @@ def section_zero_in(
 
     In an AGENTS.md the kit wrote, the section is everything down to
     the kit's marker line, headings included, so the file gives back the
-    section it was given whatever the kit's own words say now. Anywhere
-    else it runs to the next `#` or `##` heading outside code, so a
-    `## ` inside a fenced block stays in it.
+    section it was given whatever the kit's own words say now. In one
+    the first kit wrote, before the marker, it ends where that kit's
+    words stood. Anywhere else it runs to the next `#` or `##` heading
+    outside code, so a `## ` inside a fenced block stays in it.
     """
     heading = next((match for match in sections.heading_matches(text) if match.group(1).startswith("0.")), None)
     if heading is None:
         return None
 
-    mark = text.find(KIT_MARK, heading.end())
-    end = mark if mark != -1 else sections.heading_after(body=text, start=heading.end(), depth=2)
+    end = mark_after(text=text, start=heading.end())
+    if end == -1:
+        end = sections.heading_after(body=text, start=heading.end(), depth=2)
+        lead = text.find(LEAD_BEFORE_MARK, heading.end(), end)
+        if lead != -1:
+            end = lead
 
     body = text[heading.end() : end].strip()
     if not body:
@@ -628,19 +643,68 @@ def section_zero_in(
     return f"{SECTION_ZERO_HEADING}\n\n{body}\n"
 
 
+def mark_after(
+    text: str,
+    start: int,
+) -> int:
+    """Where the kit's marker line stands outside code at or after `start`, or -1 when it does not."""
+    spans = sections.code_spans(text)
+    for match in MARK.finditer(text, start):
+        if not sections.in_code(spans=spans, position=match.start()):
+            return match.start()
+
+    return -1
+
+
 def own_words(
     text: str,
 ) -> str:
-    """What a front door says on its own: the text before the kit's marker, without the title, the comments and the `@path` import lines."""
-    own = text.split(KIT_MARK, 1)[0]
-    own = COMMENT.sub("", own)
-    own = IMPORT_LINE.sub("", own)
+    """What a front door says on its own: the text before the kit's marker, without the title, the comments and the `@path` import lines.
 
-    lines = own.strip().split("\n")
+    Code keeps its comments and its `@` lines, a decorator for one.
+    """
+    mark = mark_after(text=text, start=0)
+    own = text if mark == -1 else text[:mark]
+
+    pieces: list[str] = []
+    last = 0
+    for start, end in sections.code_spans(own):
+        pieces.append(scaffolding_free(own[last:start]))
+        pieces.append(own[start:end])
+        last = end
+    pieces.append(scaffolding_free(own[last:]))
+
+    lines = "".join(pieces).strip().split("\n")
     if lines and lines[0].startswith("# "):
         lines = lines[1:]
 
     return "\n".join(lines).strip()
+
+
+def scaffolding_free(
+    prose: str,
+) -> str:
+    """The prose without HTML comments and without lines that only pull another file in."""
+    return IMPORT_LINE.sub("", COMMENT.sub("", prose))
+
+
+def kept_in_git(
+    project: Project,
+    names: list[str],
+) -> list[str]:
+    """Where git's last commit holds each of these root files, as `HEAD:path` specs from the repository's top, the ones it does not hold left out."""
+    prefix = git(project=project, arguments=["rev-parse", "--show-prefix"])
+    if prefix is None or prefix.returncode != 0:
+        return []
+
+    specs: list[str] = []
+    for name in names:
+        spec = f"HEAD:{prefix.stdout.strip()}{name}"
+        held = git(project=project, arguments=["rev-parse", "--verify", "--quiet", spec])
+        if held is not None and held.returncode == 0:
+            specs.append(spec)
+
+    return specs
 
 
 def with_section_zero(
