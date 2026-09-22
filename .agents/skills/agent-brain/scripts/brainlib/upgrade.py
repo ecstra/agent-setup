@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 import tempfile
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional, TextIO
@@ -223,7 +224,7 @@ def as_tuple(
     version: str,
 ) -> Optional[tuple[int, ...]]:
     parts = version.split(".")
-    if not parts or not all(part.isdigit() for part in parts):
+    if not parts or not all(part.isdecimal() and part.isascii() for part in parts):
         return None
 
     return tuple(int(part) for part in parts)
@@ -246,7 +247,7 @@ def port(
 
     prepared = prepare(kit=kit, project=project)
     report = Report(out=out)
-    refuse_when_dirty(project=project, paths=guarded_paths(kit=kit, project=project), report=report)
+    refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     install(kit=kit, project=project, prepared=prepared, report=report)
     report.candidates = candidates(project)
     report.findings = check(project)
@@ -269,7 +270,7 @@ def upgrade(
 
     prepared = prepare(kit=kit, project=project)
     report = Report(out=out)
-    refuse_when_dirty(project=project, paths=guarded_paths(kit=kit, project=project), report=report)
+    refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     have = as_tuple(project.version())
     want = as_tuple(prepared.stamp)
     if have is not None and want is not None and have > want:
@@ -301,7 +302,7 @@ def prepare(
     project: Project,
 ) -> Prepared:
     """Read the kit's stamp and front doors and merge the hook configs, so a refusal comes before the first write."""
-    if (project.brain / "skills" / "agent-brain").is_symlink():
+    if store.quietly((project.brain / "skills" / "agent-brain").is_symlink):
         raise UpgradeError(f"{FOLDER}/skills/agent-brain is a symlink, replace it with a real folder first")
 
     stamp = kit.version()
@@ -345,6 +346,8 @@ def install(
     written = sum(copy(kit=kit, project=project, relative=relative) for relative in shipped)
     retired = retire(project=project, folder=skill_home, keep=set(shipped))
     report.done(f"the kit's {len(shipped)} files under {FOLDER}/, {written} written, {len(retired)} retired")
+    for relative in retired:
+        report.done(f"retired {relative}, the kit no longer ships it")
 
     for kind in schema.KINDS.values():
         (project.brain / kind.folder).mkdir(parents=True, exist_ok=True)
@@ -673,7 +676,14 @@ def guarded_paths(
     old = project.root / OLD_FOLDER
     if store.quietly(old.is_dir):
         paths += files_under(root=project.root, folder=old)
+
+    if store.quietly(old.is_dir) or as_tuple(project.version()) == as_tuple(NO_VERSION):
         paths += [path.name for path in list_names(project.root) if path.suffix == ".md"]
+        paths += [
+            str(path.relative_to(project.root))
+            for path in sorted(project.brain.rglob("*.md"))
+            if store.quietly(project.brain.is_dir) and "skills" not in path.relative_to(project.brain).parts
+        ]
 
     return paths
 
@@ -690,6 +700,7 @@ def files_under(
 
 
 def refuse_when_dirty(
+    kit: Kit,
     project: Project,
     paths: list[str],
     report: Report,
@@ -705,34 +716,93 @@ def refuse_when_dirty(
     since nothing would be guarded. A project outside git gets no
     guard, and the report says so.
     """
-    result = git(project=project, arguments=["status", "--porcelain", "--untracked-files=all", "--ignored=matching", "-z"])
-    if result is None:
+    if not inside_repository(project):
+        report.done("not a git repository, so nothing is saved before a file is replaced")
+        return
+
+    prefix = git(project=project, arguments=["rev-parse", "--show-prefix"])
+    if prefix is None:
         report.done("git is not on this machine, so nothing is saved before a file is replaced")
         return
 
-    if result.returncode != 0:
-        if "not a git repository" in result.stderr:
-            report.done("not a git repository, so nothing is saved before a file is replaced")
-            return
+    result = git(project=project, arguments=["status", "--porcelain", "--untracked-files=all", "--ignored=traditional", "-z"])
+    if prefix.returncode != 0 or result is None or result.returncode != 0:
+        words = (prefix.stderr if prefix.returncode != 0 else (result.stderr if result else "")).strip()
+        raise UpgradeError(f"git could not read the working tree, so nothing is guarded: {words}")
 
-        raise UpgradeError(f"git could not read the working tree, so nothing is guarded: {result.stderr.strip()}")
+    base = folded(prefix.stdout.strip())
+    wanted = {base + folded(path): path for path in paths}
+    dirty: list[str] = []
+    for status, entry in changed_paths(result.stdout):
+        path = wanted.get(folded(entry))
+        if path is not None and not (status == "??" and same_as_kit(kit=kit, project=project, relative=path)):
+            dirty.append(path)
 
-    prefix = git(project=project, arguments=["rev-parse", "--show-prefix"])
-    if prefix is None or prefix.returncode != 0:
-        raise UpgradeError(f"git could not place the project in its repository, so nothing is guarded: {(prefix.stderr if prefix else '').strip()}")
-
-    base = prefix.stdout.strip().replace("\\", "/")
-    wanted = {(base + path.replace("\\", "/")).lower() for path in paths}
-    dirty = sorted(path[len(base) :] for path in changed_paths(result.stdout) if path.lower() in wanted)
     if dirty:
-        raise UpgradeError("commit, stash or move these first, they would be written over or removed: " + ", ".join(dirty))
+        raise UpgradeError("commit, stash or move these first, they would be written over or removed: " + ", ".join(sorted(dirty)))
+
+
+def inside_repository(
+    project: Project,
+) -> bool:
+    """Whether a `.git` sits at the project's root or above it, answered without git so no locale is in the way."""
+    root = project.root.resolve()
+
+    return any(store.quietly((folder / ".git").exists) for folder in [root, *root.parents])
+
+
+def folded(
+    path: str,
+) -> str:
+    """A path as git names it and as this tool names it, made comparable: one slash, one case, one Unicode form."""
+    return unicodedata.normalize("NFC", path.replace("\\", "/")).lower()
+
+
+def same_as_kit(
+    kit: Kit,
+    project: Project,
+    relative: str,
+) -> bool:
+    """Whether an untracked file already holds exactly what the run would write, so nothing is at stake.
+
+    A port followed by an upgrade before a commit leaves every kit file
+    untracked and identical. Only a file that maps to one the kit
+    copies whole can be judged this way.
+    """
+    source = kit_source(relative)
+    if source is None:
+        return False
+
+    try:
+        return (project.root / relative).read_bytes() == (kit.root / source).read_bytes()
+    except OSError:
+        return False
+
+
+def kit_source(
+    relative: str,
+) -> Optional[Path]:
+    """The kit file a project path is a copy of, or None when the run composes it.
+
+    The front doors count, since without a section 0 they are the kit's
+    text verbatim, and with one the bytes differ and the file is
+    guarded as the project's own.
+    """
+    parts = Path(relative).parts
+    if not parts:
+        return None
+
+    if parts[0] == FOLDER or parts[0] in AGENT_FOLDERS or relative in ROOT_FILES:
+        return Path(relative)
+
+    return None
 
 
 def changed_paths(
     porcelain: str,
-) -> list[str]:
-    """The paths in a NUL separated porcelain listing, a rename's old name included."""
-    found: list[str] = []
+) -> list[tuple[str, str]]:
+    """The status and path of each entry in a NUL separated porcelain listing, a rename's old name included."""
+    found: list[tuple[str, str]] = []
     tokens = porcelain.split("\0")
     index = 0
 
@@ -742,9 +812,10 @@ def changed_paths(
         if len(entry) < 4:
             continue
 
-        found.append(entry[3:])
+        status = entry[:2]
+        found.append((status, entry[3:]))
         if entry[0] in "RC" and index < len(tokens):
-            found.append(tokens[index])
+            found.append((status, tokens[index]))
             index += 1
 
     return found

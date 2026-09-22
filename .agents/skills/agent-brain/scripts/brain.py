@@ -48,7 +48,6 @@ def main(
         schema.UnknownKind,
         OSError,
         KeyError,
-        ValueError,
     ) as error:
         print(store.explain(error), file=sys.stderr)
         return REFUSED
