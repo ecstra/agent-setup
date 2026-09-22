@@ -533,6 +533,12 @@ def check_filenames(
                 Finding(path=entry.relative, check="filename", message=f"'{entry.slug}' is not a slug")
             )
 
+        for folder in Path(entry.relative).parts[1:-1]:
+            if not schema.is_slug(folder):
+                found.append(
+                    Finding(path=entry.relative, check="filename", message=f"sits in a folder that is not a slug, '{folder}'")
+                )
+
         if entry.identifier is None:
             continue
 
@@ -633,9 +639,10 @@ def check_style(
 ) -> list[Finding]:
     """The prose rules over every file but the indexes.
 
-    An index is the tool's rendering of other files' header values, each
-    checked at its source by the fields check, so a slip is named on the
-    file a person can put right rather than on one nobody may edit.
+    An index is the tool's rendering of other files' header values and
+    of the folders they sit in, checked at their source by the fields
+    and filename checks, so a slip is named on the file a person can
+    put right rather than on one nobody may edit.
     """
     found: list[Finding] = []
 
