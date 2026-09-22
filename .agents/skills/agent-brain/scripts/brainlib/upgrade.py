@@ -35,7 +35,14 @@ AGENT_FOLDERS = (".claude", ".codex", ".gemini")
 # stay beside the kit's. Everything else the kit ships is copied whole.
 MERGED = ("settings.json", "hooks.json")
 NOT_SHIPPED = ("settings.local.json",)
-KIT_HOOK_MARK = "agent-brain/scripts/hooks.py"
+
+# A hook group is the kit's when its command is nothing but a call of a
+# script under the kit's own skill folder, by either name of the brain,
+# with plain arguments after it. A command that wraps such a call, or
+# calls a copy kept elsewhere, is the project's own.
+KIT_HOOK = re.compile(
+    r'^python3 (?:"\$CLAUDE_PROJECT_DIR"/|\$CLAUDE_PROJECT_DIR/)?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$'
+)
 IGNORE_FILE = ".gitignore"
 IGNORE_HEADING = "# The agent kit's own ignores."
 BOM = codecs.BOM_UTF8.decode("utf-8")
@@ -871,9 +878,11 @@ def merged_config(
 ) -> str:
     """The project's hook config with the kit's hooks in it, its own hooks kept.
 
-    The kit's earlier hooks go, told apart by the tool's own script in
-    their command, so a release that changes a command leaves no double.
-    Any other key the kit sets is added only where the project has none.
+    The kit's earlier groups go first, under every event they sit in,
+    so a release that renames a command or moves an event leaves no
+    double, and then the kit's current groups are added under theirs.
+    Any other key the kit sets is added only where the project has
+    none. The file keeps its indent and its own characters.
     """
     try:
         have = json.loads(existing)
@@ -888,13 +897,17 @@ def merged_config(
     if not isinstance(hooks, dict):
         raise UpgradeError(f"hooks in {where} is not a JSON object")
 
-    for event, groups in want.get("hooks", {}).items():
-        mine = hooks.get(event, [])
+    for event, mine in hooks.items():
         if not isinstance(mine, list):
             raise UpgradeError(f"hooks.{event} in {where} is not a JSON list")
 
-        kept = [group for group in mine if not is_kit_group(group)]
-        hooks[event] = kept + groups
+        hooks[event] = [group for group in mine if not is_kit_group(group)]
+
+    for event, groups in want.get("hooks", {}).items():
+        hooks[event] = hooks.get(event, []) + groups
+
+    for event in [event for event, groups in hooks.items() if not groups and event not in want.get("hooks", {})]:
+        del hooks[event]
 
     for key, value in want.items():
         if key == "hooks":
@@ -907,7 +920,16 @@ def merged_config(
 
         have.setdefault(key, value)
 
-    return json.dumps(have, indent=2) + "\n"
+    return json.dumps(have, indent=indent_of(existing), ensure_ascii=False) + "\n"
+
+
+def indent_of(
+    text: str,
+) -> str:
+    """The indent a JSON file uses, read off its first indented line, two spaces when it has none."""
+    match = re.search(r"^([ \t]+)\S", text, re.MULTILINE)
+
+    return match.group(1) if match else "  "
 
 
 def is_kit_group(
@@ -916,7 +938,7 @@ def is_kit_group(
     if not isinstance(group, dict):
         return False
 
-    return any(KIT_HOOK_MARK in str(hook.get("command", "")) for hook in group.get("hooks", []) if isinstance(hook, dict))
+    return any(KIT_HOOK.match(str(hook.get("command", ""))) for hook in group.get("hooks", []) if isinstance(hook, dict))
 
 
 def ignore(
