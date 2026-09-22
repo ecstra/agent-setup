@@ -545,7 +545,7 @@ def reviews_body(
 # The body writer for each kind that carries an INDEX.md. A kind marked
 # indexed in the schema needs an entry here, and a test holds the two
 # tables together.
-RENDERERS: dict[str, Callable[[list[store.Entry], str], str]] = {
+RENDERERS: dict[str, Callable[..., str]] = {
     "doc": docs_body,
     "memory": memory_body,
     "todo": todos_body,
