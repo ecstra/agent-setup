@@ -678,7 +678,8 @@ def guarded_paths(
     if store.quietly(old.is_dir):
         paths += files_under(root=project.root, folder=old, shipped_only=False)
 
-    if store.quietly(old.is_dir) or as_tuple(project.version()) == as_tuple(NO_VERSION):
+    migrating = project.state() != "none" and as_tuple(project.version()) == as_tuple(NO_VERSION)
+    if migrating:
         paths += [path.name for path in list_names(project.root) if path.suffix == ".md"]
         paths += [
             str(path.relative_to(project.root))
@@ -748,7 +749,7 @@ def refuse_when_dirty(
     dirty: list[str] = []
     for status, entry in changed_paths(result.stdout):
         path = wanted.get(folded(entry))
-        if path is not None and not (status == "??" and same_as_kit(kit=kit, project=project, relative=path)):
+        if path is not None and not (status in ("??", "!!") and same_as_kit(kit=kit, project=project, relative=path)):
             dirty.append(path)
 
     if dirty:
@@ -776,11 +777,12 @@ def same_as_kit(
     project: Project,
     relative: str,
 ) -> bool:
-    """Whether an untracked file already holds exactly what the run would write, so nothing is at stake.
+    """Whether a file git does not hold already has exactly what the run would write, so nothing is at stake.
 
     A port followed by an upgrade before a commit leaves every kit file
-    untracked and identical. Only a file that maps to one the kit
-    copies whole can be judged this way.
+    untracked and identical, and a project that ignores an agent folder
+    leaves the kit's files there ignored and identical. Only a file that
+    maps to one the kit copies whole can be judged this way.
     """
     source = kit_source(relative)
     if source is None:
