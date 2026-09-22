@@ -304,16 +304,7 @@ def folder_body(
     brain: store.Brain,
     kind: schema.Kind,
 ) -> str:
-    renderers = {
-        "doc": docs_body,
-        "memory": memory_body,
-        "todo": todos_body,
-        "bug": bugs_body,
-        "decision": decisions_body,
-        "review": reviews_body,
-    }
-
-    return renderers[kind.name](entries=brain.entries_of(kind), filed=filed_per(brain=brain, kind=kind))
+    return RENDERERS[kind.name](entries=brain.entries_of(kind), filed=filed_per(brain=brain, kind=kind))
 
 
 def line_for(
@@ -549,6 +540,19 @@ def reviews_body(
         lines.append("")
 
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+# The body writer for each kind that carries an INDEX.md. A kind marked
+# indexed in the schema needs an entry here, and a test holds the two
+# tables together.
+RENDERERS: dict[str, Callable[[list[store.Entry], str], str]] = {
+    "doc": docs_body,
+    "memory": memory_body,
+    "todo": todos_body,
+    "bug": bugs_body,
+    "decision": decisions_body,
+    "review": reviews_body,
+}
 
 
 def grouped(
