@@ -219,16 +219,16 @@ the proper edit tools, no scripts or heredocs, the header blocks and
 indexes inside .agents/ left to the brain tool, house style throughout.
 Then read the whole project: the code, every doc and note, our old
 AGENTS.md, CLAUDE.md, GEMINI.md or CONTRIBUTING.md if we have any, and
-every TODO list. Then read .agents/INDEX.md,
-everything in .agents/spec/, and the agent-brain skill so you know the
-target format and the tool that writes it. Show me a plan of what goes
-where before you move anything. Then file it all into .agents/ (docs,
-decisions, todos, bugs, memory, everything) one file at a time through
-brain new with the prose on standard input, never by hand, keeping my
-wording in todos. Do not paste any of our old rulebook files into
-section 0: read them against the new rulebook, drop what the general
-sections already cover, and rewrite only the truly project specific
-parts into "## 0. Project Rules" at the top of AGENTS.md, and our old
+every TODO list. Then read .agents/INDEX.md, everything in
+.agents/spec/, and the agent-brain skill so you know the target format
+and the tool that writes it. Show me a plan of what goes where before
+you move anything. Then file it all into .agents/ (docs, decisions,
+todos, bugs, memory, everything) one file at a time through brain new
+with the prose on standard input, never by hand, keeping my wording in
+todos. Do not paste any of our old rulebook files into section 0: read
+them against the new rulebook, drop what the general sections
+already cover, and rewrite only the truly project specific parts
+into "## 0. Project Rules" at the top of AGENTS.md, and our old
 CONTRIBUTING.md the same way, its extra rules into section 0. This may
 be hundreds or thousands of files. Do every one, never a sample. If the
 volume needs it, list everything in a ledger first and work in batches,
