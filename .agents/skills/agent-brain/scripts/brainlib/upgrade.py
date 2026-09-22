@@ -8,6 +8,7 @@ sits the migration table, one step per layout change the kit has made,
 keyed by the version stamp the project carries.
 """
 
+import fnmatch
 import json
 import os
 import re
@@ -912,25 +913,20 @@ def ignore(
     """The kit's ignore patterns present in the project's .gitignore, the missing ones added under one heading in the kit's order.
 
     Git reads the file top down and the last match wins, so the order
-    matters both ways. The kit's file is read in groups, the lines
-    between blank lines, and a group's exceptions, the lines starting
-    with `!`, go in below the group's patterns whenever one of those
-    patterns goes in, so `.env.*` never lands below `!.env.example`. A
-    line the project already has goes in only that way, never on its
-    own, since repeating it below a line the project wrote later, an
-    exception like `!.env.sample` or an ignore of `.env.example`, would
-    override that line.
+    matters both ways. A pattern the project already has is never
+    repeated, since repeating it below a line the project wrote later
+    would override that line. An exception, a line starting with `!`,
+    goes in only below a pattern going in that matches the path it
+    names, so `.env.*` never lands below `!.env.example`, and a project
+    that ignores `.env.example` on purpose is left to it.
     """
+    wanted = [line for line in kit.text(Path(IGNORE_FILE)).splitlines() if line.strip() and not line.startswith("#")]
     target = project.root / IGNORE_FILE
     existing = read_as_is(target) if store.readable_file(target) else ""
     present = {line.strip() for line in existing.splitlines()}
 
-    block: list[str] = []
-    for group in ignore_groups(kit.text(Path(IGNORE_FILE))):
-        missing = [line for line in group if line not in present]
-        patterns_missing = any(not line.startswith("!") for line in missing)
-        block += [line for line in group if line in missing or (patterns_missing and line.startswith("!"))]
-
+    patterns = [line for line in wanted if not line.startswith("!") and line not in present]
+    block = [line for line in wanted if line in patterns or (line.startswith("!") and excepts_one_of(exception=line, patterns=patterns))]
     if not block:
         return
 
@@ -938,23 +934,17 @@ def ignore(
     tail = ending.join([IGNORE_HEADING, *block]) + ending
     text = existing.rstrip("\r\n") + (ending * 2 if existing.strip() else "") + tail
     frontmatter.write_text(path=str(target), text=text)
-    report.done(f"added {len(block)} lines from the kit's ignores to {IGNORE_FILE}")
+    report.done(f"added to {IGNORE_FILE} from the kit's ignores: " + ", ".join(block))
 
 
-def ignore_groups(
-    text: str,
-) -> list[list[str]]:
-    """The kit's ignore file as groups of pattern lines, split where a blank line or a comment sits."""
-    groups: list[list[str]] = [[]]
-    for line in text.splitlines():
-        if not line.strip() or line.startswith("#"):
-            if groups[-1]:
-                groups.append([])
-            continue
+def excepts_one_of(
+    exception: str,
+    patterns: list[str],
+) -> bool:
+    """Whether the `!path` exception names something one of the patterns matches, read as shell patterns, which covers the kit's own lines."""
+    path = exception[1:].rstrip("/")
 
-        groups[-1].append(line)
-
-    return [group for group in groups if group]
+    return any(fnmatch.fnmatchcase(path, pattern.rstrip("/")) for pattern in patterns)
 
 
 def guarded_paths(
