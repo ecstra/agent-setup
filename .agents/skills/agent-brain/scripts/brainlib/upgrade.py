@@ -530,7 +530,7 @@ def candidates(
     found = [str(path) for path in files if len(path.parts) == 1 and path.name.lower() not in kept and not path.name.startswith(".")]
     counts: dict[str, int] = {}
     for path in files:
-        if len(path.parts) > 1 and not path.parts[0].startswith("."):
+        if len(path.parts) > 1 and not any(part.startswith(".") for part in path.parts):
             counts[path.parts[0]] = counts.get(path.parts[0], 0) + 1
 
     for folder, count in sorted(counts.items()):
@@ -913,8 +913,11 @@ def merged_config(
     The kit's earlier groups go first, under every event they sit in,
     so a release that renames a command or moves an event leaves no
     double, and then the kit's current groups are added under theirs.
-    Any other key the kit sets is added only where the project has
-    none. The file keeps its indent and its own characters.
+    An event left with no group stays as an empty list, which runs
+    nothing, so a list the project wrote empty on purpose is kept too.
+    An event whose value is not a list is left alone unless the kit
+    defines it. Any other key the kit sets is added only where the
+    project has none. The file keeps its indent and its own characters.
     """
     try:
         have = json.loads(existing)
@@ -940,9 +943,6 @@ def merged_config(
 
     for event, groups in want.get("hooks", {}).items():
         hooks[event] = hooks.get(event, []) + groups
-
-    for event in [event for event, groups in hooks.items() if isinstance(groups, list) and not groups and event not in want.get("hooks", {})]:
-        del hooks[event]
 
     for key, value in want.items():
         if key == "hooks":

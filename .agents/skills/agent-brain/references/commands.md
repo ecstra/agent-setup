@@ -119,7 +119,8 @@ every event, told apart by a command that is nothing but a call of the
 tool's own script, so a group of the project's own that calls the
 script bare counts as the kit's and goes with them, while a group that
 wraps that call, or calls a copy kept elsewhere, is the project's and
-stays. A rename goes through git where git tracks the file, so the
+stays, and an event left with no group stays as an empty list. A rename
+goes through git where git tracks the file, so the
 move shows as one, and a root file the kit replaces is named in the
 report along with where git keeps the old one.
 The exit code is doctor's: 0 clean, 2 while findings remain, and those
