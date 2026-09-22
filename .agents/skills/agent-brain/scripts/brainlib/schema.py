@@ -14,6 +14,7 @@ SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 # A bug's severities, worst first, the one order every reader uses.
 SEVERITIES: tuple[str, ...] = ("breaks", "bug", "debt", "nit")
+
 FILENAME_WITH_ID = re.compile(r"^(BUG|TODO|DEC)-(\d{3})-(.+)\.md$")
 
 # A review folder is <yyyy-mm>-<branch-slug>, per spec/reviews.md.
