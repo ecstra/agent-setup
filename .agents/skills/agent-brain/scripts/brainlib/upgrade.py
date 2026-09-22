@@ -422,15 +422,26 @@ def to_agents_folder(
         if rewrite_folder_name(path):
             changed += 1
 
-    for path in sorted(project.brain.rglob("*.md")):
-        if "skills" in path.relative_to(project.brain).parts:
-            continue
-
+    for path in brain_markdown(project.brain):
         if rewrite_folder_name(path):
             changed += 1
 
     if changed:
         report.done(f"pointed {changed} files at {FOLDER}/ instead of {OLD_FOLDER}/")
+
+
+def brain_markdown(
+    brain: Path,
+) -> list[Path]:
+    """The markdown the folder migration points at the new name: every file under the brain outside skills/.
+
+    The guard lists the same files, so the two never disagree about
+    what a migration writes into.
+    """
+    if not store.quietly(brain.is_dir):
+        return []
+
+    return sorted(path for path in brain.rglob("*.md") if path.is_file() and "skills" not in path.relative_to(brain).parts)
 
 
 MIGRATIONS: tuple[Migration, ...] = (
@@ -673,29 +684,25 @@ def guarded_paths(
     """Every project path a port or upgrade writes over or removes, relative to the project.
 
     The front doors and CONTRIBUTING.md are replaced whole, so are the
-    kit's files under .agents/ and the style files in the agent folders,
-    the skill folder is cleared and rewritten, and the migration
-    rewrites the root markdown and every file under the old folder.
-    The ignore file and the hook configs keep what they hold, so an edit
-    there is safe and not listed.
+    kit's files under the brain and the style files in the agent
+    folders, the skill folder is cleared and rewritten, and a migration
+    rewrites the root markdown and the brain's markdown outside skills/.
+    On the old layout the brain is still .agent/, and git names its
+    files by that spelling, so the list uses it too. The ignore file and
+    the hook configs keep what they hold, so an edit there is safe and
+    not listed.
     """
     paths = [*ROOT_FILES]
     paths += [str(relative) for relative in kit.agent_files() if relative.name not in MERGED]
-    paths += [str(Path(FOLDER) / relative) for relative in kit.brain_files()]
-    paths += files_under(root=project.root, folder=project.brain / "skills" / "agent-brain", taken=retire_takes)
 
-    old = project.root / OLD_FOLDER
-    if store.quietly(old.is_dir):
-        paths += files_under(root=project.root, folder=old, taken=migration_rewrites)
+    brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
+    paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
+    paths += files_under(root=project.root, folder=brain / "skills" / "agent-brain", taken=retire_takes)
 
     migrating = project.state() != "none" and bool(pending_migrations(have=project.version(), want=kit.version()))
     if migrating:
         paths += [path.name for path in list_names(project.root) if path.suffix == ".md"]
-        paths += [
-            str(path.relative_to(project.root))
-            for path in sorted(project.brain.rglob("*.md"))
-            if store.quietly(project.brain.is_dir) and "skills" not in path.relative_to(project.brain).parts
-        ]
+        paths += [str(path.relative_to(project.root)) for path in brain_markdown(brain)]
 
     return paths
 
@@ -721,13 +728,6 @@ def retire_takes(
 ) -> bool:
     """What retire removes under the skill folder: a shipped shape file or a symlink, never bytecode or a dotfile."""
     return ships(path) or path.is_symlink()
-
-
-def migration_rewrites(
-    path: Path,
-) -> bool:
-    """What the folder migration writes into: markdown under the old folder, dotfiles included, since the move itself loses nothing."""
-    return path.suffix == ".md" and path.is_file()
 
 
 def refuse_when_dirty(
