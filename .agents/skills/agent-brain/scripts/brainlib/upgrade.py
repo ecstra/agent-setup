@@ -672,11 +672,11 @@ def guarded_paths(
     paths = [*ROOT_FILES]
     paths += [str(relative) for relative in kit.agent_files() if relative.name not in MERGED]
     paths += [str(Path(FOLDER) / relative) for relative in kit.brain_files()]
-    paths += files_under(root=project.root, folder=project.brain / "skills" / "agent-brain", shipped_only=True)
+    paths += files_under(root=project.root, folder=project.brain / "skills" / "agent-brain", taken=retire_takes)
 
     old = project.root / OLD_FOLDER
     if store.quietly(old.is_dir):
-        paths += files_under(root=project.root, folder=old, shipped_only=False)
+        paths += files_under(root=project.root, folder=old, taken=migration_rewrites)
 
     migrating = project.state() != "none" and as_tuple(project.version()) == as_tuple(NO_VERSION)
     if migrating:
@@ -693,22 +693,31 @@ def guarded_paths(
 def files_under(
     root: Path,
     folder: Path,
-    shipped_only: bool,
+    taken: Callable[[Path], bool],
 ) -> list[str]:
-    """Every file below the folder, relative to the root, nothing when the folder is not there.
+    """Every file below the folder that the run would take, relative to the root, nothing when the folder is not there.
 
-    The skill folder is judged by what the kit ships, since retire takes
-    only that. The old folder is moved and rewritten whole, dotfiles
-    included, so every file in it counts.
+    The predicate is the same one the taking step uses, so the guard
+    and the writer never disagree about what is at stake.
     """
     if not store.quietly(folder.is_dir):
         return []
 
-    return [
-        str(path.relative_to(root))
-        for path in sorted(folder.rglob("*"))
-        if ships(path) or (not shipped_only and path.is_file())
-    ]
+    return [str(path.relative_to(root)) for path in sorted(folder.rglob("*")) if taken(path)]
+
+
+def retire_takes(
+    path: Path,
+) -> bool:
+    """What retire removes under the skill folder: a shipped shape file or a symlink, never bytecode or a dotfile."""
+    return ships(path) or path.is_symlink()
+
+
+def migration_rewrites(
+    path: Path,
+) -> bool:
+    """What the folder migration writes into: markdown under the old folder, dotfiles included, since the move itself loses nothing."""
+    return path.suffix == ".md" and path.is_file()
 
 
 def refuse_when_dirty(
@@ -973,7 +982,7 @@ def retire(
     retired: list[str] = []
     for path in sorted(folder.rglob("*"), reverse=True):
         relative = path.relative_to(project.root)
-        if (ships(path) or path.is_symlink()) and relative not in keep:
+        if retire_takes(path) and relative not in keep:
             path.unlink()
             retired.append(str(relative))
         elif path.is_dir() and not path.is_symlink() and not any(path.iterdir()):
