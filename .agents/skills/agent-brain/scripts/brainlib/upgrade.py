@@ -521,7 +521,7 @@ def candidates(
     kept = {name.lower() for name in (*ROOT_FILES, "README.md", "CODEOWNERS", "LICENSE.md", "CHANGELOG.md", "SECURITY.md")}
     listed = git(project=project, arguments=["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"])
     if listed is None or listed.returncode != 0:
-        found = [path.name for path in sorted(project.root.glob("*.md")) if path.name.lower() not in kept]
+        found = [path.name for path in sorted(project.root.glob("*.md")) if path.name.lower() not in kept and not path.name.startswith(".")]
         found += [f"{folder}/" for folder in ("docs", "doc", "notes", "adr", "decisions") if store.quietly((project.root / folder).is_dir)]
 
         return found
@@ -941,7 +941,7 @@ def merged_config(
     for event, groups in want.get("hooks", {}).items():
         hooks[event] = hooks.get(event, []) + groups
 
-    for event in [event for event, groups in hooks.items() if not groups and event not in want.get("hooks", {})]:
+    for event in [event for event, groups in hooks.items() if isinstance(groups, list) and not groups and event not in want.get("hooks", {})]:
         del hooks[event]
 
     for key, value in want.items():
@@ -1082,8 +1082,19 @@ def files_under(
 def retire_takes(
     path: Path,
 ) -> bool:
-    """What retire removes under the skill folder: a shipped shape file or a symlink, never bytecode or a dotfile."""
+    """What retire removes under the skill folder file by file: a shipped shape file or a symlink, never bytecode or a dotfile.
+
+    A folder of nothing but bytecode goes whole with retire's own rule,
+    since bytecode is never listed, guarded or worth keeping.
+    """
     return ships(path) or path.is_symlink()
+
+
+def holds_only_bytecode(
+    folder: Path,
+) -> bool:
+    """Whether the folder holds nothing but compiled bytecode, so removing it whole loses nothing anyone wrote."""
+    return all(child.suffix == ".pyc" for child in folder.rglob("*") if not child.is_dir())
 
 
 def refuse_when_dirty(
@@ -1368,7 +1379,9 @@ def retire(
     The kit's new files are written before this runs, so the tool is
     never half gone. The folder is the tool's own, so what the kit does
     not ship goes, named in the report, and the guard has already
-    refused if any of it held uncommitted work. A dotfile is left.
+    refused if any of it held uncommitted work. A dotfile is left. A
+    bytecode folder holding nothing else goes whole and unnamed, since
+    nobody wrote it and the guard never lists it.
     """
     if not store.quietly(folder.is_dir):
         return []
@@ -1379,7 +1392,7 @@ def retire(
         if retire_takes(path) and relative not in keep:
             path.unlink()
             retired.append(str(relative))
-        elif path.name == "__pycache__" and path.is_dir() and not path.is_symlink():
+        elif path.name == "__pycache__" and path.is_dir() and not path.is_symlink() and holds_only_bytecode(path):
             shutil.rmtree(path)
         elif path.is_dir() and not path.is_symlink() and not any(path.iterdir()):
             path.rmdir()
