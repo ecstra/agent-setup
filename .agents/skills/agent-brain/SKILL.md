@@ -48,7 +48,8 @@ brain links DEC-012
 ```
 
 `show --meta` prints the frontmatter only. `--json` on `status`, `list`
-and `links` gives the same answer for a script.
+and `links` gives the same answer for a script, less the clock and the
+standing word that `status` opens with.
 
 ## Filing something
 
@@ -114,11 +115,21 @@ brain ledger close 2026-09-feat-billing
 ```
 
 Findings and batches number themselves. A batch that holds findings
-runs only on the owner's ack, the word that starts it, and
-verification closes it, `report` says where the review stands and what
-comes next, the closing pass leaves a batch of its own, empty when it
-found nothing, and `close` refuses while any finding is still open or
-the report names a step before the close.
+runs only on the owner's ack, the word that starts it, given as a date
+or as `auto` while the owner's standing word holds, and verification
+closes it, `report` says where the review stands and what comes next,
+the closing pass leaves a batch of its own, empty when it found
+nothing, and `close` refuses while any finding is still open or the
+report names a step before the close. The standing word is `brain ack
+on` with an end, by time or by task, `brain ack off` takes it back,
+and `brain ack` says where it stands.
+
+```bash
+brain ack on --for 8h
+brain ack on --until-done 2026-09-feat-billing
+brain ledger batch 2026-09-feat-billing 1 --status fixing --ack auto
+brain ack off
+```
 
 ## Checking the brain
 
