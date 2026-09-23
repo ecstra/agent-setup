@@ -720,7 +720,7 @@ def check_layout(
             continue
 
         missing = trouble == skill_missing(name)
-        for_a_person = missing or trouble == REAL_FOLDER_WITHOUT_SKILL
+        for_a_person = missing or trouble in (REAL_FOLDER_WITHOUT_SKILL, ANOTHER_SKILL)
         found.append(
             Finding(
                 path=str((SKILL_HOMES if missing else SKILL_LINKS) / name),
@@ -737,6 +737,7 @@ def check_layout(
 
 CANNOT_SEE = ", so Claude Code cannot see the skill"
 REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs" + CANNOT_SEE
+ANOTHER_SKILL = "a skill of its own sits where the skill link belongs, so Claude Code loads that one instead"
 
 
 def skill_missing(
@@ -782,33 +783,58 @@ def skill_link_trouble(
     project: Path,
     name: str,
 ) -> Optional[str]:
-    """What is wrong with the named skill's link, or None when Claude Code can load the skill.
+    """What is wrong with the named skill's link, or None when Claude Code loads this skill through it.
 
-    What Claude Code needs is `.claude/skills/<name>/SKILL.md`, through
-    the link or as a real copy, and that is asked first. Then: a dead
-    link still counts as a symlink, a ZIP download or a checkout
-    without symlinks leaves a plain file in the link's place, a real
-    folder is fine only while it carries the skill, and a link can only
-    be made when the skill itself is in the brain to point at.
+    What Claude Code needs is `.claude/skills/<name>/SKILL.md`, and it
+    must be this skill: a link that resolves to the skill's own folder,
+    or a real copy of its SKILL.md, the way a ZIP download or a checkout
+    without symlinks leaves one. A link that lands elsewhere is dead or
+    points at another skill and is remade. A real folder carrying a
+    different SKILL.md is a skill of its own and is left for a person,
+    and so is a real folder with no SKILL.md at all. A link can only be
+    made when the skill itself is in the brain to point at, and a copy
+    with nothing left to point at is all there is, so it passes.
     """
     link = project / SKILL_LINKS / name
+    home = project / SKILL_HOMES / name
 
-    if store.readable_file(link / "SKILL.md"):
-        return None
-
-    if not store.readable_file(project / SKILL_HOMES / name / "SKILL.md"):
-        return skill_missing(name)
+    if not store.readable_file(home / "SKILL.md"):
+        return None if store.readable_file(link / "SKILL.md") else skill_missing(name)
 
     if store.quietly(link.is_symlink):
-        return "the skill link does not reach the skill" + CANNOT_SEE
+        return None if reaches(link=link, home=home) else "the skill link does not reach the skill" + CANNOT_SEE
 
     if store.quietly(link.is_dir):
-        return REAL_FOLDER_WITHOUT_SKILL
+        if not store.readable_file(link / "SKILL.md"):
+            return REAL_FOLDER_WITHOUT_SKILL
+
+        return None if same_bytes(one=link / "SKILL.md", other=home / "SKILL.md") else ANOTHER_SKILL
 
     if store.quietly(link.exists):
         return "something that is not a link sits where the skill link belongs" + CANNOT_SEE
 
     return "the skill link is missing" + CANNOT_SEE
+
+
+def reaches(
+    link: Path,
+    home: Path,
+) -> bool:
+    """Whether the link resolves to the skill's own folder."""
+    try:
+        return link.resolve() == home.resolve()
+    except OSError:
+        return False
+
+
+def same_bytes(
+    one: Path,
+    other: Path,
+) -> bool:
+    try:
+        return one.read_bytes() == other.read_bytes()
+    except OSError:
+        return False
 
 
 def check_style_copies(
