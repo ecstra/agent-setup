@@ -244,7 +244,13 @@ def refusal(
 
     path = touch.path
     inside = links.within(brain=brain, path=path)
-    if inside is None or path.suffix != ".md":
+    if inside is None:
+        return None
+
+    if inside == autoack.FILE:
+        return f"{inside} is the owner's standing word, set with brain ack on and never written by hand"
+
+    if path.suffix != ".md":
         return None
 
     if Path(inside).parts[0] == SKILLS:
