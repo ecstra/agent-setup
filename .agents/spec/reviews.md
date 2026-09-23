@@ -47,6 +47,6 @@ ledger by.
 
 When the last batch closes, and the closing pass with it where one was
 owed, the ledger flips to `status: closed` and the reviews INDEX
-regroups it, and only then does the branch merge, on the owner's word.
+regroups it, and only then does the branch merge, on the owner's ask.
 Nothing moves and nothing archives, since bug files and decisions link
 into ledgers by name, and git is the archive.

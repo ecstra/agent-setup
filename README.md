@@ -193,7 +193,7 @@ prompt below if the agent did not run the port itself.
 7. **Hand you the branch**: you say when it is ready for review, and
    the agent runs the review the way the house rules describe, findings
    in a ledger, fixed batch by batch with your ack on each. Then it
-   opens the PR and merges, both on your word. When the PR opens and
+   opens the PR and merges, both on your ask. When the PR opens and
    whether as a draft is your project's own rule in section 0, so the
    agent never asks. After that the root holds `README.md`, `AGENTS.md`,
    `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md`, and `CODEOWNERS`, plus
