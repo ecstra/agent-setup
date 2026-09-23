@@ -401,8 +401,8 @@ def clash_text(
     key: str,
     clash: store.Ambiguous,
 ) -> str:
-    """What to say when a key names several entries, the doctor's clash when they share that id, the store's own advice otherwise."""
-    if all(entry.identifier == key for entry in brain.by_key().get(key, [])):
+    """What to say when a key names several entries, the doctor's clash when it is the id, or a review's name, they all share, the store's own advice otherwise."""
+    if all((entry.identifier or entry.name) == key for entry in brain.by_key().get(key, [])):
         return f"{key} names more than one entry, so auto ack cannot end with it until the doctor clears the clash"
 
     return str(clash)
