@@ -411,9 +411,9 @@ def prepare(
     stamped = schema.as_tuple(project.version())
     for folder in (FOLDER, OLD_FOLDER):
         for skill in schema.KIT_SKILLS:
-            home = project.root / folder / "skills" / skill.name
+            home = skill_folder(brain=project.root / folder, name=skill.name)
             present = store.quietly(home.is_symlink) or store.quietly(home.exists)
-            kits_copy = doctor.same_bytes(one=home / "SKILL.md", other=kit.brain / "skills" / skill.name / "SKILL.md")
+            kits_copy = doctor.same_bytes(one=home / "SKILL.md", other=skill_folder(brain=kit.brain, name=skill.name) / "SKILL.md")
             if present and stamped < schema.as_tuple(skill.since) and not kits_copy:
                 raise UpgradeError(
                     f"the kit now ships a skill named {skill.name}, and {folder}/skills/{skill.name} is the project's own, "
@@ -659,7 +659,7 @@ def in_skill_folder(
     """Whether the path sits under one of the kit's own skill folders, by either name of the brain."""
     parts = path.relative_to(project.root).parts
 
-    return len(parts) > 1 and parts[0] in (OLD_FOLDER, FOLDER) and kits_skill(parts[1:])
+    return bool(parts) and parts[0] in (OLD_FOLDER, FOLDER) and kits_skill(parts[1:])
 
 
 def kits_skill(
@@ -669,11 +669,19 @@ def kits_skill(
     return len(parts) > 1 and parts[0] == "skills" and parts[1] in schema.KIT_SKILL_NAMES
 
 
+def skill_folder(
+    brain: Path,
+    name: str,
+) -> Path:
+    """Where a skill of that name lives under a brain, whether or not it is there yet."""
+    return brain / "skills" / name
+
+
 def kit_skill_folders(
     brain: Path,
 ) -> list[Path]:
     """The kit's own skill folders under a brain, whether or not they are there yet."""
-    return [brain / "skills" / name for name in schema.KIT_SKILL_NAMES]
+    return [skill_folder(brain=brain, name=name) for name in schema.KIT_SKILL_NAMES]
 
 
 def brain_markdown(
@@ -1145,7 +1153,7 @@ def files_under(
 def retire_takes(
     path: Path,
 ) -> bool:
-    """What retire removes under the skill folder file by file: a shipped shape file or a symlink, never bytecode or a dotfile.
+    """What retire removes under a kit skill folder file by file: a shipped shape file or a symlink, never bytecode or a dotfile.
 
     A folder of nothing but bytecode goes whole with retire's own rule,
     since bytecode is never listed, guarded or worth keeping.
