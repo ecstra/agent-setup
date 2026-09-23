@@ -63,16 +63,19 @@ onward, and nothing else before or after:
 Report every candidate you can name a scenario for. A candidate you
 half believe still goes on the list, since a verifier judges it next.
 When more than <cap> deserve a scenario, report the <cap> that matter
-most and end with the single line (more remain). Return the single line
+most and end with the single line (more remain). When this task ends
+with blocks under the heading Already found, those are reported
+already, so report only what is not among them. Return the single line
 (none) when the angle finds nothing. Do not edit anything, do not
 commit, do not run the test suite, and do not widen the scope beyond
 the range you were given.
 ```
 
 A finder or a hunter that ends with (more remain) is spawned again,
-fresh, with the same prompt and what it reported pasted under the
-heading "Already found", the way the sweep gets its list, until a run
-returns without that line.
+fresh, with the same prompt and every block reported so far by every
+run of it pasted under the heading "Already found", until a run
+returns without that line or the angle has run three times in the
+pass, after which the report says the angle was cut short.
 
 ## The verifier, in the finding pass
 
@@ -124,21 +127,26 @@ C-1 onward, and nothing else:
 - Claim: <the defect in one sentence>
 - Scenario: <the concrete input or state and the wrong result>
 When more than 8 deserve a scenario, report the 8 that matter most and
-end with the single line (more remain). Return the single line (none)
-when there is nothing. Do not edit anything, do not commit, do not run
-the test suite, and do not widen the scope beyond the range you were
-given.
+end with the single line (more remain). When this task ends with blocks
+under the heading Already found, those are reported already, so report
+only what is not among them. Return the single line (none) when there
+is nothing. Do not edit anything, do not commit, do not run the test
+suite, and do not widen the scope beyond the range you were given.
 ```
 
 ## The cap resume
 
 Sent to a finder, a sweep or a hunter that stopped at its turn cap
-with no report.
+with no report. A report that ends with (more remain) runs the agent
+again the way a capped list does, with the files it read named so the
+next run starts on the rest.
 
 ```text
 You hit the turn cap. Read nothing more. Report now, from what you have
 already read, every candidate you can name a scenario for, in the block
 shape the task gave, numbered C-1 onward, or the single line (none).
+When files of the scope went unread, name them on one line and end with
+the single line (more remain).
 ```
 
 ## The batch verifier

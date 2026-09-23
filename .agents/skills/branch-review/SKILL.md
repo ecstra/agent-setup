@@ -157,11 +157,13 @@ One batch at a time.
    The batch closes on the first pass where every finding has landed,
    every verifier says gone, the verifiers of the hunter's finds
    included, and every hunter that ran has returned with its finds
-   filed and handled. Then the report, with the batch shape.
+   filed and handled.
 
    ```bash
    brain ledger batch 2026-09-feat-billing 1 --status verified
    ```
+
+   Then the report, with the batch shape.
 
 6. The owner's ack closes the batch and opens the next.
 
