@@ -747,26 +747,20 @@ def check_layout(
         trouble = skill_link_trouble(
             project=project,
             name=name,
+            shared=shared,
         )
         if trouble is None:
             continue
 
         message = trouble.message
-        for_a_person = trouble.for_a_person
-        if shared and not for_a_person:
+        repair = trouble.repair
+        if shared and repair is not None:
             message += SHARED_FOLDER
-            for_a_person = True
-
-        repair = None
-        if not for_a_person:
-            repair = make_skill_link(
-                project=project,
-                name=name,
-            )
+            repair = None
 
         found.append(
             Finding(
-                path=str((SKILL_HOMES if trouble.missing else SKILL_LINKS) / name),
+                path=str(trouble.path),
                 check="layout",
                 message=message,
                 repair=repair,
@@ -789,6 +783,7 @@ def check_layout(
 CANNOT_SEE = ", so Claude Code cannot see the skill"
 REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs" + CANNOT_SEE
 ANOTHER_SKILL = "a skill of its own sits where the skill link belongs, so Claude Code loads that one instead"
+STALE_COPY = "a copy of the skill sits where the skill link belongs and is behind the brain's, so Claude Code loads the old text"
 SHARED_FOLDER = ", and the skills folder sits outside the project, so the link is yours to make"
 SHARED_REMOVAL = ", and the skills folder sits outside the project, so the link is yours to remove"
 SKILL_GONE = "the skill link points at a skill that is gone"
@@ -796,11 +791,11 @@ SKILL_GONE = "the skill link points at a skill that is gone"
 
 @dataclass(frozen=True)
 class Trouble:
-    """What is wrong with one skill link, and whether a repair may touch it."""
+    """What is wrong with one skill link: the message, the path the finding names, and the repair when doctor may make one."""
 
     message: str
-    missing: bool = False
-    for_a_person: bool = False
+    path: Path
+    repair: Optional[Callable[[], None]] = None
 
 
 def skills_folder_outside(
@@ -903,6 +898,7 @@ def remove_link(
 def skill_link_trouble(
     project: Path,
     name: str,
+    shared: bool,
 ) -> Optional[Trouble]:
     """What is wrong with the named skill's link, or None when Claude Code loads this skill through it.
 
@@ -910,14 +906,23 @@ def skill_link_trouble(
     must be this skill: a link that resolves to the skill's own folder,
     or a real copy of its SKILL.md, the way a ZIP download or a checkout
     without symlinks leaves one. A link that lands elsewhere is dead or
-    points at another skill and is remade. A real folder carrying a
-    different SKILL.md is a skill of its own and is left for a person,
-    and so is a real folder with no SKILL.md at all. A link can only be
-    made when the skill itself is in the brain to point at, and a copy
-    with nothing left to point at is all there is, so it passes.
+    points at another skill and is remade, except in a skills folder
+    shared outside the project, where a link to this skill in another
+    checkout is how the sharing works and passes. A real folder whose
+    SKILL.md names this skill but differs from the brain's is a copy
+    that fell behind and is refreshed, since the name is the kit's. One
+    naming another skill is a skill of its own and is left for a
+    person, and so is a real folder with no SKILL.md at all. A link can
+    only be made when the skill itself is in the brain to point at, and
+    a copy with nothing left to point at is all there is, so it passes.
     """
     link = project / SKILL_LINKS / name
     home = project / SKILL_HOMES / name
+    at_link = SKILL_LINKS / name
+    remake = make_skill_link(
+        project=project,
+        name=name,
+    )
 
     if not store.readable_file(home / "SKILL.md"):
         if store.readable_file(link / "SKILL.md"):
@@ -925,8 +930,7 @@ def skill_link_trouble(
 
         return Trouble(
             message=skill_missing(name),
-            missing=True,
-            for_a_person=True,
+            path=SKILL_HOMES / name,
         )
 
     if store.quietly(link.is_symlink):
@@ -937,13 +941,20 @@ def skill_link_trouble(
         if reached:
             return None
 
-        return Trouble(message="the skill link does not reach the skill" + CANNOT_SEE)
+        if shared and carries_skill(folder=link, name=name):
+            return None
+
+        return Trouble(
+            message="the skill link does not reach the skill" + CANNOT_SEE,
+            path=at_link,
+            repair=remake,
+        )
 
     if store.quietly(link.is_dir):
         if not store.readable_file(link / "SKILL.md"):
             return Trouble(
                 message=REAL_FOLDER_WITHOUT_SKILL,
-                for_a_person=True,
+                path=at_link,
             )
 
         copied = store.same_bytes(
@@ -953,15 +964,58 @@ def skill_link_trouble(
         if copied:
             return None
 
+        if carries_skill(folder=link, name=name):
+            return Trouble(
+                message=STALE_COPY,
+                path=at_link,
+                repair=refresh_skill_copy(
+                    home=home,
+                    copy=link,
+                ),
+            )
+
         return Trouble(
             message=ANOTHER_SKILL,
-            for_a_person=True,
+            path=at_link,
         )
 
     if store.quietly(link.exists):
-        return Trouble(message="something that is not a link sits where the skill link belongs" + CANNOT_SEE)
+        return Trouble(
+            message="something that is not a link sits where the skill link belongs" + CANNOT_SEE,
+            path=at_link,
+            repair=remake,
+        )
 
-    return Trouble(message="the skill link is missing" + CANNOT_SEE)
+    return Trouble(
+        message="the skill link is missing" + CANNOT_SEE,
+        path=at_link,
+        repair=remake,
+    )
+
+
+def carries_skill(
+    folder: Path,
+    name: str,
+) -> bool:
+    """Whether the folder's SKILL.md is a skill of this name, by the name its frontmatter gives."""
+    try:
+        document = frontmatter.read(str(folder / "SKILL.md"))
+    except frontmatter.FrontmatterError:
+        return False
+
+    return document.get("name") == name
+
+
+def refresh_skill_copy(
+    home: Path,
+    copy: Path,
+) -> Callable[[], None]:
+    """A repair that brings a real folder copy of a skill up to the brain's, for a checkout where a link is not an option."""
+
+    def repair() -> None:
+        shutil.copytree(home, copy, dirs_exist_ok=True)
+
+    return repair
 
 
 def reaches(
