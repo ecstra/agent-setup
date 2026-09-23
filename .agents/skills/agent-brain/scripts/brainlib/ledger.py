@@ -201,7 +201,10 @@ def add_finding(
         "- fix:\n"
     )
 
-    body = entry.document.body
+    body = reopened(
+        body=entry.document.body,
+        number=batch_cell,
+    )
     section_start = section_span(body=body, title="Findings")[0]
     section_end = sections.heading_after(body=body, start=section_start, depth=2)
     entry.document.body = body[:section_end].rstrip("\n") + "\n" + block + ("\n" if section_end < len(body) else "") + body[section_end:]
@@ -245,8 +248,43 @@ def set_finding(
     if new_status and new_status not in NEEDS_REASON:
         block = without_bullet(block=block, field="reason")
 
-    entry.document.body = body[:start] + block + body[end:]
+    body = body[:start] + block + body[end:]
+    if is_open(after):
+        body = reopened(
+            body=body,
+            number=after.get("batch", ""),
+        )
+
+    entry.document.body = body
     save(brain=brain, entry=entry)
+
+
+def reopened(
+    body: str,
+    number: str,
+) -> str:
+    """The body with the batch put back to fixing, its ack cleared, when an open finding lands in it after it was verified or done.
+
+    A late finding, a hunter's or a reopened one, needs its fix verified
+    and acked like the rest, so the batch goes through those states
+    again rather than carrying an ack that never covered it.
+    """
+    if not number:
+        return body
+
+    for match in batch_rows(body):
+        if int(match.group(1)) != int(number) or match.group(3) not in ("verified", "done"):
+            continue
+
+        row = batch_row(
+            number=int(number),
+            theme=match.group(2),
+            status="fixing",
+            ack="",
+        )
+        return body[: match.start()] + row + body[match.end() :]
+
+    return body
 
 
 def with_bullet(
