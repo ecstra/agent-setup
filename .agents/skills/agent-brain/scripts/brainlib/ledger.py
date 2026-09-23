@@ -509,11 +509,16 @@ def findings(
     entry: store.Entry,
 ) -> list[dict]:
     body = entry.document.body
+    spans = sections.code_spans(body)
     found: list[dict] = []
 
-    for match in finding_headings(body):
-        start, end = finding_span(body=body, identifier=match.group(1)) or (match.start(), match.end())
-        block = body[start:end]
+    for match in finding_headings(body=body, spans=spans):
+        end = sections.heading_after(
+            body=body,
+            start=match.end(),
+            spans=spans,
+        )
+        block = body[match.start() : end]
         record = {"id": match.group(1), "claim": match.group(2)}
         record.update(bullets(block))
         found.append(record)
@@ -541,9 +546,11 @@ def bullets(
 
 def finding_headings(
     body: str,
+    spans: Optional[list[tuple[int, int]]] = None,
 ) -> list[re.Match]:
-    """Every finding heading outside code, in order."""
-    spans = sections.code_spans(body)
+    """Every finding heading outside code, in order, the code spans passed in when the caller already has them."""
+    if spans is None:
+        spans = sections.code_spans(body)
 
     return [match for match in FINDING.finditer(body) if not sections.in_code(spans=spans, position=match.start())]
 

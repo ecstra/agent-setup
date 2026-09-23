@@ -66,13 +66,18 @@ def heading_after(
     body: str,
     start: int,
     depth: int = 6,
+    spans: Optional[list[tuple[int, int]]] = None,
 ) -> int:
     """The offset of the next heading outside code at or after `start`, else the body's end.
 
     `depth` is the deepest heading level that counts, so 2 finds the
-    next `#` or `##` line and steps over the `###` lines under it.
+    next `#` or `##` line and steps over the `###` lines under it. A
+    caller that walks many headings of one body passes the code spans
+    it already has, so the body is scanned for code once.
     """
-    spans = code_spans(body)
+    if spans is None:
+        spans = code_spans(body)
+
     heading = re.compile(rf"^#{{1,{depth}}}[ \t]", re.MULTILINE)
 
     for match in heading.finditer(string=body, pos=start):
