@@ -37,20 +37,23 @@ AGENT_FOLDERS = store.NEAR_ROOTS[1:]
 MERGED = ("settings.json", "hooks.json")
 NOT_SHIPPED = ("settings.local.json",)
 
-# A hook group is the kit's when its command is nothing but a call of a
-# script under the kit's own skill folder, by either name of the brain,
-# anchored at the project root the way each agent allows or not at all,
-# with plain arguments after it. Codex gives no root, so its anchor is
-# a walk up from the session's folder to the first one that holds the
-# script. A command that wraps such a call, or calls a copy kept
+# A hook group is the kit's when its command is one of two shapes with
+# plain arguments after it: a call of a script under the kit's own skill
+# folder, by either name of the brain, anchored at the project root the
+# way each agent allows or not at all, which is what the kit shipped
+# before the launcher, or python3 -c with any one line text that names
+# the kit's hook script, which is the launcher in every version of its
+# text. A command that wraps such a call, or calls a copy kept
 # elsewhere, is the project's own.
-# the one line every shipped hook command runs: it finds the hook script
-# from the project folder the agent names, or by walking up from the
-# session's own folder where none is named, hands it the event, and does
-# nothing where there is no script, so a checkout without the kit never
-# blocks a prompt or a write. Run through -c, Python puts the session's
-# folder first on the import path, where a file named like a standard
-# module would shadow it, so that entry goes before anything is imported
+#
+# The launcher is the one line every shipped hook command runs. It finds
+# the hook script from the project folder the agent names, or by walking
+# up from the session's own folder where none is named, hands it the
+# event, and does nothing where there is no script, so a checkout
+# without the kit never blocks a prompt or a write. Run through -c,
+# Python puts the session's folder first on the import path, where a
+# file named like a standard module would shadow it, so that entry goes
+# before anything is imported.
 LAUNCHER = (
     "import sys;"
     "'' in sys.path and sys.path.remove('');"
@@ -63,8 +66,7 @@ LAUNCHER = (
     "sys.argv[0]=str(p);"
     "runpy.run_path(str(p),run_name='__main__')"
 )
-# the shapes of the kit's commands before the launcher, still the kit's to
-# a project that wrote them under an earlier release
+# the anchors of the kit's commands before the launcher
 ROOT_ANCHORS = (
     r'"\$CLAUDE_PROJECT_DIR"/',
     r"\$CLAUDE_PROJECT_DIR/",
