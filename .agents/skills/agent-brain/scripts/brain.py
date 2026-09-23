@@ -333,12 +333,13 @@ def run_doctor(
 def add_ledger(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("ledger", help="review ledgers: open, batch, add, set, close")
+    command = commands.add_parser("ledger", help="review ledgers: open, batch, add, set, report, close")
     actions = command.add_subparsers(dest="action")
 
     opening = actions.add_parser("open", help="start the ledger for a branch")
     opening.add_argument("branch")
-    opening.add_argument("--summary", required=True)
+    opening.add_argument("--summary", required=True, help="one line, or - to read it from standard input")
+    opening.add_argument("--level", default=ledger.DEFAULT_LEVEL, choices=ledger.LEVELS, help="how wide the finding pass goes")
     opening.set_defaults(handler=run_ledger_open)
 
     batch = actions.add_parser("batch", help="add a batch, or set one's status, ack or theme")
@@ -351,7 +352,7 @@ def add_ledger(
 
     adding = actions.add_parser("add", help="record a finding")
     adding.add_argument("key")
-    adding.add_argument("claim")
+    adding.add_argument("claim", help="one line, or - to read one claim per line from standard input")
     adding.add_argument("--severity", required=True, choices=schema.SEVERITIES)
     adding.add_argument("--found-by", default="review", choices=ledger.FOUND_BY)
     adding.add_argument("--batch", type=int, default=0)
@@ -363,6 +364,10 @@ def add_ledger(
     setting.add_argument("changes", nargs="+", metavar="field=value")
     setting.set_defaults(handler=run_ledger_set)
 
+    reporting = actions.add_parser("report", help="the ledger's state in a few lines, and what comes next")
+    reporting.add_argument("key")
+    reporting.set_defaults(handler=run_ledger_report)
+
     closing = actions.add_parser("close", help="close the ledger once every finding landed")
     closing.add_argument("key")
     closing.set_defaults(handler=run_ledger_close)
@@ -372,7 +377,17 @@ def run_ledger_open(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    entry = ledger.open_ledger(brain=brain, branch=args.branch, summary=args.summary)
+    summary = (stdin_text() if args.summary == "-" else args.summary).strip()
+    if not summary:
+        print("the summary is empty", file=sys.stderr)
+        return REFUSED
+
+    entry = ledger.open_ledger(
+        brain=brain,
+        branch=args.branch,
+        summary=summary,
+        level=args.level,
+    )
     index.write(brain)
     print(entry.relative)
     return 0
@@ -409,16 +424,24 @@ def run_ledger_add(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    print(
-        ledger.add_finding(
-            brain=brain,
-            key=args.key,
-            claim=args.claim,
-            severity=args.severity,
-            found_by=args.found_by,
-            batch=args.batch,
-        )
+    """File one claim from the command line, or one per line of standard input, so the shell never touches the words."""
+    claims = [args.claim]
+    if args.claim == "-":
+        claims = [line.strip() for line in stdin_text().split("\n") if line.strip()]
+        if not claims:
+            print("no claims on standard input, one per line", file=sys.stderr)
+            return REFUSED
+
+    filed = ledger.add_findings(
+        brain=brain,
+        key=args.key,
+        claims=claims,
+        severity=args.severity,
+        found_by=args.found_by,
+        batch=args.batch,
     )
+    print("\n".join(filed))
+
     return 0
 
 
@@ -432,6 +455,18 @@ def run_ledger_set(
         identifier=args.finding,
         changes=pairs(args.changes),
     )
+    return 0
+
+
+def run_ledger_report(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    state = ledger.report(
+        brain=brain,
+        key=args.key,
+    )
+    print(state)
     return 0
 
 
@@ -469,12 +504,21 @@ def stdin_text() -> str:
     """The prose on standard input, or nothing when there is no input at all.
 
     A closed standard input leaves `sys.stdin` as None, and a terminal
-    means nobody piped anything, so both read as an empty body.
+    means nobody piped anything, so both read as an empty body. The
+    bytes are read as UTF-8 whatever the locale says, and a byte that
+    is not UTF-8 is a refusal rather than a traceback. Line breaks come
+    out as one newline whatever the pipe wrote, the way the text layer
+    reads a pipe on Windows, since the bytes are read under it.
     """
     if sys.stdin is None or sys.stdin.isatty():
         return ""
 
-    return sys.stdin.read()
+    try:
+        text = sys.stdin.buffer.read().decode("utf-8")
+    except UnicodeDecodeError as bad:
+        raise writes.WriteError(f"standard input is not UTF-8 at byte {bad.start}") from bad
+
+    return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def missing(

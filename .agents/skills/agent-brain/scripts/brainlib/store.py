@@ -338,6 +338,91 @@ def readable_file(
     return quietly(path.is_file)
 
 
+def same_bytes(
+    one: Path,
+    other: Path,
+) -> bool:
+    """Whether the two files hold exactly the same bytes, false when either cannot be read.
+
+    The one answer to "is this file the kit's copy", asked by doctor of
+    a skill folder and by the upgrade of a file it would replace.
+    """
+    try:
+        return one.read_bytes() == other.read_bytes()
+    except OSError:
+        return False
+
+
+def stamp_text(
+    path: Path,
+) -> str:
+    """A version stamp's text, trimmed, a byte order mark dropped, the one reading every user of a stamp goes through.
+
+    Raises OSError when the file cannot be read and UnicodeDecodeError
+    when it is not UTF-8, for each caller to turn into its own answer.
+    """
+    return path.read_text(encoding="utf-8-sig").strip()
+
+
+def stamp_of(
+    brain: Path,
+) -> Optional[tuple[int, ...]]:
+    """The kit release the brain is stamped with, as numbers, or None when the stamp is missing or not a version."""
+    stamp = brain / schema.VERSION_FILE
+    if not readable_file(stamp):
+        return None
+
+    try:
+        return schema.as_tuple(stamp_text(stamp))
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+
+
+def kit_skills_shipped(
+    brain: Path,
+) -> list[str]:
+    """The kit skills a brain should carry by its stamp, those the stamped release shipped, with no stamp to read taken as the oldest release."""
+    stamped = stamp_of(brain) or schema.as_tuple(schema.NO_VERSION)
+
+    return [skill.name for skill in schema.KIT_SKILLS if schema.ships(skill=skill, stamp=stamped)]
+
+
+def skill_folders(
+    brain: Path,
+) -> list[str]:
+    """The folders under skills/ that carry a SKILL.md and a slug for a name, in name order.
+
+    Claude Code loads a skill only under a slug, lowercase words joined
+    by hyphens, so a folder named otherwise, a dotted scratch folder
+    included, is nobody's skill and never gets a link or a spine line.
+    Raises OSError when the folder is there but cannot be listed, so a
+    caller that checks the skills can say so rather than see none.
+    """
+    folder = brain / schema.SKILLS
+    if not quietly(folder.is_dir):
+        return []
+
+    return sorted(
+        path.name
+        for path in folder.iterdir()
+        if schema.is_slug(path.name) and readable_file(path / schema.SKILL_FILE)
+    )
+
+
+def project_skills(
+    brain: Path,
+    shipped: list[str],
+) -> list[str]:
+    """The skill folders the project keeps beside the kit's shipped ones, in name order.
+
+    The one split of skills/ into the kit's and the project's, read by
+    doctor for the links and by the spine for its lines, so the two
+    never disagree. Raises OSError when the folder cannot be listed,
+    the way `skill_folders` does.
+    """
+    return [name for name in skill_folders(brain) if name not in shipped]
+
+
 def category_folder(
     category: str,
 ) -> Path:

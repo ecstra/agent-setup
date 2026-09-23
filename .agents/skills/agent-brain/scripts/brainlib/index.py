@@ -9,7 +9,7 @@ still says what the tool would write is left alone, which is how its
 
 from datetime import date
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from . import frontmatter, schema, store
 
@@ -20,8 +20,6 @@ SPINE_INTRO = (
 )
 
 SYSTEM_HOOK = "the rulebook every agent works by, reached through AGENTS.md"
-SKILL_PATH = "skills/agent-brain/SKILL.md"
-SKILL_HOOK = "the brain tool, the one way anything here is filed, changed or checked"
 VERSION_HOOK = "the kit release this brain is on"
 
 # The ways a bug stops being open, in the order the index lists them.
@@ -34,16 +32,23 @@ SPINE_LINKS = ("README.md", "spec/conventions.md", "house-rules.md")
 def build(
     brain: store.Brain,
 ) -> dict[Path, str]:
-    """Every index path with the text it should hold right now."""
-    wanted: dict[Path, str] = {
-        brain.root / "INDEX.md": render_index(
+    """Every index path with the text it should hold right now.
+
+    The spine is left out while the skills folder cannot be listed,
+    since it cannot be built true then. Doctor names that, and a write
+    leaves the file as it is rather than fail a command that has
+    already filed its change.
+    """
+    wanted: dict[Path, str] = {}
+    spine = spine_text(brain)
+    if spine is not None:
+        wanted[brain.root / "INDEX.md"] = render_index(
             brain=brain,
-            body=spine_body(brain),
+            body=spine,
             name="agent-index",
             description=SPINE_DESCRIPTION,
             links=list(SPINE_LINKS),
-        ),
-    }
+        )
 
     for kind in schema.KINDS.values():
         if not kind.indexed:
@@ -66,6 +71,16 @@ def stale(
 ) -> list[Path]:
     """The indexes on disk that no longer match what build() would write."""
     return stale_among(build(brain))
+
+
+def spine_text(
+    brain: store.Brain,
+) -> Optional[str]:
+    """The spine's body, or None while the skills folder cannot be listed and no true spine can be built."""
+    try:
+        return spine_body(brain)
+    except OSError:
+        return None
 
 
 def stale_among(
@@ -174,7 +189,23 @@ def spine_body(
     for relative in kit_listing(brain):
         lines.append(f"- [{relative}]({relative}), {hook_of(brain.root / relative)}")
 
-    for relative, hook in ((SKILL_PATH, SKILL_HOOK), (schema.VERSION_FILE, VERSION_HOOK)):
+    shipped = store.kit_skills_shipped(brain.root)
+    skills = [(f"{schema.SKILLS}/{skill.name}/{schema.SKILL_FILE}", skill.hook) for skill in schema.KIT_SKILLS if skill.name in shipped]
+    skills += [
+        (
+            f"{schema.SKILLS}/{name}/{schema.SKILL_FILE}",
+            hook_of(
+                path=brain.root / schema.SKILLS / name / schema.SKILL_FILE,
+                fallback=f"the project's own {name} skill",
+            ),
+        )
+        for name in store.project_skills(
+            brain=brain.root,
+            shipped=shipped,
+        )
+    ]
+
+    for relative, hook in (*skills, (schema.VERSION_FILE, VERSION_HOOK)):
         if store.readable_file(brain.root / relative):
             lines.append(f"- [{relative}]({relative}), {hook}")
 
@@ -210,11 +241,15 @@ def kit_listing(
 
 def hook_of(
     path: Path,
+    fallback: str = "",
 ) -> str:
+    """The description a file's header carries, else the fallback, else the file's name."""
     try:
-        return frontmatter.read(str(path)).get("description") or path.name
+        description = frontmatter.read(str(path)).get("description")
     except frontmatter.FrontmatterError:
-        return path.name
+        description = None
+
+    return description or fallback or path.name
 
 
 def spine_line(

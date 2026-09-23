@@ -17,7 +17,7 @@ from typing import Callable, Optional
 
 from . import frontmatter, index, links, schema, sections, store, style, writes
 
-SKIP_DIRS: frozenset[str] = frozenset({"skills", ".worktrees"})
+SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, ".worktrees"})
 
 # A header block the parser refuses, taken off by its fences alone so
 # the prose under it is still read.
@@ -33,8 +33,8 @@ SECRET_SHAPES = (
     re.compile(r"(?i)\b(password|passwd|secret|token)\s*[:=]\s*\S{6,}"),
 )
 
-SKILL_LINK = Path(".claude") / "skills" / "agent-brain"
-SKILL_HOME = Path(".agents") / "skills" / "agent-brain"
+SKILL_LINKS = Path(".claude") / schema.SKILLS
+SKILL_HOMES = Path(".agents") / schema.SKILLS
 
 # How many repair passes one --fix may take. Two is the longest chain
 # the checks can form, a name put right and then its index rebuilt.
@@ -190,7 +190,7 @@ def all_markdown(
         if store.hidden(relative_path):
             continue
 
-        if parts[0] in SKIP_DIRS and not (with_skills and parts[0] == "skills"):
+        if parts[0] in SKIP_DIRS and not (with_skills and parts[0] == schema.SKILLS):
             continue
 
         if path.name in schema.NO_FRONTMATTER and len(parts) == 1:
@@ -610,10 +610,15 @@ def set_links(
 def check_indexes(
     brain: store.Brain,
 ) -> list[Finding]:
-    """One build of the brain serves the check and every repair it hands out."""
-    wanted = index.build(brain)
+    """One build of the brain serves the check and every repair it hands out.
 
-    return [
+    A brain whose skills folder cannot be listed has no spine the tool
+    can build, so the build leaves it out and the spine is reported as
+    unbuildable and left as it is rather than rewritten without the
+    project's skills.
+    """
+    wanted = index.build(brain)
+    found = [
         Finding(
             path=relative(brain=brain, path=path),
             check="index",
@@ -622,6 +627,10 @@ def check_indexes(
         )
         for path in index.stale_among(wanted)
     ]
+    if brain.root / schema.INDEX not in wanted:
+        found.append(Finding(path=schema.INDEX, check="index", message="cannot be rebuilt while the skills folder cannot be listed"))
+
+    return found
 
 
 def write_index(
@@ -713,17 +722,61 @@ def check_layout(
 
     if not store.readable_file(brain.root / schema.VERSION_FILE):
         found.append(Finding(path=schema.VERSION_FILE, check="layout", message="no kit version stamp, run the upgrade"))
+    elif store.stamp_of(brain.root) is None:
+        found.append(Finding(path=schema.VERSION_FILE, check="layout", message="the kit version stamp is not a version like 1.0.0, write the kit's release in it"))
 
-    trouble = skill_link_trouble(project)
-    if trouble is not None:
+    shared = skills_folder_outside(project)
+    shipped = store.kit_skills_shipped(brain.root)
+    wanted = list(shipped)
+    listed = True
+    try:
+        wanted += store.project_skills(
+            brain=brain.root,
+            shipped=shipped,
+        )
+    except OSError as error:
+        reason = error.strerror or str(error)
         found.append(
             Finding(
-                path=str(SKILL_HOME if trouble == SKILL_ITSELF_MISSING else SKILL_LINK),
+                path=schema.SKILLS,
                 check="layout",
-                message=trouble,
-                repair=None if trouble in LINK_TROUBLE_FOR_A_PERSON else make_skill_link(project),
+                message=f"the skills folder cannot be listed, so only the kit's skill links were checked: {reason}",
             )
         )
+        listed = False
+
+    for name in wanted:
+        trouble = skill_link_trouble(
+            project=project,
+            name=name,
+            shared=shared,
+            kits=name in shipped,
+        )
+        if trouble is None:
+            continue
+
+        message = trouble.message
+        repair = trouble.repair
+        if shared and repair is not None:
+            message += SHARED_FOLDER
+            repair = None
+
+        found.append(
+            Finding(
+                path=str(trouble.path),
+                check="layout",
+                message=message,
+                repair=repair,
+            )
+        )
+
+    if listed:
+        strays = stray_skill_links(
+            project=project,
+            wanted=wanted,
+            shared=shared,
+        )
+        found.extend(strays)
 
     found.extend(check_style_copies(brain))
 
@@ -732,40 +785,272 @@ def check_layout(
 
 CANNOT_SEE = ", so Claude Code cannot see the skill"
 REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs" + CANNOT_SEE
-SKILL_ITSELF_MISSING = "the skill itself is missing from .agents/skills/agent-brain, reinstall the kit"
-LINK_TROUBLE_FOR_A_PERSON = (REAL_FOLDER_WITHOUT_SKILL, SKILL_ITSELF_MISSING)
+ANOTHER_SKILL = "a skill of its own sits where the skill link belongs, so Claude Code loads that one instead"
+STALE_COPY = "a copy of the skill sits where the skill link belongs and is behind the brain's, so Claude Code loads the old text"
+SHARED_FOLDER = ", and the skills folder sits outside the project, so the link is yours to make"
+SHARED_REMOVAL = ", and the skills folder sits outside the project, so the link is yours to remove"
+SKILL_GONE = "the skill link points at a skill that is gone"
+
+
+@dataclass(frozen=True)
+class Trouble:
+    """What is wrong with one skill link: the message, the path the finding names, and the repair when doctor may make one."""
+
+    message: str
+    path: Path
+    repair: Optional[Callable[[], None]] = None
+
+
+def skills_folder_outside(
+    project: Path,
+) -> bool:
+    """Whether `.claude/skills` resolves to a folder outside the project.
+
+    Such a folder is shared with other checkouts on the machine, and a
+    link made here would point every one of them at this project's
+    skills, so doctor names the trouble and leaves the link to a person.
+    """
+    folder = resolved(project / SKILL_LINKS)
+    root = resolved(project)
+
+    return folder is not None and root is not None and not folder.is_relative_to(root)
+
+
+def resolved(
+    path: Path,
+) -> Optional[Path]:
+    """The path resolved, or None when it reaches nothing.
+
+    A link that loops raises RuntimeError up to 3.12 and resolves to
+    itself from 3.13 on, a folder the process cannot search raises
+    OSError, and a name the system refuses raises ValueError. Each is
+    a path that reaches nothing, answered here once for every check
+    that resolves one.
+    """
+    try:
+        return path.resolve()
+    except (OSError, RuntimeError, ValueError):
+        return None
+
+
+def skill_missing(
+    name: str,
+) -> str:
+    return f"the skill itself is missing from {SKILL_HOMES / name}, reinstall the kit"
+
+
+def stray_skill_links(
+    project: Path,
+    wanted: list[str],
+    shared: bool,
+) -> list[Finding]:
+    """A link under .claude/skills that doctor once made for a project skill now gone from the brain, with its removal as the repair.
+
+    Only a link that points into the brain's skills folder and dangles,
+    leading to nothing at all, is doctor's to remove. One that leads to
+    a folder or a file still there is somebody's and is left alone,
+    whatever it holds, and so is one the process cannot reach, and so
+    is a link the project made elsewhere, and so is everything when
+    .claude/skills is itself a link into the brain, since its entries
+    are then the brain's own. In a skills folder shared outside the
+    project the trouble is named and the removal is left to a person.
+    The caller skips this pass when the skills folder could not be
+    listed.
+    """
+    links = project / SKILL_LINKS
+    found: list[Finding] = []
+
+    homes = resolved(project / SKILL_HOMES)
+    folder = resolved(links)
+    if homes is None or folder is None or folder.is_relative_to(homes):
+        return found
+
+    try:
+        entries = sorted(links.iterdir())
+    except OSError:
+        return found
+
+    for link in entries:
+        if link.name in wanted or not store.quietly(link.is_symlink) or not skill_gone(link):
+            continue
+
+        target = resolved(link)
+        if target is None or not target.is_relative_to(homes):
+            continue
+
+        found.append(
+            Finding(
+                path=str(SKILL_LINKS / link.name),
+                check="layout",
+                message=SKILL_GONE + (SHARED_REMOVAL if shared else ""),
+                repair=None if shared else remove_link(link),
+            )
+        )
+
+    return found
+
+
+def skill_gone(
+    link: Path,
+) -> bool:
+    """Whether the link dangles, leading to nothing at all, as against to something the process cannot reach."""
+    try:
+        link.stat()
+    except (FileNotFoundError, NotADirectoryError):
+        return True
+    except (OSError, RuntimeError, ValueError):
+        return False
+
+    return False
+
+
+def remove_link(
+    link: Path,
+) -> Callable[[], None]:
+    def repair() -> None:
+        link.unlink()
+
+    return repair
 
 
 def skill_link_trouble(
     project: Path,
-) -> Optional[str]:
-    """What is wrong with the skill link, or None when Claude Code can load the skill.
+    name: str,
+    shared: bool,
+    kits: bool,
+) -> Optional[Trouble]:
+    """What is wrong with the named skill's link, or None when Claude Code loads this skill through it.
 
-    What Claude Code needs is `.claude/skills/agent-brain/SKILL.md`,
-    through the link or as a real copy, and that is asked first. Then:
-    a dead link still counts as a symlink, a ZIP download or a checkout
-    without symlinks leaves a plain file in the link's place, a real
-    folder is fine only while it carries the skill, and a link can only
-    be made when the skill itself is in the brain to point at.
+    What Claude Code needs is `.claude/skills/<name>/SKILL.md`, and it
+    must be this skill: a link that resolves to the skill's own folder,
+    or a real copy of its SKILL.md, the way a ZIP download or a checkout
+    without symlinks leaves one. A link that lands elsewhere is dead or
+    points at another skill and is remade, except in a skills folder
+    shared outside the project, where a link or a real copy of this
+    skill from another checkout is how the sharing works and passes. A
+    real folder whose SKILL.md names a skill the stamp says the kit
+    shipped, `kits`, but differs from the brain's is a copy that fell
+    behind and is refreshed, since the folder is the kit's. Under a
+    project skill's name, a kit name the stamp predates included, the
+    same folder holds a person's own text, and it is left for them like
+    a folder naming another skill, and like a real folder with no
+    SKILL.md at all. A link can only be made when the skill itself is
+    in the brain to point at, and a copy with nothing left to point at
+    is all there is, so it passes.
     """
-    link = project / SKILL_LINK
+    link = project / SKILL_LINKS / name
+    home = project / SKILL_HOMES / name
+    at_link = SKILL_LINKS / name
+    remake = make_skill_link(
+        project=project,
+        name=name,
+    )
 
-    if store.readable_file(link / "SKILL.md"):
-        return None
+    if not store.readable_file(home / schema.SKILL_FILE):
+        if store.readable_file(link / schema.SKILL_FILE):
+            return None
 
-    if not store.readable_file(project / SKILL_HOME / "SKILL.md"):
-        return SKILL_ITSELF_MISSING
+        return Trouble(
+            message=skill_missing(name),
+            path=SKILL_HOMES / name,
+        )
 
     if store.quietly(link.is_symlink):
-        return "the skill link does not reach the skill" + CANNOT_SEE
+        reached = reaches(
+            link=link,
+            home=home,
+        )
+        if reached:
+            return None
+
+        if shared and carries_skill(folder=link, name=name):
+            return None
+
+        return Trouble(
+            message="the skill link does not reach the skill" + CANNOT_SEE,
+            path=at_link,
+            repair=remake,
+        )
 
     if store.quietly(link.is_dir):
-        return REAL_FOLDER_WITHOUT_SKILL
+        if not store.readable_file(link / schema.SKILL_FILE):
+            return Trouble(
+                message=REAL_FOLDER_WITHOUT_SKILL,
+                path=at_link,
+            )
+
+        copied = store.same_bytes(
+            one=link / schema.SKILL_FILE,
+            other=home / schema.SKILL_FILE,
+        )
+        if copied:
+            return None
+
+        if shared and carries_skill(folder=link, name=name):
+            return None
+
+        if kits and carries_skill(folder=link, name=name):
+            return Trouble(
+                message=STALE_COPY,
+                path=at_link,
+                repair=refresh_skill_copy(
+                    home=home,
+                    copy=link,
+                ),
+            )
+
+        return Trouble(
+            message=ANOTHER_SKILL,
+            path=at_link,
+        )
 
     if store.quietly(link.exists):
-        return "something that is not a link sits where the skill link belongs" + CANNOT_SEE
+        return Trouble(
+            message="something that is not a link sits where the skill link belongs" + CANNOT_SEE,
+            path=at_link,
+            repair=remake,
+        )
 
-    return "the skill link is missing" + CANNOT_SEE
+    return Trouble(
+        message="the skill link is missing" + CANNOT_SEE,
+        path=at_link,
+        repair=remake,
+    )
+
+
+def carries_skill(
+    folder: Path,
+    name: str,
+) -> bool:
+    """Whether the folder's SKILL.md is a skill of this name, by the name its frontmatter gives."""
+    try:
+        document = frontmatter.read(str(folder / schema.SKILL_FILE))
+    except frontmatter.FrontmatterError:
+        return False
+
+    return document.get("name") == name
+
+
+def refresh_skill_copy(
+    home: Path,
+    copy: Path,
+) -> Callable[[], None]:
+    """A repair that brings a real folder copy of a skill up to the brain's, for a checkout where a link is not an option."""
+
+    def repair() -> None:
+        shutil.copytree(home, copy, dirs_exist_ok=True)
+
+    return repair
+
+
+def reaches(
+    link: Path,
+    home: Path,
+) -> bool:
+    """Whether the link resolves to the skill's own folder."""
+    target = resolved(link)
+
+    return target is not None and target == resolved(home)
 
 
 def check_style_copies(
@@ -808,22 +1093,29 @@ def write_copy(
 
 def make_skill_link(
     project: Path,
+    name: str,
 ) -> Callable[[], None]:
-    """A repair that puts the symlink in place, clearing a dead link or a stray file first.
+    """A repair that puts the named skill's symlink in place, clearing a dead link or a stray file first.
 
     A real folder is never removed here. It is somebody's, and the check
     leaves it for a person.
     """
 
     def repair() -> None:
-        link = project / SKILL_LINK
+        link = project / SKILL_LINKS / name
         link.parent.mkdir(parents=True, exist_ok=True)
         if not os.access(str(link.parent), os.W_OK):
             raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), str(link.parent))
 
         if link.is_symlink() or (link.exists() and not link.is_dir()):
             link.unlink()
-        os.symlink(skill_target(project=project, link=link), str(link))
+
+        target = skill_target(
+            project=project,
+            link=link,
+            name=name,
+        )
+        os.symlink(target, str(link))
 
     return repair
 
@@ -831,14 +1123,15 @@ def make_skill_link(
 def skill_target(
     project: Path,
     link: Path,
+    name: str,
 ) -> str:
-    """The skill folder, relative to where the link really sits.
+    """The named skill's folder, relative to where the link really sits.
 
-    On the shipped layout that is `../../.agents/skills/agent-brain`.
-    When `.claude/skills` is itself a symlink the link lands elsewhere,
-    and a target counted from there is the one that still resolves.
+    On the shipped layout that is `../../.agents/skills/<name>`. When
+    `.claude/skills` is itself a symlink the link lands elsewhere, and a
+    target counted from there is the one that still resolves.
     """
-    return os.path.relpath(str(project / SKILL_HOME), str(link.parent.resolve()))
+    return os.path.relpath(str(project / SKILL_HOMES / name), str(link.parent.resolve()))
 
 
 CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (

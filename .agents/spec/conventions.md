@@ -2,7 +2,7 @@
 name: conventions
 kind: doc
 description: the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
-updated: 2026-09-22
+updated: 2026-09-23
 links: [README.md]
 ---
 
@@ -37,9 +37,14 @@ read one written any other way, naming the line and the fix.
 
 Two places sit outside this rule. `SYSTEM.md` carries no frontmatter at
 all, since it is the rulebook and an agent takes it exactly as it
-stands. `skills/` is the tool's own folder, and its files follow the
+stands. `skills/` holds the kit's skills, and its files follow the
 Agent Skills standard rather than this spec, so doctor holds them to
-the prose and boundary rules below and to nothing in this section.
+the prose and boundary rules below and to nothing in this section. A
+project may keep skills of its own there too, each a folder with a
+SKILL.md that doctor links for Claude Code, under any name but the
+kit's own, `agent-brain` and `branch-review`, which the upgrade
+replaces whole once the stamp says the kit shipped them, and refuses
+to write over while the stamp says the project had them first.
 
 ## Naming and ids
 

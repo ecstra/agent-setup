@@ -53,12 +53,13 @@ headings and nothing else, for filling in afterwards.
 
 | Command | What it does |
 |---|---|
-| `brain ledger open <branch> --summary S` | Creates `reviews/<yyyy-mm>-<branch-slug>/ledger.md` with the three sections and an empty batch table. |
+| `brain ledger open <branch> --summary S [--level low\|medium\|high\|max]` | Creates `reviews/<yyyy-mm>-<branch-slug>/ledger.md` with the three sections and an empty batch table, the level recorded in its header, high unless given. The summary is one line, or `-` to read it from standard input inside a quoted heredoc, which keeps the shell off it, and it is refused when empty or when it runs to more than one line. Standard input is read as UTF-8 wherever the tool takes it, and a byte that is not is refused. |
 | `brain ledger batch <ledger> --theme T` | Adds the next batch, numbered past the highest one, status pending, and prints its number. The theme is one line with no pipe. |
-| `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. Refuses when given none of them. The ack, like the theme, is one line with no pipe. |
-| `brain ledger add <ledger> "claim" --severity S [--found-by review\|hunter] [--batch n]` | Records the next finding, numbered past the highest one, and prints its id. The claim is one line. |
-| `brain ledger set <ledger> F-NN field=value ...` | Changes a finding, each value one line taken as written. The fields are severity, found-by, batch, status and fix, and a line a hand edit lost comes back. A fixed finding always names its commit, `fix=<hash>`. Statuses: open, fixed, wontfix, deferred. |
-| `brain ledger close <ledger>` | Flips the ledger to closed and writes the count under Summary. Refuses while a finding is open or has no status. |
+| `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. The ack is the owner's word that starts a batch, recorded on it, so `fixing`, `verified` and `done` on a batch that holds findings are refused until the batch carries one, and verification closes the batch with no further word. Refuses when given none of them, and refuses `verified` or `done` while a finding in the batch is still open. A batch with no findings runs and closes without an ack, and a change to the theme alone never trips a guard. An open finding filed into a batch already verified or done, or reopened there, or a finding moved in already fixed, puts the batch back to `fixing` with its ack kept, since the word covered it, so the late fix is verified like the rest. A batch that had none, an empty one closed without an ack and then given a finding, asks for the ack before anything else. The ack, like the theme, is one line with no pipe. |
+| `brain ledger add <ledger> "claim" --severity S [--found-by review\|hunter] [--batch n]` | Records the next finding, numbered past the highest one, and prints its id. The claim is one line. A batch number must name a row of the table, so no finding is filed where the report cannot see it. With `-` in place of the claim, the claims come in on standard input inside a quoted heredoc, one per line, all filed with the same severity, batch and found-by in one write, so they land whole or not at all, and the ids print one per line. That keeps the shell off a backtick or a dollar sign in a claim, and files a batch's worth in one call. Empty standard input is refused. |
+| `brain ledger set <ledger> F-NN field=value ...` | Changes a finding, each value one line taken as written. The fields are severity, found-by, batch, status, fix and reason, and a line a hand edit lost comes back. A fixed finding always names its commit, `fix=<hash>`, a wontfix or a deferred one says why in the same call, `reason=<one line>`, and the reason leaves with the status, so a later status never borrows it. A batch must be one the table has. Statuses: open, fixed, wontfix, deferred. |
+| `brain ledger report <ledger>` | The ledger's state in a few lines, counted from the file, with a blank status read as open the way close reads it. The first line gives the status and the counts, then one line per batch with its status, ack and counts, then a last line saying what comes next. That last line names an open or a fixed finding filed into no batch the table has before anything else, since a fix is verified by its batch, then walks the batches in order and says what the first unfinished one needs, the owner's word for a pending one, or its start when the ack is already on it, the ack on record for one that holds findings and has none, then its open findings, a late one included, its verification, and its marking done. Once every batch is done it says the closing pass is owed, per house rule 7, until a batch themed `closing pass` records that the pass ran, and then to close the ledger. |
+| `brain ledger close <ledger>` | Flips the ledger to closed and writes the count under Summary. Refuses while a finding is open or has no status, and until the report's next line says to close the ledger, so a batch not yet done or a closing pass still owed holds it open. |
 
 ## Doctor
 
@@ -77,18 +78,32 @@ links that resolve, links written as paths with each file once, body
 links that resolve, indexes current, no dashes or semicolons in prose,
 no machine paths, nothing shaped like a secret, the version stamp, the
 chat style copies for Codex and Gemini CLI matching the Claude Code
-one where the project keeps those agents' folders, and the skill link
-Claude Code needs, which must reach the skill rather than point at
-nothing or be a plain file.
+one where the project keeps those agents' folders, the skill links
+Claude Code needs, one per skill the kit ships and one per skill folder
+the project keeps, each of which must reach its skill rather than point
+at nothing or be a plain file, a real folder copy of a kit skill that
+fell behind the brain's, a dangling link doctor once made for a project
+skill since gone from the brain, a skills folder it cannot list, and a
+version stamp that is not a version.
 
 What `--fix` repairs: a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written
 as a name, a file linked more than once in one header, which keeps the
-first, a stale index, a stale chat style copy, and the skill link
-when it is missing, dead or a plain file. Each repaired file gets
-today's date. The one thing `--fix` deletes is what an interrupted
-write left behind, a temporary file or a scratch folder named the way
-the tool names them. No other file is ever removed.
+first, a stale index, a stale chat style copy, a skill link when it is
+missing, dead, pointing elsewhere or a plain file, which the link
+replaces, and a real folder copy of a kit skill that fell behind the
+brain's, which is refreshed from it. Each repaired file gets today's
+date. The only things `--fix` removes are what an interrupted write
+left behind, a temporary file or a scratch folder named the way the
+tool names them, the plain file or the wrong link sitting where a skill
+link belongs, and a link under `.claude/skills` into the brain's skills
+folder that dangles, leading to nothing at all, the way a link doctor
+made for a project skill does once that skill is gone. The stray pass
+never removes a link or a folder that still leads somewhere, whatever
+it holds. A link sitting where a skill link belongs and leading
+elsewhere is replaced by the right one, and a repair that rewrites a
+file, a stale index or chat style copy, writes a real file in place of
+any link standing there. No other file is removed.
 
 ## Port and upgrade
 
@@ -104,8 +119,8 @@ and `--project` has to name a folder that is there.
 
 | Command | What it does |
 |---|---|
-| `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain: the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`: the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
-| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there: it moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folder aside since the install replaces that (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Refuses without a brain, and refuses while a file it would replace holds uncommitted work. |
+| `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain: the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, the review's sub agent definitions, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`: the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
+| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Refuses without a brain, refuses while a file it would replace holds uncommitted work, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills`, in `.claude/skills` where the link goes, or a sub agent definition of its own under a name the skill brings, until the folder or file is moved aside. A folder the kit itself wrote is known by its bytes and passes. |
 
 What is the project's stays the project's: everything under `.agents/`
 that is not the kit's, section 0, `README.md`, `CODEOWNERS`, and any
@@ -125,8 +140,9 @@ and a root file the kit replaces is named in the report along with
 where git keeps the old one.
 The exit code is doctor's: 0 clean, 2 while findings remain, and those
 are the project's own prose to put right. A finding in the kit's own
-files under `skills/agent-brain/` is the kit's to fix, printed apart
-and never counted, since the install replaces those files every time.
+files, under `skills/agent-brain/` or `skills/branch-review/`, is the
+kit's to fix, printed apart and never counted, since the install
+replaces those files every time.
 The tool ships without its own tests, and the chat style copies in
 `.codex/` and `.gemini/` are the doctor's to make from the source in
 `.claude/output-styles/`.
@@ -143,4 +159,8 @@ standard input:
 | `post-write` | After a write inside `.agents/`, runs doctor and hands its findings back as context. |
 
 The config files that wire them up ship with the kit: `.claude/settings.json`,
-`.codex/hooks.json` and `.gemini/settings.json`.
+`.codex/hooks.json` and `.gemini/settings.json`. The Claude Code one also
+carries the kit's two settings, `CLAUDE_CODE_SUBAGENT_MODEL` for the sub
+agents' model and `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how many
+tool calls may run at once. The port and the upgrade add each to a
+project's `env` when it lacks the key and leave a value the project set.

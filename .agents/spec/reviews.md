@@ -2,7 +2,7 @@
 name: spec-reviews
 kind: doc
 description: format and lifecycle for .agents/reviews, the code review ledgers
-updated: 2026-09-16
+updated: 2026-09-23
 links: [spec/conventions.md, house-rules.md, spec/bugs.md]
 ---
 
@@ -15,12 +15,15 @@ the review runs, permanent once born. The full protocol lives in
 ## The ledger
 
 `ledger.md` inside the review's folder. Standard frontmatter,
-`kind: review`, plus `branch:` and `status: open | closed`. The body:
+`kind: review`, plus `branch:`, `status: open | closed` and
+`level: low | medium | high | max`, the level the review ran at. The
+body holds three sections.
 
 1. **Summary**: the review's scope (what the branch did) and the final
    count when closed.
 2. **Batches**: the batch table. Number, theme, status
-   (pending, fixing, verified, done), the owner's ack noted per batch.
+   (pending, fixing, verified, done), the owner's ack that started it
+   noted per batch.
 3. **Findings**: one block per finding, ordered by batch then severity:
 
 ```
@@ -30,15 +33,19 @@ the review runs, permanent once born. The full protocol lives in
 - batch: 2
 - status: open | fixed | wontfix | deferred
 - fix: <commit hash, date, when fixed>
+- reason: <one line, when wontfix or deferred>
 ```
 
-A wontfix carries its reason inline. A finding too big for its branch is
-`deferred`: it graduates into bugs/ as its own file, linked both ways,
-and that is the only path a finding leaves its ledger.
+A wontfix carries its reason on its own line, and the tool refuses the
+status without one. A finding too big for its branch is `deferred`
+with its reason the same way, and it graduates into bugs/ as its own
+file, linked both ways, which is the only path a finding leaves its
+ledger by.
 
 ## Lifecycle
 
-When the last batch closes and the branch merges, the ledger flips to
-`status: closed` and the reviews INDEX regroups it. Nothing moves and
-nothing archives: bug files and decisions link into ledgers by name, and
-git is the archive.
+When the last batch closes, and the closing pass with it where one was
+owed, the ledger flips to `status: closed` and the reviews INDEX
+regroups it, and only then does the branch merge, on the owner's word.
+Nothing moves and nothing archives, since bug files and decisions link
+into ledgers by name, and git is the archive.

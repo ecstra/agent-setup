@@ -33,6 +33,11 @@ class Field:
     is_date: bool = False
 
 
+# How wide a review's finding pass goes, the one list the ledger's
+# header field and the tool's --level share.
+REVIEW_LEVELS: tuple[str, ...] = ("low", "medium", "high", "max")
+
+
 @dataclass(frozen=True)
 class Section:
     """One heading a kind's body carries."""
@@ -247,6 +252,11 @@ KINDS: dict[str, Kind] = {
                 name="status",
                 values=("open", "closed"),
             ),
+            Field(
+                name="level",
+                required=False,
+                values=REVIEW_LEVELS,
+            ),
         ),
         sections=(
             Section(title="Summary"),
@@ -270,6 +280,72 @@ KIT_FILES: tuple[str, ...] = (
     "house-rules.md",
 )
 
+
+@dataclass(frozen=True)
+class KitSkill:
+    """One skill the kit ships under skills/, a folder with a SKILL.md.
+
+    Claude Code finds it through a link under .claude/skills/, which
+    doctor makes, and the port and the upgrade treat the folder as the
+    kit's own, replaced whole, from the release named in `since` on. A
+    project stamped older than that with a folder of the same name made
+    it itself, and the upgrade refuses to write over it. The same holds
+    for the sub agent definitions a skill brings under .claude/agents/,
+    named in `definitions` relative to the project root.
+    """
+
+    name: str
+    hook: str
+    since: str
+    definitions: tuple[str, ...] = ()
+
+
+KIT_SKILLS: tuple[KitSkill, ...] = (
+    KitSkill(
+        name="agent-brain",
+        hook="the brain tool, the one way anything here is filed, changed or checked",
+        since="0",
+    ),
+    KitSkill(
+        name="branch-review",
+        hook="the code review, run on the owner's word with sub agents in parallel",
+        since="1.2.0",
+        definitions=(
+            ".claude/agents/review-finder.md",
+            ".claude/agents/review-hunter.md",
+            ".claude/agents/review-verifier.md",
+        ),
+    ),
+)
+KIT_SKILL_NAMES: tuple[str, ...] = tuple(skill.name for skill in KIT_SKILLS)
+
+# A brain with no stamp to read is on the oldest release as far as the
+# tool can tell, so it carries only what every release shipped, and the
+# upgrade never writes over a folder that might be the project's own.
+NO_VERSION = "0"
+
+
+def ships(
+    skill: KitSkill,
+    stamp: tuple[int, ...],
+) -> bool:
+    """Whether the release a brain is stamped with carries the skill."""
+    return as_tuple(skill.since) <= stamp
+
+
+def as_tuple(
+    version: str,
+) -> tuple[int, ...]:
+    """The version as numbers to compare, padded to three so 1.0 is 1.0.0, or a ValueError when the text is not one."""
+    parts = version.split(".")
+    if not all(part.isdecimal() and part.isascii() for part in parts):
+        raise ValueError(f"'{version}', not a version like 1.0.0")
+
+    numbers = [int(part) for part in parts]
+
+    return tuple(numbers + [0] * (3 - len(numbers)))
+
+
 # SYSTEM.md is the rulebook. An agent takes it as it stands, so it is the
 # one markdown file at the root of the directory with no frontmatter. The
 # tool's own docs under skills/ follow the Agent Skills standard instead.
@@ -281,6 +357,11 @@ INDEXED_FOLDERS: tuple[str, ...] = tuple(kind.folder for kind in KINDS.values() 
 
 INDEX = "INDEX.md"
 LEDGER = "ledger.md"
+
+# Where the skills live under .agents/, one folder each with this file
+# in it, the layout Claude Code loads a skill from through its link.
+SKILLS = "skills"
+SKILL_FILE = "SKILL.md"
 
 # The kit's version stamp at the root of .agents/, written by a port or
 # an upgrade and read by the doctor and the status line.

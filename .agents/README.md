@@ -2,7 +2,7 @@
 name: agent-readme
 kind: doc
 description: what the .agents directory is and how a cold agent boots from it
-updated: 2026-09-22
+updated: 2026-09-23
 links: [INDEX.md, spec/conventions.md, house-rules.md]
 ---
 
@@ -38,9 +38,12 @@ one, agents read this.
 - `decisions/`: decisions taken and why, one per file.
 - `reviews/`: one folder per code review, the ledger inside.
 - `handover/`: session handoffs, born with its first file.
-- `skills/`: the brain tool, the `agent-brain` skill, the one way
-  anything here is filed, changed, counted or checked. Its files follow
-  the Agent Skills standard rather than the specs above.
+- `skills/`: the kit's skills. `agent-brain` is the brain tool, the one
+  way anything here is filed, changed, counted or checked, and
+  `branch-review` is the code review the agent runs on the owner's
+  word. Their files follow the Agent Skills standard rather than the
+  specs above. A project may keep skills of its own here under other
+  names, and doctor links them for Claude Code.
 - `VERSION`: the kit release this brain is on, read by the tool.
 
 ## Two absolutes

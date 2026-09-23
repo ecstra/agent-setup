@@ -29,10 +29,24 @@ TABLE_HEADER = re.compile(
     re.MULTILINE | re.IGNORECASE,
 )
 
-FIELDS = ("severity", "found-by", "batch", "status", "fix")
+FIELDS = ("severity", "found-by", "batch", "status", "fix", "reason")
+NEEDS_REASON = ("wontfix", "deferred")
 FOUND_BY = ("review", "hunter")
 FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred")
 BATCH_STATUSES = ("pending", "fixing", "verified", "done")
+LEVELS = schema.REVIEW_LEVELS
+DEFAULT_LEVEL = "high"
+
+# House rule 7, held here so the report can say when the pass is due:
+# the closing pass files what it finds into a batch of this theme, so
+# the ledger knows the pass ran, and low and a sweep branch skip it.
+CLOSING_THEME = "closing pass"
+NO_CLOSING_LEVELS = ("low",)
+SWEEP_PREFIX = "sweep/"
+
+# The next step the report gives once nothing else stands, and close
+# refuses until the report gives it.
+CLOSE_STEP = "close the ledger"
 
 
 class LedgerError(Exception):
@@ -43,13 +57,21 @@ def open_ledger(
     brain: store.Brain,
     branch: str,
     summary: str,
+    level: str = DEFAULT_LEVEL,
     stamp: str = "",
 ) -> store.Entry:
+    if level not in LEVELS:
+        raise LedgerError(f"a review runs at {' or '.join(LEVELS)}, not '{level}'")
+
+    summary = one_line(value=summary, what="summary")
+    if summary.startswith("#"):
+        raise LedgerError("the summary is prose, not a heading")
+
     stamp = stamp or date.today().isoformat()
     title = f"{stamp[:7]} {branch}"
     body = (
         "## Summary\n\n"
-        f"{summary.strip()}\n\n"
+        f"{summary}\n\n"
         "## Batches\n\n"
         f"{BATCH_HEADER}\n"
         "## Findings\n"
@@ -60,7 +82,7 @@ def open_ledger(
         kind=schema.kind_named("review"),
         title=title,
         description=f"review of {branch}",
-        values={"branch": branch},
+        values={"branch": branch, "level": level},
         body=body,
         stamp=stamp,
     )
@@ -111,11 +133,25 @@ def set_batch(
         if int(match.group(1)) != number:
             continue
 
+        new_status = status or match.group(3)
+        new_ack = ack or match.group(4)
+        if status in ("fixing", "verified", "done"):
+            own = in_batch(
+                items=findings(entry),
+                number=number,
+            )
+            still_open = [item["id"] for item in own if is_open(item)]
+            if status != "fixing" and still_open:
+                raise LedgerError(f"{', '.join(still_open)} still open, batch {number} is {status} once every finding has landed")
+
+            if own and not new_ack:
+                raise LedgerError(f"batch {number} holds findings and runs on the owner's ack, give --ack")
+
         row = batch_row(
             number=number,
             theme=theme or match.group(2),
-            status=status or match.group(3),
-            ack=ack or match.group(4),
+            status=new_status,
+            ack=new_ack,
         )
         body = body[: match.start()] + row + body[match.end() :]
         replaced = True
@@ -148,32 +184,59 @@ def add_finding(
     found_by: str = "review",
     batch: int = 0,
 ) -> str:
+    return add_findings(
+        brain=brain,
+        key=key,
+        claims=[claim],
+        severity=severity,
+        found_by=found_by,
+        batch=batch,
+    )[0]
+
+
+def add_findings(
+    brain: store.Brain,
+    key: str,
+    claims: list[str],
+    severity: str,
+    found_by: str = "review",
+    batch: int = 0,
+) -> list[str]:
+    """File the claims in one load and one write, numbered on from the last finding, so a pass lands whole or not at all."""
     severity = checked(field="severity", value=severity)
     found_by = checked(field="found-by", value=found_by)
     batch_cell = checked(field="batch", value=str(batch) if batch else "")
-    claim = one_line(value=claim, what="claim")
-    if not claim:
+    claims = [one_line(value=claim, what="claim") for claim in claims]
+    if not claims or not all(claims):
         raise LedgerError("a finding needs a claim")
 
     entry = ledger_entry(brain=brain, key=key)
-    number = max((int(record["id"][2:]) for record in findings(entry)), default=0) + 1
-    identifier = f"F-{number:02d}"
-    block = (
+    known_batch(
+        entry=entry,
+        value=batch_cell,
+    )
+    first = max((int(record["id"][2:]) for record in findings(entry)), default=0) + 1
+    identifiers = [f"F-{first + offset:02d}" for offset in range(len(claims))]
+    blocks = "".join(
         f"\n### {identifier}: {claim}\n\n"
         f"- severity: {severity}\n"
         f"- found-by: {found_by}\n"
         f"- batch: {batch_cell}\n"
         "- status: open\n"
         "- fix:\n"
+        for identifier, claim in zip(identifiers, claims)
     )
 
-    body = entry.document.body
+    body = reopened(
+        body=entry.document.body,
+        number=int(batch_cell) if batch_cell else None,
+    )
     section_start = section_span(body=body, title="Findings")[0]
     section_end = sections.heading_after(body=body, start=section_start, depth=2)
-    entry.document.body = body[:section_end].rstrip("\n") + "\n" + block + ("\n" if section_end < len(body) else "") + body[section_end:]
+    entry.document.body = body[:section_end].rstrip("\n") + "\n" + blocks + ("\n" if section_end < len(body) else "") + body[section_end:]
     save(brain=brain, entry=entry)
 
-    return identifier
+    return identifiers
 
 
 def set_finding(
@@ -185,6 +248,10 @@ def set_finding(
     changes = {field: checked(field=field, value=value) for field, value in changes.items()}
 
     entry = ledger_entry(brain=brain, key=key)
+    known_batch(
+        entry=entry,
+        value=changes.get("batch", ""),
+    )
     body = entry.document.body
     span = finding_span(body=body, identifier=identifier)
     if span is None:
@@ -192,16 +259,64 @@ def set_finding(
 
     start, end = span
     block = body[start:end]
-    after = dict(bullets(block))
+    before = bullets(block)
+    after = dict(before)
     after.update(changes)
     if after.get("status") == "fixed" and not after.get("fix"):
         raise LedgerError("a fixed finding names its commit, fix=<hash>")
 
+    new_status = changes.get("status", "")
+    if new_status in NEEDS_REASON and not changes.get("reason"):
+        raise LedgerError(f"a {new_status} finding says why, reason=<one line>")
+
+    if "reason" in changes and not changes["reason"] and after.get("status") in NEEDS_REASON:
+        raise LedgerError(f"a {after['status']} finding keeps its reason, give a new one or a new status")
+
     for field, value in changes.items():
         block = with_bullet(block=block, field=field, value=value)
 
-    entry.document.body = body[:start] + block + body[end:]
+    if new_status and new_status not in NEEDS_REASON:
+        block = without_bullet(block=block, field="reason")
+
+    body = body[:start] + block + body[end:]
+    moved = batch_of(after) != batch_of(before)
+    if is_open(after) or moved:
+        body = reopened(
+            body=body,
+            number=batch_of(after),
+        )
+
+    entry.document.body = body
     save(brain=brain, entry=entry)
+
+
+def reopened(
+    body: str,
+    number: Optional[int],
+) -> str:
+    """The body with the batch put back to fixing when a finding lands in it after it was verified or done.
+
+    A late finding, a hunter's, a reopened one or one moved in already
+    fixed, needs its fix verified like the rest, so the batch goes
+    through fixing and verified again. The ack that started the batch
+    stays, since the owner's word covered the batch and what it holds.
+    """
+    if number is None:
+        return body
+
+    for match in batch_rows(body):
+        if int(match.group(1)) != number or match.group(3) not in ("verified", "done"):
+            continue
+
+        row = batch_row(
+            number=number,
+            theme=match.group(2),
+            status="fixing",
+            ack=match.group(4),
+        )
+        return body[: match.start()] + row + body[match.end() :]
+
+    return body
 
 
 def with_bullet(
@@ -231,6 +346,23 @@ def with_bullet(
     return block[:heading_end] + "\n\n" + line + block[heading_end:]
 
 
+def without_bullet(
+    block: str,
+    field: str,
+) -> str:
+    """The block without its `- field:` line, the first one outside code, so a value that no longer applies does not linger."""
+    spans = sections.code_spans(block)
+
+    for match in BULLET.finditer(block):
+        if match.group(1) != field or sections.in_code(spans=spans, position=match.start()):
+            continue
+
+        line_end = match.end() + 1 if block[match.end() : match.end() + 1] == "\n" else match.end()
+        return block[: match.start()] + block[line_end:]
+
+    return block
+
+
 def close(
     brain: store.Brain,
     key: str,
@@ -240,12 +372,21 @@ def close(
     if entry.field("status") == "closed":
         raise LedgerError(f"{entry.name} is already closed")
 
-    still_open = [item for item in findings(entry) if (item.get("status") or "open") == "open"]
+    items = findings(entry)
+    still_open = [item for item in items if is_open(item)]
     if still_open:
         names = ", ".join(item["id"] for item in still_open)
         raise LedgerError(f"{names} still open, a ledger closes when every finding has landed")
 
-    counts = tally(findings(entry))
+    step = next_step(
+        entry=entry,
+        rows=batches(entry),
+        items=items,
+    )
+    if step != CLOSE_STEP:
+        raise LedgerError(f"the ledger closes after {step}")
+
+    counts = tally(items)
     summary_end = end_of_section(body=entry.document.body, title="Summary")
     line = f"Closed with {counts}.\n\n"
     entry.document.body = (
@@ -255,15 +396,171 @@ def close(
     save(brain=brain, entry=entry, stamp=stamp)
 
 
+def report(
+    brain: store.Brain,
+    key: str,
+) -> str:
+    """The ledger's state in a few lines, counted from the file, with what comes next."""
+    entry = ledger_entry(
+        brain=brain,
+        key=key,
+    )
+    rows = batches(entry)
+    items = findings(entry)
+    noun = "batch" if len(rows) == 1 else "batches"
+    lines = [f"{entry.name}, {entry.field('status')}, {len(rows)} {noun}, {tally(items)}"]
+
+    for row in rows:
+        own = in_batch(
+            items=items,
+            number=row["number"],
+        )
+        ack = f", ack {row['ack']}" if row["ack"] else ""
+        lines.append(f"batch {row['number']}, {row['theme']}: {row['status']}{ack}, {tally(own)}")
+
+    step = next_step(
+        entry=entry,
+        rows=rows,
+        items=items,
+    )
+    lines.append("next: " + step)
+
+    return "\n".join(lines)
+
+
+def in_batch(
+    items: list[dict],
+    number: int,
+) -> list[dict]:
+    return [item for item in items if batch_of(item) == number]
+
+
+def batch_of(
+    item: dict,
+) -> Optional[int]:
+    """The batch a finding says it is in, as the table numbers it, or None when the cell is blank or not a plain number."""
+    cell_text = (item.get("batch") or "").strip()
+
+    return int(cell_text) if cell_text.isdecimal() and cell_text.isascii() else None
+
+
+def is_open(
+    item: dict,
+) -> bool:
+    """Whether a finding still needs work, a blank status counting as open the way close counts it."""
+    return (item.get("status") or "open") == "open"
+
+
+def needs_a_batch(
+    item: dict,
+) -> bool:
+    """Whether a finding has to sit in a batch, an open one and a fixed one, since a fix is verified by its batch, where a wontfix or a deferral needs none."""
+    return is_open(item) or item.get("status") == "fixed"
+
+
+def next_step(
+    entry: store.Entry,
+    rows: list[dict],
+    items: list[dict],
+) -> str:
+    """What the review does next, read from the batches and the findings as they stand.
+
+    An open or a fixed finding filed into no batch the table has comes
+    first, since nothing moves until it is placed and a fix is verified
+    by its batch. Then the batches in order. A pending one waits for the
+    owner's word, the ack that starts it and is recorded on it, and one
+    that carries the ack already is there to start. A batch
+    past pending needs its open findings fixed, a late one included,
+    then its verification, and verification closes it. A batch that
+    holds findings with no ack recorded, which a hand edit leaves, or a
+    finding filed into an empty batch closed without one, asks for that
+    ack before anything else. Then the walk moves on to the closing
+    pass or the close.
+    """
+    if entry.field("status") == "closed":
+        return "nothing, the ledger is closed"
+
+    known = {row["number"] for row in rows}
+    stray = [item["id"] for item in items if needs_a_batch(item) and batch_of(item) not in known]
+    if stray:
+        return f"put {', '.join(stray)} in a batch"
+
+    for row in rows:
+        number = row["number"]
+        if row["status"] == "pending":
+            return f"start batch {number}, it has the word" if row["ack"] else f"batch {number} on the owner's word"
+
+        own = in_batch(
+            items=items,
+            number=number,
+        )
+        if own and not row["ack"]:
+            return f"record the owner's ack of batch {number}, it holds findings and has none"
+
+        still_open = [item["id"] for item in own if is_open(item)]
+        if still_open:
+            return f"fix {', '.join(still_open)} in batch {number}"
+
+        if row["status"] == "fixing":
+            return f"verify batch {number}"
+
+        if row["status"] == "verified":
+            return f"mark batch {number} done" + ("" if own else ", it holds nothing")
+
+    owed = wants_closing_pass(
+        entry=entry,
+        rows=rows,
+    )
+    if owed:
+        return "the closing pass"
+
+    return CLOSE_STEP
+
+
+def wants_closing_pass(
+    entry: store.Entry,
+    rows: list[dict],
+) -> bool:
+    """Whether the review still owes its closing pass.
+
+    The pass is owed at every level above low, on any branch that is
+    not a sweep, until a batch of the closing theme records that it
+    ran. A ledger with no level recorded, one opened before the level
+    was written, is read at the default level.
+    """
+    level = entry.field("level") or DEFAULT_LEVEL
+    if not rows or level in NO_CLOSING_LEVELS:
+        return False
+
+    if (entry.field("branch") or "").startswith(SWEEP_PREFIX):
+        return False
+
+    return not any(row["theme"].casefold() == CLOSING_THEME for row in rows)
+
+
+def known_batch(
+    entry: store.Entry,
+    value: str,
+) -> None:
+    """Refuse a batch number the table does not carry, so no finding is filed where the report cannot see it."""
+    if value and int(value) not in {row["number"] for row in batches(entry)}:
+        raise LedgerError(f"{entry.name} has no batch {value}")
+
+
 def findings(
     entry: store.Entry,
 ) -> list[dict]:
     body = entry.document.body
+    spans = sections.code_spans(body)
     found: list[dict] = []
 
-    for match in finding_headings(body):
-        start, end = finding_span(body=body, identifier=match.group(1)) or (match.start(), match.end())
-        block = body[start:end]
+    for match in finding_headings(body=body, spans=spans):
+        end = sections.heading_after(
+            body=body,
+            start=match.end(),
+            spans=spans,
+        )
+        block = body[match.start() : end]
         record = {"id": match.group(1), "claim": match.group(2)}
         record.update(bullets(block))
         found.append(record)
@@ -291,9 +588,11 @@ def bullets(
 
 def finding_headings(
     body: str,
+    spans: Optional[list[tuple[int, int]]] = None,
 ) -> list[re.Match]:
-    """Every finding heading outside code, in order."""
-    spans = sections.code_spans(body)
+    """Every finding heading outside code, in order, the code spans passed in when the caller already has them."""
+    if spans is None:
+        spans = sections.code_spans(body)
 
     return [match for match in FINDING.finditer(body) if not sections.in_code(spans=spans, position=match.start())]
 
@@ -384,7 +683,7 @@ def tally(
 ) -> str:
     counts: dict[str, int] = {}
     for item in items:
-        status = item.get("status") or schema.UNKNOWN
+        status = "open" if is_open(item) else item["status"]
         counts[status] = counts.get(status, 0) + 1
 
     total = len(items)

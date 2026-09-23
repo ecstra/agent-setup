@@ -27,8 +27,9 @@ written record of what the project knows.
 | `.agents/SYSTEM.md` | The rulebook. How to write code, how to talk to you, where docs go, how a branch gets reviewed, how git is used. |
 | `.agents/` | The project's memory. Docs, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
 | `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
+| `.agents/skills/branch-review/` | The code review, run on your word. Finder sub agents in parallel, one per angle, verifiers a few findings each grouped by file, the findings filed in a ledger, then fixes batch by batch with a hunter and verifiers until clean, and a report that says where things stand first. |
 | `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
-| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking, the link Claude Code needs to find the skill, and the Plain & Short chat style, once per agent in the form that agent reads. |
+| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
 | `.gitignore` | Keeps your `.env` out of git, along with any stray worktree folder. |
@@ -89,8 +90,9 @@ on your home folder, and it refuses while a file it would replace holds
 uncommitted work, so commit first. Then it does all of this in one run.
 
 - The kit's files land: the rulebook and its specs under `.agents/`,
-  the front doors and `CONTRIBUTING.md` at the root, the hooks and the
-  chat style in the agent folders, and the version stamp.
+  the front doors and `CONTRIBUTING.md` at the root, the hooks, the
+  review's sub agent definitions and the chat style in the agent
+  folders, and the version stamp.
 - Your own rules are kept. A `## 0. Project Rules` section you already
   had in `AGENTS.md`, `CLAUDE.md` or `GEMINI.md` goes to the top of the
   new `AGENTS.md`. If you had no such section but a rules file of your
@@ -99,10 +101,13 @@ uncommitted work, so commit first. Then it does all of this in one run.
   where the report says.
 - Your own hooks stay. The kit's hooks are added beside them in each
   agent's config, and any other setting of yours is left as it was.
+  The kit's own two settings for Claude Code, the sub agent model and
+  how many tool calls may run at once, are added the same way, and a
+  value you already set for either stays yours.
 - Your `.gitignore` keeps every line it had. The kit's lines go in a
   block at the top, so your own lines sit below them and win.
 - The tool's doctor runs once, builds the indexes and makes the skill
-  link Claude Code needs.
+  links Claude Code needs.
 - The report names each root file it replaced along with where git
   keeps the old one, and ends with what it found that belongs in the
   brain, for your agent to file. Keep that output, nothing prints it
@@ -258,8 +263,11 @@ python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py upgrade
 The upgrade replaces what is the kit's and leaves what is yours.
 
 - The kit's: the rulebook, the front doors around your section 0,
-  `CONTRIBUTING.md`, the house rules, the specs, the tool, the hooks,
-  the chat style, and the version stamp. All new over old.
+  `CONTRIBUTING.md`, the house rules, the specs, the tool and its
+  skills, the hooks, the review's sub agent definitions, the chat
+  style, and the version stamp. All new over old. A skill folder or a
+  definition under a kit name that you made before the kit shipped it
+  is refused, not replaced, until you move it aside.
 - Yours: `## 0. Project Rules`, which stays above the comment line under
   the title of `AGENTS.md`, every file your project filed into
   `.agents/`, your own hooks and settings in the agent folders, and every
@@ -304,7 +312,7 @@ need to, but the commands are short enough to know.
 | `brain status` | The brain in numbers, what each tracker holds and whether doctor is clean. The session start hook prints this into the agent's context. |
 | `brain doctor` and `brain doctor --fix` | Checks every file against its spec, and `--fix` repairs the mechanical slips, a stale index, a link written as a name, a chat style copy that drifted. |
 | `brain new`, `brain set`, `brain refile` | Files a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
-| `brain ledger` | Opens, fills and closes a code review ledger, batch by batch. |
+| `brain ledger` | Opens, fills and closes a code review ledger, batch by batch, and `brain ledger report` says where a review stands, counted from the file. |
 | `brain port` and `brain upgrade` | The two commands above, run from a kit checkout against your project. |
 
 The full contract, every flag and every refusal, is in
@@ -324,6 +332,7 @@ Here is how it ships, empty and ready.
 ├── README.md             what the directory is and how an agent boots from it
 ├── house-rules.md        the branch contract and code review protocol
 ├── skills/agent-brain/   the brain tool, as a skill every agent can read
+├── skills/branch-review/ the code review, run on your word
 ├── spec/                 the format rules, one per content folder
 │   ├── conventions.md    the shared rules, header block, naming, links, indexes
 │   ├── docs.md
@@ -395,4 +404,5 @@ clone has no such folder until then.
 - [`.agents/house-rules.md`](.agents/house-rules.md): the branch contract and review protocol.
 - [`.agents/spec/conventions.md`](.agents/spec/conventions.md): the shared rules every file in `.agents/` obeys.
 - [`.agents/skills/agent-brain/references/commands.md`](.agents/skills/agent-brain/references/commands.md): every command of the tool, with its flags and refusals.
+- [`.agents/skills/branch-review/SKILL.md`](.agents/skills/branch-review/SKILL.md): the review as the agent runs it, step by step.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): the absolutes on one page.

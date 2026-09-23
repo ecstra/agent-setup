@@ -26,7 +26,6 @@ from . import doctor, frontmatter, schema, sections, store, style
 FOLDER = ".agents"
 OLD_FOLDER = ".agent"
 VERSION = schema.VERSION_FILE
-NO_VERSION = "0"
 
 FRONT_DOORS = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
 OLD_LAYOUT_DOORS = ("CLAUDE.md", "AGENTS.md", "GEMINI.md")
@@ -144,13 +143,20 @@ class Kit:
         return read_version(stamp)
 
     def brain_files(self) -> list[Path]:
-        """The kit's own files under .agents/, relative to it, the indexes left out since the tool builds those, and the tool's tests too."""
+        """The kit's own files under .agents/, relative to it, the indexes left out since the tool builds those, and the tool's tests too.
+
+        The skills are the checkout's own, every folder under its skills/
+        that carries a SKILL.md, since the checkout may be a newer release
+        than the tool running the install and ship a skill it never heard
+        of.
+        """
         found = [Path(name) for name in schema.KIT_FILES if name != schema.INDEX]
         found += sorted(path.relative_to(self.brain) for path in (self.brain / "spec").glob("*.md"))
+        skills = store.skill_folders(self.brain)
         found += sorted(
             path.relative_to(self.brain)
-            for path in (self.brain / "skills").rglob("*")
-            if ships(path) and "tests" not in path.relative_to(self.brain / "skills").parts
+            for path in (self.brain / schema.SKILLS).rglob("*")
+            if ships(path) and path.relative_to(self.brain / schema.SKILLS).parts[0] in skills and "tests" not in path.relative_to(self.brain / schema.SKILLS).parts
         )
         found.append(Path(VERSION))
 
@@ -229,7 +235,7 @@ class Project:
     def version(self) -> str:
         stamp = self.brain / VERSION
         if not store.readable_file(stamp):
-            return NO_VERSION
+            return schema.NO_VERSION
 
         return read_version(stamp)
 
@@ -263,29 +269,16 @@ def read_version(
     stamp: Path,
 ) -> str:
     try:
-        text = stamp.read_text(encoding="utf-8").strip()
+        text = store.stamp_text(stamp)
     except (OSError, UnicodeDecodeError) as error:
         raise UpgradeError(f"{stamp.name} cannot be read: {error}") from error
 
     try:
-        as_tuple(text)
+        schema.as_tuple(text)
     except ValueError as error:
         raise UpgradeError(f"{stamp.name} says {error}") from error
 
     return text
-
-
-def as_tuple(
-    version: str,
-) -> tuple[int, ...]:
-    """The version as numbers to compare, padded to three so 1.0 is 1.0.0, or a ValueError when the text is not one."""
-    parts = version.split(".")
-    if not all(part.isdecimal() and part.isascii() for part in parts):
-        raise ValueError(f"'{version}', not a version like 1.0.0")
-
-    numbers = [int(part) for part in parts]
-
-    return tuple(numbers + [0] * (3 - len(numbers)))
 
 
 def default_kit() -> Kit:
@@ -309,7 +302,7 @@ def port(
     refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     install(kit=kit, project=project, prepared=prepared, report=report)
     report.candidates = candidates(project)
-    report.findings, report.kits_own = check(project)
+    report.findings, report.kits_own = check(project=project, kit=kit)
 
     return report
 
@@ -331,15 +324,15 @@ def upgrade(
     report = Report(out=out)
     report.done(f"upgrading {project.root.resolve()}")
     refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
-    if as_tuple(project.version()) > as_tuple(prepared.stamp):
-        raise UpgradeError(f"the project is on {project.version()} and this kit is {prepared.stamp}, use a kit at least that new")
+    if schema.as_tuple(prepared.project_version) > schema.as_tuple(prepared.stamp):
+        raise UpgradeError(f"the project is on {prepared.project_version} and this kit is {prepared.stamp}, use a kit at least that new")
 
     for migration in pending_migrations(project=project, want=prepared.stamp):
         migration.apply(project=project, report=report)
         report.done(f"migrated to {migration.to}: {migration.says}")
 
     install(kit=kit, project=project, prepared=prepared, report=report)
-    report.findings, report.kits_own = check(project)
+    report.findings, report.kits_own = check(project=project, kit=kit)
 
     return report
 
@@ -401,16 +394,17 @@ def pending_migrations(
     want: str,
 ) -> list[Migration]:
     """The migrations the project's tree calls for, up to a kit stamped `want`, in order."""
-    high = as_tuple(want)
+    high = schema.as_tuple(want)
 
-    return [migration for migration in MIGRATIONS if as_tuple(migration.to) <= high and migration.needed(project)]
+    return [migration for migration in MIGRATIONS if schema.as_tuple(migration.to) <= high and migration.needed(project)]
 
 
 @dataclass
 class Prepared:
-    """What a run composes from the kit and the project's own configs, read and checked before any write."""
+    """What a run composes from the kit and the project's own configs, read and checked before any write, the project's stamp read once with them."""
 
     stamp: str
+    project_version: str
     front_doors: dict[str, str]
     merged: list[Path]
     layout: str
@@ -421,9 +415,60 @@ def prepare(
     project: Project,
 ) -> Prepared:
     """Read the kit's stamp and front doors and merge the hook configs, so a refusal comes before the first write."""
-    for folder in (FOLDER, OLD_FOLDER):
-        if store.quietly((project.root / folder / "skills" / "agent-brain").is_symlink):
-            raise UpgradeError(f"{folder}/skills/agent-brain is a symlink, replace it with a real folder first")
+    project_version = project.version()
+    stamped = schema.as_tuple(project_version)
+    for name in store.skill_folders(kit.brain):
+        skill = kit_skill_named(name)
+        kits_own_file = skill_folder(
+            brain=kit.brain,
+            name=name,
+        ) / schema.SKILL_FILE
+        shipped = skill is not None and schema.ships(
+            skill=skill,
+            stamp=stamped,
+        )
+        for folder in (FOLDER, OLD_FOLDER):
+            home = skill_folder(
+                brain=project.root / folder,
+                name=name,
+            )
+            if store.quietly(home.is_symlink):
+                raise UpgradeError(f"{folder}/{schema.SKILLS}/{name} is a symlink, replace it with a real folder first")
+
+            if shipped or not store.quietly(home.exists):
+                continue
+
+            kits_copy = store.same_bytes(
+                one=home / schema.SKILL_FILE,
+                other=kits_own_file,
+            )
+            if not kits_copy and skill is None:
+                raise UpgradeError(
+                    f"the kit ships a skill named {name} this tool does not know, and {folder}/{schema.SKILLS}/{name} differs "
+                    "from it, so run the upgrade with the project's own tool if a kit wrote that folder, else move it aside first"
+                )
+
+            if not kits_copy:
+                raise UpgradeError(
+                    f"the kit now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, "
+                    "move it aside first, or delete it if an interrupted upgrade left it"
+                )
+
+        linked = project.root / doctor.SKILL_LINKS / name
+        own_folder = store.quietly(linked.is_dir) and not store.quietly(linked.is_symlink)
+        if not shipped and own_folder and not store.same_bytes(one=linked / schema.SKILL_FILE, other=kits_own_file):
+            raise UpgradeError(
+                f"the kit now ships a skill named {name}, and {doctor.SKILL_LINKS / name} holds a folder of the project's own "
+                "where the kit's skill link goes, move it aside first"
+            )
+
+        for definition in skill.definitions if skill else ():
+            own = project.root / definition
+            if not shipped and store.readable_file(own) and not store.same_bytes(one=own, other=kit.root / definition):
+                raise UpgradeError(
+                    f"the kit now ships a sub agent definition at {definition} with the {name} skill, "
+                    "and the file there is the project's own, move it aside first"
+                )
 
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
@@ -440,6 +485,7 @@ def prepare(
 
     return Prepared(
         stamp=stamp,
+        project_version=project_version,
         front_doors=front_doors,
         merged=merged,
         layout=project.state(),
@@ -477,10 +523,16 @@ def install(
     if specs:
         report.done("the old ones are still in git: " + ", ".join(f"git show {spec}" for spec in specs))
 
-    skill_home = project.brain / "skills" / "agent-brain"
     shipped = [Path(FOLDER) / relative for relative in kit.brain_files() if relative.name != VERSION]
     written = sum(copy(kit=kit, project=project, relative=relative) for relative in shipped)
-    retired = retire(project=project, folder=skill_home, keep=set(shipped))
+    keep = set(shipped)
+    retired: list[str] = []
+    for folder in kit_skill_folders(brain=project.brain, kit=kit):
+        retired += retire(
+            project=project,
+            folder=folder,
+            keep=keep,
+        )
     report.done(f"the kit's {len(shipped)} files under {FOLDER}/, {written} written, {len(retired)} retired")
     for relative in retired:
         report.done(f"retired {relative}, the kit no longer ships it")
@@ -509,17 +561,31 @@ def install(
 
 def check(
     project: Project,
+    kit: Kit,
 ) -> tuple[list[doctor.Finding], list[doctor.Finding]]:
     """Doctor with --fix over the brain as installed: what it could not clear in the project's files, and what sits in the kit's own.
 
-    A finding under the kit's skill folder is in a file the install
-    replaces every time, so it is the kit's to put right, reported
-    apart and never counted against the project.
+    A finding under one of the skill folders the kit ships is in a file
+    the install replaces every time, so it is the kit's to put right,
+    reported apart and never counted against the project.
     """
     found = doctor.run(brain=store.Brain(root=project.brain), fix=True)
-    kits = [finding for finding in found if finding.path.startswith("skills/agent-brain/")]
+    names = store.skill_folders(kit.brain)
+    kits = [finding for finding in found if kits_own(path=finding.path, names=names)]
 
     return [finding for finding in found if finding not in kits], kits
+
+
+def kits_own(
+    path: str,
+    names: list[str],
+) -> bool:
+    """Whether a doctor finding sits in one of the named skill folders, its path spelled from the brain or from the project root."""
+    parts = Path(path).parts
+    if parts and parts[0] in (FOLDER, OLD_FOLDER):
+        parts = parts[1:]
+
+    return len(parts) > 1 and parts[0] == schema.SKILLS and parts[1] in names
 
 
 def candidates(
@@ -593,7 +659,7 @@ def to_agents_folder(
 def migration_targets(
     project: Project,
 ) -> list[Path]:
-    """The files the folder migration points at the new name: every file naming .agent/ that git tracks, sees or ignores, symlinks and the kit's own skill folder left out.
+    """The files the folder migration points at the new name: every file naming .agent/ that git tracks, sees or ignores, symlinks and the kit's own skill folders left out.
 
     Outside git the root markdown, the ignore file and the brain's own
     markdown are read instead. The guard lists the same files, so the
@@ -645,23 +711,65 @@ def in_skill_folder(
     project: Project,
     path: Path,
 ) -> bool:
-    """Whether the path sits under the kit's own skill folder, by either name of the brain."""
+    """Whether the path sits under one of the kit's own skill folders, by either name of the brain."""
     parts = path.relative_to(project.root).parts
 
-    return len(parts) > 2 and parts[0] in (OLD_FOLDER, FOLDER) and parts[1:3] == ("skills", "agent-brain")
+    return bool(parts) and parts[0] in (OLD_FOLDER, FOLDER) and kits_skill(parts[1:])
+
+
+def kits_skill(
+    parts: tuple[str, ...],
+) -> bool:
+    """Whether a path split under the brain leads into one of the kit's skill folders."""
+    return len(parts) > 1 and parts[0] == schema.SKILLS and parts[1] in schema.KIT_SKILL_NAMES
+
+
+def skill_folder(
+    brain: Path,
+    name: str,
+) -> Path:
+    """Where a skill of that name lives under a brain, whether or not it is there yet."""
+    return brain / schema.SKILLS / name
+
+
+def kit_skill_folders(
+    brain: Path,
+    kit: Kit,
+) -> list[Path]:
+    """The kit's skill folders under a brain, whether or not they are there yet, by the skills the kit checkout ships.
+
+    The checkout decides, not the running tool's table, since the
+    checkout may be a newer release with a skill the tool never heard
+    of, and that folder is the kit's to write, retire under and guard
+    like any other.
+    """
+    return [
+        skill_folder(
+            brain=brain,
+            name=name,
+        )
+        for name in store.skill_folders(kit.brain)
+    ]
+
+
+def kit_skill_named(
+    name: str,
+) -> Optional[schema.KitSkill]:
+    """The running tool's entry for a kit skill, or None for one the checkout ships that this tool never heard of."""
+    return next((skill for skill in schema.KIT_SKILLS if skill.name == name), None)
 
 
 def brain_markdown(
     brain: Path,
 ) -> list[Path]:
-    """Every markdown file under the brain outside the kit's own skill folder, what the folder migration reads outside git."""
+    """Every markdown file under the brain outside the kit's own skill folders, what the folder migration reads outside git."""
     if not store.quietly(brain.is_dir):
         return []
 
     return sorted(
         path
         for path in brain.rglob("*.md")
-        if path.is_file() and path.relative_to(brain).parts[:2] != ("skills", "agent-brain")
+        if path.is_file() and not kits_skill(path.relative_to(brain).parts)
     )
 
 
@@ -1079,8 +1187,8 @@ def guarded_paths(
 
     The front doors and CONTRIBUTING.md are replaced whole, so are the
     kit's files under the brain and the style files in the agent
-    folders, the skill folder is cleared and rewritten, and the folder
-    migration rewrites every file that names the old folder. On the old
+    folders, the kit's skill folders are cleared and rewritten, and the
+    folder migration rewrites every file that names the old folder. On the old
     layout the brain is still .agent/, and git names its files by that
     spelling, so the list uses it too. The ignore file and the hook
     configs keep what they hold, so an edit there is safe and not
@@ -1092,7 +1200,12 @@ def guarded_paths(
 
     brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
     paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
-    paths += files_under(root=project.root, folder=brain / "skills" / "agent-brain", taken=retire_takes)
+    for folder in kit_skill_folders(brain=brain, kit=kit):
+        paths += files_under(
+            root=project.root,
+            folder=folder,
+            taken=retire_takes,
+        )
 
     if pending_migrations(project=project, want=kit.version()):
         paths += [str(path.relative_to(project.root)) for path in migration_targets(project)]
@@ -1119,7 +1232,7 @@ def files_under(
 def retire_takes(
     path: Path,
 ) -> bool:
-    """What retire removes under the skill folder file by file: a shipped shape file or a symlink, never bytecode or a dotfile.
+    """What retire removes under a kit skill folder file by file: a shipped shape file or a symlink, never bytecode or a dotfile.
 
     A folder of nothing but bytecode goes whole with retire's own rule,
     since bytecode is never listed, guarded or worth keeping.
@@ -1223,10 +1336,10 @@ def same_as_kit(
     if source is None:
         return False
 
-    try:
-        return (project.root / relative).read_bytes() == (kit.root / source).read_bytes()
-    except OSError:
-        return False
+    return store.same_bytes(
+        one=project.root / relative,
+        other=kit.root / source,
+    )
 
 
 def kit_source(
@@ -1402,10 +1515,10 @@ def retire(
     folder: Path,
     keep: set[Path],
 ) -> list[str]:
-    """Remove the files under the skill folder the kit no longer ships, and the folders that emptied.
+    """Remove the files under one of the kit's skill folders that the kit no longer ships, and the folders that emptied.
 
     The kit's new files are written before this runs, so the tool is
-    never half gone. The folder is the tool's own, so what the kit does
+    never half gone. The folder is the kit's own, so what the kit does
     not ship goes, named in the report, and the guard has already
     refused if any of it held uncommitted work. A dotfile is left. A
     bytecode folder holding nothing else goes whole and unnamed, since
