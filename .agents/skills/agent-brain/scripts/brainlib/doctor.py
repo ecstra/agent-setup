@@ -613,15 +613,12 @@ def check_indexes(
     """One build of the brain serves the check and every repair it hands out.
 
     A brain whose skills folder cannot be listed has no spine the tool
-    can build, so the indexes are reported as unbuildable and left as
-    they are rather than rewritten without the project's skills.
+    can build, so the build leaves it out and the spine is reported as
+    unbuildable and left as it is rather than rewritten without the
+    project's skills.
     """
-    try:
-        wanted = index.build(brain)
-    except OSError as error:
-        return [Finding(path=schema.INDEX, check="index", message=f"cannot be rebuilt, {store.explain(error)}")]
-
-    return [
+    wanted = index.build(brain)
+    found = [
         Finding(
             path=relative(brain=brain, path=path),
             check="index",
@@ -630,6 +627,10 @@ def check_indexes(
         )
         for path in index.stale_among(wanted)
     ]
+    if brain.root / schema.INDEX not in wanted:
+        found.append(Finding(path=schema.INDEX, check="index", message="cannot be rebuilt while the skills folder cannot be listed"))
+
+    return found
 
 
 def write_index(
