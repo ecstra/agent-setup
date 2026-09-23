@@ -70,7 +70,8 @@ The ledger is closed, and the branch is ready to merge on your word.
 
 A closing pass that found something is reported first with the finding
 pass shape, its batch starting on the owner's word, then goes through
-the batch shape, and this shape follows once that batch is done.
+the batch shape, once per batch when it was split by theme, and this
+shape follows once the last of those batches is done.
 
 ## Without sub agents
 
