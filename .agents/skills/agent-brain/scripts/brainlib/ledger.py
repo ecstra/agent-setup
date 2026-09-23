@@ -135,17 +135,17 @@ def set_batch(
 
         new_status = status or match.group(3)
         new_ack = ack or match.group(4)
-        if status in ("verified", "done"):
+        if status in ("fixing", "verified", "done"):
             own = in_batch(
                 items=findings(entry),
                 number=number,
             )
             still_open = [item["id"] for item in own if is_open(item)]
-            if still_open:
+            if status != "fixing" and still_open:
                 raise LedgerError(f"{', '.join(still_open)} still open, batch {number} is {status} once every finding has landed")
 
-            if status == "done" and not new_ack and own:
-                raise LedgerError(f"batch {number} closes on the owner's ack, give --ack")
+            if own and not new_ack:
+                raise LedgerError(f"batch {number} holds findings and runs on the owner's ack, give --ack")
 
         row = batch_row(
             number=number,
@@ -294,12 +294,12 @@ def reopened(
     body: str,
     number: Optional[int],
 ) -> str:
-    """The body with the batch put back to fixing, its ack cleared, when a finding lands in it after it was verified or done.
+    """The body with the batch put back to fixing when a finding lands in it after it was verified or done.
 
     A late finding, a hunter's, a reopened one or one moved in already
-    fixed, needs its fix verified and acked like the rest, so the batch
-    goes through those states again rather than carrying an ack that
-    never covered it.
+    fixed, needs its fix verified like the rest, so the batch goes
+    through fixing and verified again. The ack that started the batch
+    stays, since the owner's word covered the batch and what it holds.
     """
     if number is None:
         return body
@@ -312,7 +312,7 @@ def reopened(
             number=number,
             theme=match.group(2),
             status="fixing",
-            ack="",
+            ack=match.group(4),
         )
         return body[: match.start()] + row + body[match.end() :]
 
@@ -467,15 +467,13 @@ def next_step(
 
     An open or a fixed finding filed into no batch the table has comes
     first, since nothing moves until it is placed and a fix is verified
-    by its batch. Then the batches in order.
-    A pending one waits for the owner's word until an earlier batch
-    has been acked, after which the ack that closed it is the word to
-    start the next, and an empty batch closed with no ack is no such
-    word. The closing pass batch always waits for the word, since its
-    findings are reported first like a finding pass and no ack yet
-    covers them. A batch past pending needs its open findings fixed, a late
-    one included, then its verification, then its ack, before the walk
-    moves on to the closing pass or the close.
+    by its batch. Then the batches in order. A pending one waits for the
+    owner's word, the ack that starts it and is recorded on it. A batch
+    past pending needs its open findings fixed, a late one included,
+    then its verification, and verification closes it. A batch that
+    holds findings and ran with no ack recorded, which only a hand edit
+    leaves, asks for that ack before anything else. Then the walk moves
+    on to the closing pass or the close.
     """
     if entry.field("status") == "closed":
         return "nothing, the ledger is closed"
@@ -485,17 +483,18 @@ def next_step(
     if stray:
         return f"put {', '.join(stray)} in a batch"
 
-    acked_before = False
     for row in rows:
         number = row["number"]
         if row["status"] == "pending":
-            closing = row["theme"].casefold() == CLOSING_THEME
-            return f"start batch {number}" if acked_before and not closing else f"batch {number} on the owner's word"
+            return f"batch {number} on the owner's word"
 
         own = in_batch(
             items=items,
             number=number,
         )
+        if own and not row["ack"]:
+            return f"record the owner's ack of batch {number}, it ran without one"
+
         still_open = [item["id"] for item in own if is_open(item)]
         if still_open:
             return f"fix {', '.join(still_open)} in batch {number}"
@@ -503,13 +502,8 @@ def next_step(
         if row["status"] == "fixing":
             return f"verify batch {number}"
 
-        if row["status"] == "verified" and (row["ack"] or not own):
-            return f"mark batch {number} done" + (", it has the ack" if row["ack"] else ", it holds nothing")
-
-        if row["status"] == "verified" or (own and not row["ack"]):
-            return f"the owner's ack of batch {number}"
-
-        acked_before = bool(row["ack"])
+        if row["status"] == "verified":
+            return f"mark batch {number} done" + ("" if own else ", it holds nothing")
 
     owed = wants_closing_pass(
         entry=entry,

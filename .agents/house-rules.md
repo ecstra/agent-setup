@@ -88,7 +88,8 @@ suites or a brain with broken links.
    their own files, linked both ways, and earn a future branch sparingly,
    on the owner's call.
 6. **The owner's ack gates each batch.** The next batch starts only when
-   they say so.
+   they say so. The ack is that word to start a batch, recorded on the
+   batch it starts, and verification is what closes a batch.
 7. **The closing pass.** Above low, the branch gets one more pass over
    itself as it stands after the last batch, to catch what the fixes
    introduced and what the review missed. Sweeps skip this.

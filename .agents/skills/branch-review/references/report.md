@@ -47,16 +47,15 @@ The hunter found <n> more, fixed above. (or: The hunter found nothing.)
 
 Deferred: <F-nn> as <BUG-nnn>, <why it cannot be fixed here>.
 Cut short: the hunter, after three runs, <the files it never reached, or that candidates past its cap remained>.
-Your call: ack batch <n>.
-The ack starts batch <n+1>.
+Your call: ack batch <n+1>, which starts it.
 ```
 
 The deferred line appears only when there is one, and the cut short
 line only when the hunter ran three times and still ended with (more
 remain). When the batch was
-the last, the closing line says instead what the ack opens, the
-closing pass where house rule 7 owes one, else the close of the ledger
-and then the merge on the owner's word.
+the last, there is no next batch to ack, and the closing line says
+instead what comes, the closing pass where house rule 7 owes one, else
+the close of the ledger and then the merge on the owner's word.
 
 ## After the closing pass
 

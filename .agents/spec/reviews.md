@@ -22,7 +22,8 @@ body holds three sections.
 1. **Summary**: the review's scope (what the branch did) and the final
    count when closed.
 2. **Batches**: the batch table. Number, theme, status
-   (pending, fixing, verified, done), the owner's ack noted per batch.
+   (pending, fixing, verified, done), the owner's ack that started it
+   noted per batch.
 3. **Findings**: one block per finding, ordered by batch then severity:
 
 ```

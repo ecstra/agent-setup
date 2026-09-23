@@ -103,8 +103,10 @@ brain ledger batch 2026-09-feat-billing --theme correctness
 brain ledger add 2026-09-feat-billing - --severity breaks --batch 1 <<'EOF'
 the guard is inverted
 EOF
+brain ledger batch 2026-09-feat-billing 1 --status fixing --ack 2026-09-16
 brain ledger set 2026-09-feat-billing F-01 status=fixed fix=abc1234
-brain ledger batch 2026-09-feat-billing 1 --status done --ack 2026-09-16
+brain ledger batch 2026-09-feat-billing 1 --status verified
+brain ledger batch 2026-09-feat-billing 1 --status done
 brain ledger report 2026-09-feat-billing
 brain ledger batch 2026-09-feat-billing --theme "closing pass"
 brain ledger batch 2026-09-feat-billing 2 --status done
@@ -112,10 +114,11 @@ brain ledger close 2026-09-feat-billing
 ```
 
 Findings and batches number themselves. A batch that holds findings
-goes `done` only with the owner's ack, `report` says where the review
-stands and what comes next, the closing pass leaves a batch of its own,
-empty when it found nothing, and `close` refuses while any finding is
-still open.
+runs only on the owner's ack, the word that starts it, and
+verification closes it, `report` says where the review stands and what
+comes next, the closing pass leaves a batch of its own, empty when it
+found nothing, and `close` refuses while any finding is still open or
+the report names a step before the close.
 
 ## Checking the brain
 

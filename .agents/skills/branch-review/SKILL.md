@@ -130,11 +130,12 @@ shows it.
 
 One batch at a time.
 
-1. Mark the batch, then fix each finding with one commit, the gates
-   green before every commit, push, and record the hash.
+1. Record the owner's ack on the batch, the word that starts it, then
+   fix each finding with one commit, the gates green before every
+   commit, push, and record the hash.
 
    ```bash
-   brain ledger batch 2026-09-feat-billing 1 --status fixing
+   brain ledger batch 2026-09-feat-billing 1 --status fixing --ack 2026-09-23
    brain ledger set 2026-09-feat-billing F-03 status=fixed fix=abc1234
    ```
 
@@ -170,10 +171,11 @@ One batch at a time.
 
    Then the report, with the batch shape.
 
-6. The owner's ack closes the batch and opens the next.
+6. Verification closes the batch, and the report asks for the ack of
+   the next one, which starts it as in step 1.
 
    ```bash
-   brain ledger batch 2026-09-feat-billing 1 --status done --ack 2026-09-23
+   brain ledger batch 2026-09-feat-billing 1 --status done
    ```
 
 ## The closing pass
