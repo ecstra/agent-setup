@@ -5,10 +5,12 @@ Every report follows SYSTEM.md section 7.6. The state lines come from
 are the refuted and hunter counts the shapes below carry. Never a tip
 line.
 
-While the owner's standing word holds, a line below that says a step
-starts on the owner's word says instead that it started on the standing
-word and what is left of it, "Batch 1 started on your standing word,
-2 h left." The close and the merge lines stay as written, since the
+While the owner's standing word holds, a line below that puts the next
+step on the owner's word or asks for the ack, "Batch 1 starts on your
+word." and "Your call: ack batch 2, which starts it." alike, says
+instead that the step started on the standing word and what is left of
+it, "Batch 2 started on your standing word, 2 h left." The close and
+the merge lines stay as written, since the
 close follows the last batch with no word and the PR and the merge
 wait for the owner's ask either way.
 
@@ -62,7 +64,7 @@ line only when the hunter ran three times and still ended with (more
 remain). When the batch was
 the last, there is no next batch to ack, and the closing line says
 instead what comes, the closing pass where house rule 7 owes one, else
-the close of the ledger and then the merge on the owner's word.
+the close of the ledger and then the merge on the owner's ask.
 
 ## After the closing pass
 
