@@ -338,6 +338,25 @@ def readable_file(
     return quietly(path.is_file)
 
 
+def skill_folders(
+    brain: Path,
+) -> list[str]:
+    """The folders under skills/ that carry a SKILL.md, dotted names skipped, in name order.
+
+    Raises OSError when the folder is there but cannot be listed, so a
+    caller that checks the skills can say so rather than see none.
+    """
+    folder = brain / "skills"
+    if not quietly(folder.is_dir):
+        return []
+
+    return sorted(
+        path.name
+        for path in folder.iterdir()
+        if not schema.is_hidden(path.name) and readable_file(path / "SKILL.md")
+    )
+
+
 def category_folder(
     category: str,
 ) -> Path:

@@ -715,26 +715,34 @@ def check_layout(
         found.append(Finding(path=schema.VERSION_FILE, check="layout", message="no kit version stamp, run the upgrade"))
 
     shared = skills_folder_outside(project)
-    for name in skills_wanted(brain):
+    try:
+        wanted = skills_wanted(brain)
+    except OSError as error:
+        reason = error.strerror or str(error)
+        found.append(Finding(path="skills", check="layout", message=f"the skills folder cannot be listed, so no skill link was checked: {reason}"))
+        wanted = []
+
+    for name in wanted:
         trouble = skill_link_trouble(project=project, name=name)
         if trouble is None:
             continue
 
-        missing = trouble == skill_missing(name)
-        for_a_person = missing or trouble in (REAL_FOLDER_WITHOUT_SKILL, ANOTHER_SKILL)
+        message = trouble.message
+        for_a_person = trouble.for_a_person
         if shared and not for_a_person:
-            trouble += SHARED_FOLDER
+            message += SHARED_FOLDER
             for_a_person = True
 
         found.append(
             Finding(
-                path=str((SKILL_HOMES if missing else SKILL_LINKS) / name),
+                path=str((SKILL_HOMES if trouble.missing else SKILL_LINKS) / name),
                 check="layout",
-                message=trouble,
+                message=message,
                 repair=None if for_a_person else make_skill_link(project=project, name=name),
             )
         )
 
+    found.extend(stray_skill_links(project=project, wanted=wanted))
     found.extend(check_style_copies(brain))
 
     return found
@@ -744,6 +752,16 @@ CANNOT_SEE = ", so Claude Code cannot see the skill"
 REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs" + CANNOT_SEE
 ANOTHER_SKILL = "a skill of its own sits where the skill link belongs, so Claude Code loads that one instead"
 SHARED_FOLDER = ", and the skills folder sits outside the project, so the link is yours to make"
+SKILL_GONE = "the skill link points at a skill that is gone"
+
+
+@dataclass(frozen=True)
+class Trouble:
+    """What is wrong with one skill link, and whether a repair may touch it."""
+
+    message: str
+    missing: bool = False
+    for_a_person: bool = False
 
 
 def skills_folder_outside(
@@ -771,20 +789,59 @@ def skill_missing(
 def skills_wanted(
     brain: store.Brain,
 ) -> list[str]:
-    """The skills Claude Code should find: every one the kit shipped by the brain's stamp, then every other folder under skills/ that carries a SKILL.md."""
+    """The skills Claude Code should find: every one the kit shipped by the brain's stamp, then every other folder under skills/ that carries a SKILL.md.
+
+    Raises OSError when the skills folder cannot be listed, the way
+    `store.skill_folders` does, so the check reports that instead of
+    passing a project skill it could not see.
+    """
     stamped = stamp_of(brain)
     names = [skill.name for skill in schema.KIT_SKILLS if stamped is None or schema.as_tuple(skill.since) <= stamped]
-
-    try:
-        others = sorted(
-            path.name
-            for path in (brain.root / "skills").iterdir()
-            if path.name not in names and not schema.is_hidden(path.name) and store.readable_file(path / "SKILL.md")
-        )
-    except OSError:
-        others = []
+    others = [name for name in store.skill_folders(brain.root) if name not in names]
 
     return names + others
+
+
+def stray_skill_links(
+    project: Path,
+    wanted: list[str],
+) -> list[Finding]:
+    """A link under .claude/skills that doctor once made for a project skill now gone from the brain, with its removal as the repair.
+
+    Only a link that points into the brain's skills folder is doctor's
+    to remove. A link the project made elsewhere is left alone.
+    """
+    links = project / SKILL_LINKS
+    homes = (project / SKILL_HOMES).resolve()
+    found: list[Finding] = []
+
+    try:
+        entries = sorted(links.iterdir())
+    except OSError:
+        return found
+
+    for link in entries:
+        if link.name in wanted or not store.quietly(link.is_symlink) or store.readable_file(link / "SKILL.md"):
+            continue
+
+        try:
+            into_brain = link.resolve().is_relative_to(homes)
+        except (OSError, RuntimeError, ValueError):
+            into_brain = False
+
+        if into_brain:
+            found.append(Finding(path=str(SKILL_LINKS / link.name), check="layout", message=SKILL_GONE, repair=remove_link(link)))
+
+    return found
+
+
+def remove_link(
+    link: Path,
+) -> Callable[[], None]:
+    def repair() -> None:
+        link.unlink()
+
+    return repair
 
 
 def stamp_of(
@@ -804,7 +861,7 @@ def stamp_of(
 def skill_link_trouble(
     project: Path,
     name: str,
-) -> Optional[str]:
+) -> Optional[Trouble]:
     """What is wrong with the named skill's link, or None when Claude Code loads this skill through it.
 
     What Claude Code needs is `.claude/skills/<name>/SKILL.md`, and it
@@ -821,21 +878,30 @@ def skill_link_trouble(
     home = project / SKILL_HOMES / name
 
     if not store.readable_file(home / "SKILL.md"):
-        return None if store.readable_file(link / "SKILL.md") else skill_missing(name)
+        if store.readable_file(link / "SKILL.md"):
+            return None
+
+        return Trouble(message=skill_missing(name), missing=True, for_a_person=True)
 
     if store.quietly(link.is_symlink):
-        return None if reaches(link=link, home=home) else "the skill link does not reach the skill" + CANNOT_SEE
+        if reaches(link=link, home=home):
+            return None
+
+        return Trouble(message="the skill link does not reach the skill" + CANNOT_SEE)
 
     if store.quietly(link.is_dir):
         if not store.readable_file(link / "SKILL.md"):
-            return REAL_FOLDER_WITHOUT_SKILL
+            return Trouble(message=REAL_FOLDER_WITHOUT_SKILL, for_a_person=True)
 
-        return None if same_bytes(one=link / "SKILL.md", other=home / "SKILL.md") else ANOTHER_SKILL
+        if same_bytes(one=link / "SKILL.md", other=home / "SKILL.md"):
+            return None
+
+        return Trouble(message=ANOTHER_SKILL, for_a_person=True)
 
     if store.quietly(link.exists):
-        return "something that is not a link sits where the skill link belongs" + CANNOT_SEE
+        return Trouble(message="something that is not a link sits where the skill link belongs" + CANNOT_SEE)
 
-    return "the skill link is missing" + CANNOT_SEE
+    return Trouble(message="the skill link is missing" + CANNOT_SEE)
 
 
 def reaches(
