@@ -129,12 +129,17 @@ def set_batch(
 
         new_status = status or match.group(3)
         new_ack = ack or match.group(4)
-        held = in_batch(
-            items=findings(entry),
-            number=number,
-        )
-        if new_status == "done" and not new_ack and held:
-            raise LedgerError(f"batch {number} closes on the owner's ack, give --ack")
+        if status in ("verified", "done"):
+            own = in_batch(
+                items=findings(entry),
+                number=number,
+            )
+            still_open = [item["id"] for item in own if is_open(item)]
+            if still_open:
+                raise LedgerError(f"{', '.join(still_open)} still open, batch {number} is {status} once every finding has landed")
+
+            if status == "done" and not new_ack and own:
+                raise LedgerError(f"batch {number} closes on the owner's ack, give --ack")
 
         row = batch_row(
             number=number,
