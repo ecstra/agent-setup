@@ -180,7 +180,7 @@ def session_start(
     agent: str,
     with_rules: bool,
 ) -> int:
-    text = the_moment(brain=brain) + "\n\nThe brain, counted from the files right now:\n" + reads.render_status(reads.status(brain))
+    text = the_moment(brain=brain) + "\n\nThe brain, counted from the files right now:\n" + reads.render_status(reads.status(brain=brain))
     if with_rules:
         rules = brain.root / "SYSTEM.md"
         if store.readable_file(rules):
@@ -664,20 +664,21 @@ def patch_touches(
         marker = MARKER.match(line)
         if marker is not None:
             close_hunk()
-            path = absolute(base=base, value=marker.group(2))
-            if marker.group(1) == "Move to" and updating is not None:
+            action, target = marker.groups()
+            path = absolute(base=base, value=target)
+            if action == "Move to" and updating is not None:
                 found.append(Touch(path=path, moved_from=found[updating].path))
                 continue
 
             found.append(
                 Touch(
                     path=path,
-                    content="" if marker.group(1) == "Add File" else None,
-                    deleted=marker.group(1) == "Delete File",
+                    content="" if action == "Add File" else None,
+                    deleted=action == "Delete File",
                 )
             )
-            updating = len(found) - 1 if marker.group(1) == "Update File" else None
-            adding = len(found) - 1 if marker.group(1) == "Add File" else None
+            updating = len(found) - 1 if action == "Update File" else None
+            adding = len(found) - 1 if action == "Add File" else None
             continue
 
         if adding is not None and (line[:1] == "+" or line == ""):

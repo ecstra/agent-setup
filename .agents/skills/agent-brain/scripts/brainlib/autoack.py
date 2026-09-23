@@ -71,7 +71,7 @@ def turn_on(
     at: Optional[datetime] = None,
 ) -> Grant:
     """Record the word with its end, the earliest of the ends given, refused when none is given or a folder sits where the word goes."""
-    if a_folder(path_of(brain)):
+    if a_folder(path=path_of(brain=brain)):
         raise AckError(FOLDER)
 
     at = at or clock.now()
@@ -117,7 +117,7 @@ def turn_off(
     brain: store.Brain,
 ) -> bool:
     """Take the word back, whatever sits where the word goes short of a folder. True when there was something to take."""
-    path = path_of(brain)
+    path = path_of(brain=brain)
     if a_folder(path):
         raise AckError(FOLDER)
 
@@ -143,7 +143,7 @@ def trouble_text(
     brain: store.Brain,
 ) -> str:
     """What to say about something where the word goes that does not read as one, and how the owner clears it."""
-    return FOLDER if a_folder(path_of(brain)) else BROKEN
+    return FOLDER if a_folder(path=path_of(brain=brain)) else BROKEN
 
 
 def current(
@@ -162,7 +162,7 @@ def current(
     holds the word off with the file in place, so the word is back
     once the entry is.
     """
-    grant = read(brain)
+    grant = read(brain=brain)
     if grant is None:
         return None
 
@@ -195,11 +195,11 @@ def forget(
     the word again if the task were reopened, so `describe` says it
     could not be cleared.
     """
-    if read(brain) != grant:
+    if read(brain=brain) != grant:
         return
 
     try:
-        path_of(brain).unlink()
+        path_of(brain=brain).unlink()
     except OSError:
         pass
 
@@ -215,8 +215,8 @@ def stamp(
         if held is not None:
             raise AckError(f"auto ack is held, {held_text(brain=brain, grant=held)}, the owner's word starts a batch")
 
-        if unreadable_word(brain):
-            raise AckError(f"auto ack is off, {trouble_text(brain)}, the owner's word starts a batch")
+        if unreadable_word(brain=brain):
+            raise AckError(f"auto ack is off, {trouble_text(brain=brain)}, the owner's word starts a batch")
 
         raise AckError("auto ack is off, the owner's word starts a batch")
 
@@ -227,11 +227,11 @@ def unreadable_word(
     brain: store.Brain,
 ) -> bool:
     """Whether something sits where the word goes that does not read as one, a broken file, a folder or a dangling link, which the owner is told about."""
-    path = path_of(brain)
+    path = path_of(brain=brain)
     if not store.quietly(path.is_symlink) and not store.quietly(path.exists):
         return False
 
-    return not store.readable_file(path) or read(brain) is None
+    return not store.readable_file(path) or read(brain=brain) is None
 
 
 def held_word(
@@ -239,7 +239,7 @@ def held_word(
     at: datetime,
 ) -> Optional[Grant]:
     """A word still within its time whose task the brain cannot read right now, or whose ledger this checkout lacks, which holds it off without ending it."""
-    grant = read(brain)
+    grant = read(brain=brain)
     if grant is None or grant.task is None:
         return None
 
@@ -265,7 +265,7 @@ def stale_word(
     at: datetime,
 ) -> Optional[Grant]:
     """A word within its time whose task has ended and whose file is still on disk, which means `forget` could not drop it."""
-    grant = read(brain)
+    grant = read(brain=brain)
     if grant is None or grant.task is None:
         return None
 
@@ -291,8 +291,8 @@ def describe(
         if stale is not None:
             return f"{OFF}, {FILE} could not be cleared since the brain's folder cannot be written, and the word would stand again if {stale.task} were reopened"
 
-        if unreadable_word(brain):
-            return f"{OFF}, {trouble_text(brain)}"
+        if unreadable_word(brain=brain):
+            return f"{OFF}, {trouble_text(brain=brain)}"
 
         return OFF
 
@@ -422,8 +422,8 @@ def parse_duration(
     if match is None:
         raise AckError(f"'{text}' is not a duration like 8h, 90m or 2d")
 
-    amount = float(match.group(1))
-    unit = match.group(2)
+    amount_text, unit = match.groups()
+    amount = float(amount_text)
     if unit == "m":
         return amount / 60
 
@@ -448,28 +448,30 @@ def parse_until(
     try:
         match = CLOCK_TIME.match(text)
         if match is not None:
+            day_word, hour, minute = match.groups()
             moment = wall.replace(
-                hour=int(match.group(2)),
-                minute=int(match.group(3)),
+                hour=int(hour),
+                minute=int(minute),
                 second=0,
                 microsecond=0,
             )
-            if match.group(1) == "tomorrow" or (match.group(1) is None and moment <= wall):
+            if day_word == "tomorrow" or (day_word is None and moment <= wall):
                 moment += timedelta(days=1)
 
             return from_the_wall(at=at, naive=moment)
 
         match = DAY_TIME.match(text)
         if match is not None:
-            day = datetime.strptime(match.group(1), "%Y-%m-%d")
-            if match.group(2) is None:
+            day_text, hour, minute = match.groups()
+            day = datetime.strptime(day_text, "%Y-%m-%d")
+            if hour is None:
                 return from_the_wall(at=at, naive=day + timedelta(days=1) - timedelta(microseconds=1))
 
             return from_the_wall(
                 at=at,
                 naive=day.replace(
-                    hour=int(match.group(2)),
-                    minute=int(match.group(3)),
+                    hour=int(hour),
+                    minute=int(minute),
                 ),
             )
     except ValueError as bad:
@@ -607,7 +609,7 @@ def write(
         "task": grant.task,
     }
     frontmatter.write_text(
-        path=str(path_of(brain)),
+        path=str(path_of(brain=brain)),
         text=json.dumps(data, indent=2) + "\n",
     )
 
@@ -620,7 +622,7 @@ def read(
     A word carries its zone on every moment and has an end by time, by
     task or both, and a file that says otherwise is no word.
     """
-    path = path_of(brain)
+    path = path_of(brain=brain)
     if not store.readable_file(path):
         return None
 

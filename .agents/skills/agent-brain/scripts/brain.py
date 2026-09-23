@@ -148,7 +148,7 @@ def run_status(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    data = reads.status(brain)
+    data = reads.status(brain=brain)
     if args.json:
         print(json.dumps(data, indent=2))
         return 0
