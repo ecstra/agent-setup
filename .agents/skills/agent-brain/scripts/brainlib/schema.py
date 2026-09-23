@@ -280,6 +280,7 @@ KIT_FILES: tuple[str, ...] = (
     "house-rules.md",
 )
 
+
 @dataclass(frozen=True)
 class KitSkill:
     """One skill the kit ships under skills/, a folder with a SKILL.md.
@@ -343,6 +344,7 @@ def as_tuple(
     numbers = [int(part) for part in parts]
 
     return tuple(numbers + [0] * (3 - len(numbers)))
+
 
 # SYSTEM.md is the rulebook. An agent takes it as it stands, so it is the
 # one markdown file at the root of the directory with no frontmatter. The
