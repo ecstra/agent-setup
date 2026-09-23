@@ -723,7 +723,10 @@ def check_layout(
         wanted = None
 
     for name in wanted or []:
-        trouble = skill_link_trouble(project=project, name=name)
+        trouble = skill_link_trouble(
+            project=project,
+            name=name,
+        )
         if trouble is None:
             continue
 
@@ -733,17 +736,29 @@ def check_layout(
             message += SHARED_FOLDER
             for_a_person = True
 
+        repair = None
+        if not for_a_person:
+            repair = make_skill_link(
+                project=project,
+                name=name,
+            )
+
         found.append(
             Finding(
                 path=str((SKILL_HOMES if trouble.missing else SKILL_LINKS) / name),
                 check="layout",
                 message=message,
-                repair=None if for_a_person else make_skill_link(project=project, name=name),
+                repair=repair,
             )
         )
 
     if wanted is not None:
-        found.extend(stray_skill_links(project=project, wanted=wanted, shared=shared))
+        strays = stray_skill_links(
+            project=project,
+            wanted=wanted,
+            shared=shared,
+        )
+        found.extend(strays)
 
     found.extend(check_style_copies(brain))
 
@@ -1004,7 +1019,13 @@ def make_skill_link(
 
         if link.is_symlink() or (link.exists() and not link.is_dir()):
             link.unlink()
-        os.symlink(skill_target(project=project, link=link, name=name), str(link))
+
+        target = skill_target(
+            project=project,
+            link=link,
+            name=name,
+        )
+        os.symlink(target, str(link))
 
     return repair
 

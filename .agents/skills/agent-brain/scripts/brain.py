@@ -464,7 +464,11 @@ def run_ledger_report(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    print(ledger.report(brain=brain, key=args.key))
+    state = ledger.report(
+        brain=brain,
+        key=args.key,
+    )
+    print(state)
     return 0
 
 

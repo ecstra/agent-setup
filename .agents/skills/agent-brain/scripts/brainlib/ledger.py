@@ -173,7 +173,10 @@ def add_finding(
         raise LedgerError("a finding needs a claim")
 
     entry = ledger_entry(brain=brain, key=key)
-    known_batch(entry=entry, value=batch_cell)
+    known_batch(
+        entry=entry,
+        value=batch_cell,
+    )
     number = max((int(record["id"][2:]) for record in findings(entry)), default=0) + 1
     identifier = f"F-{number:02d}"
     block = (
@@ -203,7 +206,10 @@ def set_finding(
     changes = {field: checked(field=field, value=value) for field, value in changes.items()}
 
     entry = ledger_entry(brain=brain, key=key)
-    known_batch(entry=entry, value=changes.get("batch", ""))
+    known_batch(
+        entry=entry,
+        value=changes.get("batch", ""),
+    )
     body = entry.document.body
     span = finding_span(body=body, identifier=identifier)
     if span is None:
@@ -282,7 +288,10 @@ def report(
     key: str,
 ) -> str:
     """The ledger's state in a few lines, counted from the file, with what comes next."""
-    entry = ledger_entry(brain=brain, key=key)
+    entry = ledger_entry(
+        brain=brain,
+        key=key,
+    )
     rows = batches(entry)
     items = findings(entry)
     noun = "batch" if len(rows) == 1 else "batches"
@@ -367,7 +376,11 @@ def next_step(
 
         acked_before = bool(row["ack"])
 
-    if wants_closing_pass(entry=entry, rows=rows):
+    owed = wants_closing_pass(
+        entry=entry,
+        rows=rows,
+    )
+    if owed:
         return "the closing pass"
 
     return "close the ledger"

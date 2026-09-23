@@ -411,9 +411,19 @@ def prepare(
     stamped = schema.as_tuple(project.version())
     for folder in (FOLDER, OLD_FOLDER):
         for skill in schema.KIT_SKILLS:
-            home = skill_folder(brain=project.root / folder, name=skill.name)
+            home = skill_folder(
+                brain=project.root / folder,
+                name=skill.name,
+            )
+            kits_own_file = skill_folder(
+                brain=kit.brain,
+                name=skill.name,
+            ) / "SKILL.md"
             present = store.quietly(home.is_symlink) or store.quietly(home.exists)
-            kits_copy = doctor.same_bytes(one=home / "SKILL.md", other=skill_folder(brain=kit.brain, name=skill.name) / "SKILL.md")
+            kits_copy = doctor.same_bytes(
+                one=home / "SKILL.md",
+                other=kits_own_file,
+            )
             if present and stamped < schema.as_tuple(skill.since) and not kits_copy:
                 raise UpgradeError(
                     f"the kit now ships a skill named {skill.name}, and {folder}/skills/{skill.name} is the project's own, "
@@ -480,7 +490,11 @@ def install(
     keep = set(shipped)
     retired: list[str] = []
     for folder in kit_skill_folders(project.brain):
-        retired += retire(project=project, folder=folder, keep=keep)
+        retired += retire(
+            project=project,
+            folder=folder,
+            keep=keep,
+        )
     report.done(f"the kit's {len(shipped)} files under {FOLDER}/, {written} written, {len(retired)} retired")
     for relative in retired:
         report.done(f"retired {relative}, the kit no longer ships it")
@@ -1126,7 +1140,11 @@ def guarded_paths(
     brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
     paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
     for folder in kit_skill_folders(brain):
-        paths += files_under(root=project.root, folder=folder, taken=retire_takes)
+        paths += files_under(
+            root=project.root,
+            folder=folder,
+            taken=retire_takes,
+        )
 
     if pending_migrations(project=project, want=kit.version()):
         paths += [str(path.relative_to(project.root)) for path in migration_targets(project)]
