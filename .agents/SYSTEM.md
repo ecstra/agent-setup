@@ -516,7 +516,7 @@ Say the state in plain words first, then what changed, then what is left and wha
 
 ## 8. The Agent Directory
 
-**`.agents/` at the repo root is the project's brain, committed, so any agent on any machine resumes cold.**
+**`.agents/` at the repo root is the project's brain, committed, all but what git ignores there, so any agent on any machine resumes cold.**
 
 Read `.agents/INDEX.md` before working. It is the spine: the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked.
 
@@ -528,7 +528,7 @@ The brain is maintained in the same motion as the work, never as a separate chor
 
 - **No secrets in `.agents/`, ever.** It is committed, all but what git ignores there. Same absoluteness as the `.env` rule.
 - **Project truth only.** Facts about the user as a person are not ours to manage and never enter the repo.
-- **The direction rule.** Nothing in `.agents/` references any machine's local state. A machine's local agent memory may point INTO the repo's brain, never the reverse, which is what keeps the repo self contained. The two gitignored paths there, the tool's `.ack` and the worktree home of rule 10.2, are the one exception, since they never enter the repo.
+- **The direction rule.** Nothing in `.agents/` references any machine's local state. A machine's local agent memory may point INTO the repo's brain, never the reverse, which is what keeps the repo self contained. What git ignores there, which the brain's conventions list, is the one exception, since it never enters the repo.
 
 ### 8.3 The Trackers
 

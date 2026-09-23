@@ -81,9 +81,9 @@ review with no name. `brain ack` given an end with no `on`, and
 says so. A folder
 where the word goes, which the tool never made and never removes, has
 `brain ack on` and `brain ack off` refused and `brain ack` say so. The
-state is one dotted file at the root of the brain,
-`.agents/.ack`, the tool's own, gitignored and never listed or checked,
-since it belongs to one machine and one stretch of work. A file that
+state is one dotted file at the root of the brain, `.agents/.ack`, the
+tool's own, which git ignores since it belongs to one machine and one
+stretch of work, and the brain's conventions say the rest. A file that
 does not read as a word, a moment with no zone in it included, counts
 as no word, and the status line says so until `brain ack off` clears
 it, as `brain ack on` does too where the file can be written. While it

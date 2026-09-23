@@ -5,9 +5,10 @@ Codex, Gemini CLI, anything that reads `AGENTS.md`) knows how to behave
 there and has a place to keep what it learns. It is one folder called
 `.agents/`, holding the rules and everything the project knows, plus a
 few short files at the root that point every agent into it. All plain
-files, committed to git. That is the whole trick. Because they live in
-the repo, a fresh session on any machine picks up exactly where the last
-one stopped.
+files, committed to git, all but the little the tool keeps for one
+machine. That is the whole trick. Because they live in the repo, a
+fresh session on any machine picks up exactly where the last one
+stopped.
 
 ## Why you would want it
 

@@ -106,7 +106,9 @@ all.
 - No secrets, ever. This directory is committed, all but what git
   ignores there.
 - No machine paths, no user personal facts. Project truth only.
-- Two gitignored paths are the one exception. The tool's own local
-  state, `.ack`, holds the owner's standing word to proceed with its
-  end, and is never listed, indexed, checked or written by hand. The
-  worktree home the rules allow is the other.
+- What git ignores here is the one exception, since it never enters
+  the repo: the tool's own local state, `.ack`, which holds the owner's
+  standing word to proceed with its end and is never listed, indexed,
+  checked or written by hand, the write in flight the tool makes it
+  through beside it, Python's cache beside the tool, and the worktree
+  home the rules allow.

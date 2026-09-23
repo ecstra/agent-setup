@@ -16,11 +16,9 @@ read this.
 
 ## Booting
 
-1. Read [INDEX.md](INDEX.md), the spine. One line each for the
-   rulebook, this readme, the house rules and VERSION, one per spec,
-   one per skill, then one per folder, its index with the counts or the
-   folder itself where it keeps none. It tells you what exists and
-   where.
+1. Read [INDEX.md](INDEX.md), the spine. It names everything here and
+   where it lives, in the shape [spec/conventions.md](spec/conventions.md)
+   gives.
 2. Read [house-rules.md](house-rules.md) before any branch, commit, or
    review work.
 3. Obey [spec/](spec/conventions.md). Each content folder here has a spec
@@ -50,14 +48,14 @@ read this.
   names, and doctor links them for Claude Code.
 - `VERSION`: the kit release this brain is on, read by the tool.
 - `.ack`: the owner's standing word to proceed and its end, the tool's
-  own, gitignored, so it lives on one machine and is never listed,
-  indexed or checked.
+  own, which git ignores since it lives on one machine, and the
+  conventions say the rest.
 
 ## Two absolutes
 
 - Nothing secret ever enters this directory. All but what git ignores
   there is committed.
 - Nothing here references any machine's local state. Machines point at
-  this directory, never the reverse. The two gitignored paths, the
-  tool's `.ack` and the worktree home the rules allow, are the one
-  exception, since they never enter the repo.
+  this directory, never the reverse. What git ignores here, which the
+  conventions list, is the one exception, since it never enters the
+  repo.
