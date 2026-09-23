@@ -268,24 +268,11 @@ def read_version(
         raise UpgradeError(f"{stamp.name} cannot be read: {error}") from error
 
     try:
-        as_tuple(text)
+        schema.as_tuple(text)
     except ValueError as error:
         raise UpgradeError(f"{stamp.name} says {error}") from error
 
     return text
-
-
-def as_tuple(
-    version: str,
-) -> tuple[int, ...]:
-    """The version as numbers to compare, padded to three so 1.0 is 1.0.0, or a ValueError when the text is not one."""
-    parts = version.split(".")
-    if not all(part.isdecimal() and part.isascii() for part in parts):
-        raise ValueError(f"'{version}', not a version like 1.0.0")
-
-    numbers = [int(part) for part in parts]
-
-    return tuple(numbers + [0] * (3 - len(numbers)))
 
 
 def default_kit() -> Kit:
@@ -331,7 +318,7 @@ def upgrade(
     report = Report(out=out)
     report.done(f"upgrading {project.root.resolve()}")
     refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
-    if as_tuple(project.version()) > as_tuple(prepared.stamp):
+    if schema.as_tuple(project.version()) > schema.as_tuple(prepared.stamp):
         raise UpgradeError(f"the project is on {project.version()} and this kit is {prepared.stamp}, use a kit at least that new")
 
     for migration in pending_migrations(project=project, want=prepared.stamp):
@@ -401,9 +388,9 @@ def pending_migrations(
     want: str,
 ) -> list[Migration]:
     """The migrations the project's tree calls for, up to a kit stamped `want`, in order."""
-    high = as_tuple(want)
+    high = schema.as_tuple(want)
 
-    return [migration for migration in MIGRATIONS if as_tuple(migration.to) <= high and migration.needed(project)]
+    return [migration for migration in MIGRATIONS if schema.as_tuple(migration.to) <= high and migration.needed(project)]
 
 
 @dataclass
@@ -421,10 +408,18 @@ def prepare(
     project: Project,
 ) -> Prepared:
     """Read the kit's stamp and front doors and merge the hook configs, so a refusal comes before the first write."""
+    stamped = schema.as_tuple(project.version())
     for folder in (FOLDER, OLD_FOLDER):
-        for name in schema.KIT_SKILLS:
-            if store.quietly((project.root / folder / "skills" / name).is_symlink):
-                raise UpgradeError(f"{folder}/skills/{name} is a symlink, replace it with a real folder first")
+        for skill in schema.KIT_SKILLS:
+            home = project.root / folder / "skills" / skill.name
+            present = store.quietly(home.is_symlink) or store.quietly(home.exists)
+            if present and stamped < schema.as_tuple(skill.since):
+                raise UpgradeError(
+                    f"the kit now ships a skill named {skill.name}, and {folder}/skills/{skill.name} is the project's own, move it aside first"
+                )
+
+            if store.quietly(home.is_symlink):
+                raise UpgradeError(f"{folder}/skills/{skill.name} is a symlink, replace it with a real folder first")
 
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
@@ -481,7 +476,7 @@ def install(
     shipped = [Path(FOLDER) / relative for relative in kit.brain_files() if relative.name != VERSION]
     written = sum(copy(kit=kit, project=project, relative=relative) for relative in shipped)
     retired: list[str] = []
-    for name in schema.KIT_SKILLS:
+    for name in schema.KIT_SKILL_NAMES:
         retired += retire(project=project, folder=project.brain / "skills" / name, keep=set(shipped))
     report.done(f"the kit's {len(shipped)} files under {FOLDER}/, {written} written, {len(retired)} retired")
     for relative in retired:
@@ -519,7 +514,7 @@ def check(
     reported apart and never counted against the project.
     """
     found = doctor.run(brain=store.Brain(root=project.brain), fix=True)
-    kits = [finding for finding in found if finding.path.startswith(tuple(f"skills/{name}/" for name in schema.KIT_SKILLS))]
+    kits = [finding for finding in found if finding.path.startswith(tuple(f"skills/{name}/" for name in schema.KIT_SKILL_NAMES))]
 
     return [finding for finding in found if finding not in kits], kits
 
@@ -657,7 +652,7 @@ def kits_skill(
     parts: tuple[str, ...],
 ) -> bool:
     """Whether a path split under the brain leads into one of the kit's skill folders."""
-    return len(parts) > 1 and parts[0] == "skills" and parts[1] in schema.KIT_SKILLS
+    return len(parts) > 1 and parts[0] == "skills" and parts[1] in schema.KIT_SKILL_NAMES
 
 
 def brain_markdown(
@@ -1101,7 +1096,7 @@ def guarded_paths(
 
     brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
     paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
-    for name in schema.KIT_SKILLS:
+    for name in schema.KIT_SKILL_NAMES:
         paths += files_under(root=project.root, folder=brain / "skills" / name, taken=retire_takes)
 
     if pending_migrations(project=project, want=kit.version()):

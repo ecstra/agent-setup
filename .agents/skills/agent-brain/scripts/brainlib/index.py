@@ -20,10 +20,6 @@ SPINE_INTRO = (
 )
 
 SYSTEM_HOOK = "the rulebook every agent works by, reached through AGENTS.md"
-SKILL_HOOKS = {
-    "agent-brain": "the brain tool, the one way anything here is filed, changed or checked",
-    "review": "the code review, run on the owner's word with sub agents in parallel",
-}
 VERSION_HOOK = "the kit release this brain is on"
 
 # The ways a bug stops being open, in the order the index lists them.
@@ -176,7 +172,7 @@ def spine_body(
     for relative in kit_listing(brain):
         lines.append(f"- [{relative}]({relative}), {hook_of(brain.root / relative)}")
 
-    skills = [(f"skills/{name}/SKILL.md", SKILL_HOOKS[name]) for name in schema.KIT_SKILLS]
+    skills = [(f"skills/{skill.name}/SKILL.md", skill.hook) for skill in schema.KIT_SKILLS]
     for relative, hook in (*skills, (schema.VERSION_FILE, VERSION_HOOK)):
         if store.readable_file(brain.root / relative):
             lines.append(f"- [{relative}]({relative}), {hook}")

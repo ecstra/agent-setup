@@ -748,8 +748,9 @@ def skill_missing(
 def skills_wanted(
     brain: store.Brain,
 ) -> list[str]:
-    """The skills Claude Code should find: every one the kit ships, then every other folder under skills/ that carries a SKILL.md."""
-    names = list(schema.KIT_SKILLS)
+    """The skills Claude Code should find: every one the kit shipped by the brain's stamp, then every other folder under skills/ that carries a SKILL.md."""
+    stamped = stamp_of(brain)
+    names = [skill.name for skill in schema.KIT_SKILLS if stamped is None or schema.as_tuple(skill.since) <= stamped]
 
     try:
         others = sorted(
@@ -761,6 +762,20 @@ def skills_wanted(
         others = []
 
     return names + others
+
+
+def stamp_of(
+    brain: store.Brain,
+) -> Optional[tuple[int, ...]]:
+    """The kit release the brain is stamped with, as numbers, or None when the stamp is missing or not a version."""
+    stamp = brain.root / schema.VERSION_FILE
+    if not store.readable_file(stamp):
+        return None
+
+    try:
+        return schema.as_tuple(stamp.read_text(encoding="utf-8").strip())
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
 
 
 def skill_link_trouble(

@@ -275,14 +275,48 @@ KIT_FILES: tuple[str, ...] = (
     "house-rules.md",
 )
 
-# The skills the kit ships under skills/, each a folder with a SKILL.md.
-# Claude Code finds them through links under .claude/skills/, which
-# doctor makes, and the port and the upgrade treat each folder as the
-# kit's own, replaced whole.
-KIT_SKILLS: tuple[str, ...] = (
-    "agent-brain",
-    "review",
+@dataclass(frozen=True)
+class KitSkill:
+    """One skill the kit ships under skills/, a folder with a SKILL.md.
+
+    Claude Code finds it through a link under .claude/skills/, which
+    doctor makes, and the port and the upgrade treat the folder as the
+    kit's own, replaced whole, from the release named in `since` on. A
+    project stamped older than that with a folder of the same name made
+    it itself, and the upgrade refuses to write over it.
+    """
+
+    name: str
+    hook: str
+    since: str
+
+
+KIT_SKILLS: tuple[KitSkill, ...] = (
+    KitSkill(
+        name="agent-brain",
+        hook="the brain tool, the one way anything here is filed, changed or checked",
+        since="0",
+    ),
+    KitSkill(
+        name="review",
+        hook="the code review, run on the owner's word with sub agents in parallel",
+        since="1.2.0",
+    ),
 )
+KIT_SKILL_NAMES: tuple[str, ...] = tuple(skill.name for skill in KIT_SKILLS)
+
+
+def as_tuple(
+    version: str,
+) -> tuple[int, ...]:
+    """The version as numbers to compare, padded to three so 1.0 is 1.0.0, or a ValueError when the text is not one."""
+    parts = version.split(".")
+    if not all(part.isdecimal() and part.isascii() for part in parts):
+        raise ValueError(f"'{version}', not a version like 1.0.0")
+
+    numbers = [int(part) for part in parts]
+
+    return tuple(numbers + [0] * (3 - len(numbers)))
 
 # SYSTEM.md is the rulebook. An agent takes it as it stands, so it is the
 # one markdown file at the root of the directory with no frontmatter. The
