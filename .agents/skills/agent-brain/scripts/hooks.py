@@ -120,7 +120,7 @@ def read_event() -> dict:
     if sys.stdin is None or sys.stdin.isatty():
         return {}
 
-    raw = sys.stdin.read()
+    raw = stdin_bytes().decode("utf-8", errors="replace")
     if not raw.strip():
         return {}
 
@@ -128,6 +128,21 @@ def read_event() -> dict:
         return json.loads(raw)
     except json.JSONDecodeError:
         return {}
+
+
+def stdin_bytes() -> bytes:
+    """Standard input as bytes, read under the text layer so the locale's encoding never gets a say.
+
+    The event is JSON, which is UTF-8 whatever the locale, and on a
+    prompt it carries the owner's own text. A byte layer that is not
+    there, a text stream handed in by a test, is read as the text it
+    holds.
+    """
+    buffer = getattr(sys.stdin, "buffer", None)
+    if buffer is None:
+        return sys.stdin.read().encode("utf-8")
+
+    return buffer.read()
 
 
 def locate(
@@ -173,13 +188,8 @@ def tick(
     brain: store.Brain,
     agent: str,
 ) -> int:
-    """After the agent's tool calls, the clock again, and the standing word while one holds, so a long stretch of work never loses either."""
-    text = clock.line()
-    word = autoack.describe(brain)
-    if word != autoack.OFF:
-        text += "\n" + word
-
-    emit_context(agent=agent, text=text, event_name=TICK.get(agent, "PostToolUse"))
+    """After the agent's tool calls, the clock and the standing word again, off included, so a long stretch of work never loses either and sees the word end."""
+    emit_context(agent=agent, text=the_moment(brain), event_name=TICK.get(agent, "PostToolUse"))
     return 0
 
 
@@ -680,8 +690,9 @@ def settled(
 AFTER_WRITE = {"claude": "PostToolUse", "codex": "PostToolUse", "gemini": "AfterTool"}
 
 # What each agent calls the event on a prompt, and the one the tick rides
-# on. Claude Code fires PostToolBatch once before each model call, Codex
-# PostToolUse after each tool, Gemini CLI AfterTool after each tool.
+# on. Claude Code fires PostToolBatch once after each round of tool
+# calls, Codex PostToolUse after each tool, Gemini CLI AfterTool after
+# each tool.
 PROMPT = {"claude": "UserPromptSubmit", "codex": "UserPromptSubmit", "gemini": "BeforeAgent"}
 TICK = {"claude": "PostToolBatch", "codex": "PostToolUse", "gemini": "AfterTool"}
 
@@ -718,8 +729,8 @@ def emit_nothing(
     On a pass, exit 0, Gemini CLI parses standard output as JSON, so it
     gets an empty object. On a refusal, exit 2, every agent takes the
     reason from standard error and reads nothing else. Claude Code takes
-    silence on a pass, and for Codex anything printed would become
-    context, so both get nothing.
+    silence on a pass, and Codex drops plain text on a tool event, so
+    both get nothing.
     """
     if agent == "gemini":
         print("{}")
