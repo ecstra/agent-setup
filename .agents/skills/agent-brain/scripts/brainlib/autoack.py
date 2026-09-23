@@ -22,7 +22,7 @@ from . import clock, frontmatter, schema, store
 
 FILE = ".ack"
 OFF = "auto ack off"
-BROKEN = f"{FILE} does not read as a word and brain ack off clears it"
+BROKEN = f"{FILE} does not read as a word, brain ack off clears it and brain ack on writes over it"
 FOLDER = f"{FILE} is a folder the tool never made, move it away by hand"
 
 # the last moment every zone can still show on its own clock
@@ -66,7 +66,10 @@ def turn_on(
     task: Optional[str] = None,
     at: Optional[datetime] = None,
 ) -> Grant:
-    """Record the word with its end, the earliest of the ends given, refused when none is given."""
+    """Record the word with its end, the earliest of the ends given, refused when none is given or a folder sits where the word goes."""
+    if a_folder(path_of(brain)):
+        raise AckError(FOLDER)
+
     at = at or clock.now()
     ends: list[datetime] = []
     try:
