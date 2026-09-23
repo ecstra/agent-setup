@@ -25,7 +25,7 @@ import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Optional
+from typing import NoReturn, Optional
 
 from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, store
 
@@ -65,10 +65,27 @@ class Touch:
     moved_from: Optional[Path] = None
 
 
+class HookParser(argparse.ArgumentParser):
+    """An argument parser whose refusal is the non blocking error, never the blocking exit.
+
+    argparse exits 2 on an argument it does not know, and 2 is the exit
+    every agent takes as a block, so a hook script older than the event
+    its config names, one a checkout of an older branch put in place,
+    would erase every prompt until the session restarts.
+    """
+
+    def error(
+        self,
+        message: str,
+    ) -> NoReturn:
+        print(f"the brain hook could not run: {message}", file=sys.stderr)
+        raise SystemExit(FAILED)
+
+
 def main(
     argv: Optional[list[str]] = None,
 ) -> int:
-    parser = argparse.ArgumentParser(prog="hooks")
+    parser = HookParser(prog="hooks")
     parser.add_argument("event", choices=("session-start", "prompt", "tick", "pre-write", "post-write"))
     parser.add_argument("--agent", choices=("claude", "codex", "gemini"), default="claude")
     parser.add_argument("--with-rules", action="store_true", help="add SYSTEM.md to the context")
