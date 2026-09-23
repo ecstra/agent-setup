@@ -181,7 +181,9 @@ def forget(
     them, so a file another read dropped first, one a newer word has
     since replaced, or a root that cannot be written right now, is no
     reason to fail the read. The word is off either way, and the next
-    read tries again.
+    read tries again. Until one succeeds the file stays, and would be
+    the word again if the task were reopened, so `describe` says it
+    could not be cleared.
     """
     if read(brain) != grant:
         return
@@ -237,6 +239,21 @@ def held_word(
     return grant if task_state(brain=brain, key=grant.task) == "unsure" else None
 
 
+def stale_word(
+    brain: store.Brain,
+    at: datetime,
+) -> bool:
+    """Whether a word within its time whose task has ended is still on disk, which means `forget` could not drop it."""
+    grant = read(brain)
+    if grant is None or grant.task is None:
+        return False
+
+    if grant.until is not None and utc(at) >= grant.until:
+        return False
+
+    return task_state(brain=brain, key=grant.task) in ("done", "gone")
+
+
 def describe(
     brain: store.Brain,
     at: Optional[datetime] = None,
@@ -248,6 +265,9 @@ def describe(
         held = held_word(brain=brain, at=at)
         if held is not None:
             return f"auto ack held, {held.task} cannot be read right now"
+
+        if stale_word(brain=brain, at=at):
+            return f"{OFF}, {FILE} could not be cleared, the brain's folder cannot be written"
 
         if unreadable_word(brain):
             return f"{OFF}, {trouble_text(brain)}"
