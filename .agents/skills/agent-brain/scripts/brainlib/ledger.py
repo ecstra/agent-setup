@@ -517,7 +517,9 @@ def next_step(
     by its batch. Then the batches in order. A pending one waits for the
     owner's word, the ack that starts it and is recorded on it, one
     that carries the ack already is there to start, and so is one with
-    none while the owner's standing word holds. A batch
+    none while the owner's standing word holds. A stamp from an
+    earlier word counts as no ack while the word is off, since the
+    start checks the word again. A batch
     past pending needs its open findings fixed, a late one included,
     then its verification, and verification closes it. A batch that
     holds findings with no ack recorded, which a hand edit leaves, or a
