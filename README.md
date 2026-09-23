@@ -329,7 +329,7 @@ Here is how it ships, empty and ready.
 .agents/
 ├── SYSTEM.md             the rulebook every agent works by
 ├── VERSION               the kit release this project carries
-├── INDEX.md              the spine, one line for each thing the brain lists, built by the tool
+├── INDEX.md              the spine, one line per top file and per folder, built by the tool
 ├── README.md             what the directory is and how an agent boots from it
 ├── house-rules.md        the branch contract and code review protocol
 ├── skills/agent-brain/   the brain tool, as a skill every agent can read
@@ -393,8 +393,9 @@ land.
 ```
 
 The trackers, the docs library, and memory each carry an `INDEX.md`
-listing what is inside, and `.agents/INDEX.md` at the top lists
-everything. `spec/` and `handover/` carry none, the spine covers both.
+listing what is inside, and `.agents/INDEX.md` at the top names each
+of those folders with its counts. `spec/` and `handover/` carry none,
+the spine covers both.
 `handover/` stays empty until a session hands work over, so a fresh
 clone has no such folder until then.
 

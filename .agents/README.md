@@ -15,9 +15,10 @@ the repo root when the project keeps one, agents read this.
 
 ## Booting
 
-1. Read [INDEX.md](INDEX.md), the spine. It names what the brain lists
-   and where it lives, in the shape
-   [spec/conventions.md](spec/conventions.md) gives.
+1. Read [INDEX.md](INDEX.md), the spine. It has one line per file at
+   the top of the brain and one per folder, whose own index lists what
+   is inside, in the shape [spec/conventions.md](spec/conventions.md)
+   gives.
 2. Read [house-rules.md](house-rules.md) before any branch, commit, or
    review work.
 3. Obey [spec/](spec/conventions.md). Each content folder here has a spec
