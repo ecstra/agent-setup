@@ -495,8 +495,8 @@ def next_step(
     then its verification, and verification closes it. A batch that
     holds findings with no ack recorded, which a hand edit leaves, or a
     finding filed into an empty batch closed without one, asks for that
-    ack before anything else. Then the walk moves on to the closing
-    pass or the close.
+    ack before anything else, the standing word's while one holds. Then
+    the walk moves on to the closing pass or the close.
     """
     if entry.field("status") == "closed":
         return "nothing, the ledger is closed"
@@ -522,6 +522,9 @@ def next_step(
             number=number,
         )
         if own and not row["ack"]:
+            if autoack.current(brain) is not None:
+                return f"record the standing word on batch {number}, it holds findings and has none"
+
             return f"record the owner's ack of batch {number}, it holds findings and has none"
 
         still_open = [item["id"] for item in own if is_open(item)]
