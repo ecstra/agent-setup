@@ -20,7 +20,8 @@ them, and the last section says what to do without them.
   6 names them, first asks `brain ack`. While the owner's standing word
   holds, the gate passes, the batch takes `--ack auto`, or starts on
   the owner's dated ack where it already carries one, and the report
-  says the step ran on the standing word and what is left of it. Off,
+  says which of the two the step ran on and, for the standing word,
+  what is left of it. Off,
   the gate waits for the word in chat. The PR and the merge are not the
   review's gates and wait for the owner's ask either way. An owner who
   says "auto ack" with no end is asked for one, with a proposal such as
@@ -43,9 +44,9 @@ them, and the last section says what to do without them.
   share one verifier that gets the file list, so the count follows the
   findings and a branch of many files never means many verifiers. In
   Claude Code no more than twenty sub agents run at once, and a wider
-  pass runs in waves. Ledger writes are the one exception and
-  go one at a time, since the tool holds no lock and two at once would
-  lose one.
+  pass runs in waves. Ledger writes are the one exception and go one
+  at a time, since the tool holds no lock and two at once would lose
+  one.
 - One commit per fix, pushed after each, the hash in the ledger.
 - Every report follows [references/report.md](references/report.md),
   and the rule behind it is SYSTEM.md section 7.6.

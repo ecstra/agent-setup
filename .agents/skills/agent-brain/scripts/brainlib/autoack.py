@@ -6,8 +6,9 @@ is no default end. A word given without one is not recorded, and the
 agent proposes an end to the owner and waits for the answer. While the
 word stands the ledger takes an ack of "auto" and the review skill
 passes its gates without waiting. The state is the tool's own, one
-dotted file at the root of the brain, gitignored, never listed or
-indexed, since it belongs to this machine and this stretch of work.
+dotted file at the root of the brain, which git ignores since it
+belongs to this machine and this stretch of work, and the brain's
+conventions say the rest.
 """
 
 import json
