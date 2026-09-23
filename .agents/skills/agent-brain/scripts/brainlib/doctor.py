@@ -754,6 +754,7 @@ CANNOT_SEE = ", so Claude Code cannot see the skill"
 REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs" + CANNOT_SEE
 ANOTHER_SKILL = "a skill of its own sits where the skill link belongs, so Claude Code loads that one instead"
 SHARED_FOLDER = ", and the skills folder sits outside the project, so the link is yours to make"
+SHARED_REMOVAL = ", and the skills folder sits outside the project, so the link is yours to remove"
 SKILL_GONE = "the skill link points at a skill that is gone"
 
 
@@ -845,7 +846,7 @@ def stray_skill_links(
                 Finding(
                     path=str(SKILL_LINKS / link.name),
                     check="layout",
-                    message=SKILL_GONE + (SHARED_FOLDER if shared else ""),
+                    message=SKILL_GONE + (SHARED_REMOVAL if shared else ""),
                     repair=None if shared else remove_link(link),
                 )
             )
@@ -859,7 +860,7 @@ def skill_gone(
     """Whether the link leads to no SKILL.md at all, as against one the process cannot reach or read."""
     try:
         (link / "SKILL.md").stat()
-    except FileNotFoundError:
+    except (FileNotFoundError, NotADirectoryError):
         return True
     except (OSError, RuntimeError, ValueError):
         return False
