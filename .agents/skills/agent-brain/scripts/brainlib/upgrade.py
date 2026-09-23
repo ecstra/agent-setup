@@ -455,6 +455,14 @@ def prepare(
                 "where the kit's skill link goes, move it aside first"
             )
 
+        for definition in skill.definitions:
+            own = project.root / definition
+            if not shipped and store.readable_file(own) and not store.same_bytes(one=own, other=kit.root / definition):
+                raise UpgradeError(
+                    f"the kit now ships a sub agent definition at {definition} with the {skill.name} skill, "
+                    "and the file there is the project's own, move it aside first"
+                )
+
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
     if KIT_MARK not in front_doors["AGENTS.md"]:

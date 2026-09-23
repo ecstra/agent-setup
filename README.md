@@ -90,8 +90,9 @@ on your home folder, and it refuses while a file it would replace holds
 uncommitted work, so commit first. Then it does all of this in one run.
 
 - The kit's files land: the rulebook and its specs under `.agents/`,
-  the front doors and `CONTRIBUTING.md` at the root, the hooks and the
-  chat style in the agent folders, and the version stamp.
+  the front doors and `CONTRIBUTING.md` at the root, the hooks, the
+  review's sub agent definitions and the chat style in the agent
+  folders, and the version stamp.
 - Your own rules are kept. A `## 0. Project Rules` section you already
   had in `AGENTS.md`, `CLAUDE.md` or `GEMINI.md` goes to the top of the
   new `AGENTS.md`. If you had no such section but a rules file of your
@@ -103,7 +104,7 @@ uncommitted work, so commit first. Then it does all of this in one run.
 - Your `.gitignore` keeps every line it had. The kit's lines go in a
   block at the top, so your own lines sit below them and win.
 - The tool's doctor runs once, builds the indexes and makes the skill
-  link Claude Code needs.
+  links Claude Code needs.
 - The report names each root file it replaced along with where git
   keeps the old one, and ends with what it found that belongs in the
   brain, for your agent to file. Keep that output, nothing prints it
@@ -259,8 +260,11 @@ python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py upgrade
 The upgrade replaces what is the kit's and leaves what is yours.
 
 - The kit's: the rulebook, the front doors around your section 0,
-  `CONTRIBUTING.md`, the house rules, the specs, the tool, the hooks,
-  the chat style, and the version stamp. All new over old.
+  `CONTRIBUTING.md`, the house rules, the specs, the tool and its
+  skills, the hooks, the review's sub agent definitions, the chat
+  style, and the version stamp. All new over old. A skill folder or a
+  definition under a kit name that you made before the kit shipped it
+  is refused, not replaced, until you move it aside.
 - Yours: `## 0. Project Rules`, which stays above the comment line under
   the title of `AGENTS.md`, every file your project filed into
   `.agents/`, your own hooks and settings in the agent folders, and every

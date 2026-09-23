@@ -288,12 +288,15 @@ class KitSkill:
     doctor makes, and the port and the upgrade treat the folder as the
     kit's own, replaced whole, from the release named in `since` on. A
     project stamped older than that with a folder of the same name made
-    it itself, and the upgrade refuses to write over it.
+    it itself, and the upgrade refuses to write over it. The same holds
+    for the sub agent definitions a skill brings under .claude/agents/,
+    named in `definitions` relative to the project root.
     """
 
     name: str
     hook: str
     since: str
+    definitions: tuple[str, ...] = ()
 
 
 KIT_SKILLS: tuple[KitSkill, ...] = (
@@ -306,6 +309,11 @@ KIT_SKILLS: tuple[KitSkill, ...] = (
         name="branch-review",
         hook="the code review, run on the owner's word with sub agents in parallel",
         since="1.2.0",
+        definitions=(
+            ".claude/agents/review-finder.md",
+            ".claude/agents/review-hunter.md",
+            ".claude/agents/review-verifier.md",
+        ),
     ),
 )
 KIT_SKILL_NAMES: tuple[str, ...] = tuple(skill.name for skill in KIT_SKILLS)
