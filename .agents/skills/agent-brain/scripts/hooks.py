@@ -691,8 +691,9 @@ AFTER_WRITE = {"claude": "PostToolUse", "codex": "PostToolUse", "gemini": "After
 
 # What each agent calls the event on a prompt, and the one the tick rides
 # on. Claude Code fires PostToolBatch once after each round of tool
-# calls, Codex PostToolUse after each tool, Gemini CLI AfterTool after
-# each tool.
+# calls. Codex fires PostToolUse and Gemini CLI AfterTool after each
+# tool, and the shipped configs match the shell tool alone, so there
+# the tick comes after each shell call.
 PROMPT = {"claude": "UserPromptSubmit", "codex": "UserPromptSubmit", "gemini": "BeforeAgent"}
 TICK = {"claude": "PostToolBatch", "codex": "PostToolUse", "gemini": "AfterTool"}
 
@@ -714,11 +715,31 @@ def emit_context(
     Gemini CLI take one JSON object naming the event.
     """
     if agent == "codex" and event_name in CODEX_PLAIN:
-        print(text)
+        write_utf8(text + "\n")
         return
 
     payload = {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": text}}
     print(json.dumps(payload))
+
+
+def write_utf8(
+    text: str,
+) -> None:
+    """Put text on standard output as UTF-8 bytes, under the text layer, so the locale's encoding never gets a say.
+
+    The rulebook carries characters a Windows code page cannot encode,
+    and the agent reads the pipe as UTF-8 whatever the locale. A byte
+    layer that is not there, a text stream handed in by a test, takes
+    the text as it is.
+    """
+    buffer = getattr(sys.stdout, "buffer", None)
+    if buffer is None:
+        sys.stdout.write(text)
+        return
+
+    sys.stdout.flush()
+    buffer.write(text.encode("utf-8"))
+    buffer.flush()
 
 
 def emit_nothing(
