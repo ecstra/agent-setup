@@ -53,9 +53,11 @@ them, and the last section says what to do without them.
   finder or a hunter whose report ends with (more remain) had more
   candidates than its cap, or files it never reached, and runs again,
   fresh, with every block reported so far by every run pasted under
-  Already found, and with the files it named unread as its file list.
-  A finder runs at most three times in a pass and a hunter three times
-  in a batch, and a report names one cut short that way.
+  Already found, and, after a cap resume, with the files it named
+  unread as its file list. A finder runs at most three times in a pass
+  and a hunter three times in a batch, and a report names one cut
+  short that way, with the files it never reached or the candidates
+  past its cap.
 
 ## The gates
 
