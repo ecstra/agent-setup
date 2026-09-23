@@ -387,6 +387,9 @@ def task_key(
     if not is_open(entry):
         raise AckError(f"{entry.name} is already {entry.field('status')}, so auto ack cannot end with it")
 
+    if entry.identifier is None and not entry.document.get("name"):
+        raise AckError(f"{entry.relative} carries no name, so auto ack cannot end with it until it is repaired")
+
     stored = entry.identifier or entry.name
     try:
         brain.find(stored)
