@@ -11,8 +11,10 @@
 
 # The brain tool keeps the owner's standing word to proceed, the auto
 # ack with its end, in this file. It belongs to one machine and one
-# stretch of work, so it never enters git.
+# stretch of work, so it never enters git, and neither does the
+# temporary file the tool writes it through.
 .agents/.ack
+.agents/..ack.*.tmp
 
 # Python leaves compiled bytecode beside the brain tool. It never ships.
 __pycache__/
