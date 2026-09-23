@@ -21,6 +21,7 @@ three agents honour.
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, replace
@@ -265,10 +266,12 @@ def refusal(
     if inside is None:
         return None
 
-    if inside == autoack.FILE and not touch.deleted:
-        return f"{inside} is the owner's standing word, set with brain ack on and never written by hand"
+    # the word's name in any case, since a disk that ignores case would take
+    # .ACK for the file itself, and the suffix as the store reads it
+    if inside.casefold() == autoack.FILE and not touch.deleted:
+        return f"{autoack.FILE} is the owner's standing word, set with brain ack on and never written by hand"
 
-    if path.suffix != ".md":
+    if not markdown_named(path):
         return None
 
     if Path(inside).parts[0] == SKILLS:
@@ -306,7 +309,7 @@ def entry_path(
 ) -> Optional[str]:
     """The brain relative path of an existing entry file, or None for anything else."""
     inside = links.within(brain=brain, path=path)
-    if inside is None or path.suffix != ".md" or not store.quietly(path.exists):
+    if inside is None or not markdown_named(path) or not store.quietly(path.exists):
         return None
 
     relative_path = Path(inside)
@@ -314,6 +317,13 @@ def entry_path(
         return None
 
     return inside
+
+
+def markdown_named(
+    path: Path,
+) -> bool:
+    """Whether the path carries the markdown suffix the way the store reads it, without regard to case on Windows."""
+    return os.path.normcase(path.suffix) == ".md"
 
 
 HEADER_IS_THE_TOOLS = (
