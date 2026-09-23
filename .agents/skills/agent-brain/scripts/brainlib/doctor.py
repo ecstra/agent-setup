@@ -726,12 +726,13 @@ def check_layout(
         found.append(Finding(path=schema.VERSION_FILE, check="layout", message="the kit version stamp is not a version like 1.0.0, write the kit's release in it"))
 
     shared = skills_folder_outside(project)
-    wanted = store.kit_skills_shipped(brain.root)
+    shipped = store.kit_skills_shipped(brain.root)
+    wanted = list(shipped)
     listed = True
     try:
         wanted += store.project_skills(
             brain=brain.root,
-            shipped=wanted,
+            shipped=shipped,
         )
     except OSError as error:
         reason = error.strerror or str(error)
@@ -749,6 +750,7 @@ def check_layout(
             project=project,
             name=name,
             shared=shared,
+            kits=name in shipped,
         )
         if trouble is None:
             continue
@@ -915,6 +917,7 @@ def skill_link_trouble(
     project: Path,
     name: str,
     shared: bool,
+    kits: bool,
 ) -> Optional[Trouble]:
     """What is wrong with the named skill's link, or None when Claude Code loads this skill through it.
 
@@ -925,14 +928,15 @@ def skill_link_trouble(
     points at another skill and is remade, except in a skills folder
     shared outside the project, where a link or a real copy of this
     skill from another checkout is how the sharing works and passes. A
-    real folder whose SKILL.md names a kit skill but differs from the
-    brain's is a copy that fell behind and is refreshed, since the name
-    is the kit's. Under a project skill's name the same folder holds a
-    person's own text, and it is left for them like a folder naming
-    another skill, and like a real folder with no SKILL.md at all. A
-    link can only be made when the skill itself is in the brain to point
-    at, and a copy with nothing left to point at is all there is, so it
-    passes.
+    real folder whose SKILL.md names a skill the stamp says the kit
+    shipped, `kits`, but differs from the brain's is a copy that fell
+    behind and is refreshed, since the folder is the kit's. Under a
+    project skill's name, a kit name the stamp predates included, the
+    same folder holds a person's own text, and it is left for them like
+    a folder naming another skill, and like a real folder with no
+    SKILL.md at all. A link can only be made when the skill itself is
+    in the brain to point at, and a copy with nothing left to point at
+    is all there is, so it passes.
     """
     link = project / SKILL_LINKS / name
     home = project / SKILL_HOMES / name
@@ -985,7 +989,7 @@ def skill_link_trouble(
         if shared and carries_skill(folder=link, name=name):
             return None
 
-        if name in schema.KIT_SKILL_NAMES and carries_skill(folder=link, name=name):
+        if kits and carries_skill(folder=link, name=name):
             return Trouble(
                 message=STALE_COPY,
                 path=at_link,
