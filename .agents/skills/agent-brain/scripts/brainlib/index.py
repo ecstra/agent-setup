@@ -173,6 +173,7 @@ def spine_body(
         lines.append(f"- [{relative}]({relative}), {hook_of(brain.root / relative)}")
 
     skills = [(f"skills/{skill.name}/SKILL.md", skill.hook) for skill in schema.KIT_SKILLS]
+    skills += [(f"skills/{name}/SKILL.md", skill_hook(brain=brain, name=name)) for name in project_skills(brain)]
     for relative, hook in (*skills, (schema.VERSION_FILE, VERSION_HOOK)):
         if store.readable_file(brain.root / relative):
             lines.append(f"- [{relative}]({relative}), {hook}")
@@ -214,6 +215,29 @@ def hook_of(
         return frontmatter.read(str(path)).get("description") or path.name
     except frontmatter.FrontmatterError:
         return path.name
+
+
+def project_skills(
+    brain: store.Brain,
+) -> list[str]:
+    """The skill folders the project keeps beside the kit's, in name order, none when the folder cannot be listed."""
+    try:
+        return [name for name in store.skill_folders(brain.root) if name not in schema.KIT_SKILL_NAMES]
+    except OSError:
+        return []
+
+
+def skill_hook(
+    brain: store.Brain,
+    name: str,
+) -> str:
+    """The one line the spine says about a project's own skill, its description when its header reads, its name otherwise."""
+    try:
+        description = frontmatter.read(str(brain.root / "skills" / name / "SKILL.md")).get("description")
+    except frontmatter.FrontmatterError:
+        description = None
+
+    return description or f"the project's own {name} skill"
 
 
 def spine_line(
