@@ -96,16 +96,19 @@ old one marked `refiled`, so the id trail holds.
 ## A review
 
 ```bash
-brain ledger open feat/billing --summary "The billing branch, six commits."
+brain ledger open feat/billing --summary "The billing branch, six commits." --level high
 brain ledger batch 2026-09-feat-billing --theme correctness
 brain ledger add 2026-09-feat-billing "the guard is inverted" --severity breaks --batch 1
 brain ledger set 2026-09-feat-billing F-01 status=fixed fix=abc1234
-brain ledger batch 2026-09-feat-billing 1 --status verified --ack 2026-09-16
+brain ledger batch 2026-09-feat-billing 1 --status done --ack 2026-09-16
+brain ledger report 2026-09-feat-billing
 brain ledger close 2026-09-feat-billing
 ```
 
-Findings and batches number themselves. `close` refuses while any
-finding is still open.
+Findings and batches number themselves. A batch that holds findings
+goes `done` only with the owner's ack, `report` says where the review
+stands and what comes next, and `close` refuses while any finding is
+still open.
 
 ## Checking the brain
 
