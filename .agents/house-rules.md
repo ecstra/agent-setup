@@ -43,7 +43,8 @@ suites or a brain with broken links.
 1. **The timing is the owner's, the running is the agent's.** The owner
    says when a branch gets reviewed and the agent never decides that on
    its own. On the word, the agent runs the review itself with the
-   kit's `review` skill ([skills/review/SKILL.md](skills/review/SKILL.md))
+   kit's `branch-review` skill
+   ([skills/branch-review/SKILL.md](skills/branch-review/SKILL.md))
    at the level the branch earns: low or medium for a small or
    mechanical branch, high or max where the surface is wide or the
    logic is subtle. The level sets how many angles the finding pass
@@ -54,10 +55,10 @@ suites or a brain with broken links.
    (GPT) is a second pair of eyes the owner can add. All of it works on
    the local branch, whether or not a PR is open yet.
 2. **Findings first, whole.** The finding pass runs one finder sub
-   agent per angle, all at once, then one verifier per candidate, so
-   what reaches the ledger has been checked against the code. The agent
-   reports every finding ranked by severity before touching anything.
-   No fixing during reporting, no silent triage.
+   agent per angle, all at once, then verifiers over the candidates,
+   one per file, so what reaches the ledger has been checked against
+   the code. The agent reports every finding ranked by severity before
+   touching anything. No fixing during reporting, no silent triage.
 3. **The ledger.** All findings land in
    `.agents/reviews/<yyyy-mm>-<branch-slug>/ledger.md` per
    [spec/reviews.md](spec/reviews.md): severity graded (breaks, bug,
@@ -69,24 +70,25 @@ suites or a brain with broken links.
    - Fix the batch, one commit per fix, the hash recorded beside the
      finding.
    - At once: a hunter sub agent sweeps the batch's scope for related
-     bugs the review missed, and one verifier sub agent per finding
-     checks bug wise, not code wise, that the bug is actually gone and
+     bugs the review missed, and verifier sub agents, one per file,
+     check bug wise, not code wise, that each bug is actually gone and
      nothing new surfaced. Hunter finds enter the ledger as findings
      (`found-by: hunter`) and are fixed in the same batch. No backlog.
    - After a follow up commit, the verifier it concerns is resumed and
      told to re read the changed lines. The loop stops at the first
      clean pass.
-   - Sub agents run in parallel wherever they do not write the same
-     file, and they never write the ledger or commit.
+   - Sub agents run in parallel. They never edit, never commit, never
+     write the ledger and never run the suite, which the gates run once
+     per commit in the main session.
 5. **Batch close.** Mark it in the ledger, report to the owner, and name
    anything unfixable in scope. Unfixables defer into `.agents/bugs/` as
    their own files, linked both ways, and earn a future branch sparingly,
    on the owner's call.
 6. **The owner's ack gates each batch.** The next batch starts only when
    they say so.
-7. **The closing pass.** Breaking or changing branches get one more
-   normal review over the branch as it stands after the last batch, to
-   catch what the fixes introduced. Sweeps skip this.
+7. **The closing pass.** Above low, the branch gets one more pass over
+   itself as it stands after the last batch, to catch what the fixes
+   introduced and what the review missed. Sweeps skip this.
 
 ## Git rules
 

@@ -39,9 +39,11 @@ one, agents read this.
 - `reviews/`: one folder per code review, the ledger inside.
 - `handover/`: session handoffs, born with its first file.
 - `skills/`: the kit's skills. `agent-brain` is the brain tool, the one
-  way anything here is filed, changed, counted or checked, and `review`
-  is the code review the agent runs on the owner's word. Their files
-  follow the Agent Skills standard rather than the specs above.
+  way anything here is filed, changed, counted or checked, and
+  `branch-review` is the code review the agent runs on the owner's
+  word. Their files follow the Agent Skills standard rather than the
+  specs above. A project may keep skills of its own here under other
+  names, and doctor links them for Claude Code.
 - `VERSION`: the kit release this brain is on, read by the tool.
 
 ## Two absolutes

@@ -39,7 +39,11 @@ Two places sit outside this rule. `SYSTEM.md` carries no frontmatter at
 all, since it is the rulebook and an agent takes it exactly as it
 stands. `skills/` holds the kit's skills, and its files follow the
 Agent Skills standard rather than this spec, so doctor holds them to
-the prose and boundary rules below and to nothing in this section.
+the prose and boundary rules below and to nothing in this section. A
+project may keep skills of its own there too, each a folder with a
+SKILL.md that doctor links for Claude Code, under any name but the
+kit's own, `agent-brain` and `branch-review`, which the upgrade
+replaces whole.
 
 ## Naming and ids
 

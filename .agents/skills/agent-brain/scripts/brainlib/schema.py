@@ -303,7 +303,7 @@ KIT_SKILLS: tuple[KitSkill, ...] = (
         since="0",
     ),
     KitSkill(
-        name="review",
+        name="branch-review",
         hook="the code review, run on the owner's word with sub agents in parallel",
         since="1.2.0",
     ),
