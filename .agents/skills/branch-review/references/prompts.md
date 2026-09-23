@@ -73,9 +73,12 @@ the range you were given.
 
 A finder or a hunter that ends with (more remain) is spawned again,
 fresh, with the same prompt and every block reported so far by every
-run of it pasted under the heading "Already found", until a run
-returns without that line or the angle has run three times in the
-pass, after which the report says the angle was cut short.
+run of it pasted under the heading "Already found". When the line
+followed a cap resume, the files the run named unread are the file
+list of the next run. The runs stop when one returns without that
+line, or at three runs of a finder in a pass or of a hunter in a
+batch, and the report then carries the cut short line of
+[report.md](report.md) for it.
 
 ## The verifier, in the finding pass
 
@@ -138,8 +141,7 @@ suite, and do not widen the scope beyond the range you were given.
 
 Sent to a finder, a sweep or a hunter that stopped at its turn cap
 with no report. A report that ends with (more remain) runs the agent
-again the way a capped list does, with the files it read named so the
-next run starts on the rest.
+again the way a capped list does, over the files it named unread.
 
 ```text
 You hit the turn cap. Read nothing more. Report now, from what you have

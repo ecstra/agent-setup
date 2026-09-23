@@ -51,8 +51,11 @@ them, and the last section says what to do without them.
   it is resumed once with the cap resume line of
   [references/prompts.md](references/prompts.md), a hunter included. A
   finder or a hunter whose report ends with (more remain) had more
-  candidates than its cap and runs again, fresh, with what it reported
-  as its already found list, until a run ends without that line.
+  candidates than its cap, or files it never reached, and runs again,
+  fresh, with every block reported so far by every run pasted under
+  Already found, and with the files it named unread as its file list.
+  A finder runs at most three times in a pass and a hunter three times
+  in a batch, and a report names one cut short that way.
 
 ## The gates
 
