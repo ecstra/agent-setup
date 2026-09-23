@@ -21,7 +21,8 @@ them, and the last section says what to do without them.
   holds, the gate passes, the batch takes `--ack auto`, or starts on
   the owner's dated ack where it already carries one, and the report
   says which of the two the step ran on and, for the standing word,
-  what is left of it. Off, the gate waits for the word in chat. The PR
+  what is left of it. Off, the gate waits for the word in chat, unless
+  the batch already carries the owner's ack, which starts it. The PR
   and the merge are not the review's gates and wait for the owner's
   ask either way. An owner who says "auto ack" with no end is asked
   for one, with a proposal such as this review's ledger as the task,

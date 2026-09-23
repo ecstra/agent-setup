@@ -12,9 +12,13 @@ instead that the step started on the standing word and what is left of
 it, "Batch 2 started on your standing word, 2 h left." A batch that
 already carried the owner's dated ack started on that ack, and the
 line says so instead, "Batch 2 started on your ack of 2026-09-22."
-The close and the merge lines stay as written, since the close follows
-the last batch with no word and the PR and the merge wait for the
-owner's ask either way.
+The same holds with the standing word off. When `brain ledger report`
+says the next batch has the word, the owner having acked it ahead,
+the closing line says it starts on that ack rather than asking for
+one, "Batch 3 starts on your ack of 2026-09-23." The close and the
+merge lines stay as written, since the close follows the last batch
+with no word and the PR and the merge wait for the owner's ask either
+way.
 
 ## After the finding pass
 
