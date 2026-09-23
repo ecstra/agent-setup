@@ -70,7 +70,7 @@ writing is a todo, not a dangling link.
 
 ## Indexes
 
-`.agents/INDEX.md` is the spine: one line each for the rulebook, the
+`.agents/INDEX.md` is the spine, one line each for the rulebook, the
 readme, the house rules and VERSION, one per spec, one per skill, then
 one per folder, its index with the counts or the folder itself where
 it keeps none, grouped.
