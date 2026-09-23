@@ -161,11 +161,21 @@ class Brain:
         A folder named like a file is listed too, so the read notes it
         the way it always has, and the suffix is read the way the
         platform's glob reads it, without regard to case on Windows, so
-        the store and the doctor's own glob name the same files.
+        the store and the doctor's own glob name the same files. A
+        dotted folder is never entered, since the brain never lists
+        what is under one, and a folder gone between the listing and
+        the descent, a scratch folder another write just removed, is
+        nothing to note.
         """
         trouble: list[OSError] = []
+
+        def note(error: OSError) -> None:
+            if not isinstance(error, FileNotFoundError):
+                trouble.append(error)
+
         paths: list[Path] = []
-        for root, folders, names in os.walk(folder, onerror=trouble.append):
+        for root, folders, names in os.walk(folder, onerror=note):
+            folders[:] = [name for name in folders if not schema.is_hidden(name)]
             paths += [Path(root) / name for name in folders + names if os.path.normcase(name).endswith(".md")]
 
         for error in trouble:
