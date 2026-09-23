@@ -2,7 +2,8 @@
 
 A model does not know the time and forgets what it was told, so the
 hooks print this line on every prompt and after tool calls, and
-the tool prints it wherever a decision turns on the time.
+`brain ack` and `brain status` print it too, since both answer with
+where the owner's standing word stands, which turns on the time.
 """
 
 from datetime import datetime
