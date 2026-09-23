@@ -67,15 +67,16 @@ forwards every method the callers use.
 
 Read `.agents/SYSTEM.md` sections 1 to 3, section 5, section 6,
 section 7.5 and section 8.2, and the section 0 of AGENTS.md when the
-project has one. Then check every changed line against them. In code that is an exception swallowed to quiet it, a
-hack over a symptom, a test that cannot fail, a comment that restates
-the code, a name that hides its meaning, a missing type annotation, a
-positional call where the language has keyword arguments, a compressed
-block with no room to breathe, a secret in source, a dependency pulled
-in for what the standard library covers. In prose it is an em dash, a
-semicolon, a colon mid sentence, a triplet by habit, a machine's local
-path. Flag a rule only where you can quote the rule and the line that
-breaks it, and put both in the candidate.
+project has one. Then check every changed line against them. In code
+that is an exception swallowed to quiet it, a hack over a symptom, a
+test that cannot fail, a comment that restates the code, a name that
+hides its meaning, a missing type annotation, a positional call where
+the language has keyword arguments, a compressed block with no room to
+breathe, a secret in source, a dependency pulled in for what the
+standard library covers. In prose it is an em dash, a semicolon, a
+colon mid sentence, a triplet by habit, a machine's local path. Flag a
+rule only where you can quote the rule and the line that breaks it,
+and put both in the candidate.
 
 ## tests, what the tests would let through
 
