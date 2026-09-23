@@ -180,7 +180,7 @@ def session_start(
     agent: str,
     with_rules: bool,
 ) -> int:
-    text = the_moment(brain) + "\n\nThe brain, counted from the files right now:\n" + reads.render_status(reads.status(brain))
+    text = the_moment(brain=brain) + "\n\nThe brain, counted from the files right now:\n" + reads.render_status(reads.status(brain))
     if with_rules:
         rules = brain.root / "SYSTEM.md"
         if store.readable_file(rules):
@@ -199,7 +199,7 @@ def prompt(
     agent: str,
 ) -> int:
     """On each prompt the owner sends, the clock and the standing word, so both are in front of the model when it reads the prompt."""
-    emit_context(agent=agent, text=the_moment(brain), event_name=PROMPT.get(agent, "UserPromptSubmit"))
+    emit_context(agent=agent, text=the_moment(brain=brain), event_name=PROMPT.get(agent, "UserPromptSubmit"))
     return 0
 
 
@@ -208,7 +208,7 @@ def tick(
     agent: str,
 ) -> int:
     """After the agent's tool calls, the clock and the standing word again, off included, so a long stretch of work never loses either and sees the word end."""
-    emit_context(agent=agent, text=the_moment(brain), event_name=TICK.get(agent, "PostToolUse"))
+    emit_context(agent=agent, text=the_moment(brain=brain), event_name=TICK.get(agent, "PostToolUse"))
     return 0
 
 
