@@ -377,9 +377,9 @@ def run_ledger_open(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    summary = stdin_text().strip() if args.summary == "-" else args.summary
+    summary = (stdin_text() if args.summary == "-" else args.summary).strip()
     if not summary:
-        print("no summary on standard input", file=sys.stderr)
+        print("the summary is empty", file=sys.stderr)
         return REFUSED
 
     entry = ledger.open_ledger(
