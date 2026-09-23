@@ -70,7 +70,8 @@ writing is a todo, not a dangling link.
 
 ## Indexes
 
-`.agents/INDEX.md` is the spine: one line per file, grouped by folder.
+`.agents/INDEX.md` is the spine: one line per file at the top of the
+directory and per folder index, grouped by folder.
 The trackers, the docs library, and memory carry their own INDEX.md too,
 however few files they hold, and the spine may summarize those groups
 with counts plus the open items. `spec/` and `handover/` carry none, the
@@ -100,8 +101,8 @@ all.
 
 ## Boundaries
 
-- No secrets, ever. This directory is committed, all but the two
-  gitignored paths below.
+- No secrets, ever. This directory is committed, all but what git
+  ignores there.
 - No machine paths, no user personal facts. Project truth only.
 - Two gitignored paths are the one exception. The tool's own local
   state, `.ack`, holds the owner's standing word to proceed with its
