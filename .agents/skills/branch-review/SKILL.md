@@ -14,7 +14,16 @@ them, and the last section says what to do without them.
 
 ## What holds throughout
 
-- The owner said "review". The agent never decides a branch is ready.
+- The owner said "review". The agent never decides a branch is ready,
+  and no standing word starts one.
+- Every gate that waits for the owner's word, a batch, the closing
+  pass, the close, the PR and the merge, first asks `brain ack`. While
+  the owner's standing word holds, the gate passes, the batch takes
+  `--ack auto`, and the report says the step ran on the standing word
+  and what is left of it. Off, the gate waits for the word in chat. An
+  owner who says "auto ack" with no end is asked for one, with a
+  proposal such as the end of this review or a time tonight, and
+  nothing is recorded until they answer.
 - Every sub agent gets the scope, one fetch command to run first, its
   angle or its findings, and the block shape it returns. It never gets
   the diff pasted in and never hears what the main session thinks.
@@ -200,7 +209,9 @@ brain ledger batch 2026-09-feat-billing 2 --status done
 
 Once every batch is done, and the closing pass with it where one was
 owed, the ledger closes and the report says the branch is ready to
-merge on the owner's word. The merge itself waits for that word.
+merge on the owner's word. The merge itself waits for that word, or
+runs on the standing word while it holds, PR and merge both, and the
+report says so.
 
 ```bash
 brain ledger close 2026-09-feat-billing

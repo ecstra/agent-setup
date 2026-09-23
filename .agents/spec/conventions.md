@@ -102,3 +102,6 @@ all.
 
 - No secrets, ever. This directory is committed.
 - No machine paths, no user personal facts. Project truth only.
+- One dotted file is the tool's own local state, `.ack`, the owner's
+  standing word to proceed with its end. It is gitignored, never
+  listed, indexed or checked, and never written by hand.

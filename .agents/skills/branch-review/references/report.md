@@ -50,6 +50,9 @@ Cut short: the hunter, after three runs, <the files it never reached, or that ca
 Your call: ack batch <n+1>, which starts it.
 ```
 
+On the standing word the last line reads instead "Batch <n+1> started
+on your standing word, <what is left of it>."
+
 The deferred line appears only when there is one, and the cut short
 line only when the hunter ran three times and still ended with (more
 remain). When the batch was

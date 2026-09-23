@@ -9,7 +9,8 @@ on standard error, 2 doctor still has findings.
 | Command | What it answers |
 |---|---|
 | `brain version` | The kit version this project carries, from `.agents/VERSION`. |
-| `brain status [--json]` | Version, doctor health, counts per tracker, open reviews, the latest handover, unreadable files. |
+| `brain status [--json]` | The clock and the standing word first, then version, doctor health, counts per tracker, open reviews, the latest handover, unreadable files. The JSON form carries the counts only. |
+| `brain ack` | The clock and where the owner's standing word to proceed stands: off, or on with what is left of it and what ends it. |
 | `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. Kinds: bug, decision, doc, handover, memory, review, todo. |
 | `brain show <key> [--meta]` | The whole file, or with `--meta` its frontmatter only. |
 | `brain path <key>` | The absolute path behind an id, a name or a brain relative path. |
@@ -48,6 +49,30 @@ Required headings, which the body must carry: bug `Problem` and
 `Evidence`, todo `What` and `Done when`, decision `Decision`, review
 `Summary`, `Batches` and `Findings`. An empty standard input writes the
 headings and nothing else, for filling in afterwards.
+
+## The standing word
+
+The owner's ack is the word to proceed with what the agent proposed
+next. Said once as "auto ack" with an end, it stands until that end,
+and the agent passes the gates that normally wait for it, a batch, the
+closing pass, the close, the PR and the merge, saying in each report
+that it did. It never starts a review, and it never passes a gate the
+rulebook or section 0 holds for a person.
+
+| Command | What it does |
+|---|---|
+| `brain ack on --for 8h` | Records the word for a duration, in minutes, hours or days, such as 90m, 8h or 2d. |
+| `brain ack on --until "tomorrow 22:00"` | Records it until a moment: a time today, which means tomorrow when it has passed, `tomorrow HH:MM`, a date, which means the end of that day, or a date and time. |
+| `brain ack on --until-done <key>` | Records it until an entry leaves open: a todo, a bug or a review, by id, name or path. Given with a time, the earlier end wins. |
+| `brain ack off` | Takes the word back. |
+
+A word with no end is refused, so the agent proposes one to the owner
+and waits. The state is one dotted file at the root of the brain,
+`.agents/.ack`, the tool's own, gitignored and never listed or checked,
+since it belongs to one machine and one stretch of work. While it
+stands, `brain ledger batch <n> --status fixing --ack auto` records the
+ack as `auto` with the day, so the ledger says which batches ran on the
+standing word. Off or run out, that call is refused.
 
 ## The review ledger
 
@@ -154,9 +179,16 @@ standard input:
 
 | Event | What happens |
 |---|---|
-| `session-start` | Prints `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy, for an agent that does not expand imports. |
+| `session-start` | Prints the clock, the standing word and `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy, for an agent that does not expand imports. |
+| `prompt` | On each prompt the owner sends, puts the clock and the standing word in front of the model, since a model does not know the time and forgets what it was told. |
+| `tick` | After the agent's tool calls, the clock again, and the standing word while one holds, so a long stretch of work never loses either. Claude Code fires it once before each model call, Codex and Gemini CLI after each shell call. |
 | `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header check judges the file as the write would leave it: the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence or a field the file's header carries or its kind allows, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
 | `post-write` | After a write inside `.agents/`, runs doctor and hands its findings back as context. |
+
+Context goes back as one JSON object naming the event, which all three
+agents read on every event. Codex also takes plain text at the start of
+a session and on a prompt, and gets it there. On its tool events plain
+text is dropped, so those get the JSON object too.
 
 The config files that wire them up ship with the kit: `.claude/settings.json`,
 `.codex/hooks.json` and `.gemini/settings.json`. The Claude Code one also

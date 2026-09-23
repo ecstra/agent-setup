@@ -23,7 +23,8 @@ body holds three sections.
    count when closed.
 2. **Batches**: the batch table. Number, theme, status
    (pending, fixing, verified, done), the owner's ack that started it
-   noted per batch.
+   noted per batch, as a date, or as `auto` and the date when the
+   batch ran on the owner's standing word.
 3. **Findings**: one block per finding, ordered by batch then severity:
 
 ```
