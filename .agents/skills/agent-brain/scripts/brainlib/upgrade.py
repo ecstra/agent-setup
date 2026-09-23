@@ -419,7 +419,7 @@ def prepare(
                 name=skill.name,
             ) / "SKILL.md"
             present = store.quietly(home.is_symlink) or store.quietly(home.exists)
-            kits_copy = doctor.same_bytes(
+            kits_copy = store.same_bytes(
                 one=home / "SKILL.md",
                 other=kits_own_file,
             )
@@ -1283,10 +1283,10 @@ def same_as_kit(
     if source is None:
         return False
 
-    try:
-        return (project.root / relative).read_bytes() == (kit.root / source).read_bytes()
-    except OSError:
-        return False
+    return store.same_bytes(
+        one=project.root / relative,
+        other=kit.root / source,
+    )
 
 
 def kit_source(

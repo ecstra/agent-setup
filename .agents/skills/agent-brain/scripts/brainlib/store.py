@@ -338,6 +338,21 @@ def readable_file(
     return quietly(path.is_file)
 
 
+def same_bytes(
+    one: Path,
+    other: Path,
+) -> bool:
+    """Whether the two files hold exactly the same bytes, false when either cannot be read.
+
+    The one answer to "is this file the kit's copy", asked by doctor of
+    a skill folder and by the upgrade of a file it would replace.
+    """
+    try:
+        return one.read_bytes() == other.read_bytes()
+    except OSError:
+        return False
+
+
 def stamp_of(
     brain: Path,
 ) -> Optional[tuple[int, ...]]:

@@ -946,7 +946,7 @@ def skill_link_trouble(
                 for_a_person=True,
             )
 
-        copied = same_bytes(
+        copied = store.same_bytes(
             one=link / "SKILL.md",
             other=home / "SKILL.md",
         )
@@ -976,16 +976,6 @@ def reaches(
     try:
         return link.resolve() == home.resolve()
     except (OSError, RuntimeError, ValueError):
-        return False
-
-
-def same_bytes(
-    one: Path,
-    other: Path,
-) -> bool:
-    try:
-        return one.read_bytes() == other.read_bytes()
-    except OSError:
         return False
 
 
