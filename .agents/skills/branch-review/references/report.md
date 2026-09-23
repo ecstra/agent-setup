@@ -10,9 +10,9 @@ step on the owner's word or asks for the ack, "Batch 1 starts on your
 word." and "Your call: ack batch 2, which starts it." alike, says
 instead that the step started on the standing word and what is left of
 it, "Batch 2 started on your standing word, 2 h left." The close and
-the merge lines stay as written, since the
-close follows the last batch with no word and the PR and the merge
-wait for the owner's ask either way.
+the merge lines stay as written, since the close follows the last
+batch with no word and the PR and the merge wait for the owner's ask
+either way.
 
 ## After the finding pass
 
@@ -42,7 +42,7 @@ every shape below the same way.
 Nothing survived verification, <n> candidates refuted. No batch, no
 closing pass.
 Cut short: <the angle>, after three runs, <the files it never reached, or that candidates past its cap remained>.
-The ledger is closed, and the branch is ready to merge on your word.
+The ledger is closed, and the branch is ready to merge on your ask.
 ```
 
 ## After a batch
@@ -74,7 +74,7 @@ ledger is closed, and the branch is ready to merge on your ask."
 
 The closing pass found nothing. (or: The closing pass's findings are acked and fixed above.)
 Cut short: <the angle>, after three runs, <the files it never reached, or that candidates past its cap remained>.
-The ledger is closed, and the branch is ready to merge on your word.
+The ledger is closed, and the branch is ready to merge on your ask.
 ```
 
 A closing pass that found something is reported first with the finding
