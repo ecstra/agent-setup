@@ -255,6 +255,74 @@ def close(
     save(brain=brain, entry=entry, stamp=stamp)
 
 
+def report(
+    brain: store.Brain,
+    key: str,
+) -> str:
+    """The ledger's state in a few lines, counted from the file, with what comes next."""
+    entry = ledger_entry(brain=brain, key=key)
+    rows = batches(entry)
+    items = findings(entry)
+    noun = "batch" if len(rows) == 1 else "batches"
+    lines = [f"{entry.name}, {entry.field('status')}, {len(rows)} {noun}, {tally(items)}"]
+
+    for row in rows:
+        own = in_batch(items=items, number=row["number"])
+        ack = f", ack {row['ack']}" if row["ack"] else ""
+        lines.append(f"batch {row['number']}, {row['theme']}: {row['status']}{ack}, {tally(own)}")
+
+    lines.append("next: " + next_step(status=entry.field("status"), rows=rows, items=items))
+
+    return "\n".join(lines)
+
+
+def in_batch(
+    items: list[dict],
+    number: int,
+) -> list[dict]:
+    return [item for item in items if item.get("batch") == str(number)]
+
+
+def next_step(
+    status: str,
+    rows: list[dict],
+    items: list[dict],
+) -> str:
+    """What the review does next, read from the batches and the findings as they stand.
+
+    A pending batch waits for the owner's word until an earlier batch
+    has been acked, after which the ack that closed it is the word to
+    start the next.
+    """
+    if status == "closed":
+        return "nothing, the ledger is closed"
+
+    unbatched = [item["id"] for item in items if not item.get("batch")]
+    if unbatched:
+        return f"put {', '.join(unbatched)} in a batch"
+
+    acked_before = False
+    for row in rows:
+        number = row["number"]
+        if row["status"] == "done":
+            acked_before = True
+            continue
+
+        if row["status"] == "pending":
+            return f"start batch {number}" if acked_before else f"batch {number} on the owner's word"
+
+        if row["status"] == "verified":
+            return f"the owner's ack of batch {number}"
+
+        still_open = [item["id"] for item in in_batch(items=items, number=number) if (item.get("status") or "open") == "open"]
+        if still_open:
+            return f"fix {', '.join(still_open)} in batch {number}"
+
+        return f"verify batch {number}"
+
+    return "close the ledger"
+
+
 def findings(
     entry: store.Entry,
 ) -> list[dict]:

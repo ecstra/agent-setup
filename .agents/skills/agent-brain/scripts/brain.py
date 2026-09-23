@@ -333,7 +333,7 @@ def run_doctor(
 def add_ledger(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("ledger", help="review ledgers: open, batch, add, set, close")
+    command = commands.add_parser("ledger", help="review ledgers: open, batch, add, set, report, close")
     actions = command.add_subparsers(dest="action")
 
     opening = actions.add_parser("open", help="start the ledger for a branch")
@@ -362,6 +362,10 @@ def add_ledger(
     setting.add_argument("finding")
     setting.add_argument("changes", nargs="+", metavar="field=value")
     setting.set_defaults(handler=run_ledger_set)
+
+    reporting = actions.add_parser("report", help="the ledger's state in a few lines, and what comes next")
+    reporting.add_argument("key")
+    reporting.set_defaults(handler=run_ledger_report)
 
     closing = actions.add_parser("close", help="close the ledger once every finding landed")
     closing.add_argument("key")
@@ -432,6 +436,14 @@ def run_ledger_set(
         identifier=args.finding,
         changes=pairs(args.changes),
     )
+    return 0
+
+
+def run_ledger_report(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    print(ledger.report(brain=brain, key=args.key))
     return 0
 
 
