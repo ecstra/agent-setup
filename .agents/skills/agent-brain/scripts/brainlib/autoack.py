@@ -376,7 +376,7 @@ def task_key(
     try:
         entry = brain.find(key)
     except store.Ambiguous as clash:
-        raise AckError(str(clash)) from clash
+        raise AckError(f"{key} names more than one entry, so auto ack cannot end with it until the doctor clears the clash") from clash
 
     if entry is None:
         raise AckError(f"nothing in the brain answers to '{key}', so auto ack cannot end with it")
