@@ -42,14 +42,16 @@ review, and the report says which one.
 ## The scope
 
 ```bash
-git diff --stat main...HEAD
+git diff --name-only main...HEAD
 git log --oneline main..HEAD
-git diff --stat HEAD
+git status --porcelain
 ```
 
-The range is `main...HEAD` unless the owner gave one. The files in the
-stat and the range go into every sub agent prompt. Uncommitted changes
-are in scope too, and the third command says whether there are any.
+The range is `main...HEAD` unless the owner gave one. The first command
+lists every changed file whole, and the list and the range go into
+every sub agent prompt. Uncommitted work is in scope too. The third
+command lists it, tracked and untracked alike, and a prompt names an
+untracked file as one to read whole, since no diff shows it.
 
 ## The finding pass
 
@@ -101,19 +103,20 @@ One batch at a time, and inside it everything that can run at once does.
    brain ledger set 2026-09-feat-billing F-03 status=fixed fix=abc1234
    ```
 
-2. Spawn at once, all fresh: a hunter over the batch's scope with the
-   hunter prompt, and one verifier per finding of the batch with the
+2. Spawn at once, all fresh, a hunter over the batch's scope with the
+   hunter prompt and one verifier per finding of the batch with the
    batch verifier prompt.
 3. What the hunter found goes through verifiers, all at once, and what
    survives is filed with `--found-by hunter --batch N` and fixed in this
-   batch. No backlog.
+   batch. No backlog. Each of those fixes then gets a fresh batch
+   verifier of its own, the way the batch's first findings did.
 4. After a follow up commit, the verifier of each finding it touched is
    resumed with the follow up prompt, which tells it the commits and to
    re read the changed lines before voting. Hunters are never resumed. A
    new hunter runs only when a follow up commit touched a file the batch
    had not touched before.
-5. The batch closes on the first pass where every verifier says gone and
-   the hunter has nothing new:
+5. The batch closes on the first pass where every verifier says gone,
+   the verifiers of the hunter's finds included:
 
    ```bash
    brain ledger batch 2026-09-feat-billing 1 --status verified
