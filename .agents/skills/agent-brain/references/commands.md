@@ -69,11 +69,12 @@ for a person.
 
 A word with no end is refused, so the agent proposes one to the owner
 and waits. A second `brain ack on` replaces the word outright, ends
-and all. `brain ack on` also refuses an end already past, a duration
-of zero or less, an end past what the calendar can show, an empty end
-flag, a task the brain does not know, one of any other kind than a
-todo, a bug or a review, one already past open, an id doubled by a
-merge, and a review ledger with no name. `brain ack` given an end with
+and all. `brain ack on` also refuses an end that does not read as a
+duration or a moment, one already past, a duration of zero or less, an
+end past what the calendar can show, an empty end flag, a task the
+brain does not know, one of any other kind than a todo, a bug or a
+review, one already past open, an id doubled by a merge, and an entry
+with neither an id nor a name. `brain ack` given an end with
 no `on`, and `brain ack off` given any end, are refused too, each with
 a line that says so. The state is one dotted file at the root of the brain,
 `.agents/.ack`, the tool's own, gitignored and never listed or checked,
