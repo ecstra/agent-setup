@@ -71,12 +71,14 @@ A word with no end is refused, so the agent proposes one to the owner
 and waits. A second `brain ack on` replaces the word outright, ends
 and all. `brain ack on` also refuses an end that does not read as a
 duration or a moment, one already past, a duration of zero or less, an
-end past what the calendar can show, an empty end flag, a task the
-brain does not know, one of any other kind than a todo, a bug or a
-review, one already past open, a key several entries share, an id
-doubled by a merge among them, a todo or a bug whose file carries no
-id, and a review with no name. `brain ack` given an end with no `on`, and `brain ack off` given
-any end, are refused too, each with a line that says so. A folder
+end past the year 2999 on the word's own clock, the last year every
+machine can place on its clock, an empty end flag, a task the brain
+does not know, one of any other kind than a todo, a bug or a review,
+one already past open, a key several entries share, an id doubled by a
+merge among them, a todo or a bug whose file carries no id, and a
+review with no name. `brain ack` given an end with no `on`, and
+`brain ack off` given any end, are refused too, each with a line that
+says so. A folder
 where the word goes, which the tool never made and never removes, has
 `brain ack on` and `brain ack off` refused and `brain ack` say so. The
 state is one dotted file at the root of the brain,
@@ -220,8 +222,12 @@ project folder the agent names in `CLAUDE_PROJECT_DIR` or
 `GEMINI_PROJECT_DIR`, or by walking up from the session's own folder
 where Codex names none, hands it the event, and does nothing where no
 script is found, so a checkout that predates the kit never blocks a
-prompt or a write. Each Codex hook carries the same line in a Windows
-form beside it, run through the `py` launcher. The Claude Code one also
+prompt or a write. The script that runs is the one checked out, so a
+session whose hooks name an event and a checkout of a kit from before
+that event still block on it until the session restarts, which this
+kit's script no longer does for events it will learn later. Each
+Codex hook carries the same line in a Windows form beside it, run
+through the `py` launcher. The Claude Code one also
 carries the kit's two settings, `CLAUDE_CODE_SUBAGENT_MODEL` for the sub
 agents' model and `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how many
 tool calls may run at once. The port and the upgrade add each to a
