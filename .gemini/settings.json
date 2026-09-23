@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py session-start --agent gemini"
+            "command": "python3 \"$GEMINI_PROJECT_DIR\"/.agents/skills/agent-brain/scripts/hooks.py session-start --agent gemini"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py prompt --agent gemini"
+            "command": "python3 \"$GEMINI_PROJECT_DIR\"/.agents/skills/agent-brain/scripts/hooks.py prompt --agent gemini"
           }
         ]
       }
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py pre-write --agent gemini"
+            "command": "python3 \"$GEMINI_PROJECT_DIR\"/.agents/skills/agent-brain/scripts/hooks.py pre-write --agent gemini"
           }
         ]
       }
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py post-write --agent gemini"
+            "command": "python3 \"$GEMINI_PROJECT_DIR\"/.agents/skills/agent-brain/scripts/hooks.py post-write --agent gemini"
           }
         ]
       },
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py tick --agent gemini"
+            "command": "python3 \"$GEMINI_PROJECT_DIR\"/.agents/skills/agent-brain/scripts/hooks.py tick --agent gemini"
           }
         ]
       }

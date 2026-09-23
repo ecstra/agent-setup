@@ -39,10 +39,18 @@ NOT_SHIPPED = ("settings.local.json",)
 
 # A hook group is the kit's when its command is nothing but a call of a
 # script under the kit's own skill folder, by either name of the brain,
+# anchored at the project root the way each agent allows or not at all,
 # with plain arguments after it. A command that wraps such a call, or
 # calls a copy kept elsewhere, is the project's own.
+ROOT_ANCHORS = (
+    r'"\$CLAUDE_PROJECT_DIR"/',
+    r"\$CLAUDE_PROJECT_DIR/",
+    r'"\$GEMINI_PROJECT_DIR"/',
+    r"\$GEMINI_PROJECT_DIR/",
+    r'"\$\(git rev-parse --show-toplevel\)"/',
+)
 KIT_HOOK = re.compile(
-    r'^python3 (?:"\$CLAUDE_PROJECT_DIR"/|\$CLAUDE_PROJECT_DIR/)?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$'
+    r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
 )
 IGNORE_FILE = ".gitignore"
 IGNORE_HEADING = "# The agent kit's own ignores."
