@@ -143,8 +143,9 @@ Do not edit, do not commit.
 
 ```text
 Commit <hash> landed for <F-nn>. Run git show <hash> -- <file> first,
-re read the changed lines before voting, and answer in the same block
-shape.
+or when that is too long for one call read the file at the changed
+lines with Read, re read those lines before voting, and answer in the
+same block shape.
 ```
 
 ## The closing finder

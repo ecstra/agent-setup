@@ -34,20 +34,21 @@ Your call: ack batch <n> to start batch <n+1>.
 
 The deferred line appears only when there is one. When the batch was the
 last, the ack line stays, and after it one line says what the ack
-opens, the closing pass, or, at low or on a sweep branch, the close of
-the ledger and then the merge on the owner's word.
+opens, the closing pass, or, at low, on a sweep branch or when the
+batch is the closing pass itself, the close of the ledger and then the
+merge on the owner's word.
 
 ## After the closing pass
 
 ```text
 <the lines brain ledger report prints>
 
-The closing pass found nothing, and the ledger is closed.
-The branch is ready to merge on your word.
+The closing pass found nothing. (or: The closing pass found <n>, fixed and acked above.)
+The ledger is closed, and the branch is ready to merge on your word.
 ```
 
-A closing pass that found something reports with the batch shape
-instead, and this shape follows once that batch is done.
+A closing pass that found something goes through the batch shape first,
+and this shape follows once that batch is done.
 
 ## Without sub agents
 
