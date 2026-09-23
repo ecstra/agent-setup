@@ -26,7 +26,6 @@ from . import doctor, frontmatter, schema, sections, store, style
 FOLDER = ".agents"
 OLD_FOLDER = ".agent"
 VERSION = schema.VERSION_FILE
-NO_VERSION = "0"
 
 FRONT_DOORS = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
 OLD_LAYOUT_DOORS = ("CLAUDE.md", "AGENTS.md", "GEMINI.md")
@@ -229,7 +228,7 @@ class Project:
     def version(self) -> str:
         stamp = self.brain / VERSION
         if not store.readable_file(stamp):
-            return NO_VERSION
+            return schema.NO_VERSION
 
         return read_version(stamp)
 
@@ -424,7 +423,7 @@ def prepare(
                 one=home / "SKILL.md",
                 other=kits_own_file,
             )
-            if present and stamped < schema.as_tuple(skill.since) and not kits_copy:
+            if present and not schema.ships(skill=skill, stamp=stamped) and not kits_copy:
                 raise UpgradeError(
                     f"the kit now ships a skill named {skill.name}, and {folder}/skills/{skill.name} is the project's own, "
                     "move it aside first, or delete it if an interrupted upgrade left it"

@@ -721,6 +721,8 @@ def check_layout(
 
     if not store.readable_file(brain.root / schema.VERSION_FILE):
         found.append(Finding(path=schema.VERSION_FILE, check="layout", message="no kit version stamp, run the upgrade"))
+    elif store.stamp_of(brain.root) is None:
+        found.append(Finding(path=schema.VERSION_FILE, check="layout", message="the kit version stamp is not a version like 1.0.0, write the kit's release in it"))
 
     shared = skills_folder_outside(project)
     wanted = store.kit_skills_shipped(brain.root)

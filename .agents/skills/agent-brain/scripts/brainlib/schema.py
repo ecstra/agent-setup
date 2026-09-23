@@ -310,6 +310,19 @@ KIT_SKILLS: tuple[KitSkill, ...] = (
 )
 KIT_SKILL_NAMES: tuple[str, ...] = tuple(skill.name for skill in KIT_SKILLS)
 
+# A brain with no stamp to read is on the oldest release as far as the
+# tool can tell, so it carries only what every release shipped, and the
+# upgrade never writes over a folder that might be the project's own.
+NO_VERSION = "0"
+
+
+def ships(
+    skill: KitSkill,
+    stamp: tuple[int, ...],
+) -> bool:
+    """Whether the release a brain is stamped with carries the skill."""
+    return as_tuple(skill.since) <= stamp
+
 
 def as_tuple(
     version: str,

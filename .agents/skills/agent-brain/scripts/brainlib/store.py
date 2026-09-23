@@ -355,10 +355,10 @@ def stamp_of(
 def kit_skills_shipped(
     brain: Path,
 ) -> list[str]:
-    """The kit skills a brain should carry by its stamp, all of them when there is no stamp to read, else those the stamped release shipped."""
-    stamped = stamp_of(brain)
+    """The kit skills a brain should carry by its stamp, those the stamped release shipped, with no stamp to read taken as the oldest release."""
+    stamped = stamp_of(brain) or schema.as_tuple(schema.NO_VERSION)
 
-    return [skill.name for skill in schema.KIT_SKILLS if stamped is None or schema.as_tuple(skill.since) <= stamped]
+    return [skill.name for skill in schema.KIT_SKILLS if schema.ships(skill=skill, stamp=stamped)]
 
 
 def skill_folders(
