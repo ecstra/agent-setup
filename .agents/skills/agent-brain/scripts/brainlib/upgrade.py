@@ -440,6 +440,14 @@ def prepare(
                     "move it aside first, or delete it if an interrupted upgrade left it"
                 )
 
+        linked = project.root / doctor.SKILL_LINKS / skill.name
+        own_folder = store.quietly(linked.is_dir) and not store.quietly(linked.is_symlink)
+        if not shipped and own_folder and not store.same_bytes(one=linked / "SKILL.md", other=kits_own_file):
+            raise UpgradeError(
+                f"the kit now ships a skill named {skill.name}, and {doctor.SKILL_LINKS / skill.name} holds a folder of the project's own "
+                "where the kit's skill link goes, move it aside first"
+            )
+
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
     if KIT_MARK not in front_doors["AGENTS.md"]:
