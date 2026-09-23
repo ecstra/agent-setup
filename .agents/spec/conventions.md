@@ -43,7 +43,8 @@ the prose and boundary rules below and to nothing in this section. A
 project may keep skills of its own there too, each a folder with a
 SKILL.md that doctor links for Claude Code, under any name but the
 kit's own, `agent-brain` and `branch-review`, which the upgrade
-replaces whole.
+replaces whole once the stamp says the kit shipped them, and refuses
+to write over while the stamp says the project had them first.
 
 ## Naming and ids
 
