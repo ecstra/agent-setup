@@ -9,10 +9,12 @@ While the owner's standing word holds, a line below that puts the next
 step on the owner's word or asks for the ack, "Batch 1 starts on your
 word." and "Your call: ack batch 2, which starts it." alike, says
 instead that the step started on the standing word and what is left of
-it, "Batch 2 started on your standing word, 2 h left." The close and
-the merge lines stay as written, since the close follows the last
-batch with no word and the PR and the merge wait for the owner's ask
-either way.
+it, "Batch 2 started on your standing word, 2 h left." A batch that
+already carried the owner's dated ack started on that ack, and the
+line says so instead, "Batch 2 started on your ack of 2026-09-22."
+The close and the merge lines stay as written, since the close follows
+the last batch with no word and the PR and the merge wait for the
+owner's ask either way.
 
 ## After the finding pass
 
