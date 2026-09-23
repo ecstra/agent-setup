@@ -13,7 +13,7 @@ indexed, since it belongs to this machine and this stretch of work.
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -21,6 +21,13 @@ from . import clock, store
 
 FILE = ".ack"
 OFF = "auto ack off"
+
+# the kinds a word can end with, and the statuses that keep each one open
+OPEN_STATUSES = {
+    "todo": ("open",),
+    "bug": ("open", "branched"),
+    "review": ("open",),
+}
 
 DURATION = re.compile(r"^(\d+(?:\.\d+)?)\s*([mhd])$")
 CLOCK_TIME = re.compile(r"^(?:(today|tomorrow)\s+)?(\d{1,2}):(\d{2})$")
@@ -33,10 +40,10 @@ class AckError(Exception):
 
 @dataclass(frozen=True)
 class Grant:
-    """One standing word: when it was given, when it ends, and the entry whose closing ends it sooner."""
+    """One standing word, when it was given, the moment it ends, and the task whose closing ends it, at least one of the two."""
 
     since: datetime
-    until: datetime
+    until: Optional[datetime]
     task: Optional[str] = None
 
 
@@ -60,25 +67,26 @@ def turn_on(
         if hours <= 0:
             raise AckError("auto ack lasts for a time above zero")
 
-        ends.append(at + timedelta(hours=hours))
+        ends.append(utc(at) + timedelta(hours=hours))
 
     if until_text:
         ends.append(parse_until(text=until_text, at=at))
 
     if task is not None:
-        task = entry_key(brain=brain, key=task)
+        task = task_key(brain=brain, key=task)
 
     if not ends and task is None:
         raise AckError("auto ack needs an end, a time with --for or --until, a task with --until-done, or both")
 
-    grant = Grant(
-        since=at,
-        until=min(ends) if ends else at + timedelta(days=365),
-        task=task,
-    )
-    if grant.until <= at:
+    until = utc(min(ends)) if ends else None
+    if until is not None and until <= utc(at):
         raise AckError("auto ack would end before it starts, give a time still to come")
 
+    grant = Grant(
+        since=at,
+        until=until,
+        task=task,
+    )
     write(brain=brain, grant=grant)
 
     return grant
@@ -101,16 +109,22 @@ def current(
     brain: store.Brain,
     at: Optional[datetime] = None,
 ) -> Optional[Grant]:
-    """The word as it stands, or None when none was given, its time ran out, or its task is done."""
+    """The word as it stands, or None when none was given, its time ran out, or its task is done.
+
+    A word its task has ended is taken back on the spot, so it never
+    comes back when the task reads open again, after a checkout of
+    another branch or a reopen.
+    """
     grant = read(brain)
     if grant is None:
         return None
 
     at = at or clock.now()
-    if at >= grant.until:
+    if grant.until is not None and utc(at) >= grant.until:
         return None
 
     if grant.task is not None and task_done(brain=brain, key=grant.task):
+        turn_off(brain)
         return None
 
     return grant
@@ -138,7 +152,7 @@ def describe(
     if grant is None:
         return OFF
 
-    if grant.task is not None and (grant.until - at) > timedelta(days=300):
+    if grant.until is None:
         return f"auto ack on until {grant.task} is done"
 
     text = f"auto ack on, {left(since=at, until=grant.until)} left, until {when(at=at, moment=grant.until)}"
@@ -152,7 +166,7 @@ def left(
     since: datetime,
     until: datetime,
 ) -> str:
-    minutes = int((until - since).total_seconds() // 60)
+    minutes = int((utc(until) - utc(since)).total_seconds() // 60)
     hours, minutes = divmod(minutes, 60)
     if hours and minutes:
         return f"{hours} h {minutes} min"
@@ -167,7 +181,8 @@ def when(
     at: datetime,
     moment: datetime,
 ) -> str:
-    """A moment named the way a person says it: the time today, tomorrow, or the date and time."""
+    """A moment named the way a person says it, the time today, tomorrow, or the date and time, on the wall clock the word runs on."""
+    moment = on_the_wall(at=at, moment=moment)
     days = (moment.date() - at.date()).days
     if days == 0:
         return f"{moment:%H:%M} today"
@@ -176,6 +191,50 @@ def when(
         return f"{moment:%H:%M} tomorrow"
 
     return f"{moment:%Y-%m-%d %H:%M}"
+
+
+def utc(
+    moment: datetime,
+) -> datetime:
+    """The same instant in UTC, so that arithmetic and comparison never run on a wall clock."""
+    return moment.astimezone(timezone.utc)
+
+
+def on_this_machine(
+    at: datetime,
+) -> bool:
+    """Whether the moment is expressed in this machine's own zone, whose daylight saving rules then apply.
+
+    The clock gives the moment with a fixed offset and no zone name, so
+    the test is whether its wall clock, read as this machine's local
+    time, is the same instant. A moment in some other zone is not.
+    """
+    if at.tzinfo is None:
+        return True
+
+    return at.replace(tzinfo=None).astimezone() == at
+
+
+def on_the_wall(
+    at: datetime,
+    moment: datetime,
+) -> datetime:
+    """The moment on the wall clock the word runs on, this machine's when the word was given on it."""
+    if on_this_machine(at):
+        return moment.astimezone()
+
+    return moment.astimezone(at.tzinfo)
+
+
+def from_the_wall(
+    at: datetime,
+    naive: datetime,
+) -> datetime:
+    """A wall clock reading placed in the zone the word runs on, this machine's rules when the word was given on it."""
+    if on_this_machine(at):
+        return naive.astimezone()
+
+    return naive.replace(tzinfo=at.tzinfo)
 
 
 def parse_duration(
@@ -201,20 +260,26 @@ def parse_until(
     text: str,
     at: datetime,
 ) -> datetime:
-    """A moment from 22:00, tomorrow 22:00, 2026-09-24 22:00 or 2026-09-24, in the local zone.
+    """A moment from 22:00, tomorrow 22:00, 2026-09-24 22:00 or 2026-09-24, on the wall clock the word runs on.
 
     A bare time already past today means the same time tomorrow, since
     a word given in the evening is meant for the night, not for nothing.
     """
     text = text.strip().lower()
+    wall = at.replace(tzinfo=None)
     try:
         match = CLOCK_TIME.match(text)
         if match is not None:
-            moment = at.replace(hour=int(match.group(2)), minute=int(match.group(3)), second=0, microsecond=0)
-            if match.group(1) == "tomorrow" or (match.group(1) is None and moment <= at):
+            moment = wall.replace(
+                hour=int(match.group(2)),
+                minute=int(match.group(3)),
+                second=0,
+                microsecond=0,
+            )
+            if match.group(1) == "tomorrow" or (match.group(1) is None and moment <= wall):
                 moment += timedelta(days=1)
 
-            return moment
+            return from_the_wall(at=at, naive=moment)
 
         match = DAY_TIME.match(text)
         if match is not None:
@@ -222,18 +287,28 @@ def parse_until(
             hour = int(match.group(2)) if match.group(2) else 23
             minute = int(match.group(3)) if match.group(3) else 59
 
-            return at.replace(year=day.year, month=day.month, day=day.day, hour=hour, minute=minute, second=0, microsecond=0)
+            return from_the_wall(
+                at=at,
+                naive=day.replace(
+                    hour=hour,
+                    minute=minute,
+                ),
+            )
     except ValueError as bad:
         raise AckError(f"'{text}' is not a moment on the clock or the calendar, {bad}") from bad
 
     raise AckError(f"'{text}' is not a moment like 22:00, tomorrow 22:00 or 2026-09-24 22:00")
 
 
-def entry_key(
+def task_key(
     brain: store.Brain,
     key: str,
 ) -> str:
-    """The name of the one entry the key answers to, refused when there is none or several."""
+    """The id, or the name of a review, of the one open todo, bug or review the key answers to, refused otherwise.
+
+    The id is what stays through a retitle, so the word follows the
+    entry and not its name.
+    """
     try:
         entry = brain.find(key)
     except store.Ambiguous as clash:
@@ -242,7 +317,20 @@ def entry_key(
     if entry is None:
         raise AckError(f"nothing in the brain answers to '{key}', so auto ack cannot end with it")
 
-    return entry.name
+    if entry.kind.name not in OPEN_STATUSES:
+        raise AckError(f"auto ack ends with a todo, a bug or a review, and {entry.name} is a {entry.kind.name}")
+
+    if not is_open(entry):
+        raise AckError(f"{entry.name} is already {entry.field('status')}, so auto ack cannot end with it")
+
+    return entry.identifier or entry.name
+
+
+def is_open(
+    entry: store.Entry,
+) -> bool:
+    """Whether the entry still counts as open for its kind, a bug on a branch included."""
+    return (entry.field("status") or "open") in OPEN_STATUSES.get(entry.kind.name, ("open",))
 
 
 def task_done(
@@ -255,31 +343,58 @@ def task_done(
     except store.Ambiguous:
         return True
 
-    return entry is None or (entry.field("status") or "open") != "open"
+    return entry is None or not is_open(entry)
 
 
 def write(
     brain: store.Brain,
     grant: Grant,
 ) -> None:
-    data = {"since": grant.since.isoformat(), "until": grant.until.isoformat(), "task": grant.task}
+    data = {
+        "since": grant.since.isoformat(),
+        "until": grant.until.isoformat() if grant.until is not None else None,
+        "task": grant.task,
+    }
     path_of(brain).write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
 def read(
     brain: store.Brain,
 ) -> Optional[Grant]:
-    """The recorded word, or None when there is none or the file cannot be read as one."""
+    """The recorded word, or None when there is none or the file cannot be read as one.
+
+    A word carries its zone on every moment and has an end by time, by
+    task or both, and a file that says otherwise is no word.
+    """
     path = path_of(brain)
     if not store.readable_file(path):
         return None
 
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return Grant(
-            since=datetime.fromisoformat(data["since"]),
-            until=datetime.fromisoformat(data["until"]),
+        grant = Grant(
+            since=moment_of(data["since"]),
+            until=None if data.get("until") is None else moment_of(data["until"]),
             task=data.get("task"),
         )
     except (OSError, ValueError, KeyError, TypeError):
         return None
+
+    if grant.until is None and grant.task is None:
+        return None
+
+    if grant.task is not None and not isinstance(grant.task, str):
+        return None
+
+    return grant
+
+
+def moment_of(
+    text: str,
+) -> datetime:
+    """A moment from the state file, refused as a ValueError when it carries no zone."""
+    moment = datetime.fromisoformat(text)
+    if moment.tzinfo is None:
+        raise ValueError(f"'{text}' carries no zone")
+
+    return moment
