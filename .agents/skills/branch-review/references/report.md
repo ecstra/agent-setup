@@ -29,14 +29,15 @@ Fixed:
 The hunter found <n> more, fixed above. (or: The hunter found nothing.)
 
 Deferred: <F-nn> as <BUG-nnn>, <why it cannot be fixed here>.
-Your call: ack batch <n> to start batch <n+1>.
+Your call: ack batch <n>.
+The ack starts batch <n+1>.
 ```
 
-The deferred line appears only when there is one. When the batch was the
-last, the ack line stays, and after it one line says what the ack
-opens, the closing pass, or, at low, on a sweep branch or when the
-batch is the closing pass itself, the close of the ledger and then the
-merge on the owner's word.
+The deferred line appears only when there is one. When the batch was
+the last, the closing line says instead what the ack opens, the
+closing pass, or, at low, on a sweep branch or when the batch is the
+closing pass itself, the close of the ledger and then the merge on the
+owner's word.
 
 ## After the closing pass
 
