@@ -844,8 +844,8 @@ def reaches(
 ) -> bool:
     """Whether the link resolves to the skill's own folder.
 
-    A link that loops raises RuntimeError on the 3.9 floor and OSError
-    on newer interpreters, and either way it reaches nothing.
+    A link that loops raises RuntimeError up to 3.12 and resolves to
+    itself from 3.13 on, and either way it reaches nothing.
     """
     try:
         return link.resolve() == home.resolve()
