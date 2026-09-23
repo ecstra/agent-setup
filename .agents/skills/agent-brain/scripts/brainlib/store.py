@@ -159,12 +159,14 @@ class Brain:
         """Every path named like a markdown file under the folder, sorted, with a folder the walk could not list noted as unreadable rather than skipped without a word.
 
         A folder named like a file is listed too, so the read notes it
-        the way it always has.
+        the way it always has, and the suffix is read the way the
+        platform's glob reads it, without regard to case on Windows, so
+        the store and the doctor's own glob name the same files.
         """
         trouble: list[OSError] = []
         paths: list[Path] = []
         for root, folders, names in os.walk(folder, onerror=trouble.append):
-            paths += [Path(root) / name for name in folders + names if name.endswith(".md")]
+            paths += [Path(root) / name for name in folders + names if os.path.normcase(name).endswith(".md")]
 
         for error in trouble:
             self.unreadable[Path(error.filename)] = UNLISTED
