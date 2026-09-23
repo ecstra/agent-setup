@@ -107,8 +107,8 @@ all.
   ignores there.
 - No machine paths, no user personal facts. Project truth only.
 - What git ignores here is the one exception, since it never enters
-  the repo: the tool's own local state, `.ack`, which holds the owner's
-  standing word to proceed with its end and is never listed, indexed,
-  checked or written by hand, the write in flight the tool makes it
-  through beside it, Python's cache beside the tool, and the worktree
-  home the rules allow.
+  the repo. That is the tool's own local state, `.ack`, which holds
+  the owner's standing word to proceed with its end and is never
+  listed, indexed, checked or written by hand, the write in flight the
+  tool makes it through beside it, Python's cache beside the tool, and
+  the worktree home the rules allow.
