@@ -45,9 +45,14 @@ one, agents read this.
   specs above. A project may keep skills of its own here under other
   names, and doctor links them for Claude Code.
 - `VERSION`: the kit release this brain is on, read by the tool.
+- `.ack`: the owner's standing word to proceed and its end, the tool's
+  own, gitignored, so it lives on one machine and is never listed,
+  indexed or checked.
 
 ## Two absolutes
 
 - Nothing secret ever enters this directory. It is committed.
 - Nothing here references any machine's local state. Machines point at
-  this directory, never the reverse.
+  this directory, never the reverse. The tool's own gitignored files,
+  `.ack` and `.worktrees/`, are the one exception, since they never
+  enter the repo.
