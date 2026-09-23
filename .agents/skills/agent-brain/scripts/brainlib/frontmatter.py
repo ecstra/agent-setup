@@ -25,10 +25,11 @@ FENCE = "---"
 
 # What a write in flight is called, beside its target: the target's own
 # name between a dot and mkstemp's random tail. Doctor knows the exact
-# shape, so one left by an interrupted run is found, and nothing else
-# that happens to end in .tmp is touched.
+# shape, a markdown target or a dotted one of the tool's own such as the
+# owner's word, so one left by an interrupted run is found, and nothing
+# else that happens to end in .tmp is touched.
 TEMP_SUFFIX = ".tmp"
-TEMP_SHAPE = re.compile(r"^\..+\.md\.[A-Za-z0-9_]+\.tmp$")
+TEMP_SHAPE = re.compile(r"^\.(?:.+\.md|\.[a-z]+)\.[A-Za-z0-9_]+\.tmp$")
 
 # What a field's key looks like: lowercase, digits and hyphens.
 KEY = re.compile(r"^[a-z][a-z0-9-]*$")
