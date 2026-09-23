@@ -70,9 +70,10 @@ writing is a todo, not a dangling link.
 
 ## Indexes
 
-`.agents/INDEX.md` is the spine: one line per kit file, the rulebook
-and the specs among them, then one line per folder index with its
-counts, grouped.
+`.agents/INDEX.md` is the spine: one line each for the rulebook, the
+readme, the house rules and VERSION, one per spec, one per skill, then
+one per folder, its index with the counts or the folder itself where
+it keeps none, grouped.
 The trackers, the docs library, and memory carry their own INDEX.md too,
 however few files they hold, and the spine may summarize those groups
 with counts plus the open items. `spec/` and `handover/` carry none, the

@@ -16,9 +16,11 @@ read this.
 
 ## Booting
 
-1. Read [INDEX.md](INDEX.md), the spine. One line per kit file, the
-   rulebook and the specs among them, then one line per folder index
-   with its counts. It tells you what exists and where.
+1. Read [INDEX.md](INDEX.md), the spine. One line each for the
+   rulebook, this readme, the house rules and VERSION, one per spec,
+   one per skill, then one per folder, its index with the counts or the
+   folder itself where it keeps none. It tells you what exists and
+   where.
 2. Read [house-rules.md](house-rules.md) before any branch, commit, or
    review work.
 3. Obey [spec/](spec/conventions.md). Each content folder here has a spec
