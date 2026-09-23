@@ -169,7 +169,7 @@ def set_batch(
                 raise LedgerError(f"{', '.join(still_open)} still open, batch {number} is {status} once every finding has landed")
 
             if own and not new_ack:
-                if autoack.current(brain) is not None:
+                if autoack.current(brain=brain) is not None:
                     raise LedgerError(f"batch {number} holds findings and runs on the standing word, give --ack auto")
 
                 raise LedgerError(f"batch {number} holds findings and runs on the owner's ack, give --ack")
@@ -203,7 +203,7 @@ def standing_word(
 ) -> str:
     """The auto ack as the batch records it, refused as a ledger error when the word does not stand."""
     try:
-        return autoack.stamp(brain)
+        return autoack.stamp(brain=brain)
     except autoack.AckError as off:
         raise LedgerError(str(off)) from off
 
@@ -538,7 +538,7 @@ def next_step(
     for row in rows:
         number = row["number"]
         if row["status"] == "pending":
-            standing = autoack.current(brain) is not None
+            standing = autoack.current(brain=brain) is not None
             if row["ack"] and not (is_auto(row["ack"]) and not standing):
                 return f"start batch {number}, it has the word"
 
@@ -552,7 +552,7 @@ def next_step(
             number=number,
         )
         if own and not row["ack"]:
-            if autoack.current(brain) is not None:
+            if autoack.current(brain=brain) is not None:
                 return f"record the standing word on batch {number}, it holds findings and has none"
 
             return f"record the owner's ack of batch {number}, it holds findings and has none"

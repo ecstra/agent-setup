@@ -121,7 +121,7 @@ def run_ack(
         return REFUSED
 
     if args.state == "off":
-        autoack.turn_off(brain)
+        autoack.turn_off(brain=brain)
 
     if args.state == "on":
         autoack.turn_on(
@@ -132,7 +132,7 @@ def run_ack(
         )
 
     print(clock.line())
-    print(autoack.describe(brain))
+    print(autoack.describe(brain=brain))
     return 0
 
 
@@ -154,7 +154,7 @@ def run_status(
         return 0
 
     print(clock.line())
-    print(autoack.describe(brain))
+    print(autoack.describe(brain=brain))
     print(reads.render_status(data))
     return 0
 

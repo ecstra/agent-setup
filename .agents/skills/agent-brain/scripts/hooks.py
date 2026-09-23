@@ -216,7 +216,7 @@ def the_moment(
     brain: store.Brain,
 ) -> str:
     """The clock and the standing word, the two lines the session start, the prompt hook and the tick carry."""
-    return clock.line() + "\n" + autoack.describe(brain)
+    return clock.line() + "\n" + autoack.describe(brain=brain)
 
 
 def text_of(
