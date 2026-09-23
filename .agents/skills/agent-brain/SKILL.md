@@ -96,7 +96,9 @@ old one marked `refiled`, so the id trail holds.
 ## A review
 
 ```bash
-brain ledger open feat/billing --summary "The billing branch, six commits." --level high
+brain ledger open feat/billing --level high --summary - <<'EOF'
+The billing branch, six commits.
+EOF
 brain ledger batch 2026-09-feat-billing --theme correctness
 brain ledger add 2026-09-feat-billing "the guard is inverted" --severity breaks --batch 1
 brain ledger set 2026-09-feat-billing F-01 status=fixed fix=abc1234

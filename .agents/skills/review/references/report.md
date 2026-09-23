@@ -37,8 +37,8 @@ Your call: ack batch <n> to start batch <n+1>.
 ```
 
 The deferred line appears only when there is one. When the batch was the
-last, the last line says the closing pass runs next, or at low that the
-branch is ready to merge on the owner's word.
+last, the last line says the closing pass runs next, or, at low and on
+a sweep branch, that the branch is ready to merge on the owner's word.
 
 ## After the closing pass
 

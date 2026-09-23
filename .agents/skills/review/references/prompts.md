@@ -109,8 +109,8 @@ changed lines before voting, and answer in the same one line shape.
 
 ## The closing finder
 
-The finder prompt, with the range set to `main...<head>` as the branch
-now stands and this line added after the angle:
+The finder prompt, with the review's range read against the branch as
+it now stands and this line added after the angle:
 
 ```text
 The branch was reviewed and its findings fixed. Report only what the
