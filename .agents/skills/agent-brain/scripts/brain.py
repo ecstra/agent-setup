@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import doctor, frontmatter, index, ledger, reads, schema, store, upgrade, writes
+from brainlib import autoack, clock, doctor, frontmatter, index, ledger, reads, schema, store, upgrade, writes
 
 REFUSED = 1
 FINDINGS_REMAIN = 2
@@ -44,6 +44,7 @@ def main(
         writes.WriteError,
         ledger.LedgerError,
         upgrade.UpgradeError,
+        autoack.AckError,
         frontmatter.FrontmatterError,
         schema.UnknownKind,
         OSError,
@@ -63,6 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     add_version(commands)
     add_status(commands)
+    add_ack(commands)
     add_list(commands)
     add_show(commands)
     add_path(commands)
@@ -94,6 +96,46 @@ def run_version(
     return 0
 
 
+def add_ack(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser("ack", help="the owner's standing word to proceed, on with an end, off, or where it stands")
+    command.add_argument("state", nargs="?", choices=("on", "off"), help="on or off, nothing to see where it stands")
+    command.add_argument("--for", dest="lasting", help="how long, such as 8h, 90m or 2d")
+    command.add_argument("--until", help="a moment, such as 22:00, tomorrow 22:00 or 2026-09-24 22:00")
+    command.add_argument("--until-done", dest="task", help="an entry the word ends with, a todo, a bug or a review, once it is done or gone, a bug on a branch still counting as open, and one the brain cannot read right now holding the word off")
+    command.set_defaults(handler=run_ack)
+
+
+def run_ack(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    an_end = args.lasting is not None or args.until is not None or args.task is not None
+    if args.state == "off" and an_end:
+        print("off takes no end, give it alone", file=sys.stderr)
+        return REFUSED
+
+    if args.state is None and an_end:
+        print("give on to set the word, its end goes with on", file=sys.stderr)
+        return REFUSED
+
+    if args.state == "off":
+        autoack.turn_off(brain=brain)
+
+    if args.state == "on":
+        autoack.turn_on(
+            brain=brain,
+            hours=autoack.parse_duration(args.lasting) if args.lasting is not None else None,
+            until_text=args.until,
+            task=args.task,
+        )
+
+    print(clock.line())
+    print(autoack.describe(brain=brain))
+    return 0
+
+
 def add_status(
     commands: argparse._SubParsersAction,
 ) -> None:
@@ -106,8 +148,14 @@ def run_status(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    data = reads.status(brain)
-    print(json.dumps(data, indent=2) if args.json else reads.render_status(data))
+    data = reads.status(brain=brain)
+    if args.json:
+        print(json.dumps(data, indent=2))
+        return 0
+
+    print(clock.line())
+    print(autoack.describe(brain=brain))
+    print(reads.render_status(data))
     return 0
 
 

@@ -10,7 +10,7 @@ import re
 from datetime import date
 from typing import Optional
 
-from . import frontmatter, schema, sections, store, writes
+from . import autoack, frontmatter, schema, sections, store, writes
 
 FINDING = re.compile(r"^### (F-\d+): (.+?)[ \t]*$", re.MULTILINE)
 BULLET = re.compile(r"^- ([a-z-]+):[ \t]*(.*?)[ \t]*$", re.MULTILINE)
@@ -47,6 +47,10 @@ SWEEP_PREFIX = "sweep/"
 # The next step the report gives once nothing else stands, and close
 # refuses until the report gives it.
 CLOSE_STEP = "close the ledger"
+
+# The ack a batch takes while the owner's standing word holds, recorded
+# as auto with the day, so the trail says which batches ran unattended.
+AUTO_ACK = "auto"
 
 
 class LedgerError(Exception):
@@ -120,6 +124,7 @@ def set_batch(
     if status and status not in BATCH_STATUSES:
         raise LedgerError(f"a batch is {' or '.join(BATCH_STATUSES)}, not '{status}'")
 
+    auto = is_auto(ack)
     ack = cell(value=ack, what="ack")
     theme = cell(value=theme, what="theme")
     if not (status or ack or theme):
@@ -130,26 +135,48 @@ def set_batch(
     replaced = False
 
     for match in batch_rows(body):
-        if int(match.group(1)) != number:
+        row_number, old_theme, old_status, old_ack = match.groups()
+        if int(row_number) != number:
             continue
 
-        new_status = status or match.group(3)
-        new_ack = ack or match.group(4)
+        new_status = status or old_status
+        if auto and new_status == "pending":
+            raise LedgerError("auto ack is the word at a batch's start, give it with --status fixing")
+
+        own = in_batch(
+            items=findings(entry),
+            number=number,
+        )
+        starting = old_status == "pending" and status in ("fixing", "verified", "done")
+        if auto and old_ack and not is_auto(old_ack):
+            raise LedgerError(f"batch {number} already carries the owner's ack {old_ack}")
+
+        # the word is asked for once the ledger and the batch are known, so a
+        # bad key or number is reported as that, and a stamp already carried
+        # stays past the start while the word still has to stand
+        if auto:
+            fresh = standing_word(brain=brain)
+            new_ack = old_ack if old_ack and not starting else fresh
+        else:
+            new_ack = ack or old_ack
+
+        if starting and own and not ack and is_auto(new_ack):
+            new_ack = standing_word(brain=brain)
+
         if status in ("fixing", "verified", "done"):
-            own = in_batch(
-                items=findings(entry),
-                number=number,
-            )
             still_open = [item["id"] for item in own if is_open(item)]
             if status != "fixing" and still_open:
                 raise LedgerError(f"{', '.join(still_open)} still open, batch {number} is {status} once every finding has landed")
 
             if own and not new_ack:
+                if autoack.current(brain=brain) is not None:
+                    raise LedgerError(f"batch {number} holds findings and runs on the standing word, give --ack auto")
+
                 raise LedgerError(f"batch {number} holds findings and runs on the owner's ack, give --ack")
 
         row = batch_row(
             number=number,
-            theme=theme or match.group(2),
+            theme=theme or old_theme,
             status=new_status,
             ack=new_ack,
         )
@@ -162,6 +189,23 @@ def set_batch(
 
     entry.document.body = body
     save(brain=brain, entry=entry)
+
+
+def is_auto(
+    ack: str,
+) -> bool:
+    """Whether the ack asks for the standing word, anything that starts with auto in any case."""
+    return ack.strip().casefold().startswith(AUTO_ACK)
+
+
+def standing_word(
+    brain: store.Brain,
+) -> str:
+    """The auto ack as the batch records it, refused as a ledger error when the word does not stand."""
+    try:
+        return autoack.stamp(brain=brain)
+    except autoack.AckError as off:
+        raise LedgerError(str(off)) from off
 
 
 def batch_row(
@@ -379,6 +423,7 @@ def close(
         raise LedgerError(f"{names} still open, a ledger closes when every finding has landed")
 
     step = next_step(
+        brain=brain,
         entry=entry,
         rows=batches(entry),
         items=items,
@@ -419,6 +464,7 @@ def report(
         lines.append(f"batch {row['number']}, {row['theme']}: {row['status']}{ack}, {tally(own)}")
 
     step = next_step(
+        brain=brain,
         entry=entry,
         rows=rows,
         items=items,
@@ -459,6 +505,7 @@ def needs_a_batch(
 
 
 def next_step(
+    brain: store.Brain,
     entry: store.Entry,
     rows: list[dict],
     items: list[dict],
@@ -468,14 +515,17 @@ def next_step(
     An open or a fixed finding filed into no batch the table has comes
     first, since nothing moves until it is placed and a fix is verified
     by its batch. Then the batches in order. A pending one waits for the
-    owner's word, the ack that starts it and is recorded on it, and one
-    that carries the ack already is there to start. A batch
+    owner's word, the ack that starts it and is recorded on it, one
+    that carries the ack already is there to start, and so is one with
+    none while the owner's standing word holds. A stamp from an
+    earlier word counts as no ack while the word is off, since a start
+    with findings in the batch takes the word again. A batch
     past pending needs its open findings fixed, a late one included,
     then its verification, and verification closes it. A batch that
     holds findings with no ack recorded, which a hand edit leaves, or a
     finding filed into an empty batch closed without one, asks for that
-    ack before anything else. Then the walk moves on to the closing
-    pass or the close.
+    ack before anything else, the standing word's while one holds. Then
+    the walk moves on to the closing pass or the close.
     """
     if entry.field("status") == "closed":
         return "nothing, the ledger is closed"
@@ -488,13 +538,23 @@ def next_step(
     for row in rows:
         number = row["number"]
         if row["status"] == "pending":
-            return f"start batch {number}, it has the word" if row["ack"] else f"batch {number} on the owner's word"
+            standing = autoack.current(brain=brain) is not None
+            if row["ack"] and not (is_auto(row["ack"]) and not standing):
+                return f"start batch {number}, it has the word"
+
+            if standing:
+                return f"start batch {number} on the standing word"
+
+            return f"batch {number} on the owner's word"
 
         own = in_batch(
             items=items,
             number=number,
         )
         if own and not row["ack"]:
+            if autoack.current(brain=brain) is not None:
+                return f"record the standing word on batch {number}, it holds findings and has none"
+
             return f"record the owner's ack of batch {number}, it holds findings and has none"
 
         still_open = [item["id"] for item in own if is_open(item)]

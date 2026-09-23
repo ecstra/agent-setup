@@ -516,7 +516,7 @@ Say the state in plain words first, then what changed, then what is left and wha
 
 ## 8. The Agent Directory
 
-**`.agents/` at the repo root is the project's brain, committed, so any agent on any machine resumes cold.**
+**`.agents/` at the repo root is the project's brain, committed, all but what git ignores there, so any agent on any machine resumes cold.**
 
 Read `.agents/INDEX.md` before working. It is the spine: the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked.
 
@@ -526,9 +526,9 @@ The brain is maintained in the same motion as the work, never as a separate chor
 
 ### 8.2 Boundaries
 
-- **No secrets in `.agents/`, ever.** It is committed. Same absoluteness as the `.env` rule.
+- **No secrets in `.agents/`, ever.** It is committed, all but what git ignores there. Same absoluteness as the `.env` rule.
 - **Project truth only.** Facts about the user as a person are not ours to manage and never enter the repo.
-- **The direction rule.** Nothing in `.agents/` references any machine's local state. A machine's local agent memory may point INTO the repo's brain, never the reverse, which is what keeps the repo self contained.
+- **The direction rule.** Nothing in `.agents/` references any machine's local state. A machine's local agent memory may point INTO the repo's brain, never the reverse, which is what keeps the repo self contained. What git ignores there, which the brain's conventions list, is the one exception, since it never enters the repo.
 
 ### 8.3 The Trackers
 
@@ -545,7 +545,7 @@ Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each, fil
 3. **The user calls the timing, the agent runs the review.** The agent never decides on its own that a branch is ready for review, and on the user's word it runs one itself with the kit's `branch-review` skill at the level the branch earns, which names how wide the finding pass goes and never how hard the model thinks. A tool's own review command, paid or cloud run ones included, is the user's alone, so never reach for one and never answer a review request by asking for it by name.
 4. **Findings first, whole**, ranked by severity, before anything is fixed. All findings land in a ledger under `.agents/reviews/`, batched by theme, correctness first.
 5. **The batch loop**: fix the batch one commit per fix, then at once a hunter sub agent sweeps the scope for related bugs (found ones enter the ledger and get fixed, no backlog) and verifier sub agents, a few findings each grouped by file, check bug wise that each is gone and nothing new surfaced, loop until every verifier says gone and every hunter has returned with its finds handled. The finders of the first pass run one per angle at once too. Sub agents run in parallel, and they never edit, commit, write the ledger or run the suite.
-6. **The user's ack gates each batch.** Unfixables are named, never buried: they defer into `.agents/bugs/` and earn a future branch sparingly, on the user's call.
+6. **The user's ack gates each batch.** The ack is the word to start what the report proposed next, recorded on the batch it starts. A standing word the user gave with an end, `brain ack on`, is that ack at every gate of the review until the end, each batch and the closing pass, a batch the user acked ahead starting on that ack instead. The close follows the last batch with no word, and the PR and the merge stay on the user's explicit ask per rule 10.1. A standing word with no end is not taken, the agent proposes one and waits. Unfixables are named, never buried. They defer into `.agents/bugs/` and earn a future branch sparingly, on the user's call.
 
 ---
 
@@ -558,3 +558,4 @@ Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each, fil
 3. **Real tools only for writes.** DO NOT use python, sed, awk, heredocs, or any scripting to create or edit files, code or docs. Every write goes through the proper edit tools: read the file, then edit it exactly. Scripted writes shred text (random line breaks, lines cut mid word, half lost sentences) and bypass reading what you change. And never leave a line broken mid sentence or cut mid word: wrap prose naturally or not at all. Scripting stays fine for read only inspection (grep, counts, link checks), never for writing. The one exception is the brain tool, which does every write inside `.agents/` that is structure rather than prose: a file enters through `brain new` with its prose handed over on standard input inside a quoted heredoc, its header changes through `brain set`, it moves through `brain refile`, a review ledger's records go through `brain ledger`, and the indexes come from `brain index` or `brain doctor --fix`. The tool writes the structure and passes the prose through untouched, and the prose below a header block is edited with the proper edit tools like any other file.
 4. **Project Rules.** A `## 0. Project Rules` section may be added to `AGENTS.md`, directly under its title, to hold instructions specific to the current project. Add it only when a project needs rules the general ones do not cover. `CLAUDE.md` and `GEMINI.md` only pull in `AGENTS.md`, plus the chat style file in the agent's own folder, and this file stays exactly as the kit ships it.
 5. **Sub agent models.** In Claude Code, every sub agent runs on the latest Opus. Not Fable above it, not Sonnet or Haiku below it, unless the user asks for a different one.
+6. **The clock.** The hooks put the date and time into context on every prompt and after tool calls, every round of them in Claude Code and every shell call in Codex and Gemini CLI, as a line that starts with `now:`. The latest such line is the time. Never state a date or a time from memory, and when no such line is in reach, run `brain ack`, which prints one.

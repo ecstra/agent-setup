@@ -31,5 +31,5 @@ behavior.
 
 Branch from fresh main, work in small undoable commits, keep the gates
 green, ask the owner to run the review, fix it batch by batch, then
-merge on their word. The PR follows section 0, on their ask. The branch
+merge on their ask. The PR follows section 0, on their ask. The branch
 dies after merge, its ledger is the record.

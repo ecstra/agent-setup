@@ -5,6 +5,21 @@ Every report follows SYSTEM.md section 7.6. The state lines come from
 are the refuted and hunter counts the shapes below carry. Never a tip
 line.
 
+While the owner's standing word holds, a line below that puts the next
+step on the owner's word or asks for the ack, "Batch 1 starts on your
+word." and "Your call: ack batch 2, which starts it." alike, says
+instead that the step started on the standing word and what is left of
+it, "Batch 2 started on your standing word, 2 h left." A batch that
+already carried the owner's dated ack started on that ack, and the
+line says so instead, "Batch 2 started on your ack of 2026-09-22."
+The same holds with the standing word off. When `brain ledger report`
+says the next batch has the word, the owner having acked it ahead,
+the closing line says it starts on that ack rather than asking for
+one, "Batch 3 starts on your ack of 2026-09-23." The close and the
+merge lines stay as written, since the close follows the last batch
+with no word and the PR and the merge wait for the owner's ask either
+way.
+
 ## After the finding pass
 
 ```text
@@ -33,7 +48,7 @@ every shape below the same way.
 Nothing survived verification, <n> candidates refuted. No batch, no
 closing pass.
 Cut short: <the angle>, after three runs, <the files it never reached, or that candidates past its cap remained>.
-The ledger is closed, and the branch is ready to merge on your word.
+The ledger is closed, and the branch is ready to merge on your ask.
 ```
 
 ## After a batch
@@ -52,10 +67,11 @@ Your call: ack batch <n+1>, which starts it.
 
 The deferred line appears only when there is one, and the cut short
 line only when the hunter ran three times and still ended with (more
-remain). When the batch was
-the last, there is no next batch to ack, and the closing line says
-instead what comes, the closing pass where house rule 7 owes one, else
-the close of the ledger and then the merge on the owner's word.
+remain). When the batch was the last, there is no next batch to ack,
+and the closing line says instead what comes, the closing pass where
+house rule 7 owes one. Where none is owed, the ledger closes with no
+word and the line reads "The ledger is closed, and the branch is ready
+to merge on your ask."
 
 ## After the closing pass
 
@@ -64,7 +80,7 @@ the close of the ledger and then the merge on the owner's word.
 
 The closing pass found nothing. (or: The closing pass's findings are acked and fixed above.)
 Cut short: <the angle>, after three runs, <the files it never reached, or that candidates past its cap remained>.
-The ledger is closed, and the branch is ready to merge on your word.
+The ledger is closed, and the branch is ready to merge on your ask.
 ```
 
 A closing pass that found something is reported first with the finding

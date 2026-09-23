@@ -23,7 +23,8 @@ body holds three sections.
    count when closed.
 2. **Batches**: the batch table. Number, theme, status
    (pending, fixing, verified, done), the owner's ack that started it
-   noted per batch.
+   noted per batch, as a date, or as `auto` and the date when the
+   batch ran on the owner's standing word.
 3. **Findings**: one block per finding, ordered by batch then severity:
 
 ```
@@ -46,6 +47,6 @@ ledger by.
 
 When the last batch closes, and the closing pass with it where one was
 owed, the ledger flips to `status: closed` and the reviews INDEX
-regroups it, and only then does the branch merge, on the owner's word.
+regroups it, and only then does the branch merge, on the owner's ask.
 Nothing moves and nothing archives, since bug files and decisions link
 into ledgers by name, and git is the archive.

@@ -70,12 +70,15 @@ writing is a todo, not a dangling link.
 
 ## Indexes
 
-`.agents/INDEX.md` is the spine: one line per file, grouped by folder.
-The trackers, the docs library, and memory carry their own INDEX.md too,
-however few files they hold, and the spine may summarize those groups
-with counts plus the open items. `spec/` and `handover/` carry none, the
-spine names them directly. An index line is `- [name](path), hook` where
-the hook is the description or a shorter cut of it.
+`.agents/INDEX.md` is the spine, one line each for the rulebook, the
+readme, the house rules and VERSION, one per spec, one per skill, then
+one per folder, its index with the counts or the folder itself where
+it keeps none, grouped. The trackers, the docs library, and memory
+carry their own INDEX.md too, however few files they hold, and the
+spine may summarize those groups with counts plus the open items.
+`spec/` and `handover/` carry none, the spine names them directly. An
+index line is `- [name](path), hook` where the hook is the description
+or a shorter cut of it.
 
 The upkeep rule: any change to a file updates its `updated:` date in the
 same commit, and the indexes are rebuilt by the brain tool, never edited
@@ -100,5 +103,12 @@ all.
 
 ## Boundaries
 
-- No secrets, ever. This directory is committed.
+- No secrets, ever. This directory is committed, all but what git
+  ignores there.
 - No machine paths, no user personal facts. Project truth only.
+- What git ignores here is the one exception, since it never enters
+  the repo. That is the tool's own local state, `.ack`, which holds
+  the owner's standing word to proceed with its end and is never
+  listed, indexed, checked or written by hand, the write in flight the
+  tool makes it through beside it, Python's cache beside the tool, and
+  the worktree home the rules allow.

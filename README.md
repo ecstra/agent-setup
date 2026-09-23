@@ -5,9 +5,9 @@ Codex, Gemini CLI, anything that reads `AGENTS.md`) knows how to behave
 there and has a place to keep what it learns. It is one folder called
 `.agents/`, holding the rules and everything the project knows, plus a
 few short files at the root that point every agent into it. All plain
-files, committed to git. That is the whole trick. Because they live in
-the repo, a fresh session on any machine picks up exactly where the last
-one stopped.
+files, committed to git, all but what its ignore file keeps out. That
+is the whole trick. Because they live in the repo, a fresh session on
+any machine picks up exactly where the last one stopped.
 
 ## Why you would want it
 
@@ -29,10 +29,10 @@ written record of what the project knows.
 | `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
 | `.agents/skills/branch-review/` | The code review, run on your word. Finder sub agents in parallel, one per angle, verifiers a few findings each grouped by file, the findings filed in a ledger, then fixes batch by batch with a hunter and verifiers until clean, and a report that says where things stand first. |
 | `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
-| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
+| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking and the clock and your standing word stay in front of the agent, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
-| `.gitignore` | Keeps your `.env` out of git, along with any stray worktree folder. |
+| `.gitignore` | Keeps your `.env`, your local Claude Code settings and Python's cache out of git, along with what the brain's conventions list as never entering the repo. |
 
 Everything is generic on purpose. Anything specific to your project goes
 in a section called `## 0. Project Rules` at the top of `AGENTS.md`, and
@@ -193,7 +193,7 @@ prompt below if the agent did not run the port itself.
 7. **Hand you the branch**: you say when it is ready for review, and
    the agent runs the review the way the house rules describe, findings
    in a ledger, fixed batch by batch with your ack on each. Then it
-   opens the PR and merges, both on your word. When the PR opens and
+   opens the PR and merges, both on your ask. When the PR opens and
    whether as a draft is your project's own rule in section 0, so the
    agent never asks. After that the root holds `README.md`, `AGENTS.md`,
    `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md`, and `CODEOWNERS`, plus
@@ -309,10 +309,11 @@ need to, but the commands are short enough to know.
 
 | Command | What it does |
 |---|---|
-| `brain status` | The brain in numbers, what each tracker holds and whether doctor is clean. The session start hook prints this into the agent's context. |
+| `brain status` | The clock, where your standing word stands, on, held or off, then the brain in numbers, what each tracker holds and whether doctor is clean. The session start hook prints this into the agent's context, and two more hooks keep the clock in front of the agent on every prompt and after tool calls, since a model does not know the time on its own. |
 | `brain doctor` and `brain doctor --fix` | Checks every file against its spec, and `--fix` repairs the mechanical slips, a stale index, a link written as a name, a chat style copy that drifted. |
 | `brain new`, `brain set`, `brain refile` | Files a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
 | `brain ledger` | Opens, fills and closes a code review ledger, batch by batch, and `brain ledger report` says where a review stands, counted from the file. |
+| `brain ack on --for 8h` | Your standing word to proceed, for a time or until a task is done, so the agent passes the review's gates that normally wait for you, the house rules name them, and each report says which ack the step ran on. It never starts a review, and the PR and the merge still wait for your ask. `brain ack off` takes it back. |
 | `brain port` and `brain upgrade` | The two commands above, run from a kit checkout against your project. |
 
 The full contract, every flag and every refusal, is in
@@ -328,7 +329,7 @@ Here is how it ships, empty and ready.
 .agents/
 ├── SYSTEM.md             the rulebook every agent works by
 ├── VERSION               the kit release this project carries
-├── INDEX.md              the spine, one line per file, built by the tool
+├── INDEX.md              the spine, built by the tool, its lines set by the conventions
 ├── README.md             what the directory is and how an agent boots from it
 ├── house-rules.md        the branch contract and code review protocol
 ├── skills/agent-brain/   the brain tool, as a skill every agent can read
@@ -392,8 +393,9 @@ land.
 ```
 
 The trackers, the docs library, and memory each carry an `INDEX.md`
-listing what is inside, and `.agents/INDEX.md` at the top lists
-everything. `spec/` and `handover/` carry none, the spine covers both.
+listing what is inside, and `.agents/INDEX.md` at the top names each
+of those folders with its counts. `spec/` and `handover/` carry none,
+the spine covers both.
 `handover/` stays empty until a session hands work over, so a fresh
 clone has no such folder until then.
 

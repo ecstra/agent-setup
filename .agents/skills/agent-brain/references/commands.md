@@ -9,7 +9,8 @@ on standard error, 2 doctor still has findings.
 | Command | What it answers |
 |---|---|
 | `brain version` | The kit version this project carries, from `.agents/VERSION`. |
-| `brain status [--json]` | Version, doctor health, counts per tracker, open reviews, the latest handover, unreadable files. |
+| `brain status [--json]` | The clock and the standing word first, then version, doctor health, counts per tracker, open reviews, the latest handover, unreadable files. The JSON form carries all of that but the clock and the word. |
+| `brain ack` | The clock and where the owner's standing word to proceed stands, off, held, or on with what is left of it and what ends it. |
 | `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. Kinds: bug, decision, doc, handover, memory, review, todo. |
 | `brain show <key> [--meta]` | The whole file, or with `--meta` its frontmatter only. |
 | `brain path <key>` | The absolute path behind an id, a name or a brain relative path. |
@@ -49,16 +50,65 @@ Required headings, which the body must carry: bug `Problem` and
 `Summary`, `Batches` and `Findings`. An empty standard input writes the
 headings and nothing else, for filling in afterwards.
 
+## The standing word
+
+The owner's ack is the word to proceed with what the agent proposed
+next. Said once as "auto ack" with an end, it stands until that end,
+and the agent passes the review's gates that normally wait for it,
+house rule 6 names them, saying in each report that it did. It never
+starts a review, never opens a PR or merges, since those stay on the
+owner's ask, and never passes a gate the rulebook or section 0 holds
+for a person.
+
+| Command | What it does |
+|---|---|
+| `brain ack on --for 8h` | Records the word for a duration, in minutes, hours or days, such as 90m, 8h or 2d. |
+| `brain ack on --until "tomorrow 22:00"` | Records it until a moment, a time today, which means tomorrow when it has passed, `today HH:MM`, which never rolls over, `tomorrow HH:MM`, a date, which means that whole day through its last moment, or a date and time. |
+| `brain ack on --until-done <key>` | Records it until a todo, a bug or a review is done, by id, name or path, a bug on a branch still counting as open. The word follows the entry's id, so a retitle leaves it standing, and it is taken back the moment the entry is done, gone from the brain, or doubled by a merge, where the brain's folder can be written, and the status line says when it could not be. An entry the brain cannot read right now, one a rebase stopped on, holds the word off until the entry reads again, and the status line says so. A review ledger that is missing holds it the same way rather than ending it, since the ledger lives on its branch and is back once that branch is checked out again, and the status line says it is not in this checkout and that `brain ack off` clears it. Refused for an entry of any other kind, for one already past open, and for a key that names more than one entry, which says to give the path where a path would tell them apart. Given with a time, the earlier end wins. |
+| `brain ack off` | Takes the word back, and clears whatever sits where the word goes short of a folder. |
+
+A word with no end is refused, so the agent proposes one to the owner
+and waits. A second `brain ack on` replaces the word outright, ends
+and all. `brain ack on` also refuses an end that does not read as a
+duration or a moment, one already past, a duration of zero or less, an
+end past the year 2999 on the word's own clock, the last year every
+machine can place on its clock, an empty end flag, a task the brain
+does not know, one of any other kind than a todo, a bug or a review,
+one already past open, a key several entries share, an id doubled by a
+merge among them, a todo or a bug whose file carries no id, and a
+review with no name. `brain ack` given an end with no `on`, and
+`brain ack off` given any end, are refused too, each with a line that
+says so. A folder where the word goes, which the tool never made and
+never removes, has `brain ack on` and `brain ack off` refused and
+`brain ack` say so. The state is one dotted file at the root of the
+brain, `.agents/.ack`, the tool's own, which git ignores since it
+belongs to one machine and one stretch of work, and the brain's
+conventions say the rest. A file that does not read as a word, a
+moment with no zone in it included, counts as no word, and the status
+line says so until `brain ack off` clears it, as `brain ack on` does
+too where the file can be written. While it stands,
+`brain ledger batch <ledger> <n> --status fixing --ack auto` records
+the ack as `auto` with the day, so the ledger says which batches ran
+on the standing word. Any ack that starts with auto, in any case, is
+that call. It is refused on a batch left pending, since the word is
+checked at the batch's start, refused on a batch that already carries
+the owner's own ack, which it never writes over, and off, held or run
+out it is refused anywhere. On a batch that already started on the
+word, the stamp it carries stays. A pending batch that holds findings
+and still carries a stamp from an earlier word takes the standing word
+again when it starts, so a start that gives no ack is refused while
+the word is off, and the report says it waits for the owner's word.
+
 ## The review ledger
 
 | Command | What it does |
 |---|---|
 | `brain ledger open <branch> --summary S [--level low\|medium\|high\|max]` | Creates `reviews/<yyyy-mm>-<branch-slug>/ledger.md` with the three sections and an empty batch table, the level recorded in its header, high unless given. The summary is one line, or `-` to read it from standard input inside a quoted heredoc, which keeps the shell off it, and it is refused when empty or when it runs to more than one line. Standard input is read as UTF-8 wherever the tool takes it, and a byte that is not is refused. |
 | `brain ledger batch <ledger> --theme T` | Adds the next batch, numbered past the highest one, status pending, and prints its number. The theme is one line with no pipe. |
-| `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. The ack is the owner's word that starts a batch, recorded on it, so `fixing`, `verified` and `done` on a batch that holds findings are refused until the batch carries one, and verification closes the batch with no further word. Refuses when given none of them, and refuses `verified` or `done` while a finding in the batch is still open. A batch with no findings runs and closes without an ack, and a change to the theme alone never trips a guard. An open finding filed into a batch already verified or done, or reopened there, or a finding moved in already fixed, puts the batch back to `fixing` with its ack kept, since the word covered it, so the late fix is verified like the rest. A batch that had none, an empty one closed without an ack and then given a finding, asks for the ack before anything else. The ack, like the theme, is one line with no pipe. |
+| `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE\|auto] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. The ack is the owner's word that starts a batch, recorded on it, so `fixing`, `verified` and `done` on a batch that holds findings are refused until the batch carries one, and verification closes the batch with no further word. An ack of `auto` is the standing word's stamp, and the section above says when it is taken, when it is refused, and what a stamp left on a pending batch means. Refuses when given none of them, and refuses `verified` or `done` while a finding in the batch is still open. A batch with no findings runs and closes without an ack, and a change to the theme alone never trips a guard. An open finding filed into a batch already verified or done, or reopened there, or a finding moved in already fixed, puts the batch back to `fixing` with its ack kept, since the word covered it, so the late fix is verified like the rest. A batch that had none, an empty one closed without an ack and then given a finding, asks for the ack before anything else. The ack, like the theme, is one line with no pipe. |
 | `brain ledger add <ledger> "claim" --severity S [--found-by review\|hunter] [--batch n]` | Records the next finding, numbered past the highest one, and prints its id. The claim is one line. A batch number must name a row of the table, so no finding is filed where the report cannot see it. With `-` in place of the claim, the claims come in on standard input inside a quoted heredoc, one per line, all filed with the same severity, batch and found-by in one write, so they land whole or not at all, and the ids print one per line. That keeps the shell off a backtick or a dollar sign in a claim, and files a batch's worth in one call. Empty standard input is refused. |
 | `brain ledger set <ledger> F-NN field=value ...` | Changes a finding, each value one line taken as written. The fields are severity, found-by, batch, status, fix and reason, and a line a hand edit lost comes back. A fixed finding always names its commit, `fix=<hash>`, a wontfix or a deferred one says why in the same call, `reason=<one line>`, and the reason leaves with the status, so a later status never borrows it. A batch must be one the table has. Statuses: open, fixed, wontfix, deferred. |
-| `brain ledger report <ledger>` | The ledger's state in a few lines, counted from the file, with a blank status read as open the way close reads it. The first line gives the status and the counts, then one line per batch with its status, ack and counts, then a last line saying what comes next. That last line names an open or a fixed finding filed into no batch the table has before anything else, since a fix is verified by its batch, then walks the batches in order and says what the first unfinished one needs, the owner's word for a pending one, or its start when the ack is already on it, the ack on record for one that holds findings and has none, then its open findings, a late one included, its verification, and its marking done. Once every batch is done it says the closing pass is owed, per house rule 7, until a batch themed `closing pass` records that the pass ran, and then to close the ledger. |
+| `brain ledger report <ledger>` | The ledger's state in a few lines, counted from the file, with a blank status read as open the way close reads it. The first line gives the status and the counts, then one line per batch with its status, ack and counts, then a last line saying what comes next. That last line names an open or a fixed finding filed into no batch the table has before anything else, since a fix is verified by its batch, then walks the batches in order and says what the first unfinished one needs, the owner's word for a pending one, or its start when the ack is already on it or the standing word holds, a stamp from an earlier word counting only while the word holds, the ack on record for one that holds findings and has none, the standing word's while one holds, then its open findings, a late one included, its verification, and its marking done. Once every batch is done it says the closing pass is owed, per house rule 7, until a batch themed `closing pass` records that the pass ran, and then to close the ledger. |
 | `brain ledger close <ledger>` | Flips the ledger to closed and writes the count under Summary. Refuses while a finding is open or has no status, and until the report's next line says to close the ledger, so a batch not yet done or a closing pass still owed holds it open. |
 
 ## Doctor
@@ -137,13 +187,12 @@ wraps that call, or calls a copy kept elsewhere, is the project's and
 stays, and an event left with no group stays as an empty list. A rename
 goes through git where git tracks the file, so the move shows as one,
 and a root file the kit replaces is named in the report along with
-where git keeps the old one.
-The exit code is doctor's: 0 clean, 2 while findings remain, and those
-are the project's own prose to put right. A finding in the kit's own
-files, under `skills/agent-brain/` or `skills/branch-review/`, is the
-kit's to fix, printed apart and never counted, since the install
-replaces those files every time.
-The tool ships without its own tests, and the chat style copies in
+where git keeps the old one. The exit code is doctor's, 0 clean and 2
+while findings remain, and those are the project's own prose to put
+right. A finding in the kit's own files, under `skills/agent-brain/`
+or `skills/branch-review/`, is the kit's to fix, printed apart and
+never counted, since the install replaces those files every time. The
+tool ships without its own tests, and the chat style copies in
 `.codex/` and `.gemini/` are the doctor's to make from the source in
 `.claude/output-styles/`.
 
@@ -154,13 +203,31 @@ standard input:
 
 | Event | What happens |
 |---|---|
-| `session-start` | Prints `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy, for an agent that does not expand imports. |
-| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header check judges the file as the write would leave it: the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence or a field the file's header carries or its kind allows, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
+| `session-start` | Prints the clock, the standing word and `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy, for an agent that does not expand imports. |
+| `prompt` | On each prompt the owner sends, puts the clock and the standing word in front of the model, since a model does not know the time and forgets what it was told. |
+| `tick` | After the agent's tool calls, the clock and the standing word again, off included, so a long stretch of work never loses either and sees the word end. Claude Code fires it once after each round of tool calls, Codex and Gemini CLI after each shell call. |
+| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header check judges the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence or a field the file's header carries or its kind allows, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
 | `post-write` | After a write inside `.agents/`, runs doctor and hands its findings back as context. |
 
+Context goes back as one JSON object naming the event, which all three
+agents read on every event. Codex also takes plain text at the start of
+a session and on a prompt, and gets it there. On its tool events plain
+text is dropped, so those get the JSON object too.
+
 The config files that wire them up ship with the kit: `.claude/settings.json`,
-`.codex/hooks.json` and `.gemini/settings.json`. The Claude Code one also
-carries the kit's two settings, `CLAUDE_CODE_SUBAGENT_MODEL` for the sub
-agents' model and `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how many
-tool calls may run at once. The port and the upgrade add each to a
-project's `env` when it lacks the key and leave a value the project set.
+`.codex/hooks.json` and `.gemini/settings.json`. Every command in them
+is the same one line of Python, which finds the script from the
+project folder the agent names in `CLAUDE_PROJECT_DIR` or
+`GEMINI_PROJECT_DIR`, or by walking up from the session's own folder
+where Codex names none, hands it the event, and does nothing where no
+script is found, so a checkout that predates the kit never blocks a
+prompt or a write. The script that runs is the one checked out, so a
+session whose hooks name an event and a checkout of a kit from before
+that event still block on it until the session restarts, which this
+kit's script no longer does for events it will learn later. Each
+Codex hook carries the same line in a Windows form beside it, run
+through the `py` launcher. The Claude Code one also carries the kit's
+two settings, `CLAUDE_CODE_SUBAGENT_MODEL` for the sub agents' model
+and `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how many tool calls may
+run at once. The port and the upgrade add each to a project's `env`
+when it lacks the key and leave a value the project set.

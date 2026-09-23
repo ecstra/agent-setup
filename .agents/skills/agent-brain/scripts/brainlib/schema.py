@@ -355,6 +355,12 @@ NO_FRONTMATTER: tuple[str, ...] = ("SYSTEM.md",)
 # read off the kinds so the table lives in one place.
 INDEXED_FOLDERS: tuple[str, ...] = tuple(kind.folder for kind in KINDS.values() if kind.indexed)
 
+# The files the kit writes at the top of a project: the front doors every
+# agent reads first, the contributing note and the ignore file.
+FRONT_DOORS: tuple[str, ...] = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
+ROOT_FILES: tuple[str, ...] = (*FRONT_DOORS, "CONTRIBUTING.md")
+IGNORE_FILE = ".gitignore"
+
 INDEX = "INDEX.md"
 LEDGER = "ledger.md"
 

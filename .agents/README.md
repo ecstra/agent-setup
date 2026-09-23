@@ -9,14 +9,14 @@ links: [INDEX.md, spec/conventions.md, house-rules.md]
 # The Agent Directory
 
 This directory is the project's brain: everything an agent needs to work
-on this project, committed to the repo so any agent on any machine
-resumes cold. Humans read docs/ at the repo root when the project keeps
-one, agents read this.
+on this project, committed to the repo, all but what git ignores
+there, so any agent on any machine resumes cold. Humans read docs/ at
+the repo root when the project keeps one, agents read this.
 
 ## Booting
 
-1. Read [INDEX.md](INDEX.md), the spine. One line per file in this
-   directory, grouped. It tells you what exists and where.
+1. Read [INDEX.md](INDEX.md), the spine. What it holds, line by line,
+   is in [spec/conventions.md](spec/conventions.md).
 2. Read [house-rules.md](house-rules.md) before any branch, commit, or
    review work.
 3. Obey [spec/](spec/conventions.md). Each content folder here has a spec
@@ -45,9 +45,15 @@ one, agents read this.
   specs above. A project may keep skills of its own here under other
   names, and doctor links them for Claude Code.
 - `VERSION`: the kit release this brain is on, read by the tool.
+- `.ack`: the owner's standing word to proceed and its end, the tool's
+  own, which git ignores since it lives on one machine, and the
+  conventions say the rest.
 
 ## Two absolutes
 
-- Nothing secret ever enters this directory. It is committed.
+- Nothing secret ever enters this directory. All but what git ignores
+  there is committed.
 - Nothing here references any machine's local state. Machines point at
-  this directory, never the reverse.
+  this directory, never the reverse. What git ignores here, which the
+  conventions list, is the one exception, since it never enters the
+  repo.

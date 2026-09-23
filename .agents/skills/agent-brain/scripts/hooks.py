@@ -1,11 +1,17 @@
 """The hook every agent runs, so the brain is checked without anyone asking.
 
 Claude Code, Codex and Gemini CLI each call this with their own event
-JSON on standard input and the event name as the first argument. Three
-events matter: the start of a session, a write that is about to create
-a file inside .agents/, and a write that just landed there.
+JSON on standard input and the event name as the first argument. Five
+events matter, the start of a session, each prompt the owner sends, a
+tick after the agent's tool calls, a write that is about to create a
+file inside .agents/, and a write that just landed there. The session
+start, the prompt and the tick carry the clock, since a model does not
+know the time and forgets what it was told, and where the owner's
+standing word to proceed stands, on, held or off.
 
     python3 .agents/skills/agent-brain/scripts/hooks.py session-start --agent claude
+    python3 .agents/skills/agent-brain/scripts/hooks.py prompt --agent claude
+    python3 .agents/skills/agent-brain/scripts/hooks.py tick --agent claude
     python3 .agents/skills/agent-brain/scripts/hooks.py pre-write --agent codex
     python3 .agents/skills/agent-brain/scripts/hooks.py post-write --agent gemini
 
@@ -15,13 +21,14 @@ three agents honour.
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Optional
+from typing import BinaryIO, NoReturn, Optional
 
-from brainlib import doctor, frontmatter, links, reads, schema, store
+from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, store
 
 BLOCK = 2
 FAILED = 1
@@ -57,13 +64,31 @@ class Touch:
     replace_all: bool = False
     hunks: tuple[tuple[str, ...], ...] = ()
     moved_from: Optional[Path] = None
+    deleted: bool = False
+
+
+class HookParser(argparse.ArgumentParser):
+    """An argument parser whose refusal is the non blocking error, never the blocking exit.
+
+    argparse exits 2 on an argument it does not know, and 2 is the exit
+    every agent takes as a block, so a hook script older than the event
+    its config names, one a checkout of an older branch put in place,
+    would erase every prompt until the session restarts.
+    """
+
+    def error(
+        self,
+        message: str,
+    ) -> NoReturn:
+        print(f"the brain hook could not run: {message}", file=sys.stderr)
+        raise SystemExit(FAILED)
 
 
 def main(
     argv: Optional[list[str]] = None,
 ) -> int:
-    parser = argparse.ArgumentParser(prog="hooks")
-    parser.add_argument("event", choices=("session-start", "pre-write", "post-write"))
+    parser = HookParser(prog="hooks")
+    parser.add_argument("event", choices=("session-start", "prompt", "tick", "pre-write", "post-write"))
     parser.add_argument("--agent", choices=("claude", "codex", "gemini"), default="claude")
     parser.add_argument("--with-rules", action="store_true", help="add SYSTEM.md to the context")
     args = parser.parse_args(argv)
@@ -93,6 +118,12 @@ def run(
     if args.event == "session-start":
         return session_start(brain=brain, agent=args.agent, with_rules=args.with_rules)
 
+    if args.event == "prompt":
+        return prompt(brain=brain, agent=args.agent)
+
+    if args.event == "tick":
+        return tick(brain=brain, agent=args.agent)
+
     if args.event == "pre-write":
         return pre_write(brain=brain, event=event, agent=args.agent)
 
@@ -108,7 +139,7 @@ def read_event() -> dict:
     if sys.stdin is None or sys.stdin.isatty():
         return {}
 
-    raw = sys.stdin.read()
+    raw = stdin_bytes().decode("utf-8", errors="replace")
     if not raw.strip():
         return {}
 
@@ -116,6 +147,21 @@ def read_event() -> dict:
         return json.loads(raw)
     except json.JSONDecodeError:
         return {}
+
+
+def stdin_bytes() -> bytes:
+    """Standard input as bytes, read under the text layer so the locale's encoding never gets a say.
+
+    The event is JSON, which is UTF-8 whatever the locale, and on a
+    prompt it carries the owner's own text. A byte layer that is not
+    there, a text stream handed in by a test, is read as the text it
+    holds.
+    """
+    buffer: Optional[BinaryIO] = getattr(sys.stdin, "buffer", None)
+    if buffer is None:
+        return sys.stdin.read().encode("utf-8")
+
+    return buffer.read()
 
 
 def locate(
@@ -134,7 +180,7 @@ def session_start(
     agent: str,
     with_rules: bool,
 ) -> int:
-    text = "The brain, counted from the files right now:\n" + reads.render_status(reads.status(brain))
+    text = the_moment(brain=brain) + "\n\nThe brain, counted from the files right now:\n" + reads.render_status(reads.status(brain=brain))
     if with_rules:
         rules = brain.root / "SYSTEM.md"
         if store.readable_file(rules):
@@ -146,6 +192,31 @@ def session_start(
 
     emit_context(agent=agent, text=text, event_name="SessionStart")
     return 0
+
+
+def prompt(
+    brain: store.Brain,
+    agent: str,
+) -> int:
+    """On each prompt the owner sends, the clock and the standing word, so both are in front of the model when it reads the prompt."""
+    emit_context(agent=agent, text=the_moment(brain=brain), event_name=PROMPT.get(agent, "UserPromptSubmit"))
+    return 0
+
+
+def tick(
+    brain: store.Brain,
+    agent: str,
+) -> int:
+    """After the agent's tool calls, the clock and the standing word again, off included, so a long stretch of work never loses either and sees the word end."""
+    emit_context(agent=agent, text=the_moment(brain=brain), event_name=TICK.get(agent, "PostToolUse"))
+    return 0
+
+
+def the_moment(
+    brain: store.Brain,
+) -> str:
+    """The clock and the standing word, the two lines the session start, the prompt hook and the tick carry."""
+    return clock.line() + "\n" + autoack.describe(brain=brain)
 
 
 def text_of(
@@ -192,7 +263,15 @@ def refusal(
 
     path = touch.path
     inside = links.within(brain=brain, path=path)
-    if inside is None or path.suffix != ".md":
+    if inside is None:
+        return None
+
+    # the word's name in any case, since a disk that ignores case would take
+    # .ACK for the file itself, and the suffix as the store reads it
+    if inside.casefold() == autoack.FILE and not touch.deleted:
+        return f"{autoack.FILE} is the owner's standing word, set with brain ack on and never written by hand"
+
+    if not markdown_named(path):
         return None
 
     if Path(inside).parts[0] == SKILLS:
@@ -230,7 +309,7 @@ def entry_path(
 ) -> Optional[str]:
     """The brain relative path of an existing entry file, or None for anything else."""
     inside = links.within(brain=brain, path=path)
-    if inside is None or path.suffix != ".md" or not store.quietly(path.exists):
+    if inside is None or not markdown_named(path) or not store.quietly(path.exists):
         return None
 
     relative_path = Path(inside)
@@ -238,6 +317,13 @@ def entry_path(
         return None
 
     return inside
+
+
+def markdown_named(
+    path: Path,
+) -> bool:
+    """Whether the path carries the markdown suffix the way the store reads it, without regard to case on Windows."""
+    return os.path.normcase(path.suffix) == ".md"
 
 
 HEADER_IS_THE_TOOLS = (
@@ -578,14 +664,21 @@ def patch_touches(
         marker = MARKER.match(line)
         if marker is not None:
             close_hunk()
-            path = absolute(base=base, value=marker.group(2))
-            if marker.group(1) == "Move to" and updating is not None:
+            action, target = marker.groups()
+            path = absolute(base=base, value=target)
+            if action == "Move to" and updating is not None:
                 found.append(Touch(path=path, moved_from=found[updating].path))
                 continue
 
-            found.append(Touch(path=path, content="" if marker.group(1) == "Add File" else None))
-            updating = len(found) - 1 if marker.group(1) == "Update File" else None
-            adding = len(found) - 1 if marker.group(1) == "Add File" else None
+            found.append(
+                Touch(
+                    path=path,
+                    content="" if action == "Add File" else None,
+                    deleted=action == "Delete File",
+                )
+            )
+            updating = len(found) - 1 if action == "Update File" else None
+            adding = len(found) - 1 if action == "Add File" else None
             continue
 
         if adding is not None and (line[:1] == "+" or line == ""):
@@ -637,6 +730,19 @@ def settled(
 # Claude Code and Codex say PostToolUse, Gemini CLI says AfterTool.
 AFTER_WRITE = {"claude": "PostToolUse", "codex": "PostToolUse", "gemini": "AfterTool"}
 
+# What each agent calls the event on a prompt, and the one the tick rides
+# on. Claude Code fires PostToolBatch once after each round of tool
+# calls. Codex fires PostToolUse and Gemini CLI AfterTool after each
+# tool, and the shipped configs match the shell tool alone, so there
+# the tick comes after each shell call.
+PROMPT = {"claude": "UserPromptSubmit", "codex": "UserPromptSubmit", "gemini": "BeforeAgent"}
+TICK = {"claude": "PostToolBatch", "codex": "PostToolUse", "gemini": "AfterTool"}
+
+# The events on which Codex takes plain text on standard output as
+# developer context. On its tool events plain text is dropped and only
+# the JSON object reaches the model.
+CODEX_PLAIN = ("SessionStart", "UserPromptSubmit")
+
 
 def emit_context(
     agent: str,
@@ -645,15 +751,36 @@ def emit_context(
 ) -> None:
     """Hand text back the way this agent takes context from a hook.
 
-    Codex takes plain text on standard output as developer context.
-    Claude Code and Gemini CLI take one JSON object naming the event.
+    Codex takes plain text on standard output at the start of a session
+    and on a prompt, and the JSON object after a tool. Claude Code and
+    Gemini CLI take one JSON object naming the event.
     """
-    if agent == "codex":
-        print(text)
+    if agent == "codex" and event_name in CODEX_PLAIN:
+        write_utf8(text + "\n")
         return
 
     payload = {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": text}}
     print(json.dumps(payload))
+
+
+def write_utf8(
+    text: str,
+) -> None:
+    """Put text on standard output as UTF-8 bytes, under the text layer, so the locale's encoding never gets a say.
+
+    The rulebook carries characters a Windows code page cannot encode,
+    and the agent reads the pipe as UTF-8 whatever the locale. A byte
+    layer that is not there, a text stream handed in by a test, takes
+    the text as it is.
+    """
+    buffer: Optional[BinaryIO] = getattr(sys.stdout, "buffer", None)
+    if buffer is None:
+        sys.stdout.write(text)
+        return
+
+    sys.stdout.flush()
+    buffer.write(text.encode("utf-8"))
+    buffer.flush()
 
 
 def emit_nothing(
@@ -664,8 +791,8 @@ def emit_nothing(
     On a pass, exit 0, Gemini CLI parses standard output as JSON, so it
     gets an empty object. On a refusal, exit 2, every agent takes the
     reason from standard error and reads nothing else. Claude Code takes
-    silence on a pass, and for Codex anything printed would become
-    context, so both get nothing.
+    silence on a pass, and Codex drops plain text on a tool event, so
+    both get nothing.
     """
     if agent == "gemini":
         print("{}")

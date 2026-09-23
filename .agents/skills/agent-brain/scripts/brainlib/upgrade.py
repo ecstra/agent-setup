@@ -27,9 +27,9 @@ FOLDER = ".agents"
 OLD_FOLDER = ".agent"
 VERSION = schema.VERSION_FILE
 
-FRONT_DOORS = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
+FRONT_DOORS = schema.FRONT_DOORS
 OLD_LAYOUT_DOORS = ("CLAUDE.md", "AGENTS.md", "GEMINI.md")
-ROOT_FILES = (*FRONT_DOORS, "CONTRIBUTING.md")
+ROOT_FILES = schema.ROOT_FILES
 AGENT_FOLDERS = store.NEAR_ROOTS[1:]
 
 # The hook configs are merged into what the project has, so its own hooks
@@ -37,14 +37,55 @@ AGENT_FOLDERS = store.NEAR_ROOTS[1:]
 MERGED = ("settings.json", "hooks.json")
 NOT_SHIPPED = ("settings.local.json",)
 
-# A hook group is the kit's when its command is nothing but a call of a
-# script under the kit's own skill folder, by either name of the brain,
-# with plain arguments after it. A command that wraps such a call, or
-# calls a copy kept elsewhere, is the project's own.
-KIT_HOOK = re.compile(
-    r'^python3 (?:"\$CLAUDE_PROJECT_DIR"/|\$CLAUDE_PROJECT_DIR/)?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$'
+# A hook group is the kit's when its command is one of two shapes with
+# plain arguments after it: a call of a script under the kit's own skill
+# folder, by either name of the brain, anchored at the project root the
+# way each agent allows or not at all, which is what the kit shipped
+# before the launcher, or python3 -c with a launcher text the kit has
+# shipped, every version of it listed. A command that wraps such a
+# call, or calls a copy kept elsewhere, is the project's own.
+#
+# The launcher is the one line every shipped hook command runs. It finds
+# the hook script from the project folder the agent names, or by walking
+# up from the session's own folder where none is named, hands it the
+# event, and does nothing where there is no script, so a checkout
+# without the kit never blocks a prompt or a write. Run through -c,
+# Python puts the session's folder first on the import path, where a
+# file named like a standard module would shadow it, so that entry goes
+# before anything is imported.
+LAUNCHER = (
+    "import sys;"
+    "'' in sys.path and sys.path.remove('');"
+    "import os,pathlib,runpy;"
+    "h='.agents/skills/agent-brain/scripts/hooks.py';"
+    "c=pathlib.Path(os.environ.get('CLAUDE_PROJECT_DIR') or os.environ.get('GEMINI_PROJECT_DIR') or os.getcwd());"
+    "p=next((d/h for d in [c,*c.parents] if (d/h).is_file()),None);"
+    "p or sys.exit(0);"
+    "sys.path.insert(0,str(p.parent));"
+    "sys.argv[0]=str(p);"
+    "runpy.run_path(str(p),run_name='__main__')"
 )
-IGNORE_FILE = ".gitignore"
+# the anchors of the kit's commands before the launcher
+ROOT_ANCHORS = (
+    r'"\$CLAUDE_PROJECT_DIR"/',
+    r"\$CLAUDE_PROJECT_DIR/",
+    r'"\$GEMINI_PROJECT_DIR"/',
+    r"\$GEMINI_PROJECT_DIR/",
+)
+# every launcher text the kit has shipped, the current one first, since a
+# project ported under an earlier text upgrades by that text, so a change
+# to the launcher appends the text it replaces here, a port from any
+# commit being possible. The second is the first text, before the import
+# path fix.
+LAUNCHERS = (
+    LAUNCHER,
+    LAUNCHER.replace("import sys;'' in sys.path and sys.path.remove('');import os,pathlib,runpy;", "import os,pathlib,runpy,sys;"),
+)
+KIT_HOOK = re.compile(
+    r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
+    r'|^python3 -c "(?:' + "|".join(re.escape(text) for text in LAUNCHERS) + r')"(?: [\w.-]+)*$'
+)
+IGNORE_FILE = schema.IGNORE_FILE
 IGNORE_HEADING = "# The agent kit's own ignores."
 BOM = codecs.BOM_UTF8.decode("utf-8")
 
@@ -1488,8 +1529,8 @@ def write_bytes(
     """Write a file whole or not at all, through a temporary file beside it, with the mode given.
 
     The temporary file takes the same shape as the tool's other writes,
-    so one left beside a markdown file by an interrupted run is found
-    and removed by doctor.
+    so one left beside its target by an interrupted run is found and
+    removed by doctor.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, passing = tempfile.mkstemp(prefix=f".{path.name}.", suffix=frontmatter.TEMP_SUFFIX, dir=str(path.parent))

@@ -14,7 +14,21 @@ them, and the last section says what to do without them.
 
 ## What holds throughout
 
-- The owner said "review". The agent never decides a branch is ready.
+- The owner said "review". The agent never decides a branch is ready,
+  and no standing word starts one.
+- Every gate of the review that waits for the owner's word, house rule
+  6 names them, first asks `brain ack`. While the owner's standing word
+  holds, the gate passes, the batch takes `--ack auto`, or starts on
+  the owner's dated ack where it already carries one, and the report
+  says which of the two the step ran on and, for the standing word,
+  what is left of it. Off, the gate waits for the word in chat, unless
+  the batch already carries the owner's ack, which starts it. The PR
+  and the merge are not the review's gates and wait for the owner's
+  ask either way. An owner who says "auto ack" with no end is asked
+  for one, with a proposal such as this review's ledger as the task,
+  which once the ledger is open is `brain ack on --until-done <its key>`
+  and ends when it closes, or a time tonight, and nothing is recorded
+  until they answer.
 - Every sub agent gets the scope, one fetch command to run first, its
   angle or its findings, and the block shape it returns. It never gets
   the diff pasted in and never hears what the main session thinks.
@@ -31,9 +45,9 @@ them, and the last section says what to do without them.
   share one verifier that gets the file list, so the count follows the
   findings and a branch of many files never means many verifiers. In
   Claude Code no more than twenty sub agents run at once, and a wider
-  pass runs in waves. Ledger writes are the one exception and
-  go one at a time, since the tool holds no lock and two at once would
-  lose one.
+  pass runs in waves. Ledger writes are the one exception and go one
+  at a time, since the tool holds no lock and two at once would lose
+  one.
 - One commit per fix, pushed after each, the hash in the ledger.
 - Every report follows [references/report.md](references/report.md),
   and the rule behind it is SYSTEM.md section 7.6.
@@ -121,10 +135,12 @@ shows it.
    EOF
    ```
 
-6. Report with the findings shape, then stop. Batch 1 starts on the
-   owner's word. When nothing survived, there is no batch and nothing
-   was fixed, so no closing pass is owed. The report says so, the
-   ledger closes, and the branch is ready to merge on the owner's word.
+6. Report with the findings shape. Batch 1 starts on the owner's word,
+   so stop there, unless the standing word holds, in which case batch
+   1 starts on it and the report's last line says so. When nothing
+   survived, there is no batch and nothing was fixed, so no closing
+   pass is owed. The report says so, the ledger closes, and the branch
+   is ready to merge on the owner's ask.
 
 ## The batch loop
 
@@ -172,7 +188,9 @@ One batch at a time.
    ```
 
 6. The report's call is the ack of the next batch, which starts it as
-   in step 1, or, after the last batch, the closing pass or the close.
+   in step 1, or, after the last batch, the closing pass where house
+   rule 7 owes one. Where none is owed, the ledger closes with no word
+   and the report says so.
 
 ## The closing pass
 
@@ -200,7 +218,9 @@ brain ledger batch 2026-09-feat-billing 2 --status done
 
 Once every batch is done, and the closing pass with it where one was
 owed, the ledger closes and the report says the branch is ready to
-merge on the owner's word. The merge itself waits for that word.
+merge on the owner's ask. The close follows the last batch with no
+word. The PR and the merge wait for the owner's ask whether or not a
+standing word holds.
 
 ```bash
 brain ledger close 2026-09-feat-billing
