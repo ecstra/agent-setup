@@ -6,8 +6,8 @@ events matter: the start of a session, each prompt the owner sends, a
 tick after the agent's tool calls, a write that is about to create a
 file inside .agents/, and a write that just landed there. The prompt
 and the tick carry the clock, since a model does not know the time and
-forgets what it was told, and the owner's standing word to proceed
-while one holds.
+forgets what it was told, and where the owner's standing word to
+proceed stands, on, held or off.
 
     python3 .agents/skills/agent-brain/scripts/hooks.py session-start --agent claude
     python3 .agents/skills/agent-brain/scripts/hooks.py prompt --agent claude
