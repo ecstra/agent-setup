@@ -339,6 +339,7 @@ def add_ledger(
     opening = actions.add_parser("open", help="start the ledger for a branch")
     opening.add_argument("branch")
     opening.add_argument("--summary", required=True)
+    opening.add_argument("--level", default="high", choices=ledger.LEVELS, help="how wide the finding pass goes")
     opening.set_defaults(handler=run_ledger_open)
 
     batch = actions.add_parser("batch", help="add a batch, or set one's status, ack or theme")
@@ -376,7 +377,12 @@ def run_ledger_open(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    entry = ledger.open_ledger(brain=brain, branch=args.branch, summary=args.summary)
+    entry = ledger.open_ledger(
+        brain=brain,
+        branch=args.branch,
+        summary=args.summary,
+        level=args.level,
+    )
     index.write(brain)
     print(entry.relative)
     return 0

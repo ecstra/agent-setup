@@ -33,6 +33,13 @@ FIELDS = ("severity", "found-by", "batch", "status", "fix")
 FOUND_BY = ("review", "hunter")
 FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred")
 BATCH_STATUSES = ("pending", "fixing", "verified", "done")
+LEVELS = ("low", "medium", "high", "max")
+
+# The closing pass files what it finds into a batch of this theme, so the
+# ledger knows the pass ran. Low and a sweep branch skip the pass.
+CLOSING_THEME = "closing pass"
+NO_CLOSING_LEVELS = ("low",)
+SWEEP_PREFIX = "sweep/"
 
 
 class LedgerError(Exception):
@@ -43,8 +50,12 @@ def open_ledger(
     brain: store.Brain,
     branch: str,
     summary: str,
+    level: str = "high",
     stamp: str = "",
 ) -> store.Entry:
+    if level not in LEVELS:
+        raise LedgerError(f"a review runs at {' or '.join(LEVELS)}, not '{level}'")
+
     stamp = stamp or date.today().isoformat()
     title = f"{stamp[:7]} {branch}"
     body = (
@@ -60,7 +71,7 @@ def open_ledger(
         kind=schema.kind_named("review"),
         title=title,
         description=f"review of {branch}",
-        values={"branch": branch},
+        values={"branch": branch, "level": level},
         body=body,
         stamp=stamp,
     )
@@ -111,11 +122,16 @@ def set_batch(
         if int(match.group(1)) != number:
             continue
 
+        new_status = status or match.group(3)
+        new_ack = ack or match.group(4)
+        if new_status == "done" and not new_ack and in_batch(items=findings(entry), number=number):
+            raise LedgerError(f"batch {number} closes on the owner's ack, give --ack")
+
         row = batch_row(
             number=number,
             theme=theme or match.group(2),
-            status=status or match.group(3),
-            ack=ack or match.group(4),
+            status=new_status,
+            ack=new_ack,
         )
         body = body[: match.start()] + row + body[match.end() :]
         replaced = True
@@ -156,6 +172,7 @@ def add_finding(
         raise LedgerError("a finding needs a claim")
 
     entry = ledger_entry(brain=brain, key=key)
+    known_batch(entry=entry, value=batch_cell)
     number = max((int(record["id"][2:]) for record in findings(entry)), default=0) + 1
     identifier = f"F-{number:02d}"
     block = (
@@ -185,6 +202,7 @@ def set_finding(
     changes = {field: checked(field=field, value=value) for field, value in changes.items()}
 
     entry = ledger_entry(brain=brain, key=key)
+    known_batch(entry=entry, value=changes.get("batch", ""))
     body = entry.document.body
     span = finding_span(body=body, identifier=identifier)
     if span is None:
@@ -240,7 +258,7 @@ def close(
     if entry.field("status") == "closed":
         raise LedgerError(f"{entry.name} is already closed")
 
-    still_open = [item for item in findings(entry) if (item.get("status") or "open") == "open"]
+    still_open = [item for item in findings(entry) if is_open(item)]
     if still_open:
         names = ", ".join(item["id"] for item in still_open)
         raise LedgerError(f"{names} still open, a ledger closes when every finding has landed")
@@ -271,7 +289,12 @@ def report(
         ack = f", ack {row['ack']}" if row["ack"] else ""
         lines.append(f"batch {row['number']}, {row['theme']}: {row['status']}{ack}, {tally(own)}")
 
-    lines.append("next: " + next_step(status=entry.field("status"), rows=rows, items=items))
+    step = next_step(
+        entry=entry,
+        rows=rows,
+        items=items,
+    )
+    lines.append("next: " + step)
 
     return "\n".join(lines)
 
@@ -283,8 +306,15 @@ def in_batch(
     return [item for item in items if item.get("batch") == str(number)]
 
 
+def is_open(
+    item: dict,
+) -> bool:
+    """Whether a finding still needs work, a blank status counting as open the way close counts it."""
+    return (item.get("status") or "open") == "open"
+
+
 def next_step(
-    status: str,
+    entry: store.Entry,
     rows: list[dict],
     items: list[dict],
 ) -> str:
@@ -292,35 +322,70 @@ def next_step(
 
     A pending batch waits for the owner's word until an earlier batch
     has been acked, after which the ack that closed it is the word to
-    start the next.
+    start the next. An open finding anywhere, a late one filed into a
+    batch already verified or done included, comes before the batch's
+    own status, since close refuses while it stands.
     """
-    if status == "closed":
+    if entry.field("status") == "closed":
         return "nothing, the ledger is closed"
 
-    unbatched = [item["id"] for item in items if not item.get("batch")]
-    if unbatched:
-        return f"put {', '.join(unbatched)} in a batch"
+    known = {str(row["number"]) for row in rows}
+    stray = [item["id"] for item in items if is_open(item) and item.get("batch") not in known]
+    if stray:
+        return f"put {', '.join(stray)} in a batch"
 
     acked_before = False
     for row in rows:
         number = row["number"]
-        if row["status"] == "done":
-            acked_before = True
-            continue
-
         if row["status"] == "pending":
             return f"start batch {number}" if acked_before else f"batch {number} on the owner's word"
 
-        if row["status"] == "verified":
-            return f"the owner's ack of batch {number}"
-
-        still_open = [item["id"] for item in in_batch(items=items, number=number) if (item.get("status") or "open") == "open"]
+        own = in_batch(items=items, number=number)
+        still_open = [item["id"] for item in own if is_open(item)]
         if still_open:
             return f"fix {', '.join(still_open)} in batch {number}"
 
-        return f"verify batch {number}"
+        if row["status"] == "fixing":
+            return f"verify batch {number}"
+
+        if row["status"] == "verified" or (own and not row["ack"]):
+            return f"the owner's ack of batch {number}"
+
+        acked_before = True
+
+    if wants_closing_pass(entry=entry, rows=rows):
+        return "the closing pass"
 
     return "close the ledger"
+
+
+def wants_closing_pass(
+    entry: store.Entry,
+    rows: list[dict],
+) -> bool:
+    """Whether the review still owes its closing pass.
+
+    The pass is owed at every level above low, on any branch that is
+    not a sweep, until a batch of the closing theme records that it
+    ran. A ledger with no level recorded owes nothing the tool can see.
+    """
+    level = entry.field("level")
+    if not rows or not level or level in NO_CLOSING_LEVELS:
+        return False
+
+    if (entry.field("branch") or "").startswith(SWEEP_PREFIX):
+        return False
+
+    return not any(row["theme"] == CLOSING_THEME for row in rows)
+
+
+def known_batch(
+    entry: store.Entry,
+    value: str,
+) -> None:
+    """Refuse a batch number the table does not carry, so no finding is filed where the report cannot see it."""
+    if value and int(value) not in {row["number"] for row in batches(entry)}:
+        raise LedgerError(f"{entry.name} has no batch {value}")
 
 
 def findings(
@@ -452,7 +517,7 @@ def tally(
 ) -> str:
     counts: dict[str, int] = {}
     for item in items:
-        status = item.get("status") or schema.UNKNOWN
+        status = "open" if is_open(item) else item["status"]
         counts[status] = counts.get(status, 0) + 1
 
     total = len(items)

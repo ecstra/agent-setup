@@ -54,10 +54,10 @@ are in scope too, and the third command says whether there are any.
 ## The finding pass
 
 1. Open the ledger before anything is found, so the review's folder
-   exists the moment it starts:
+   exists the moment it starts, with the level recorded:
 
    ```bash
-   brain ledger open feat/billing --summary "what the branch did, one line"
+   brain ledger open feat/billing --summary "what the branch did, one line" --level high
    ```
 
 2. Spawn the finders, one per angle the level lists in
@@ -128,10 +128,13 @@ One batch at a time, and inside it everything that can run at once does.
 At high and max, once the last batch is done, the finders run once more
 over the whole branch as it now stands, with the closing line added to
 their prompt, looking only for what the fixes introduced or the review
-missed. What survives verification is one last batch, run like the
-others. A sweep branch skips this pass. Then:
+missed. The pass opens a batch themed `closing pass`, so the ledger
+knows it ran, and what survives verification is filed into it and run
+like any batch. A pass that found nothing leaves the batch empty and
+sets it done, which needs no ack. A sweep branch skips this pass. Then:
 
 ```bash
+brain ledger batch 2026-09-feat-billing --theme "closing pass"
 brain ledger close 2026-09-feat-billing
 ```
 

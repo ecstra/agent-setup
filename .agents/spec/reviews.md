@@ -15,7 +15,9 @@ the review runs, permanent once born. The full protocol lives in
 ## The ledger
 
 `ledger.md` inside the review's folder. Standard frontmatter,
-`kind: review`, plus `branch:` and `status: open | closed`. The body:
+`kind: review`, plus `branch:`, `status: open | closed` and
+`level: low | medium | high | max`, the level the review ran at. The
+body:
 
 1. **Summary**: the review's scope (what the branch did) and the final
    count when closed.

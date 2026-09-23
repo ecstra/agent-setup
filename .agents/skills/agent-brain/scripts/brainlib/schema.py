@@ -247,6 +247,11 @@ KINDS: dict[str, Kind] = {
                 name="status",
                 values=("open", "closed"),
             ),
+            Field(
+                name="level",
+                required=False,
+                values=("low", "medium", "high", "max"),
+            ),
         ),
         sections=(
             Section(title="Summary"),
