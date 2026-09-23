@@ -74,8 +74,13 @@ ROOT_ANCHORS = (
 )
 # every launcher text the kit has shipped, the current one first, since a
 # project ported under an earlier text upgrades by that text, so a change
-# to the launcher appends the text it replaces here
-LAUNCHERS = (LAUNCHER,)
+# to the launcher appends the text it replaces here, a port from any
+# commit being possible. The second is the first text, before the import
+# path fix.
+LAUNCHERS = (
+    LAUNCHER,
+    LAUNCHER.replace("import sys;'' in sys.path and sys.path.remove('');import os,pathlib,runpy;", "import os,pathlib,runpy,sys;"),
+)
 KIT_HOOK = re.compile(
     r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
     r'|^python3 -c "(?:' + "|".join(re.escape(text) for text in LAUNCHERS) + r')"(?: [\w.-]+)*$'
