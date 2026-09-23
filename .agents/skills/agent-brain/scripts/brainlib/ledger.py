@@ -289,7 +289,10 @@ def report(
     lines = [f"{entry.name}, {entry.field('status')}, {len(rows)} {noun}, {tally(items)}"]
 
     for row in rows:
-        own = in_batch(items=items, number=row["number"])
+        own = in_batch(
+            items=items,
+            number=row["number"],
+        )
         ack = f", ack {row['ack']}" if row["ack"] else ""
         lines.append(f"batch {row['number']}, {row['theme']}: {row['status']}{ack}, {tally(own)}")
 
@@ -345,7 +348,10 @@ def next_step(
         if row["status"] == "pending":
             return f"start batch {number}" if acked_before else f"batch {number} on the owner's word"
 
-        own = in_batch(items=items, number=number)
+        own = in_batch(
+            items=items,
+            number=number,
+        )
         still_open = [item["id"] for item in own if is_open(item)]
         if still_open:
             return f"fix {', '.join(still_open)} in batch {number}"
