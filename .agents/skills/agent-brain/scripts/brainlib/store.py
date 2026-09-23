@@ -379,8 +379,11 @@ def kit_skills_shipped(
 def skill_folders(
     brain: Path,
 ) -> list[str]:
-    """The folders under skills/ that carry a SKILL.md, dotted names skipped, in name order.
+    """The folders under skills/ that carry a SKILL.md and a slug for a name, in name order.
 
+    Claude Code loads a skill only under a slug, lowercase words joined
+    by hyphens, so a folder named otherwise, a dotted scratch folder
+    included, is nobody's skill and never gets a link or a spine line.
     Raises OSError when the folder is there but cannot be listed, so a
     caller that checks the skills can say so rather than see none.
     """
@@ -391,7 +394,7 @@ def skill_folders(
     return sorted(
         path.name
         for path in folder.iterdir()
-        if not schema.is_hidden(path.name) and readable_file(path / "SKILL.md")
+        if schema.is_slug(path.name) and readable_file(path / "SKILL.md")
     )
 
 
