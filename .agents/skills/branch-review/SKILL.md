@@ -1,6 +1,6 @@
 ---
 name: branch-review
-description: The kit's code review, run on the owner's word over one branch. Finder sub agents in parallel by angle, verifiers by file, the ledger through the brain tool, then the batch loop of fixes, hunter and verifiers until clean. Use it when the owner asks for a review, and never start one on your own.
+description: The kit's code review, run on the owner's word over one branch. Finder sub agents in parallel by angle, verifiers by findings grouped by file, the ledger through the brain tool, then the batch loop of fixes, hunter and verifiers until clean. Use it when the owner asks for a review, and never start one on your own.
 argument-hint: [low|medium|high|max] [<base>...<head>]
 ---
 
@@ -25,8 +25,13 @@ them, and the last section says what to do without them.
 - Sub agents never edit, never commit, never run the test suite and
   never write the ledger. Verifiers judge from the code, and the gates
   run the suite once per commit in the main session.
-- Parallel wherever it can be. Finders by angle, verifiers by file, the
-  hunter beside the verifiers. Ledger writes are the one exception and
+- Parallel wherever it can be. Finders by angle, verifiers by findings,
+  the hunter beside the verifiers. A verifier takes up to six
+  candidates or findings, a file's stay together, and files with fewer
+  share one verifier that gets the file list, so the count follows the
+  findings and a branch of many files never means many verifiers. In
+  Claude Code no more than twenty sub agents run at once, and a wider
+  pass runs in waves. Ledger writes are the one exception and
   go one at a time, since the tool holds no lock and two at once would
   lose one.
 - One commit per fix, pushed after each, the hash in the ledger.
@@ -87,8 +92,8 @@ shows it.
 3. Pool the candidates, merge those on the same file and line that name
    the same defect, and number them C-1 onward. At max, spawn the sweep
    finder now, with the pooled list as its already found list.
-4. Spawn the verifiers, one per file with that file's candidates, at
-   most six candidates each, all at once, with the verifier prompt. A
+4. Spawn the verifiers, at most six candidates each, a file's together
+   and small files sharing, all at once, with the verifier prompt. A
    verdict is CONFIRMED, PLAUSIBLE or REFUTED. A refuted candidate is
    never filed, and the report gives the refuted count only. The
    sweep's candidates go through a second, smaller round the same way.
@@ -126,12 +131,12 @@ One batch at a time.
    ```
 
 2. Spawn at once, all fresh, a hunter over the batch's scope with the
-   hunter prompt and verifiers over the batch's findings, one per file,
-   with the batch verifier prompt.
+   hunter prompt and verifiers over the batch's findings, grouped the
+   same way as in the finding pass, with the batch verifier prompt.
 3. What the hunter found goes through verifiers, all at once, and what
    survives is filed with `--found-by hunter --batch N` and fixed in this
    batch. No backlog. Those fixes then get fresh batch verifiers of
-   their own, grouped by file the same way.
+   their own, grouped the same way.
 4. After a follow up commit, the verifier of each finding it touched is
    resumed with the follow up prompt, which tells it the commits and to
    re read the changed lines before voting. Hunters are never resumed

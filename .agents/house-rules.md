@@ -57,8 +57,8 @@ suites or a brain with broken links.
    the local branch, whether or not a PR is open yet.
 2. **Findings first, whole.** The finding pass runs one finder sub
    agent per angle, all at once, then verifiers over the candidates,
-   one per file, so what reaches the ledger has been checked against
-   the code. The agent reports every finding ranked by severity before
+   a few at a time grouped by file, so what reaches the ledger has
+   been checked against the code. The agent reports every finding ranked by severity before
    touching anything. No fixing during reporting, no silent triage.
 3. **The ledger.** All findings land in
    `.agents/reviews/<yyyy-mm>-<branch-slug>/ledger.md` per
@@ -71,9 +71,10 @@ suites or a brain with broken links.
    - Fix the batch, one commit per fix, the hash recorded beside the
      finding.
    - A hunter sub agent sweeps the batch's scope for related bugs the
-     review missed, and beside it verifier sub agents, one per file,
-     check bug wise, not code wise, that each bug is actually gone and
-     nothing new surfaced. Hunter finds enter the ledger as findings
+     review missed, and beside it verifier sub agents, a few findings
+     each grouped by file, check bug wise, not code wise, that each bug
+     is actually gone and nothing new surfaced. Hunter finds enter the
+     ledger as findings
      (`found-by: hunter`) and are fixed in the same batch. No backlog.
    - After a follow up commit, the verifier it concerns is resumed and
      told to re read the changed lines. The loop stops at the first

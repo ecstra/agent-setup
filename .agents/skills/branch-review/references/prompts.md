@@ -70,12 +70,12 @@ the scope beyond the range you were given.
 ## The verifier, in the finding pass
 
 ```text
-Candidates to verify in <project root>, range <base>...<head>, all in
-<file>:
+Candidates to verify in <project root>, range <base>...<head>, in
+<the file, or the files, one per line>:
 <the candidate blocks as the finders returned them, with their ids>
 
 Run this first, as one Bash call:
-git diff <base>...<head> -- <file>
+git diff <base>...<head> -- <the files>
 When that is too long for one call, read it hunk by hunk with Read on
 the file at the lines the candidates name. Then read the enclosing
 code with Read and grep through Bash until you can decide each one.
@@ -124,12 +124,12 @@ the scope beyond the range you were given.
 ## The batch verifier
 
 ```text
-Review findings fixed in <project root>, all in <file>, one per line
-with the commit that fixed it:
+Review findings fixed in <project root>, in <the file, or the files,
+one per line>, one finding per line with the commit that fixed it:
 <F-nn> <file>:<line> <the claim>, fixed by <hash>
 
 Run this first, as one Bash call:
-git show <the hashes> -- <file>
+git show <the hashes> -- <the files>
 When that is too long for one call, read it one hash at a time. Then
 read the code as it now stands with Read and grep through Bash. You
 may run one small snippet against the code on a temporary copy to
