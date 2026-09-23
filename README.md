@@ -325,6 +325,7 @@ Here is how it ships, empty and ready.
 ├── README.md             what the directory is and how an agent boots from it
 ├── house-rules.md        the branch contract and code review protocol
 ├── skills/agent-brain/   the brain tool, as a skill every agent can read
+├── skills/branch-review/ the code review, run on your word
 ├── spec/                 the format rules, one per content folder
 │   ├── conventions.md    the shared rules, header block, naming, links, indexes
 │   ├── docs.md
@@ -396,4 +397,5 @@ clone has no such folder until then.
 - [`.agents/house-rules.md`](.agents/house-rules.md): the branch contract and review protocol.
 - [`.agents/spec/conventions.md`](.agents/spec/conventions.md): the shared rules every file in `.agents/` obeys.
 - [`.agents/skills/agent-brain/references/commands.md`](.agents/skills/agent-brain/references/commands.md): every command of the tool, with its flags and refusals.
+- [`.agents/skills/branch-review/SKILL.md`](.agents/skills/branch-review/SKILL.md): the review as the agent runs it, step by step.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): the absolutes on one page.

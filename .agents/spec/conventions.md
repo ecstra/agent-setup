@@ -2,7 +2,7 @@
 name: conventions
 kind: doc
 description: the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
-updated: 2026-09-22
+updated: 2026-09-23
 links: [README.md]
 ---
 

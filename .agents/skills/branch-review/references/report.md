@@ -53,5 +53,5 @@ and this shape follows once that batch is done.
 
 ## Without sub agents
 
-The same shapes, with one line right after the state lines: "This
-review ran without sub agents, every angle in one context."
+The same shapes, with one line right after the state lines saying that
+this review ran without sub agents, every angle in one context.
