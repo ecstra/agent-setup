@@ -126,7 +126,7 @@ def turn_off(
 def a_folder(
     path: Path,
 ) -> bool:
-    """Whether a real folder, not a link to one, sits where the word goes, which the tool never made and never removes."""
+    """Whether a folder of its own sits where the word goes, which the tool never made and never removes, where a link to one is cleared like any link."""
     return store.quietly(path.is_dir) and not store.quietly(path.is_symlink)
 
 
