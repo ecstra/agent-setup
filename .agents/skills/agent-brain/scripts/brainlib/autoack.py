@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Literal, Optional
 
 from . import clock, frontmatter, schema, store
 
@@ -536,10 +536,13 @@ def is_open(
     return (entry.field("status") or "open") in OPEN_STATUSES.get(entry.kind.name, ("open",))
 
 
+TaskState = Literal["open", "done", "gone", "unsure", "away"]
+
+
 def task_state(
     brain: store.Brain,
     key: str,
-) -> str:
+) -> TaskState:
     """Whether the task is open, done, gone from the brain, unsure, when the brain cannot read it right now, or away, a review ledger this checkout lacks.
 
     Every state but open leaves the word off. Done and gone take it
@@ -621,7 +624,7 @@ def read(
         return None
 
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data: Any = json.loads(path.read_text(encoding="utf-8"))
         grant = Grant(
             since=moment_of(data["since"]),
             until=None if data.get("until") is None else moment_of(data["until"]),

@@ -26,7 +26,7 @@ import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import NoReturn, Optional
+from typing import BinaryIO, NoReturn, Optional
 
 from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, store
 
@@ -157,7 +157,7 @@ def stdin_bytes() -> bytes:
     there, a text stream handed in by a test, is read as the text it
     holds.
     """
-    buffer = getattr(sys.stdin, "buffer", None)
+    buffer: Optional[BinaryIO] = getattr(sys.stdin, "buffer", None)
     if buffer is None:
         return sys.stdin.read().encode("utf-8")
 
@@ -772,7 +772,7 @@ def write_utf8(
     layer that is not there, a text stream handed in by a test, takes
     the text as it is.
     """
-    buffer = getattr(sys.stdout, "buffer", None)
+    buffer: Optional[BinaryIO] = getattr(sys.stdout, "buffer", None)
     if buffer is None:
         sys.stdout.write(text)
         return
