@@ -23,6 +23,7 @@ from . import clock, frontmatter, schema, store
 FILE = ".ack"
 OFF = "auto ack off"
 BROKEN = f"{FILE} does not read as a word and brain ack off clears it"
+FOLDER = f"{FILE} is a folder the tool never made, move it away by hand"
 
 # the last moment every zone can still show on its own clock
 LATEST = datetime(9999, 12, 30, tzinfo=timezone.utc)
@@ -106,12 +107,12 @@ def turn_on(
 def turn_off(
     brain: store.Brain,
 ) -> bool:
-    """Take the word back. True when there was one to take, and refused when something that is no file sits where the word goes."""
+    """Take the word back, whatever sits where the word goes short of a folder. True when there was something to take."""
     path = path_of(brain)
-    if store.quietly(path.is_dir) and not store.quietly(path.is_symlink):
-        raise AckError(f"{FILE} is a folder, which the tool never made, so move it away by hand")
+    if a_folder(path):
+        raise AckError(FOLDER)
 
-    if not store.quietly(path.is_file) and not store.quietly(path.is_symlink):
+    if not store.quietly(path.exists) and not store.quietly(path.is_symlink):
         return False
 
     try:
@@ -120,6 +121,20 @@ def turn_off(
         return False
 
     return True
+
+
+def a_folder(
+    path: Path,
+) -> bool:
+    """Whether a real folder, not a link to one, sits where the word goes, which the tool never made and never removes."""
+    return store.quietly(path.is_dir) and not store.quietly(path.is_symlink)
+
+
+def trouble_text(
+    brain: store.Brain,
+) -> str:
+    """What to say about something where the word goes that does not read as one, and how the owner clears it."""
+    return FOLDER if a_folder(path_of(brain)) else BROKEN
 
 
 def current(
@@ -187,7 +202,7 @@ def stamp(
             raise AckError(f"auto ack is held, {held.task} cannot be read right now, the owner's word starts a batch")
 
         if unreadable_word(brain):
-            raise AckError(f"auto ack is off, {BROKEN}, the owner's word starts a batch")
+            raise AckError(f"auto ack is off, {trouble_text(brain)}, the owner's word starts a batch")
 
         raise AckError("auto ack is off, the owner's word starts a batch")
 
@@ -233,7 +248,7 @@ def describe(
             return f"auto ack held, {held.task} cannot be read right now"
 
         if unreadable_word(brain):
-            return f"{OFF}, {BROKEN}"
+            return f"{OFF}, {trouble_text(brain)}"
 
         return OFF
 
