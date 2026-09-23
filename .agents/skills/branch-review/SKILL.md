@@ -24,8 +24,8 @@ them, and the last section says what to do without them.
   review's gates and wait for the owner's ask either way. An owner who
   says "auto ack" with no end is asked for one, with a proposal such as
   this review's ledger as the task, `brain ack on --until-done <its
-  key>`, which ends when the ledger closes, or a time tonight, and
-  nothing is recorded until they answer.
+  key>` once the ledger is open, which ends when it closes, or a time
+  tonight, and nothing is recorded until they answer.
 - Every sub agent gets the scope, one fetch command to run first, its
   angle or its findings, and the block shape it returns. It never gets
   the diff pasted in and never hears what the main session thinks.
