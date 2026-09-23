@@ -73,11 +73,17 @@ are in scope too, and the third command says whether there are any.
 5. Grade and batch what survived. Severity is breaks, bug, debt or nit
    per [spec/reviews.md](../../spec/reviews.md). Batches are by theme in
    severity order, correctness first, nits last, and a batch is sized so
-   one round of fixes closes it.
+   one round of fixes closes it. The claims go in on standard input
+   inside a quoted heredoc, one per line, so the shell never touches a
+   backtick or a dollar sign in them, and one call files every claim of
+   a batch that shares a severity.
 
    ```bash
    brain ledger batch 2026-09-feat-billing --theme correctness
-   brain ledger add 2026-09-feat-billing "upgrade.py:412 the dirty guard skips ignored files" --severity breaks --batch 1
+   brain ledger add 2026-09-feat-billing - --severity breaks --batch 1 <<'EOF'
+   upgrade.py:412 the dirty guard skips ignored files
+   upgrade.py:388 the migration rewrites a file git ignores
+   EOF
    ```
 
 6. Report with the findings shape, then stop. Batch 1 starts on the

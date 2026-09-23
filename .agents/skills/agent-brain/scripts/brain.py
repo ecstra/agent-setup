@@ -352,7 +352,7 @@ def add_ledger(
 
     adding = actions.add_parser("add", help="record a finding")
     adding.add_argument("key")
-    adding.add_argument("claim")
+    adding.add_argument("claim", help="one line, or - to read one claim per line from standard input")
     adding.add_argument("--severity", required=True, choices=schema.SEVERITIES)
     adding.add_argument("--found-by", default="review", choices=ledger.FOUND_BY)
     adding.add_argument("--batch", type=int, default=0)
@@ -419,16 +419,26 @@ def run_ledger_add(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    print(
-        ledger.add_finding(
-            brain=brain,
-            key=args.key,
-            claim=args.claim,
-            severity=args.severity,
-            found_by=args.found_by,
-            batch=args.batch,
+    """File one claim from the command line, or one per line of standard input, so the shell never touches the words."""
+    claims = [args.claim]
+    if args.claim == "-":
+        claims = [line.strip() for line in stdin_text().splitlines() if line.strip()]
+        if not claims:
+            print("no claims on standard input, one per line", file=sys.stderr)
+            return REFUSED
+
+    for claim in claims:
+        print(
+            ledger.add_finding(
+                brain=brain,
+                key=args.key,
+                claim=claim,
+                severity=args.severity,
+                found_by=args.found_by,
+                batch=args.batch,
+            )
         )
-    )
+
     return 0
 
 
