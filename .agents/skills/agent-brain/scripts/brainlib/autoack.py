@@ -75,7 +75,7 @@ def turn_on(
 
             ends.append(utc(at) + timedelta(hours=hours))
 
-        if until_text:
+        if until_text is not None:
             ends.append(utc(parse_until(text=until_text, at=at)))
     except OverflowError as far:
         raise AckError("auto ack would end past what any zone can show, give a nearer end") from far
@@ -106,9 +106,12 @@ def turn_on(
 def turn_off(
     brain: store.Brain,
 ) -> bool:
-    """Take the word back. True when there was one to take."""
+    """Take the word back. True when there was one to take, and refused when something that is no file sits where the word goes."""
     path = path_of(brain)
-    if not store.quietly(path.is_file):
+    if store.quietly(path.is_dir) and not store.quietly(path.is_symlink):
+        raise AckError(f"{FILE} is a folder, which the tool never made, so move it away by hand")
+
+    if not store.quietly(path.is_file) and not store.quietly(path.is_symlink):
         return False
 
     try:
@@ -194,8 +197,12 @@ def stamp(
 def unreadable_word(
     brain: store.Brain,
 ) -> bool:
-    """Whether a state file is there that does not read as a word, which is worth a word to the owner rather than a silent off."""
-    return store.readable_file(path_of(brain)) and read(brain) is None
+    """Whether something sits where the word goes that does not read as one, a broken file, a folder or a dangling link, which the owner is told about."""
+    path = path_of(brain)
+    if not store.quietly(path.is_symlink) and not store.quietly(path.exists):
+        return False
+
+    return not store.readable_file(path) or read(brain) is None
 
 
 def held_word(
@@ -386,7 +393,7 @@ def task_key(
     """The id, or the name of a review, of the one open todo, bug or review the key answers to, refused otherwise.
 
     The id is what stays through a retitle, so the word follows the
-    entry and not its name.
+    entry wherever its name goes.
     """
     try:
         entry = brain.find(key)
@@ -488,8 +495,8 @@ def listable_throughout(
     """Whether the folder and every folder under it can be listed right now, which the scan needs to see what is in them.
 
     The scan walks the tree and skips a folder it cannot list without a
-    word, so an entry in such a folder, a review's own folder say, goes
-    missing rather than unread.
+    word, so an entry in such a folder, a review's own folder say, looks
+    gone when it is only unread.
     """
     trouble: list[OSError] = []
     for _ in os.walk(folder, onerror=trouble.append):
@@ -533,7 +540,7 @@ def read(
             until=None if data.get("until") is None else moment_of(data["until"]),
             task=data.get("task"),
         )
-    except (OSError, ValueError, KeyError, TypeError, OverflowError):
+    except (OSError, ValueError, KeyError, TypeError, OverflowError, RecursionError):
         return None
 
     if grant.until is None and grant.task is None:

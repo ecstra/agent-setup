@@ -111,8 +111,9 @@ def run_ack(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
+    an_end = args.lasting is not None or args.until is not None or args.task is not None
     if args.state == "off":
-        if args.lasting or args.until or args.task:
+        if an_end:
             print("off takes no end, give it alone", file=sys.stderr)
             return REFUSED
 
@@ -120,11 +121,11 @@ def run_ack(
     elif args.state == "on":
         autoack.turn_on(
             brain=brain,
-            hours=autoack.parse_duration(args.lasting) if args.lasting else None,
+            hours=autoack.parse_duration(args.lasting) if args.lasting is not None else None,
             until_text=args.until,
             task=args.task,
         )
-    elif args.lasting or args.until or args.task:
+    elif an_end:
         print("give on to set the word, its end goes with on", file=sys.stderr)
         return REFUSED
 
