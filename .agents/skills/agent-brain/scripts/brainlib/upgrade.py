@@ -417,22 +417,23 @@ def prepare(
     """Read the kit's stamp and front doors and merge the hook configs, so a refusal comes before the first write."""
     project_version = project.version()
     stamped = schema.as_tuple(project_version)
-    for skill in schema.KIT_SKILLS:
+    for name in store.skill_folders(kit.brain):
+        skill = kit_skill_named(name)
         kits_own_file = skill_folder(
             brain=kit.brain,
-            name=skill.name,
+            name=name,
         ) / schema.SKILL_FILE
-        shipped = schema.ships(
+        shipped = skill is not None and schema.ships(
             skill=skill,
             stamp=stamped,
         )
         for folder in (FOLDER, OLD_FOLDER):
             home = skill_folder(
                 brain=project.root / folder,
-                name=skill.name,
+                name=name,
             )
             if store.quietly(home.is_symlink):
-                raise UpgradeError(f"{folder}/{schema.SKILLS}/{skill.name} is a symlink, replace it with a real folder first")
+                raise UpgradeError(f"{folder}/{schema.SKILLS}/{name} is a symlink, replace it with a real folder first")
 
             if shipped or not store.quietly(home.exists):
                 continue
@@ -443,23 +444,23 @@ def prepare(
             )
             if not kits_copy:
                 raise UpgradeError(
-                    f"the kit now ships a skill named {skill.name}, and {folder}/{schema.SKILLS}/{skill.name} is the project's own, "
+                    f"the kit now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, "
                     "move it aside first, or delete it if an interrupted upgrade left it"
                 )
 
-        linked = project.root / doctor.SKILL_LINKS / skill.name
+        linked = project.root / doctor.SKILL_LINKS / name
         own_folder = store.quietly(linked.is_dir) and not store.quietly(linked.is_symlink)
         if not shipped and own_folder and not store.same_bytes(one=linked / schema.SKILL_FILE, other=kits_own_file):
             raise UpgradeError(
-                f"the kit now ships a skill named {skill.name}, and {doctor.SKILL_LINKS / skill.name} holds a folder of the project's own "
+                f"the kit now ships a skill named {name}, and {doctor.SKILL_LINKS / name} holds a folder of the project's own "
                 "where the kit's skill link goes, move it aside first"
             )
 
-        for definition in skill.definitions:
+        for definition in skill.definitions if skill else ():
             own = project.root / definition
             if not shipped and store.readable_file(own) and not store.same_bytes(one=own, other=kit.root / definition):
                 raise UpgradeError(
-                    f"the kit now ships a sub agent definition at {definition} with the {skill.name} skill, "
+                    f"the kit now ships a sub agent definition at {definition} with the {name} skill, "
                     "and the file there is the project's own, move it aside first"
                 )
 
@@ -520,7 +521,7 @@ def install(
     written = sum(copy(kit=kit, project=project, relative=relative) for relative in shipped)
     keep = set(shipped)
     retired: list[str] = []
-    for folder in kit_skill_folders(project.brain):
+    for folder in kit_skill_folders(brain=project.brain, kit=kit):
         retired += retire(
             project=project,
             folder=folder,
@@ -724,15 +725,29 @@ def skill_folder(
 
 def kit_skill_folders(
     brain: Path,
+    kit: Kit,
 ) -> list[Path]:
-    """The kit's own skill folders under a brain, whether or not they are there yet."""
+    """The kit's skill folders under a brain, whether or not they are there yet, by the skills the kit checkout ships.
+
+    The checkout decides, not the running tool's table, since the
+    checkout may be a newer release with a skill the tool never heard
+    of, and that folder is the kit's to write, retire under and guard
+    like any other.
+    """
     return [
         skill_folder(
             brain=brain,
             name=name,
         )
-        for name in schema.KIT_SKILL_NAMES
+        for name in store.skill_folders(kit.brain)
     ]
+
+
+def kit_skill_named(
+    name: str,
+) -> Optional[schema.KitSkill]:
+    """The running tool's entry for a kit skill, or None for one the checkout ships that this tool never heard of."""
+    return next((skill for skill in schema.KIT_SKILLS if skill.name == name), None)
 
 
 def brain_markdown(
@@ -1176,7 +1191,7 @@ def guarded_paths(
 
     brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
     paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
-    for folder in kit_skill_folders(brain):
+    for folder in kit_skill_folders(brain=brain, kit=kit):
         paths += files_under(
             root=project.root,
             folder=folder,
