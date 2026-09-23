@@ -329,7 +329,7 @@ Here is how it ships, empty and ready.
 .agents/
 ├── SYSTEM.md             the rulebook every agent works by
 ├── VERSION               the kit release this project carries
-├── INDEX.md              the spine, one line for everything here, built by the tool
+├── INDEX.md              the spine, one line for each thing the brain lists, built by the tool
 ├── README.md             what the directory is and how an agent boots from it
 ├── house-rules.md        the branch contract and code review protocol
 ├── skills/agent-brain/   the brain tool, as a skill every agent can read
