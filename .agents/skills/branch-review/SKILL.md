@@ -164,7 +164,7 @@ looking only for what the fixes introduced or the review missed. The
 pass opens a batch themed `closing pass`, so the ledger knows it ran,
 and what survives verification is filed into it and run like any
 batch. A pass that found nothing leaves the batch empty and sets it
-done, which needs no ack. With the empty pass as batch 2 here:
+done, which needs no ack. The empty pass is batch 2 here.
 
 ```bash
 brain ledger batch 2026-09-feat-billing --theme "closing pass"

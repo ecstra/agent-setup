@@ -10,8 +10,8 @@ over about 25000 characters.
 
 ## The shapes
 
-A candidate, returned by a finder or a hunter, one block each, numbered
-C-1 onward:
+A candidate, returned by a finder or a hunter, is one block, numbered
+C-1 onward.
 
 ```markdown
 ### C-3
@@ -21,7 +21,8 @@ C-1 onward:
 - Scenario: batch 1 set done with no ack, batch 2 pending, and the report says start batch 2
 ```
 
-A verdict, returned by a verifier, one block per candidate or finding:
+A verdict, returned by a verifier, is one block per candidate or
+finding.
 
 ```markdown
 ### C-3
@@ -61,8 +62,9 @@ onward, and nothing else before or after:
 
 Report every candidate you can name a scenario for. A candidate you
 half believe still goes on the list, since a verifier judges it next.
-Return the single line (none) when the angle finds nothing. Do not run
-the test suite, do not edit anything, do not commit.
+Return the single line (none) when the angle finds nothing. Do not edit
+anything, do not commit, do not run the test suite, and do not widen
+the scope beyond the range you were given.
 ```
 
 ## The verifier, in the finding pass
@@ -87,8 +89,8 @@ Refute only from the code: the line does not say that, an invariant or
 a type makes it impossible, this diff already guards it, or it is style
 with no observable effect. A rare but reachable path is PLAUSIBLE, not
 refuted. A house rule candidate is CONFIRMED when the quoted rule and
-the quoted line match. Do not edit, do not commit, do not run the test
-suite.
+the quoted line match. Do not edit anything, do not commit, do not run
+the test suite, and do not judge anything outside these candidates.
 ```
 
 ## The hunter
@@ -114,8 +116,9 @@ C-1 onward, and nothing else:
 - Type: <breaks or bug or debt or nit>
 - Claim: <the defect in one sentence>
 - Scenario: <the concrete input or state and the wrong result>
-Return the single line (none) when there is nothing. Do not edit, do
-not commit, do not run the test suite.
+Return the single line (none) when there is nothing. Do not edit
+anything, do not commit, do not run the test suite, and do not widen
+the scope beyond the range you were given.
 ```
 
 ## The batch verifier
@@ -151,7 +154,7 @@ same block shape.
 ## The closing finder
 
 The finder prompt, with the review's range read against the branch as
-it now stands and this line added after the angle:
+it now stands and this line added after the angle.
 
 ```text
 The branch was reviewed and its findings fixed. Report only what the

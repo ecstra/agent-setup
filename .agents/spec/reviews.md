@@ -37,14 +37,14 @@ body:
 
 A wontfix carries its reason on its own line, and the tool refuses the
 status without one. A finding too big for its branch is `deferred`
-with its reason the same way: it graduates into bugs/ as its own file,
-linked both ways, and that is the only path a finding leaves its
-ledger.
+with its reason the same way, and it graduates into bugs/ as its own
+file, linked both ways, which is the only path a finding leaves its
+ledger by.
 
 ## Lifecycle
 
 When the last batch closes, and the closing pass with it where one was
 owed, the ledger flips to `status: closed` and the reviews INDEX
 regroups it, and only then does the branch merge, on the owner's word.
-Nothing moves and nothing archives: bug files and decisions link into
-ledgers by name, and git is the archive.
+Nothing moves and nothing archives, since bug files and decisions link
+into ledgers by name, and git is the archive.

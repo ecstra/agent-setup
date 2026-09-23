@@ -45,8 +45,8 @@ suites or a brain with broken links.
    its own. On the word, the agent runs the review itself with the
    kit's `branch-review` skill
    ([skills/branch-review/SKILL.md](skills/branch-review/SKILL.md))
-   at the level the branch earns: low or medium for a small or
-   mechanical branch, high or max where the surface is wide or the
+   at the level the branch earns, low or medium for a small or
+   mechanical branch and high or max where the surface is wide or the
    logic is subtle. The level sets how many angles the finding pass
    runs and never how hard the model thinks, which is the session's
    effort and the owner's to set. A tool's own review command, paid or
