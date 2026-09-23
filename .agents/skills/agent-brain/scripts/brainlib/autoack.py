@@ -329,12 +329,19 @@ def on_this_machine(
 
     The clock gives the moment with a fixed offset and no zone name, so
     the test is whether its wall clock, read as this machine's local
-    time, is the same instant. A moment in some other zone is not.
+    time, is the same instant, on either side of a repeated hour, since
+    the clock drops which side it was on. A moment that carries a
+    named zone brings its own rules and is never this machine's.
     """
     if at.tzinfo is None:
         return True
 
-    return at.replace(tzinfo=None).astimezone() == at
+    if type(at.tzinfo) is not timezone:
+        return False
+
+    naive = at.replace(tzinfo=None)
+
+    return any(naive.replace(fold=fold).astimezone() == at for fold in (0, 1))
 
 
 def on_the_wall(
