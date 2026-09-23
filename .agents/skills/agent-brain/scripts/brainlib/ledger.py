@@ -179,11 +179,30 @@ def add_finding(
     found_by: str = "review",
     batch: int = 0,
 ) -> str:
+    return add_findings(
+        brain=brain,
+        key=key,
+        claims=[claim],
+        severity=severity,
+        found_by=found_by,
+        batch=batch,
+    )[0]
+
+
+def add_findings(
+    brain: store.Brain,
+    key: str,
+    claims: list[str],
+    severity: str,
+    found_by: str = "review",
+    batch: int = 0,
+) -> list[str]:
+    """File the claims in one load and one write, numbered on from the last finding, so a pass lands whole or not at all."""
     severity = checked(field="severity", value=severity)
     found_by = checked(field="found-by", value=found_by)
     batch_cell = checked(field="batch", value=str(batch) if batch else "")
-    claim = one_line(value=claim, what="claim")
-    if not claim:
+    claims = [one_line(value=claim, what="claim") for claim in claims]
+    if not claims or not all(claims):
         raise LedgerError("a finding needs a claim")
 
     entry = ledger_entry(brain=brain, key=key)
@@ -191,15 +210,16 @@ def add_finding(
         entry=entry,
         value=batch_cell,
     )
-    number = max((int(record["id"][2:]) for record in findings(entry)), default=0) + 1
-    identifier = f"F-{number:02d}"
-    block = (
+    first = max((int(record["id"][2:]) for record in findings(entry)), default=0) + 1
+    identifiers = [f"F-{first + offset:02d}" for offset in range(len(claims))]
+    blocks = "".join(
         f"\n### {identifier}: {claim}\n\n"
         f"- severity: {severity}\n"
         f"- found-by: {found_by}\n"
         f"- batch: {batch_cell}\n"
         "- status: open\n"
         "- fix:\n"
+        for identifier, claim in zip(identifiers, claims)
     )
 
     body = reopened(
@@ -208,10 +228,10 @@ def add_finding(
     )
     section_start = section_span(body=body, title="Findings")[0]
     section_end = sections.heading_after(body=body, start=section_start, depth=2)
-    entry.document.body = body[:section_end].rstrip("\n") + "\n" + block + ("\n" if section_end < len(body) else "") + body[section_end:]
+    entry.document.body = body[:section_end].rstrip("\n") + "\n" + blocks + ("\n" if section_end < len(body) else "") + body[section_end:]
     save(brain=brain, entry=entry)
 
-    return identifier
+    return identifiers
 
 
 def set_finding(

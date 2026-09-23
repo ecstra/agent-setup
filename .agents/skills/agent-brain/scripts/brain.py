@@ -432,17 +432,15 @@ def run_ledger_add(
             print("no claims on standard input, one per line", file=sys.stderr)
             return REFUSED
 
-    for claim in claims:
-        print(
-            ledger.add_finding(
-                brain=brain,
-                key=args.key,
-                claim=claim,
-                severity=args.severity,
-                found_by=args.found_by,
-                batch=args.batch,
-            )
-        )
+    filed = ledger.add_findings(
+        brain=brain,
+        key=args.key,
+        claims=claims,
+        severity=args.severity,
+        found_by=args.found_by,
+        batch=args.batch,
+    )
+    print("\n".join(filed))
 
     return 0
 
