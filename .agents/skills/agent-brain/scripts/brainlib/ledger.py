@@ -150,6 +150,9 @@ def set_batch(
             number=number,
         )
         new_ack = ack or match.group(4)
+        if auto and match.group(4):
+            new_ack = match.group(4)
+
         starting = match.group(3) == "pending" and status in ("fixing", "verified", "done")
         if starting and own and not ack and is_auto(new_ack):
             new_ack = standing_word(brain)
