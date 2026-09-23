@@ -64,7 +64,7 @@ for a person.
 |---|---|
 | `brain ack on --for 8h` | Records the word for a duration, in minutes, hours or days, such as 90m, 8h or 2d. |
 | `brain ack on --until "tomorrow 22:00"` | Records it until a moment, a time today, which means tomorrow when it has passed, `today HH:MM`, which never rolls over, `tomorrow HH:MM`, a date, which means that whole day through its last moment, or a date and time. |
-| `brain ack on --until-done <key>` | Records it until a todo, a bug or a review is done, by id, name or path, a bug on a branch still counting as open. The word follows the entry's id, so a retitle leaves it standing, and it is taken back the moment the entry is done, gone from the brain, or doubled by a merge. An entry the brain cannot read right now, one a rebase stopped on, holds the word off until the entry reads again, and the status line says so. Refused for an entry of any other kind, for one already past open, and for an id that names more than one entry. Given with a time, the earlier end wins. |
+| `brain ack on --until-done <key>` | Records it until a todo, a bug or a review is done, by id, name or path, a bug on a branch still counting as open. The word follows the entry's id, so a retitle leaves it standing, and it is taken back the moment the entry is done, gone from the brain, or doubled by a merge. An entry the brain cannot read right now, one a rebase stopped on, holds the word off until the entry reads again, and the status line says so. Refused for an entry of any other kind, for one already past open, and for a key that names more than one entry, which says to give the path where a path would tell them apart. Given with a time, the earlier end wins. |
 | `brain ack off` | Takes the word back, and clears whatever sits where the word goes short of a folder. |
 
 A word with no end is refused, so the agent proposes one to the owner
@@ -73,22 +73,27 @@ and all. `brain ack on` also refuses an end that does not read as a
 duration or a moment, one already past, a duration of zero or less, an
 end past what the calendar can show, an empty end flag, a task the
 brain does not know, one of any other kind than a todo, a bug or a
-review, one already past open, an id doubled by a merge, and an entry
-with neither an id nor a name. `brain ack` given an end with
-no `on`, and `brain ack off` given any end, are refused too, each with
-a line that says so. The state is one dotted file at the root of the brain,
+review, one already past open, a key several entries share, an id
+doubled by a merge among them, and an entry with neither an id nor a
+name. `brain ack` given an end with no `on`, and `brain ack off` given
+any end, are refused too, each with a line that says so, and so is
+either when a folder sits where the word goes, which the tool never
+removes. The state is one dotted file at the root of the brain,
 `.agents/.ack`, the tool's own, gitignored and never listed or checked,
 since it belongs to one machine and one stretch of work. A file that
 does not read as a word, a moment with no zone in it included, counts
 as no word, and the status line says so until `brain ack off` clears
-it. While it stands, `brain ledger batch <ledger> <n> --status
+it or `brain ack on` writes over it. While it stands, `brain ledger batch <ledger> <n> --status
 fixing --ack auto` records the ack as `auto` with the day, so the
 ledger says which batches ran on the standing word. Any ack that
 starts with auto, in any case, is that call. It is refused on a batch
 left pending, since the word is checked at the batch's start, refused
 on a batch that already carries the owner's own ack, which it never
-writes over, and off or run out it is refused anywhere. On a batch
-that already started on the word, the stamp it carries stays.
+writes over, and off, held or run out it is refused anywhere. On a
+batch that already started on the word, the stamp it carries stays. A
+pending batch that still carries a stamp from an earlier word takes
+the standing word again when it starts, so its start is refused while
+the word is off, and the report says it waits for the owner's word.
 
 ## The review ledger
 
@@ -96,10 +101,10 @@ that already started on the word, the stamp it carries stays.
 |---|---|
 | `brain ledger open <branch> --summary S [--level low\|medium\|high\|max]` | Creates `reviews/<yyyy-mm>-<branch-slug>/ledger.md` with the three sections and an empty batch table, the level recorded in its header, high unless given. The summary is one line, or `-` to read it from standard input inside a quoted heredoc, which keeps the shell off it, and it is refused when empty or when it runs to more than one line. Standard input is read as UTF-8 wherever the tool takes it, and a byte that is not is refused. |
 | `brain ledger batch <ledger> --theme T` | Adds the next batch, numbered past the highest one, status pending, and prints its number. The theme is one line with no pipe. |
-| `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE\|auto] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. The ack is the owner's word that starts a batch, recorded on it, so `fixing`, `verified` and `done` on a batch that holds findings are refused until the batch carries one, and verification closes the batch with no further word. An ack of `auto` is the standing word's stamp, the section above says when it is taken and when it is refused. Refuses when given none of them, and refuses `verified` or `done` while a finding in the batch is still open. A batch with no findings runs and closes without an ack, and a change to the theme alone never trips a guard. An open finding filed into a batch already verified or done, or reopened there, or a finding moved in already fixed, puts the batch back to `fixing` with its ack kept, since the word covered it, so the late fix is verified like the rest. A batch that had none, an empty one closed without an ack and then given a finding, asks for the ack before anything else. The ack, like the theme, is one line with no pipe. |
+| `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE\|auto] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. The ack is the owner's word that starts a batch, recorded on it, so `fixing`, `verified` and `done` on a batch that holds findings are refused until the batch carries one, and verification closes the batch with no further word. An ack of `auto` is the standing word's stamp, the section above says when it is taken, when it is refused, and that a stamp left on a pending batch is renewed at the start and refused while the word is off. Refuses when given none of them, and refuses `verified` or `done` while a finding in the batch is still open. A batch with no findings runs and closes without an ack, and a change to the theme alone never trips a guard. An open finding filed into a batch already verified or done, or reopened there, or a finding moved in already fixed, puts the batch back to `fixing` with its ack kept, since the word covered it, so the late fix is verified like the rest. A batch that had none, an empty one closed without an ack and then given a finding, asks for the ack before anything else. The ack, like the theme, is one line with no pipe. |
 | `brain ledger add <ledger> "claim" --severity S [--found-by review\|hunter] [--batch n]` | Records the next finding, numbered past the highest one, and prints its id. The claim is one line. A batch number must name a row of the table, so no finding is filed where the report cannot see it. With `-` in place of the claim, the claims come in on standard input inside a quoted heredoc, one per line, all filed with the same severity, batch and found-by in one write, so they land whole or not at all, and the ids print one per line. That keeps the shell off a backtick or a dollar sign in a claim, and files a batch's worth in one call. Empty standard input is refused. |
 | `brain ledger set <ledger> F-NN field=value ...` | Changes a finding, each value one line taken as written. The fields are severity, found-by, batch, status, fix and reason, and a line a hand edit lost comes back. A fixed finding always names its commit, `fix=<hash>`, a wontfix or a deferred one says why in the same call, `reason=<one line>`, and the reason leaves with the status, so a later status never borrows it. A batch must be one the table has. Statuses: open, fixed, wontfix, deferred. |
-| `brain ledger report <ledger>` | The ledger's state in a few lines, counted from the file, with a blank status read as open the way close reads it. The first line gives the status and the counts, then one line per batch with its status, ack and counts, then a last line saying what comes next. That last line names an open or a fixed finding filed into no batch the table has before anything else, since a fix is verified by its batch, then walks the batches in order and says what the first unfinished one needs, the owner's word for a pending one, or its start when the ack is already on it or the standing word holds, the ack on record for one that holds findings and has none, the standing word's while one holds, then its open findings, a late one included, its verification, and its marking done. Once every batch is done it says the closing pass is owed, per house rule 7, until a batch themed `closing pass` records that the pass ran, and then to close the ledger. |
+| `brain ledger report <ledger>` | The ledger's state in a few lines, counted from the file, with a blank status read as open the way close reads it. The first line gives the status and the counts, then one line per batch with its status, ack and counts, then a last line saying what comes next. That last line names an open or a fixed finding filed into no batch the table has before anything else, since a fix is verified by its batch, then walks the batches in order and says what the first unfinished one needs, the owner's word for a pending one, or its start when the ack is already on it or the standing word holds, a stamp from an earlier word counting only while the word holds, the ack on record for one that holds findings and has none, the standing word's while one holds, then its open findings, a late one included, its verification, and its marking done. Once every batch is done it says the closing pass is owed, per house rule 7, until a batch themed `closing pass` records that the pass ran, and then to close the ledger. |
 | `brain ledger close <ledger>` | Flips the ledger to closed and writes the count under Summary. Refuses while a finding is open or has no status, and until the report's next line says to close the ledger, so a batch not yet done or a closing pass still owed holds it open. |
 
 ## Doctor
