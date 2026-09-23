@@ -514,9 +514,20 @@ def check(
     reported apart and never counted against the project.
     """
     found = doctor.run(brain=store.Brain(root=project.brain), fix=True)
-    kits = [finding for finding in found if finding.path.startswith(tuple(f"skills/{name}/" for name in schema.KIT_SKILL_NAMES))]
+    kits = [finding for finding in found if kits_own(finding.path)]
 
     return [finding for finding in found if finding not in kits], kits
+
+
+def kits_own(
+    path: str,
+) -> bool:
+    """Whether a doctor finding sits in one of the kit's skill folders, its path spelled from the brain or from the project root."""
+    parts = Path(path).parts
+    if parts and parts[0] in (FOLDER, OLD_FOLDER):
+        parts = parts[1:]
+
+    return kits_skill(parts)
 
 
 def candidates(
