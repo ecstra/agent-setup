@@ -98,9 +98,11 @@ left behind, a temporary file or a scratch folder named the way the
 tool names them, the plain file or the wrong link sitting where a skill
 link belongs, and a link under `.claude/skills` into the brain's skills
 folder that dangles, leading to nothing at all, the way a link doctor
-made for a project skill does once that skill is gone. A link or a
-folder that still leads somewhere is never removed, whatever it holds,
-and no other file is.
+made for a project skill does once that skill is gone. The stray pass
+never removes a link or a folder that still leads somewhere, whatever
+it holds. A link sitting where a skill link belongs and leading
+elsewhere is the one live link doctor replaces, and no other file is
+removed.
 
 ## Port and upgrade
 
