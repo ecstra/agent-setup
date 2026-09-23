@@ -528,7 +528,7 @@ The brain is maintained in the same motion as the work, never as a separate chor
 
 - **No secrets in `.agents/`, ever.** It is committed. Same absoluteness as the `.env` rule.
 - **Project truth only.** Facts about the user as a person are not ours to manage and never enter the repo.
-- **The direction rule.** Nothing in `.agents/` references any machine's local state. A machine's local agent memory may point INTO the repo's brain, never the reverse, which is what keeps the repo self contained. The tool's own gitignored files there, `.ack` and `.worktrees/`, are the one exception, since they never enter the repo.
+- **The direction rule.** Nothing in `.agents/` references any machine's local state. A machine's local agent memory may point INTO the repo's brain, never the reverse, which is what keeps the repo self contained. The two gitignored paths there, the tool's `.ack` and the worktree home of rule 10.2, are the one exception, since they never enter the repo.
 
 ### 8.3 The Trackers
 

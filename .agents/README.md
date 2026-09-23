@@ -53,6 +53,6 @@ one, agents read this.
 
 - Nothing secret ever enters this directory. It is committed.
 - Nothing here references any machine's local state. Machines point at
-  this directory, never the reverse. The tool's own gitignored files,
-  `.ack` and `.worktrees/`, are the one exception, since they never
-  enter the repo.
+  this directory, never the reverse. The two gitignored paths, the
+  tool's `.ack` and the worktree home the rules allow, are the one
+  exception, since they never enter the repo.
