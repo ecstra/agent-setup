@@ -47,7 +47,8 @@ suites or a brain with broken links.
    ([skills/branch-review/SKILL.md](skills/branch-review/SKILL.md))
    at the level the branch earns, low or medium for a small or
    mechanical branch and high or max where the surface is wide or the
-   logic is subtle. The level sets how many angles the finding pass
+   logic is subtle, and never low for a branch that breaks or changes
+   an interface. The level sets how many angles the finding pass
    runs and never how hard the model thinks, which is the session's
    effort and the owner's to set. A tool's own review command, paid or
    cloud run ones included, is the owner's alone, so the agent neither
@@ -66,17 +67,18 @@ suites or a brain with broken links.
    correctness first, nits last. A finding not worth fixing gets a
    written reason, so no future review re litigates it.
 4. **The batch loop.** One batch at a time, and inside it everything
-   that can run at once does:
+   that can run at once does so.
    - Fix the batch, one commit per fix, the hash recorded beside the
      finding.
-   - At once: a hunter sub agent sweeps the batch's scope for related
-     bugs the review missed, and verifier sub agents, one per file,
+   - A hunter sub agent sweeps the batch's scope for related bugs the
+     review missed, and beside it verifier sub agents, one per file,
      check bug wise, not code wise, that each bug is actually gone and
      nothing new surfaced. Hunter finds enter the ledger as findings
      (`found-by: hunter`) and are fixed in the same batch. No backlog.
    - After a follow up commit, the verifier it concerns is resumed and
      told to re read the changed lines. The loop stops at the first
-     clean pass.
+     pass where every verifier says gone and every hunter that ran has
+     returned with its finds handled.
    - Sub agents run in parallel. They never edit, never commit, never
      write the ledger and never run the suite, which the gates run once
      per commit in the main session.
