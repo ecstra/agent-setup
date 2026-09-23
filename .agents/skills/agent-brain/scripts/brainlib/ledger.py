@@ -33,7 +33,7 @@ FIELDS = ("severity", "found-by", "batch", "status", "fix")
 FOUND_BY = ("review", "hunter")
 FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred")
 BATCH_STATUSES = ("pending", "fixing", "verified", "done")
-LEVELS = ("low", "medium", "high", "max")
+LEVELS = schema.REVIEW_LEVELS
 
 # The closing pass files what it finds into a batch of this theme, so the
 # ledger knows the pass ran. Low and a sweep branch skip the pass.
@@ -322,9 +322,10 @@ def next_step(
 
     A pending batch waits for the owner's word until an earlier batch
     has been acked, after which the ack that closed it is the word to
-    start the next. An open finding anywhere, a late one filed into a
-    batch already verified or done included, comes before the batch's
-    own status, since close refuses while it stands.
+    start the next. An empty batch closed with no ack is no such word.
+    An open finding anywhere, a late one filed into a batch already
+    verified or done included, comes before the batch's own status,
+    since close refuses while it stands.
     """
     if entry.field("status") == "closed":
         return "nothing, the ledger is closed"
@@ -348,10 +349,13 @@ def next_step(
         if row["status"] == "fixing":
             return f"verify batch {number}"
 
+        if row["status"] == "verified" and row["ack"]:
+            return f"mark batch {number} done, it has the ack"
+
         if row["status"] == "verified" or (own and not row["ack"]):
             return f"the owner's ack of batch {number}"
 
-        acked_before = True
+        acked_before = bool(row["ack"])
 
     if wants_closing_pass(entry=entry, rows=rows):
         return "the closing pass"

@@ -33,6 +33,11 @@ class Field:
     is_date: bool = False
 
 
+# How wide a review's finding pass goes, the one list the ledger's
+# header field and the tool's --level share.
+REVIEW_LEVELS: tuple[str, ...] = ("low", "medium", "high", "max")
+
+
 @dataclass(frozen=True)
 class Section:
     """One heading a kind's body carries."""
@@ -250,7 +255,7 @@ KINDS: dict[str, Kind] = {
             Field(
                 name="level",
                 required=False,
-                values=("low", "medium", "high", "max"),
+                values=REVIEW_LEVELS,
             ),
         ),
         sections=(
