@@ -302,7 +302,7 @@ def port(
     refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     install(kit=kit, project=project, prepared=prepared, report=report)
     report.candidates = candidates(project)
-    report.findings, report.kits_own = check(project)
+    report.findings, report.kits_own = check(project=project, kit=kit)
 
     return report
 
@@ -332,7 +332,7 @@ def upgrade(
         report.done(f"migrated to {migration.to}: {migration.says}")
 
     install(kit=kit, project=project, prepared=prepared, report=report)
-    report.findings, report.kits_own = check(project)
+    report.findings, report.kits_own = check(project=project, kit=kit)
 
     return report
 
@@ -442,6 +442,12 @@ def prepare(
                 one=home / schema.SKILL_FILE,
                 other=kits_own_file,
             )
+            if not kits_copy and skill is None:
+                raise UpgradeError(
+                    f"the kit ships a skill named {name} this tool does not know, and {folder}/{schema.SKILLS}/{name} differs "
+                    "from it, so run the upgrade with the project's own tool if a kit wrote that folder, else move it aside first"
+                )
+
             if not kits_copy:
                 raise UpgradeError(
                     f"the kit now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, "
@@ -555,28 +561,31 @@ def install(
 
 def check(
     project: Project,
+    kit: Kit,
 ) -> tuple[list[doctor.Finding], list[doctor.Finding]]:
     """Doctor with --fix over the brain as installed: what it could not clear in the project's files, and what sits in the kit's own.
 
-    A finding under one of the kit's skill folders is in a file the
-    install replaces every time, so it is the kit's to put right,
+    A finding under one of the skill folders the kit ships is in a file
+    the install replaces every time, so it is the kit's to put right,
     reported apart and never counted against the project.
     """
     found = doctor.run(brain=store.Brain(root=project.brain), fix=True)
-    kits = [finding for finding in found if kits_own(finding.path)]
+    names = store.skill_folders(kit.brain)
+    kits = [finding for finding in found if kits_own(path=finding.path, names=names)]
 
     return [finding for finding in found if finding not in kits], kits
 
 
 def kits_own(
     path: str,
+    names: list[str],
 ) -> bool:
-    """Whether a doctor finding sits in one of the kit's skill folders, its path spelled from the brain or from the project root."""
+    """Whether a doctor finding sits in one of the named skill folders, its path spelled from the brain or from the project root."""
     parts = Path(path).parts
     if parts and parts[0] in (FOLDER, OLD_FOLDER):
         parts = parts[1:]
 
-    return kits_skill(parts)
+    return len(parts) > 1 and parts[0] == schema.SKILLS and parts[1] in names
 
 
 def candidates(
