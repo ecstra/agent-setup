@@ -484,7 +484,7 @@ def wants_closing_pass(
     if (entry.field("branch") or "").startswith(SWEEP_PREFIX):
         return False
 
-    return not any(row["theme"] == CLOSING_THEME for row in rows)
+    return not any(row["theme"].casefold() == CLOSING_THEME for row in rows)
 
 
 def known_batch(
