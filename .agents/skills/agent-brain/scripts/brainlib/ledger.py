@@ -35,6 +35,7 @@ FOUND_BY = ("review", "hunter")
 FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred")
 BATCH_STATUSES = ("pending", "fixing", "verified", "done")
 LEVELS = schema.REVIEW_LEVELS
+DEFAULT_LEVEL = "high"
 
 # The closing pass files what it finds into a batch of this theme, so the
 # ledger knows the pass ran. Low and a sweep branch skip the pass.
@@ -55,7 +56,7 @@ def open_ledger(
     brain: store.Brain,
     branch: str,
     summary: str,
-    level: str = "high",
+    level: str = DEFAULT_LEVEL,
     stamp: str = "",
 ) -> store.Entry:
     if level not in LEVELS:
