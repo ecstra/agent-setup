@@ -19,8 +19,8 @@ def version(
         return "unversioned"
 
     try:
-        return stamp.read_bytes().decode("utf-8", errors="replace").strip()
-    except OSError:
+        return store.stamp_text(stamp)
+    except (OSError, UnicodeDecodeError):
         return "unreadable"
 
 

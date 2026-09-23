@@ -269,7 +269,7 @@ def read_version(
     stamp: Path,
 ) -> str:
     try:
-        text = stamp.read_text(encoding="utf-8").strip()
+        text = store.stamp_text(stamp)
     except (OSError, UnicodeDecodeError) as error:
         raise UpgradeError(f"{stamp.name} cannot be read: {error}") from error
 

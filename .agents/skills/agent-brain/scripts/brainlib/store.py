@@ -353,6 +353,17 @@ def same_bytes(
         return False
 
 
+def stamp_text(
+    path: Path,
+) -> str:
+    """A version stamp's text, trimmed, a byte order mark dropped, the one reading every user of a stamp goes through.
+
+    Raises OSError when the file cannot be read and UnicodeDecodeError
+    when it is not UTF-8, for each caller to turn into its own answer.
+    """
+    return path.read_text(encoding="utf-8-sig").strip()
+
+
 def stamp_of(
     brain: Path,
 ) -> Optional[tuple[int, ...]]:
@@ -362,7 +373,7 @@ def stamp_of(
         return None
 
     try:
-        return schema.as_tuple(stamp.read_text(encoding="utf-8").strip())
+        return schema.as_tuple(stamp_text(stamp))
     except (OSError, UnicodeDecodeError, ValueError):
         return None
 
