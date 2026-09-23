@@ -504,12 +504,17 @@ def stdin_text() -> str:
     """The prose on standard input, or nothing when there is no input at all.
 
     A closed standard input leaves `sys.stdin` as None, and a terminal
-    means nobody piped anything, so both read as an empty body.
+    means nobody piped anything, so both read as an empty body. The
+    bytes are read as UTF-8 whatever the locale says, and a byte that
+    is not UTF-8 is a refusal rather than a traceback.
     """
     if sys.stdin is None or sys.stdin.isatty():
         return ""
 
-    return sys.stdin.read()
+    try:
+        return sys.stdin.buffer.read().decode("utf-8")
+    except UnicodeDecodeError as bad:
+        raise writes.WriteError(f"standard input is not UTF-8 at byte {bad.start}") from bad
 
 
 def missing(
