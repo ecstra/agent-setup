@@ -756,7 +756,7 @@ def skills_wanted(
         others = sorted(
             path.name
             for path in (brain.root / "skills").iterdir()
-            if path.name not in names and store.readable_file(path / "SKILL.md")
+            if path.name not in names and not schema.is_hidden(path.name) and store.readable_file(path / "SKILL.md")
         )
     except OSError:
         others = []
