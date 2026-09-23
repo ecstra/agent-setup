@@ -5,17 +5,18 @@ whole brief. The level picks the set. Every finder returns candidates in
 the block shape from [prompts.md](prompts.md) and nothing else, and
 every candidate goes through a verifier at every level.
 
-| Level | Angles | Closing pass |
-|---|---|---|
-| low | scan | no |
-| medium | scan, removed, callers, rules | yes |
-| high | scan, removed, callers, pitfalls, rules, tests, docs | yes |
-| max | every angle, then the sweep | yes |
+| Level | Angles |
+|---|---|
+| low | scan |
+| medium | scan, removed, callers, rules |
+| high | scan, removed, callers, pitfalls, rules, tests, docs |
+| max | every angle, then the sweep |
 
 Low fits a small mechanical branch. Medium is the floor for anything
-that touches logic. High is the usual level for a feature branch. Max
-is for a wide surface or subtle logic. A finder returns up to 8
-candidates, up to 12 at max.
+that touches logic or changes an interface. High is the usual level for
+a feature branch. Max is for a wide surface or subtle logic. A finder
+returns up to 8 candidates, up to 12 at max. Which levels owe the
+closing pass is house rule 7.
 
 ## scan, the line by line read
 
@@ -64,8 +65,8 @@ forwards every method the callers use.
 
 ## rules, the house rules the diff breaks
 
-Read `.agents/SYSTEM.md` sections 1 to 3 and section 6, and the section
-0 of AGENTS.md when the project has one. Then check every changed line
+Read `.agents/SYSTEM.md` sections 1 to 3, section 6, section 7.5 and
+section 8.2, and the section 0 of AGENTS.md when the project has one. Then check every changed line
 against them. In code that is an exception swallowed to quiet it, a
 hack over a symptom, a test that cannot fail, a comment that restates
 the code, a name that hides its meaning, a missing type annotation, a
