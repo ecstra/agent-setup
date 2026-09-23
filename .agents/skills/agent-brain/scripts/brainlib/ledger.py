@@ -506,10 +506,11 @@ def wants_closing_pass(
 
     The pass is owed at every level above low, on any branch that is
     not a sweep, until a batch of the closing theme records that it
-    ran. A ledger with no level recorded owes nothing the tool can see.
+    ran. A ledger with no level recorded, one opened before the level
+    was written, is read at the default level.
     """
-    level = entry.field("level")
-    if not rows or not level or level in NO_CLOSING_LEVELS:
+    level = entry.field("level") or DEFAULT_LEVEL
+    if not rows or level in NO_CLOSING_LEVELS:
         return False
 
     if (entry.field("branch") or "").startswith(SWEEP_PREFIX):
