@@ -832,14 +832,16 @@ def stray_skill_links(
 ) -> list[Finding]:
     """A link under .claude/skills that doctor once made for a project skill now gone from the brain, with its removal as the repair.
 
-    Only a link that points into the brain's skills folder and leads to
-    no SKILL.md at all is doctor's to remove. One whose SKILL.md is
-    there but cannot be read is left alone, and so is a link the
-    project made elsewhere, and so is everything when .claude/skills
-    is itself a link into the brain, since its entries are then the
-    brain's own. In a skills folder shared outside the project the
-    trouble is named and the removal is left to a person. The caller
-    skips this pass when the skills folder could not be listed.
+    Only a link that points into the brain's skills folder and dangles,
+    leading to nothing at all, is doctor's to remove. One that leads to
+    a folder or a file still there is somebody's and is left alone,
+    whatever it holds, and so is one the process cannot reach, and so
+    is a link the project made elsewhere, and so is everything when
+    .claude/skills is itself a link into the brain, since its entries
+    are then the brain's own. In a skills folder shared outside the
+    project the trouble is named and the removal is left to a person.
+    The caller skips this pass when the skills folder could not be
+    listed.
     """
     links = project / SKILL_LINKS
     found: list[Finding] = []
@@ -878,9 +880,9 @@ def stray_skill_links(
 def skill_gone(
     link: Path,
 ) -> bool:
-    """Whether the link leads to no SKILL.md at all, as against one the process cannot reach or read."""
+    """Whether the link dangles, leading to nothing at all, as against to something the process cannot reach."""
     try:
-        (link / "SKILL.md").stat()
+        link.stat()
     except (FileNotFoundError, NotADirectoryError):
         return True
     except (OSError, RuntimeError, ValueError):
