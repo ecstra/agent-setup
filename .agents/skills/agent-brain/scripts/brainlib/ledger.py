@@ -135,10 +135,11 @@ def set_batch(
     replaced = False
 
     for match in batch_rows(body):
-        if int(match.group(1)) != number:
+        row_number, old_theme, old_status, old_ack = match.groups()
+        if int(row_number) != number:
             continue
 
-        new_status = status or match.group(3)
+        new_status = status or old_status
         if auto and new_status == "pending":
             raise LedgerError("auto ack is the word at a batch's start, give it with --status fixing")
 
@@ -146,8 +147,7 @@ def set_batch(
             items=findings(entry),
             number=number,
         )
-        old_ack = match.group(4)
-        starting = match.group(3) == "pending" and status in ("fixing", "verified", "done")
+        starting = old_status == "pending" and status in ("fixing", "verified", "done")
         if auto and old_ack and not is_auto(old_ack):
             raise LedgerError(f"batch {number} already carries the owner's ack {old_ack}")
 
@@ -176,7 +176,7 @@ def set_batch(
 
         row = batch_row(
             number=number,
-            theme=theme or match.group(2),
+            theme=theme or old_theme,
             status=new_status,
             ack=new_ack,
         )
