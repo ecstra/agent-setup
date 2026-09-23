@@ -73,7 +73,7 @@ ROOT_ANCHORS = (
 )
 KIT_HOOK = re.compile(
     r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
-    r'|^python3 -c "' + re.escape(LAUNCHER) + r'"(?: [\w.-]+)*$'
+    r'|^python3 -c "[^"]*\.agents/skills/agent-brain/scripts/hooks\.py[^"]*"(?: [\w.-]+)*$'
 )
 IGNORE_FILE = ".gitignore"
 IGNORE_HEADING = "# The agent kit's own ignores."
