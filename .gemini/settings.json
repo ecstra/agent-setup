@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$GEMINI_PROJECT_DIR\"/.agents/skills/agent-brain/scripts/hooks.py session-start --agent gemini"
+            "command": "python3 -c \"import os,pathlib,runpy,sys;h='.agents/skills/agent-brain/scripts/hooks.py';c=pathlib.Path(os.environ.get('CLAUDE_PROJECT_DIR') or os.environ.get('GEMINI_PROJECT_DIR') or os.getcwd());p=next((d/h for d in [c,*c.parents] if (d/h).is_file()),None);p or sys.exit(0);sys.path.insert(0,str(p.parent));sys.argv[0]=str(p);runpy.run_path(str(p),run_name='__main__')\" session-start --agent gemini"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$GEMINI_PROJECT_DIR\"/.agents/skills/agent-brain/scripts/hooks.py prompt --agent gemini"
+            "command": "python3 -c \"import os,pathlib,runpy,sys;h='.agents/skills/agent-brain/scripts/hooks.py';c=pathlib.Path(os.environ.get('CLAUDE_PROJECT_DIR') or os.environ.get('GEMINI_PROJECT_DIR') or os.getcwd());p=next((d/h for d in [c,*c.parents] if (d/h).is_file()),None);p or sys.exit(0);sys.path.insert(0,str(p.parent));sys.argv[0]=str(p);runpy.run_path(str(p),run_name='__main__')\" prompt --agent gemini"
           }
         ]
       }
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$GEMINI_PROJECT_DIR\"/.agents/skills/agent-brain/scripts/hooks.py pre-write --agent gemini"
+            "command": "python3 -c \"import os,pathlib,runpy,sys;h='.agents/skills/agent-brain/scripts/hooks.py';c=pathlib.Path(os.environ.get('CLAUDE_PROJECT_DIR') or os.environ.get('GEMINI_PROJECT_DIR') or os.getcwd());p=next((d/h for d in [c,*c.parents] if (d/h).is_file()),None);p or sys.exit(0);sys.path.insert(0,str(p.parent));sys.argv[0]=str(p);runpy.run_path(str(p),run_name='__main__')\" pre-write --agent gemini"
           }
         ]
       }
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$GEMINI_PROJECT_DIR\"/.agents/skills/agent-brain/scripts/hooks.py post-write --agent gemini"
+            "command": "python3 -c \"import os,pathlib,runpy,sys;h='.agents/skills/agent-brain/scripts/hooks.py';c=pathlib.Path(os.environ.get('CLAUDE_PROJECT_DIR') or os.environ.get('GEMINI_PROJECT_DIR') or os.getcwd());p=next((d/h for d in [c,*c.parents] if (d/h).is_file()),None);p or sys.exit(0);sys.path.insert(0,str(p.parent));sys.argv[0]=str(p);runpy.run_path(str(p),run_name='__main__')\" post-write --agent gemini"
           }
         ]
       },
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$GEMINI_PROJECT_DIR\"/.agents/skills/agent-brain/scripts/hooks.py tick --agent gemini"
+            "command": "python3 -c \"import os,pathlib,runpy,sys;h='.agents/skills/agent-brain/scripts/hooks.py';c=pathlib.Path(os.environ.get('CLAUDE_PROJECT_DIR') or os.environ.get('GEMINI_PROJECT_DIR') or os.getcwd());p=next((d/h for d in [c,*c.parents] if (d/h).is_file()),None);p or sys.exit(0);sys.path.insert(0,str(p.parent));sys.argv[0]=str(p);runpy.run_path(str(p),run_name='__main__')\" tick --agent gemini"
           }
         ]
       }

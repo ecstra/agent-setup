@@ -44,19 +44,32 @@ NOT_SHIPPED = ("settings.local.json",)
 # a walk up from the session's folder to the first one that holds the
 # script. A command that wraps such a call, or calls a copy kept
 # elsewhere, is the project's own.
-CODEX_WALK = (
-    r'"\$\(d=\$\(pwd -P\) \|\| d=/; while \[ ! -f "\$d/\.agents?/skills/agent-brain/scripts/hooks\.py" \] && \[ "\$d" != / \]; '
-    r'do d=\$\(dirname "\$d"\); done; printf \'%s\' "\$d"\)"/'
+# the one line every shipped hook command runs: it finds the hook script
+# from the project folder the agent names, or by walking up from the
+# session's own folder where none is named, hands it the event, and does
+# nothing where there is no script, so a checkout without the kit never
+# blocks a prompt or a write
+LAUNCHER = (
+    "import os,pathlib,runpy,sys;"
+    "h='.agents/skills/agent-brain/scripts/hooks.py';"
+    "c=pathlib.Path(os.environ.get('CLAUDE_PROJECT_DIR') or os.environ.get('GEMINI_PROJECT_DIR') or os.getcwd());"
+    "p=next((d/h for d in [c,*c.parents] if (d/h).is_file()),None);"
+    "p or sys.exit(0);"
+    "sys.path.insert(0,str(p.parent));"
+    "sys.argv[0]=str(p);"
+    "runpy.run_path(str(p),run_name='__main__')"
 )
+# the shapes of the kit's commands before the launcher, still the kit's to
+# a project that wrote them under an earlier release
 ROOT_ANCHORS = (
     r'"\$CLAUDE_PROJECT_DIR"/',
     r"\$CLAUDE_PROJECT_DIR/",
     r'"\$GEMINI_PROJECT_DIR"/',
     r"\$GEMINI_PROJECT_DIR/",
-    CODEX_WALK,
 )
 KIT_HOOK = re.compile(
     r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
+    r'|^python3 -c "' + re.escape(LAUNCHER) + r'"(?: [\w.-]+)*$'
 )
 IGNORE_FILE = ".gitignore"
 IGNORE_HEADING = "# The agent kit's own ignores."
