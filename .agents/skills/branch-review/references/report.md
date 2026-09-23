@@ -19,6 +19,16 @@ Batch 2, <theme>:
 Batch 1 starts on your word.
 ```
 
+## When nothing survived
+
+```text
+<the lines brain ledger report prints>
+
+Nothing survived verification, <n> candidates refuted. No batch, no
+closing pass. The ledger is closed, and the branch is ready to merge on
+your word.
+```
+
 ## After a batch
 
 ```text
@@ -34,22 +44,22 @@ The ack starts batch <n+1>.
 ```
 
 The deferred line appears only when there is one. When the batch was
-the last, the closing line says instead what the ack opens, the
-closing pass, or, at low, on a sweep branch or when the batch is the
-closing pass itself, the close of the ledger and then the merge on the
-owner's word.
+the last, the closing line says instead what the ack opens, which the
+report's next line names, the closing pass or the close of the ledger
+and then the merge on the owner's word.
 
 ## After the closing pass
 
 ```text
 <the lines brain ledger report prints>
 
-The closing pass found nothing. (or: The closing pass found <n>, fixed and acked above.)
+The closing pass found nothing. (or: The closing pass's findings are fixed and acked above.)
 The ledger is closed, and the branch is ready to merge on your word.
 ```
 
-A closing pass that found something goes through the batch shape first,
-and this shape follows once that batch is done.
+A closing pass that found something is reported first with the finding
+pass shape, its batch starting on the owner's word, then goes through
+the batch shape, and this shape follows once that batch is done.
 
 ## Without sub agents
 
