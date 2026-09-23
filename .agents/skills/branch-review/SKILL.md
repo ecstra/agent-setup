@@ -38,7 +38,11 @@ them, and the last section says what to do without them.
   rule and every shape on its own, so the review runs the same either
   way, and a session with no definition spawns a general purpose sub
   agent with the definition's text at the top of its prompt. Another
-  agent uses the strongest model it has.
+  agent uses the strongest model it has. Each definition caps the turns
+  a sub agent may take, wide enough for a finder to read a large branch
+  file by file. One that stops at its cap has read and not reported, so
+  it is resumed once with the line to read nothing more and report now,
+  a hunter included.
 
 ## The gates
 
@@ -128,9 +132,9 @@ One batch at a time.
    their own, grouped by file the same way.
 4. After a follow up commit, the verifier of each finding it touched is
    resumed with the follow up prompt, which tells it the commits and to
-   re read the changed lines before voting. Hunters are never resumed. A
-   new hunter runs only when a follow up commit touched a file the batch
-   had not touched before.
+   re read the changed lines before voting. Hunters are never resumed
+   for a follow up. A new hunter runs only when a follow up commit
+   touched a file the batch had not touched before.
 5. The batch closes on the first pass where every verifier says gone,
    the verifiers of the hunter's finds included, and every hunter that
    ran has returned with its finds filed and handled.

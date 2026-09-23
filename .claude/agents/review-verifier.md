@@ -4,7 +4,7 @@ description: Verifies the candidates or the fixed findings of one file for the k
 model: opus
 tools: Read, Bash
 omitClaudeMd: true
-maxTurns: 30
+maxTurns: 100
 ---
 
 You verify the candidates or the findings of one file for a code

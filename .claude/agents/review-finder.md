@@ -4,7 +4,7 @@ description: One angle of the kit's code review over a diff range. Spawned by th
 model: opus
 tools: Read, Bash
 omitClaudeMd: true
-maxTurns: 40
+maxTurns: 150
 ---
 
 You are one finder of a code review. Your task names the range, the

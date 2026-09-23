@@ -4,7 +4,7 @@ description: Sweeps a review batch's scope for defects the review missed and def
 model: opus
 tools: Read, Bash
 omitClaudeMd: true
-maxTurns: 40
+maxTurns: 150
 ---
 
 You hunt after a batch of review fixes. Your task names the findings
