@@ -451,6 +451,13 @@ def is_open(
     return (item.get("status") or "open") == "open"
 
 
+def needs_a_batch(
+    item: dict,
+) -> bool:
+    """Whether a finding has to sit in a batch, an open one and a fixed one, since a fix is verified by its batch, where a wontfix or a deferral needs none."""
+    return is_open(item) or item.get("status") == "fixed"
+
+
 def next_step(
     entry: store.Entry,
     rows: list[dict],
@@ -458,8 +465,9 @@ def next_step(
 ) -> str:
     """What the review does next, read from the batches and the findings as they stand.
 
-    An open finding filed into no batch the table has comes first,
-    since nothing moves until it is placed. Then the batches in order.
+    An open or a fixed finding filed into no batch the table has comes
+    first, since nothing moves until it is placed and a fix is verified
+    by its batch. Then the batches in order.
     A pending one waits for the owner's word until an earlier batch
     has been acked, after which the ack that closed it is the word to
     start the next, and an empty batch closed with no ack is no such
@@ -473,7 +481,7 @@ def next_step(
         return "nothing, the ledger is closed"
 
     known = {row["number"] for row in rows}
-    stray = [item["id"] for item in items if is_open(item) and batch_of(item) not in known]
+    stray = [item["id"] for item in items if needs_a_batch(item) and batch_of(item) not in known]
     if stray:
         return f"put {', '.join(stray)} in a batch"
 
