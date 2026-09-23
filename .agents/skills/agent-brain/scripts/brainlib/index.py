@@ -172,8 +172,12 @@ def spine_body(
     for relative in kit_listing(brain):
         lines.append(f"- [{relative}]({relative}), {hook_of(brain.root / relative)}")
 
-    skills = [(f"skills/{skill.name}/SKILL.md", skill.hook) for skill in schema.KIT_SKILLS]
-    skills += [(f"skills/{name}/SKILL.md", skill_hook(brain=brain, name=name)) for name in project_skills(brain)]
+    shipped = store.kit_skills_shipped(brain.root)
+    skills = [(f"skills/{skill.name}/SKILL.md", skill.hook) for skill in schema.KIT_SKILLS if skill.name in shipped]
+    skills += [
+        (f"skills/{name}/SKILL.md", hook_of(path=brain.root / "skills" / name / "SKILL.md", fallback=f"the project's own {name} skill"))
+        for name in project_skills(brain=brain, shipped=shipped)
+    ]
     for relative, hook in (*skills, (schema.VERSION_FILE, VERSION_HOOK)):
         if store.readable_file(brain.root / relative):
             lines.append(f"- [{relative}]({relative}), {hook}")
@@ -210,34 +214,30 @@ def kit_listing(
 
 def hook_of(
     path: Path,
+    fallback: str = "",
 ) -> str:
+    """The description a file's header carries, else the fallback, else the file's name."""
     try:
-        return frontmatter.read(str(path)).get("description") or path.name
+        description = frontmatter.read(str(path)).get("description")
     except frontmatter.FrontmatterError:
-        return path.name
+        description = None
+
+    return description or fallback or path.name
 
 
 def project_skills(
     brain: store.Brain,
+    shipped: list[str],
 ) -> list[str]:
-    """The skill folders the project keeps beside the kit's, in name order, none when the folder cannot be listed."""
+    """The skill folders the project keeps beside the kit's shipped ones, in name order.
+
+    None when the folder cannot be listed, which doctor reports on its
+    own line, so the spine stays buildable and says nothing false.
+    """
     try:
-        return [name for name in store.skill_folders(brain.root) if name not in schema.KIT_SKILL_NAMES]
+        return [name for name in store.skill_folders(brain.root) if name not in shipped]
     except OSError:
         return []
-
-
-def skill_hook(
-    brain: store.Brain,
-    name: str,
-) -> str:
-    """The one line the spine says about a project's own skill, its description when its header reads, its name otherwise."""
-    try:
-        description = frontmatter.read(str(brain.root / "skills" / name / "SKILL.md")).get("description")
-    except frontmatter.FrontmatterError:
-        description = None
-
-    return description or f"the project's own {name} skill"
 
 
 def spine_line(
