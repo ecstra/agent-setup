@@ -15,7 +15,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import frontmatter, index, links, schema, sections, store, style, writes
+from . import autoack, frontmatter, index, links, schema, sections, store, style, writes
 
 SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, ".worktrees"})
 
@@ -226,18 +226,21 @@ def check_leftovers(
     Only the tool's own shapes count, a real file named the way a write
     in flight is named and, inside the brain, a real folder named the
     way a put back scratch is named. A person's own dotfile is nobody's
-    to delete. The places the tool writes to in every run are looked
-    at, the whole brain with its skills, each agent's own folder down
-    to its sub agent files, and the top of the project only beside the
-    kit's own files there, since a person's dotfile at the root could
-    carry the same shape. The one time move from `.agent/` rewrites
-    files anywhere in the project, cleans up after itself unless killed
-    outright, and is not looked for.
+    to delete, and a suffix of eight letters looks like the tail the
+    writer draws, so a temp file counts only when its target is one the
+    tool would write, a markdown or JSON file, VERSION, the word, a
+    file that exists beside it, or one of the kit's own files at the
+    top of the project. The places the tool writes to in every run are
+    looked at, the whole brain with its skills, each agent's own folder
+    down to its sub agent files, and the top of the project. The one
+    time move from `.agent/` rewrites files anywhere in the project,
+    cleans up after itself unless killed outright, and is not looked
+    for.
     """
     found: list[Finding] = []
+    project = style.project(brain=brain)
     candidates = [path for path in brain.root.rglob(".*") if path.relative_to(brain.root).parts[0] != ".worktrees"]
-    root_targets = (*schema.ROOT_FILES, schema.IGNORE_FILE)
-    candidates += [path for path in style.project(brain=brain).glob(".*") if frontmatter.target_of(path.name) in root_targets]
+    candidates += list(project.glob(".*"))
     for folder in style.folders(brain):
         if store.quietly(folder.is_dir):
             candidates += list(folder.rglob(".*"))
@@ -246,7 +249,7 @@ def check_leftovers(
         if store.quietly(path.is_symlink):
             continue
 
-        in_flight = store.quietly(path.is_file) and frontmatter.TEMP_SHAPE.match(path.name) is not None
+        in_flight = store.quietly(path.is_file) and tools_own_write(path=path, project=project)
         scratch = brain.root in path.parents and store.quietly(path.is_dir) and links.SCRATCH_SHAPE.match(path.name) is not None
         if not in_flight and not scratch:
             continue
@@ -261,6 +264,24 @@ def check_leftovers(
         )
 
     return found
+
+
+def tools_own_write(
+    path: Path,
+    project: Path,
+) -> bool:
+    """Whether the file is a write in flight of the tool's, by its shape and by a target the tool would write."""
+    target = frontmatter.target_of(path.name)
+    if target is None:
+        return False
+
+    if path.parent == project:
+        return target in (*schema.ROOT_FILES, schema.IGNORE_FILE)
+
+    if target.endswith((".md", ".json")) or target in (schema.VERSION_FILE, autoack.FILE):
+        return True
+
+    return store.quietly((path.parent / target).exists)
 
 
 def where_of(
