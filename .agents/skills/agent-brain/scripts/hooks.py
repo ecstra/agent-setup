@@ -196,7 +196,7 @@ def tick(
 def the_moment(
     brain: store.Brain,
 ) -> str:
-    """The clock and the standing word, the two lines the prompt hook and the session start carry."""
+    """The clock and the standing word, the two lines the session start, the prompt hook and the tick carry."""
     return clock.line() + "\n" + autoack.describe(brain)
 
 
