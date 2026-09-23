@@ -11,6 +11,7 @@ indexed, since it belongs to this machine and this stretch of work.
 """
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -403,7 +404,7 @@ def unreadable_task(
 
     folder = brain.folder(task_kind(key))
 
-    return store.quietly(folder.is_dir) and not listable(folder)
+    return store.quietly(folder.is_dir) and not listable_throughout(folder)
 
 
 def task_kind(
@@ -418,16 +419,21 @@ def task_kind(
     return schema.KINDS["review"]
 
 
-def listable(
+def listable_throughout(
     folder: Path,
 ) -> bool:
-    """Whether the folder can be listed right now, which the scan needs to see what is in it."""
-    try:
-        next(iter(folder.iterdir()), None)
-    except OSError:
-        return False
+    """Whether the folder and every folder under it can be listed right now, which the scan needs to see what is in them.
 
-    return True
+    The scan walks the tree and skips a folder it cannot list without a
+    word, so an entry in such a folder, a review's own folder say, goes
+    missing rather than unread.
+    """
+    trouble: list[OSError] = []
+    for _ in os.walk(folder, onerror=trouble.append):
+        if trouble:
+            return False
+
+    return not trouble
 
 
 def write(
