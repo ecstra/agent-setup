@@ -313,7 +313,7 @@ need to, but the commands are short enough to know.
 | `brain doctor` and `brain doctor --fix` | Checks every file against its spec, and `--fix` repairs the mechanical slips, a stale index, a link written as a name, a chat style copy that drifted. |
 | `brain new`, `brain set`, `brain refile` | Files a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
 | `brain ledger` | Opens, fills and closes a code review ledger, batch by batch, and `brain ledger report` says where a review stands, counted from the file. |
-| `brain ack on --for 8h` | Your standing word to proceed, for a time or until a task is done, so the agent passes the gates that normally wait for you, each batch, the closing pass, the PR and the merge, and says so in every report. It never starts a review. Without an end the agent asks you for one. `brain ack off` takes it back. |
+| `brain ack on --for 8h` | Your standing word to proceed, for a time or until a task is done, so the agent passes the review's gates that normally wait for you, the house rules name them, and says so in every report. It never starts a review, and the PR and the merge still wait for your ask. Without an end the agent asks you for one. `brain ack off` takes it back. |
 | `brain port` and `brain upgrade` | The two commands above, run from a kit checkout against your project. |
 
 The full contract, every flag and every refusal, is in
