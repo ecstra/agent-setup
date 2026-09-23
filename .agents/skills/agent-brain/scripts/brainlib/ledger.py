@@ -29,7 +29,8 @@ TABLE_HEADER = re.compile(
     re.MULTILINE | re.IGNORECASE,
 )
 
-FIELDS = ("severity", "found-by", "batch", "status", "fix")
+FIELDS = ("severity", "found-by", "batch", "status", "fix", "reason")
+NEEDS_REASON = ("wontfix", "deferred")
 FOUND_BY = ("review", "hunter")
 FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred")
 BATCH_STATUSES = ("pending", "fixing", "verified", "done")
@@ -215,6 +216,9 @@ def set_finding(
     if after.get("status") == "fixed" and not after.get("fix"):
         raise LedgerError("a fixed finding names its commit, fix=<hash>")
 
+    if after.get("status") in NEEDS_REASON and not after.get("reason"):
+        raise LedgerError(f"a {after['status']} finding says why, reason=<one line>")
+
     for field, value in changes.items():
         block = with_bullet(block=block, field=field, value=value)
 
@@ -349,8 +353,8 @@ def next_step(
         if row["status"] == "fixing":
             return f"verify batch {number}"
 
-        if row["status"] == "verified" and row["ack"]:
-            return f"mark batch {number} done, it has the ack"
+        if row["status"] == "verified" and (row["ack"] or not own):
+            return f"mark batch {number} done" + (", it has the ack" if row["ack"] else ", it holds nothing")
 
         if row["status"] == "verified" or (own and not row["ack"]):
             return f"the owner's ack of batch {number}"

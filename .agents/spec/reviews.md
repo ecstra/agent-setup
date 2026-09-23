@@ -32,11 +32,14 @@ body:
 - batch: 2
 - status: open | fixed | wontfix | deferred
 - fix: <commit hash, date, when fixed>
+- reason: <one line, when wontfix or deferred>
 ```
 
-A wontfix carries its reason inline. A finding too big for its branch is
-`deferred`: it graduates into bugs/ as its own file, linked both ways,
-and that is the only path a finding leaves its ledger.
+A wontfix carries its reason on its own line, and the tool refuses the
+status without one. A finding too big for its branch is `deferred`
+with its reason the same way: it graduates into bugs/ as its own file,
+linked both ways, and that is the only path a finding leaves its
+ledger.
 
 ## Lifecycle
 
