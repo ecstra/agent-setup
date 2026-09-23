@@ -107,7 +107,7 @@ and `--project` has to name a folder that is there.
 | Command | What it does |
 |---|---|
 | `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain: the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`: the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
-| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there: it moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folder aside since the install replaces that (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Refuses without a brain, and refuses while a file it would replace holds uncommitted work. |
+| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there: it moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Refuses without a brain, and refuses while a file it would replace holds uncommitted work. |
 
 What is the project's stays the project's: everything under `.agents/`
 that is not the kit's, section 0, `README.md`, `CODEOWNERS`, and any
@@ -127,8 +127,9 @@ and a root file the kit replaces is named in the report along with
 where git keeps the old one.
 The exit code is doctor's: 0 clean, 2 while findings remain, and those
 are the project's own prose to put right. A finding in the kit's own
-files under `skills/agent-brain/` is the kit's to fix, printed apart
-and never counted, since the install replaces those files every time.
+files, under `skills/agent-brain/` or `skills/branch-review/`, is the
+kit's to fix, printed apart and never counted, since the install
+replaces those files every time.
 The tool ships without its own tests, and the chat style copies in
 `.codex/` and `.gemini/` are the doctor's to make from the source in
 `.claude/output-styles/`.

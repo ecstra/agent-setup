@@ -150,7 +150,7 @@ class Kit:
         found += sorted(
             path.relative_to(self.brain)
             for path in (self.brain / "skills").rglob("*")
-            if ships(path) and "tests" not in path.relative_to(self.brain / "skills").parts
+            if ships(path) and kits_skill(path.relative_to(self.brain).parts) and "tests" not in path.relative_to(self.brain / "skills").parts
         )
         found.append(Path(VERSION))
 
@@ -477,9 +477,10 @@ def install(
 
     shipped = [Path(FOLDER) / relative for relative in kit.brain_files() if relative.name != VERSION]
     written = sum(copy(kit=kit, project=project, relative=relative) for relative in shipped)
+    keep = set(shipped)
     retired: list[str] = []
-    for name in schema.KIT_SKILL_NAMES:
-        retired += retire(project=project, folder=project.brain / "skills" / name, keep=set(shipped))
+    for folder in kit_skill_folders(project.brain):
+        retired += retire(project=project, folder=folder, keep=keep)
     report.done(f"the kit's {len(shipped)} files under {FOLDER}/, {written} written, {len(retired)} retired")
     for relative in retired:
         report.done(f"retired {relative}, the kit no longer ships it")
@@ -603,7 +604,7 @@ def to_agents_folder(
 def migration_targets(
     project: Project,
 ) -> list[Path]:
-    """The files the folder migration points at the new name: every file naming .agent/ that git tracks, sees or ignores, symlinks and the kit's own skill folder left out.
+    """The files the folder migration points at the new name: every file naming .agent/ that git tracks, sees or ignores, symlinks and the kit's own skill folders left out.
 
     Outside git the root markdown, the ignore file and the brain's own
     markdown are read instead. The guard lists the same files, so the
@@ -658,7 +659,7 @@ def in_skill_folder(
     """Whether the path sits under one of the kit's own skill folders, by either name of the brain."""
     parts = path.relative_to(project.root).parts
 
-    return len(parts) > 2 and parts[0] in (OLD_FOLDER, FOLDER) and kits_skill(parts[1:])
+    return len(parts) > 1 and parts[0] in (OLD_FOLDER, FOLDER) and kits_skill(parts[1:])
 
 
 def kits_skill(
@@ -666,6 +667,13 @@ def kits_skill(
 ) -> bool:
     """Whether a path split under the brain leads into one of the kit's skill folders."""
     return len(parts) > 1 and parts[0] == "skills" and parts[1] in schema.KIT_SKILL_NAMES
+
+
+def kit_skill_folders(
+    brain: Path,
+) -> list[Path]:
+    """The kit's own skill folders under a brain, whether or not they are there yet."""
+    return [brain / "skills" / name for name in schema.KIT_SKILL_NAMES]
 
 
 def brain_markdown(
@@ -1096,8 +1104,8 @@ def guarded_paths(
 
     The front doors and CONTRIBUTING.md are replaced whole, so are the
     kit's files under the brain and the style files in the agent
-    folders, the skill folder is cleared and rewritten, and the folder
-    migration rewrites every file that names the old folder. On the old
+    folders, the kit's skill folders are cleared and rewritten, and the
+    folder migration rewrites every file that names the old folder. On the old
     layout the brain is still .agent/, and git names its files by that
     spelling, so the list uses it too. The ignore file and the hook
     configs keep what they hold, so an edit there is safe and not
@@ -1109,8 +1117,8 @@ def guarded_paths(
 
     brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
     paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
-    for name in schema.KIT_SKILL_NAMES:
-        paths += files_under(root=project.root, folder=brain / "skills" / name, taken=retire_takes)
+    for folder in kit_skill_folders(brain):
+        paths += files_under(root=project.root, folder=folder, taken=retire_takes)
 
     if pending_migrations(project=project, want=kit.version()):
         paths += [str(path.relative_to(project.root)) for path in migration_targets(project)]
@@ -1420,10 +1428,10 @@ def retire(
     folder: Path,
     keep: set[Path],
 ) -> list[str]:
-    """Remove the files under the skill folder the kit no longer ships, and the folders that emptied.
+    """Remove the files under one of the kit's skill folders that the kit no longer ships, and the folders that emptied.
 
     The kit's new files are written before this runs, so the tool is
-    never half gone. The folder is the tool's own, so what the kit does
+    never half gone. The folder is the kit's own, so what the kit does
     not ship goes, named in the report, and the guard has already
     refused if any of it held uncommitted work. A dotfile is left. A
     bytecode folder holding nothing else goes whole and unnamed, since
