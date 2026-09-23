@@ -99,7 +99,7 @@ def run_version(
 def add_ack(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("ack", help="the owner's standing word to proceed: on with an end, off, or where it stands")
+    command = commands.add_parser("ack", help="the owner's standing word to proceed, on with an end, off, or where it stands")
     command.add_argument("state", nargs="?", choices=("on", "off"), help="on or off, nothing to see where it stands")
     command.add_argument("--for", dest="lasting", help="how long, such as 8h, 90m or 2d")
     command.add_argument("--until", help="a moment, such as 22:00, tomorrow 22:00 or 2026-09-24 22:00")
@@ -112,6 +112,10 @@ def run_ack(
     args: argparse.Namespace,
 ) -> int:
     if args.state == "off":
+        if args.lasting or args.until or args.task:
+            print("off takes no end, give it alone", file=sys.stderr)
+            return REFUSED
+
         autoack.turn_off(brain)
     elif args.state == "on":
         autoack.turn_on(

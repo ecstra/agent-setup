@@ -2,7 +2,7 @@
 
 Claude Code, Codex and Gemini CLI each call this with their own event
 JSON on standard input and the event name as the first argument. Five
-events matter: the start of a session, each prompt the owner sends, a
+events matter, the start of a session, each prompt the owner sends, a
 tick after the agent's tool calls, a write that is about to create a
 file inside .agents/, and a write that just landed there. The prompt
 and the tick carry the clock, since a model does not know the time and
