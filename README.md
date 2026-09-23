@@ -5,10 +5,9 @@ Codex, Gemini CLI, anything that reads `AGENTS.md`) knows how to behave
 there and has a place to keep what it learns. It is one folder called
 `.agents/`, holding the rules and everything the project knows, plus a
 few short files at the root that point every agent into it. All plain
-files, committed to git, all but the little the tool keeps for one
-machine. That is the whole trick. Because they live in the repo, a
-fresh session on any machine picks up exactly where the last one
-stopped.
+files, committed to git, all but what its ignore file keeps out. That
+is the whole trick. Because they live in the repo, a fresh session on
+any machine picks up exactly where the last one stopped.
 
 ## Why you would want it
 
@@ -33,7 +32,7 @@ written record of what the project knows.
 | `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking and the clock and your standing word stay in front of the agent, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
-| `.gitignore` | Keeps your `.env` out of git, along with any stray worktree folder, the standing word's file under `.agents/` and the temporary file it is written through, your local Claude Code settings and Python's cache. |
+| `.gitignore` | Keeps your `.env` and your local Claude Code settings out of git, along with what the brain's conventions list as never entering the repo. |
 
 Everything is generic on purpose. Anything specific to your project goes
 in a section called `## 0. Project Rules` at the top of `AGENTS.md`, and
@@ -330,7 +329,7 @@ Here is how it ships, empty and ready.
 .agents/
 ├── SYSTEM.md             the rulebook every agent works by
 ├── VERSION               the kit release this project carries
-├── INDEX.md              the spine, the top level docs, the specs, the skills and the folders, built by the tool
+├── INDEX.md              the spine, one line for everything here, built by the tool
 ├── README.md             what the directory is and how an agent boots from it
 ├── house-rules.md        the branch contract and code review protocol
 ├── skills/agent-brain/   the brain tool, as a skill every agent can read
