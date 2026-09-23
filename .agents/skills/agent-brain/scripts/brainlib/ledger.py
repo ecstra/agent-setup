@@ -230,11 +230,15 @@ def set_finding(
     if after.get("status") == "fixed" and not after.get("fix"):
         raise LedgerError("a fixed finding names its commit, fix=<hash>")
 
-    if after.get("status") in NEEDS_REASON and not after.get("reason"):
-        raise LedgerError(f"a {after['status']} finding says why, reason=<one line>")
+    new_status = changes.get("status", "")
+    if new_status in NEEDS_REASON and not changes.get("reason"):
+        raise LedgerError(f"a {new_status} finding says why, reason=<one line>")
 
     for field, value in changes.items():
         block = with_bullet(block=block, field=field, value=value)
+
+    if new_status and new_status not in NEEDS_REASON:
+        block = without_bullet(block=block, field="reason")
 
     entry.document.body = body[:start] + block + body[end:]
     save(brain=brain, entry=entry)
@@ -265,6 +269,23 @@ def with_bullet(
 
     heading_end = block.index("\n") if "\n" in block else len(block)
     return block[:heading_end] + "\n\n" + line + block[heading_end:]
+
+
+def without_bullet(
+    block: str,
+    field: str,
+) -> str:
+    """The block without its `- field:` line, the first one outside code, so a value that no longer applies does not linger."""
+    spans = sections.code_spans(block)
+
+    for match in BULLET.finditer(block):
+        if match.group(1) != field or sections.in_code(spans=spans, position=match.start()):
+            continue
+
+        line_end = match.end() + 1 if block[match.end() : match.end() + 1] == "\n" else match.end()
+        return block[: match.start()] + block[line_end:]
+
+    return block
 
 
 def close(
