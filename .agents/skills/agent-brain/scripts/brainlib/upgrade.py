@@ -47,7 +47,7 @@ ROOT_ANCHORS = (
     r"\$CLAUDE_PROJECT_DIR/",
     r'"\$GEMINI_PROJECT_DIR"/',
     r"\$GEMINI_PROJECT_DIR/",
-    r'"\$\(git rev-parse --show-toplevel\)"/',
+    r'"\$\(\[ -d \.agents? \] && pwd \|\| git rev-parse --show-toplevel\)"/',
 )
 KIT_HOOK = re.compile(
     r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
