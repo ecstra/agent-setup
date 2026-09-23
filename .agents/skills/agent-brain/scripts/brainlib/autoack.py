@@ -24,9 +24,12 @@ OFF = "auto ack off"
 BROKEN = f"{FILE} does not read as a word and brain ack off clears it"
 FOLDER = f"{FILE} is a folder the tool never made, move it away by hand"
 
-# the last moment of the year 2999, the last every machine can still
-# place on its own clock, since Windows stops converting at the year 3000
-LATEST = datetime(2999, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
+# the last year a word may end in on its own wall clock, since Windows
+# stops placing a moment on its clock at the year 3000, and the instant
+# that year ends on the clock furthest behind UTC, the envelope every
+# recorded end fits in
+LAST_YEAR = 2999
+LATEST = datetime(3000, 1, 1, 11, 59, 59, 999999, tzinfo=timezone.utc)
 
 # the kinds a word can end with, and the statuses that keep each one open
 OPEN_STATUSES = {
@@ -81,10 +84,8 @@ def turn_on(
 
         if until_text is not None:
             ends.append(utc(parse_until(text=until_text, at=at)))
-    except (OverflowError, OSError) as far:
-        # the calendar overflows on its own, and Windows refuses to place a
-        # moment past the year 3000 on its clock with an OSError
-        raise AckError("auto ack would end past the year 2999, give a nearer end") from far
+    except OverflowError as far:
+        raise AckError(f"auto ack would end past the year {LAST_YEAR}, give a nearer end") from far
 
     if task is not None:
         task = task_key(brain=brain, key=task)
@@ -96,8 +97,10 @@ def turn_on(
     if until is not None and until <= utc(at):
         raise AckError("auto ack would end before it starts, give a time still to come")
 
-    if until is not None and until > LATEST:
-        raise AckError("auto ack would end past the year 2999, give a nearer end")
+    # the envelope first, since an end inside it is one every machine can
+    # place on its clock, and then the year as the word's own clock shows it
+    if until is not None and (until > LATEST or on_the_wall(at=at, moment=until).year > LAST_YEAR):
+        raise AckError(f"auto ack would end past the year {LAST_YEAR}, give a nearer end")
 
     grant = Grant(
         since=at,
@@ -382,13 +385,21 @@ def from_the_wall(
 
     A reading inside a repeated hour lands on the same side of it as
     the moment the word is given at, so an end asked for in the second
-    pass is not placed an hour early in the first.
+    pass is not placed an hour early in the first. A reading this
+    machine cannot place at all, before 1970 or past the year 3000 on
+    Windows, is refused as the past or the far end it is.
     """
     fold = machine_fold(at)
-    if fold is not None:
-        return naive.replace(fold=fold).astimezone()
+    if fold is None:
+        return naive.replace(tzinfo=at.tzinfo, fold=at.fold)
 
-    return naive.replace(tzinfo=at.tzinfo, fold=at.fold)
+    try:
+        return naive.replace(fold=fold).astimezone()
+    except OSError as unplaceable:
+        if naive < at.replace(tzinfo=None):
+            raise AckError("auto ack would end before it starts, give a time still to come") from unplaceable
+
+        raise AckError(f"auto ack would end past the year {LAST_YEAR}, give a nearer end") from unplaceable
 
 
 def parse_duration(
