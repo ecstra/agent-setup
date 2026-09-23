@@ -64,6 +64,9 @@ def open_ledger(
         raise LedgerError(f"a review runs at {' or '.join(LEVELS)}, not '{level}'")
 
     summary = one_line(value=summary, what="summary")
+    if summary.startswith("#"):
+        raise LedgerError("the summary is prose, not a heading")
+
     stamp = stamp or date.today().isoformat()
     title = f"{stamp[:7]} {branch}"
     body = (
@@ -226,7 +229,7 @@ def add_findings(
 
     body = reopened(
         body=entry.document.body,
-        number=batch_cell,
+        number=int(batch_cell) if batch_cell else None,
     )
     section_start = section_span(body=body, title="Findings")[0]
     section_end = sections.heading_after(body=body, start=section_start, depth=2)
@@ -265,6 +268,9 @@ def set_finding(
     if new_status in NEEDS_REASON and not changes.get("reason"):
         raise LedgerError(f"a {new_status} finding says why, reason=<one line>")
 
+    if "reason" in changes and not changes["reason"] and after.get("status") in NEEDS_REASON:
+        raise LedgerError(f"a {after['status']} finding keeps its reason, give a new one or a new status")
+
     for field, value in changes.items():
         block = with_bullet(block=block, field=field, value=value)
 
@@ -272,10 +278,10 @@ def set_finding(
         block = without_bullet(block=block, field="reason")
 
     body = body[:start] + block + body[end:]
-    if is_open(after):
+    if is_open(after) or "batch" in changes:
         body = reopened(
             body=body,
-            number=after.get("batch", ""),
+            number=batch_of(after),
         )
 
     entry.document.body = body
@@ -284,23 +290,24 @@ def set_finding(
 
 def reopened(
     body: str,
-    number: str,
+    number: Optional[int],
 ) -> str:
-    """The body with the batch put back to fixing, its ack cleared, when an open finding lands in it after it was verified or done.
+    """The body with the batch put back to fixing, its ack cleared, when a finding lands in it after it was verified or done.
 
-    A late finding, a hunter's or a reopened one, needs its fix verified
-    and acked like the rest, so the batch goes through those states
-    again rather than carrying an ack that never covered it.
+    A late finding, a hunter's, a reopened one or one moved in already
+    fixed, needs its fix verified and acked like the rest, so the batch
+    goes through those states again rather than carrying an ack that
+    never covered it.
     """
-    if not number:
+    if number is None:
         return body
 
     for match in batch_rows(body):
-        if int(match.group(1)) != int(number) or match.group(3) not in ("verified", "done"):
+        if int(match.group(1)) != number or match.group(3) not in ("verified", "done"):
             continue
 
         row = batch_row(
-            number=int(number),
+            number=number,
             theme=match.group(2),
             status="fixing",
             ack="",
@@ -429,10 +436,10 @@ def in_batch(
 def batch_of(
     item: dict,
 ) -> Optional[int]:
-    """The batch a finding says it is in, as the table numbers it, or None when the cell is blank or not a number."""
+    """The batch a finding says it is in, as the table numbers it, or None when the cell is blank or not a plain number."""
     cell_text = (item.get("batch") or "").strip()
 
-    return int(cell_text) if cell_text.isdigit() else None
+    return int(cell_text) if cell_text.isdecimal() and cell_text.isascii() else None
 
 
 def is_open(
@@ -454,7 +461,9 @@ def next_step(
     A pending one waits for the owner's word until an earlier batch
     has been acked, after which the ack that closed it is the word to
     start the next, and an empty batch closed with no ack is no such
-    word. A batch past pending needs its open findings fixed, a late
+    word. The closing pass batch always waits for the word, since its
+    findings are reported first like a finding pass and no ack yet
+    covers them. A batch past pending needs its open findings fixed, a late
     one included, then its verification, then its ack, before the walk
     moves on to the closing pass or the close.
     """
@@ -470,7 +479,8 @@ def next_step(
     for row in rows:
         number = row["number"]
         if row["status"] == "pending":
-            return f"start batch {number}" if acked_before else f"batch {number} on the owner's word"
+            closing = row["theme"].casefold() == CLOSING_THEME
+            return f"start batch {number}" if acked_before and not closing else f"batch {number} on the owner's word"
 
         own = in_batch(
             items=items,
