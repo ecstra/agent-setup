@@ -37,8 +37,9 @@ BATCH_STATUSES = ("pending", "fixing", "verified", "done")
 LEVELS = schema.REVIEW_LEVELS
 DEFAULT_LEVEL = "high"
 
-# The closing pass files what it finds into a batch of this theme, so the
-# ledger knows the pass ran. Low and a sweep branch skip the pass.
+# House rule 7, held here so the report can say when the pass is due:
+# the closing pass files what it finds into a batch of this theme, so
+# the ledger knows the pass ran, and low and a sweep branch skip it.
 CLOSING_THEME = "closing pass"
 NO_CLOSING_LEVELS = ("low",)
 SWEEP_PREFIX = "sweep/"
@@ -448,12 +449,14 @@ def next_step(
 ) -> str:
     """What the review does next, read from the batches and the findings as they stand.
 
-    A pending batch waits for the owner's word until an earlier batch
+    An open finding filed into no batch the table has comes first,
+    since nothing moves until it is placed. Then the batches in order.
+    A pending one waits for the owner's word until an earlier batch
     has been acked, after which the ack that closed it is the word to
-    start the next. An empty batch closed with no ack is no such word.
-    An open finding anywhere, a late one filed into a batch already
-    verified or done included, comes before the batch's own status,
-    since close refuses while it stands.
+    start the next, and an empty batch closed with no ack is no such
+    word. A batch past pending needs its open findings fixed, a late
+    one included, then its verification, then its ack, before the walk
+    moves on to the closing pass or the close.
     """
     if entry.field("status") == "closed":
         return "nothing, the ledger is closed"
