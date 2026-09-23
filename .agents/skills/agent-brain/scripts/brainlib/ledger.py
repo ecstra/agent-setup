@@ -42,6 +42,10 @@ CLOSING_THEME = "closing pass"
 NO_CLOSING_LEVELS = ("low",)
 SWEEP_PREFIX = "sweep/"
 
+# The next step the report gives once nothing else stands, and close
+# refuses until the report gives it.
+CLOSE_STEP = "close the ledger"
+
 
 class LedgerError(Exception):
     """The ledger change was refused, with the reason in the message."""
@@ -272,12 +276,21 @@ def close(
     if entry.field("status") == "closed":
         raise LedgerError(f"{entry.name} is already closed")
 
-    still_open = [item for item in findings(entry) if is_open(item)]
+    items = findings(entry)
+    still_open = [item for item in items if is_open(item)]
     if still_open:
         names = ", ".join(item["id"] for item in still_open)
         raise LedgerError(f"{names} still open, a ledger closes when every finding has landed")
 
-    counts = tally(findings(entry))
+    step = next_step(
+        entry=entry,
+        rows=batches(entry),
+        items=items,
+    )
+    if step != CLOSE_STEP:
+        raise LedgerError(f"the ledger closes after {step}")
+
+    counts = tally(items)
     summary_end = end_of_section(body=entry.document.body, title="Summary")
     line = f"Closed with {counts}.\n\n"
     entry.document.body = (
@@ -387,7 +400,7 @@ def next_step(
     if owed:
         return "the closing pass"
 
-    return "close the ledger"
+    return CLOSE_STEP
 
 
 def wants_closing_pass(
