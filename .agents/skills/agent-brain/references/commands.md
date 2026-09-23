@@ -187,13 +187,12 @@ wraps that call, or calls a copy kept elsewhere, is the project's and
 stays, and an event left with no group stays as an empty list. A rename
 goes through git where git tracks the file, so the move shows as one,
 and a root file the kit replaces is named in the report along with
-where git keeps the old one.
-The exit code is doctor's: 0 clean, 2 while findings remain, and those
-are the project's own prose to put right. A finding in the kit's own
-files, under `skills/agent-brain/` or `skills/branch-review/`, is the
-kit's to fix, printed apart and never counted, since the install
-replaces those files every time.
-The tool ships without its own tests, and the chat style copies in
+where git keeps the old one. The exit code is doctor's: 0 clean, 2
+while findings remain, and those are the project's own prose to put
+right. A finding in the kit's own files, under `skills/agent-brain/`
+or `skills/branch-review/`, is the kit's to fix, printed apart and
+never counted, since the install replaces those files every time. The
+tool ships without its own tests, and the chat style copies in
 `.codex/` and `.gemini/` are the doctor's to make from the source in
 `.claude/output-styles/`.
 

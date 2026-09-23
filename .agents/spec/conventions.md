@@ -77,8 +77,8 @@ it keeps none, grouped. The trackers, the docs library, and memory
 carry their own INDEX.md too, however few files they hold, and the
 spine may summarize those groups with counts plus the open items.
 `spec/` and `handover/` carry none, the spine names them directly. An
-index line is `- [name](path), hook` where
-the hook is the description or a shorter cut of it.
+index line is `- [name](path), hook` where the hook is the description
+or a shorter cut of it.
 
 The upkeep rule: any change to a file updates its `updated:` date in the
 same commit, and the indexes are rebuilt by the brain tool, never edited
