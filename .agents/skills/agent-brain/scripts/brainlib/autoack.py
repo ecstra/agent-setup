@@ -376,7 +376,7 @@ def task_key(
     try:
         entry = brain.find(key)
     except store.Ambiguous as clash:
-        raise AckError(f"{key} names more than one entry, so auto ack cannot end with it until the doctor clears the clash") from clash
+        raise AckError(clash_text(brain=brain, key=key, clash=clash)) from clash
 
     if entry is None:
         raise AckError(f"nothing in the brain answers to '{key}', so auto ack cannot end with it")
@@ -391,9 +391,21 @@ def task_key(
     try:
         brain.find(stored)
     except store.Ambiguous as clash:
-        raise AckError(f"{stored} names more than one entry, so auto ack cannot end with it until the doctor clears the clash") from clash
+        raise AckError(clash_text(brain=brain, key=stored, clash=clash)) from clash
 
     return stored
+
+
+def clash_text(
+    brain: store.Brain,
+    key: str,
+    clash: store.Ambiguous,
+) -> str:
+    """What to say when a key names several entries, the doctor's clash when they share that id, the store's own advice otherwise."""
+    if all(entry.identifier == key for entry in brain.by_key().get(key, [])):
+        return f"{key} names more than one entry, so auto ack cannot end with it until the doctor clears the clash"
+
+    return str(clash)
 
 
 def is_open(
