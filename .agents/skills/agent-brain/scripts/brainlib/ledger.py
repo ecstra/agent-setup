@@ -62,11 +62,12 @@ def open_ledger(
     if level not in LEVELS:
         raise LedgerError(f"a review runs at {' or '.join(LEVELS)}, not '{level}'")
 
+    summary = one_line(value=summary, what="summary")
     stamp = stamp or date.today().isoformat()
     title = f"{stamp[:7]} {branch}"
     body = (
         "## Summary\n\n"
-        f"{summary.strip()}\n\n"
+        f"{summary}\n\n"
         "## Batches\n\n"
         f"{BATCH_HEADER}\n"
         "## Findings\n"
