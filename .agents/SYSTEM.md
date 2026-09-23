@@ -506,6 +506,12 @@ Blocking one wording does little, because the same shape returns in new words. P
 - **Padding.** Openers like `It's important to note that` or `In today's fast-paced world`, and closers that restate what was just said. Cut them and begin, or end, with the substance.
 - **Safe generic claims.** Lines so broad they fit any topic. Be specific to what is in front of you, or say nothing.
 
+### 7.6 State First
+
+**Open with where things stand. The reader has not read the code, the docs, the ledger or the brain.**
+
+Say the state in plain words first, then what changed, then what is left and what the user has to do. Nothing about your own process, effort, passes or reasoning, no tally that argues for the work, no failed command narrated as news. Name a file once and say what it does. A ledger, a doc or an index is a record and never the answer, so never point at one in place of saying the thing.
+
 ---
 
 ## 8. The Agent Directory
@@ -536,9 +542,9 @@ Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each, fil
 
 1. **One branch, one intent** (`feat/`, `fix/`, `sweep/`), sized by intent, never by commit count. A second intent born mid branch forks its own branch immediately. Sweeps group small work by surface and never carry a breaking change.
 2. **Gates first, then review, then merge.** No step skips, and nothing merges before the branch's review has closed. When the PR opens and whether as a draft is a project rule in `## 0. Project Rules`, and the agent never asks about it. Without such a rule a plain PR opens on the user's ask, and merge still waits for the review.
-3. **The user calls the timing, the agent runs the review.** The agent never decides on its own that a branch is ready for review, and on the user's word it runs one itself with the `code-review` skill at the level the branch earns. `ultra` is the user's alone, being paid and cloud run, so never reach for it and never answer a review request by asking for it by name.
+3. **The user calls the timing, the agent runs the review.** The agent never decides on its own that a branch is ready for review, and on the user's word it runs one itself with the kit's `review` skill at the level the branch earns, which names how wide the finding pass goes and never how hard the model thinks. A tool's own review command, paid or cloud run ones included, is the user's alone, so never reach for one and never answer a review request by asking for it by name.
 4. **Findings first, whole**, ranked by severity, before anything is fixed. All findings land in a ledger under `.agents/reviews/`, batched by theme, correctness first.
-5. **The batch loop**: fix the batch one commit per fix, a hunter sub-agent sweeps the scope for related bugs (found ones enter the ledger and get fixed, no backlog), a separate verifier sub-agent checks bug wise that each is gone and nothing new surfaced, loop until clean. Sub-agents run sequentially, one at a time.
+5. **The batch loop**: fix the batch one commit per fix, then at once a hunter sub agent sweeps the scope for related bugs (found ones enter the ledger and get fixed, no backlog) and one verifier sub agent per finding checks bug wise that it is gone and nothing new surfaced, loop until the first clean pass. The finders of the first pass run one per angle at once too. Sub agents run in parallel wherever they do not write the same file, and they never write the ledger or commit.
 6. **The user's ack gates each batch.** Unfixables are named, never buried: they defer into `.agents/bugs/` and earn a future branch sparingly, on the user's call.
 
 ---

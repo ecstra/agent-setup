@@ -43,32 +43,41 @@ suites or a brain with broken links.
 1. **The timing is the owner's, the running is the agent's.** The owner
    says when a branch gets reviewed and the agent never decides that on
    its own. On the word, the agent runs the review itself with the
-   `code-review` skill at the level the branch earns: low or medium for
-   a small or mechanical branch, high or max where the surface is wide
-   or the logic is subtle. `ultra` is the owner's alone, being paid and
-   cloud run, so the agent neither reaches for it nor asks for it by
-   name. Codex `/review --base main` (GPT) is a second pair of eyes the
-   owner can add. All of it works on the local branch, whether or not
-   a PR is open yet.
-2. **Findings first, whole.** The agent reports every finding ranked by
-   severity before touching anything. No fixing during reporting, no
-   silent triage.
+   kit's `review` skill ([skills/review/SKILL.md](skills/review/SKILL.md))
+   at the level the branch earns: low or medium for a small or
+   mechanical branch, high or max where the surface is wide or the
+   logic is subtle. The level sets how many angles the finding pass
+   runs and never how hard the model thinks, which is the session's
+   effort and the owner's to set. A tool's own review command, paid or
+   cloud run ones included, is the owner's alone, so the agent neither
+   reaches for one nor asks for it by name. Codex `/review --base main`
+   (GPT) is a second pair of eyes the owner can add. All of it works on
+   the local branch, whether or not a PR is open yet.
+2. **Findings first, whole.** The finding pass runs one finder sub
+   agent per angle, all at once, then one verifier per candidate, so
+   what reaches the ledger has been checked against the code. The agent
+   reports every finding ranked by severity before touching anything.
+   No fixing during reporting, no silent triage.
 3. **The ledger.** All findings land in
    `.agents/reviews/<yyyy-mm>-<branch-slug>/ledger.md` per
    [spec/reviews.md](spec/reviews.md): severity graded (breaks, bug,
    debt, nit), split into themed batches ordered by severity,
    correctness first, nits last. A finding not worth fixing gets a
    written reason, so no future review re litigates it.
-4. **The batch loop.** One batch at a time:
+4. **The batch loop.** One batch at a time, and inside it everything
+   that can run at once does:
    - Fix the batch, one commit per fix, the hash recorded beside the
      finding.
-   - A hunter sub agent sweeps the batch's scope for related bugs the
-     review missed. Hunter finds enter the ledger as findings
+   - At once: a hunter sub agent sweeps the batch's scope for related
+     bugs the review missed, and one verifier sub agent per finding
+     checks bug wise, not code wise, that the bug is actually gone and
+     nothing new surfaced. Hunter finds enter the ledger as findings
      (`found-by: hunter`) and are fixed in the same batch. No backlog.
-   - A separate verifier sub agent checks bug wise, not code wise: is
-     each bug actually gone, did anything new surface in scope. The loop
-     repeats until the verifier comes back clean.
-   - Sub agents run one at a time, sequentially.
+   - After a follow up commit, the verifier it concerns is resumed and
+     told to re read the changed lines. The loop stops at the first
+     clean pass.
+   - Sub agents run in parallel wherever they do not write the same
+     file, and they never write the ledger or commit.
 5. **Batch close.** Mark it in the ledger, report to the owner, and name
    anything unfixable in scope. Unfixables defer into `.agents/bugs/` as
    their own files, linked both ways, and earn a future branch sparingly,

@@ -37,7 +37,7 @@ read one written any other way, naming the line and the fix.
 
 Two places sit outside this rule. `SYSTEM.md` carries no frontmatter at
 all, since it is the rulebook and an agent takes it exactly as it
-stands. `skills/` is the tool's own folder, and its files follow the
+stands. `skills/` holds the kit's skills, and its files follow the
 Agent Skills standard rather than this spec, so doctor holds them to
 the prose and boundary rules below and to nothing in this section.
 

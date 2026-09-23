@@ -27,8 +27,9 @@ written record of what the project knows.
 | `.agents/SYSTEM.md` | The rulebook. How to write code, how to talk to you, where docs go, how a branch gets reviewed, how git is used. |
 | `.agents/` | The project's memory. Docs, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
 | `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
+| `.agents/skills/review/` | The code review. The agent runs it on your word: finder sub agents in parallel, one per angle, a verifier per candidate, the findings filed in a ledger, then fixes batch by batch with a hunter and verifiers until clean, and a report that says where things stand first. |
 | `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
-| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking, the link Claude Code needs to find the skill, and the Plain & Short chat style, once per agent in the form that agent reads. |
+| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
 | `.gitignore` | Keeps your `.env` out of git, along with any stray worktree folder. |
@@ -304,7 +305,7 @@ need to, but the commands are short enough to know.
 | `brain status` | The brain in numbers, what each tracker holds and whether doctor is clean. The session start hook prints this into the agent's context. |
 | `brain doctor` and `brain doctor --fix` | Checks every file against its spec, and `--fix` repairs the mechanical slips, a stale index, a link written as a name, a chat style copy that drifted. |
 | `brain new`, `brain set`, `brain refile` | Files a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
-| `brain ledger` | Opens, fills and closes a code review ledger, batch by batch. |
+| `brain ledger` | Opens, fills and closes a code review ledger, batch by batch, and `brain ledger report` says where a review stands, counted from the file. |
 | `brain port` and `brain upgrade` | The two commands above, run from a kit checkout against your project. |
 
 The full contract, every flag and every refusal, is in
