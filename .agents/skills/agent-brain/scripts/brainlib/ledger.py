@@ -259,7 +259,8 @@ def set_finding(
 
     start, end = span
     block = body[start:end]
-    after = dict(bullets(block))
+    before = bullets(block)
+    after = dict(before)
     after.update(changes)
     if after.get("status") == "fixed" and not after.get("fix"):
         raise LedgerError("a fixed finding names its commit, fix=<hash>")
@@ -278,7 +279,8 @@ def set_finding(
         block = without_bullet(block=block, field="reason")
 
     body = body[:start] + block + body[end:]
-    if is_open(after) or "batch" in changes:
+    moved = batch_of(after) != batch_of(before)
+    if is_open(after) or moved:
         body = reopened(
             body=body,
             number=batch_of(after),
