@@ -212,7 +212,7 @@ def stamp(
     if current(brain=brain, at=at) is None:
         held = held_word(brain=brain, at=at)
         if held is not None:
-            raise AckError(f"auto ack is held, {held.task} cannot be read right now, the owner's word starts a batch")
+            raise AckError(f"auto ack is held, {held_text(brain=brain, grant=held)}, the owner's word starts a batch")
 
         if unreadable_word(brain):
             raise AckError(f"auto ack is off, {trouble_text(brain)}, the owner's word starts a batch")
@@ -237,7 +237,7 @@ def held_word(
     brain: store.Brain,
     at: datetime,
 ) -> Optional[Grant]:
-    """A word still within its time whose task the brain cannot read right now, which holds it off without ending it."""
+    """A word still within its time whose task the brain cannot read right now, or whose ledger this checkout lacks, which holds it off without ending it."""
     grant = read(brain)
     if grant is None or grant.task is None:
         return None
@@ -245,7 +245,18 @@ def held_word(
     if grant.until is not None and utc(at) >= grant.until:
         return None
 
-    return grant if task_state(brain=brain, key=grant.task) == "unsure" else None
+    return grant if task_state(brain=brain, key=grant.task) in ("unsure", "away") else None
+
+
+def held_text(
+    brain: store.Brain,
+    grant: Grant,
+) -> str:
+    """Why the word is held, in the words the status line and the ledger's refusal share."""
+    if task_state(brain=brain, key=grant.task) == "away":
+        return f"{grant.task} is not in this checkout, brain ack off clears it"
+
+    return f"{grant.task} cannot be read right now"
 
 
 def stale_word(
@@ -273,7 +284,7 @@ def describe(
     if grant is None:
         held = held_word(brain=brain, at=at)
         if held is not None:
-            return f"auto ack held, {held.task} cannot be read right now"
+            return f"auto ack held, {held_text(brain=brain, grant=held)}"
 
         stale = stale_word(brain=brain, at=at)
         if stale is not None:
@@ -529,16 +540,16 @@ def task_state(
     brain: store.Brain,
     key: str,
 ) -> str:
-    """Whether the task is open, done, gone from the brain, or unsure, when the brain cannot read it right now.
+    """Whether the task is open, done, gone from the brain, unsure, when the brain cannot read it right now, or away, a review ledger this checkout lacks.
 
     Every state but open leaves the word off. Done and gone take it
     back for good, and so does an id that a merge has doubled, since
     the brain can then no longer say which entry the owner named.
     Unsure keeps the file, since an entry that is unreadable while a
     rebase stops on it may well read open again. A review ledger that
-    is missing is unsure too, never gone, since it lives on its branch
-    and is back once that branch is checked out again, and no later
-    review takes its name.
+    is missing is away, never gone, since it lives on its branch and is
+    back once that branch is checked out again, and no later review
+    takes its name.
     """
     try:
         entry = brain.find(key)
@@ -546,10 +557,10 @@ def task_state(
         return "gone"
 
     if entry is None:
-        if unreadable_task(brain=brain, key=key) or task_kind(key) is schema.KINDS["review"]:
+        if unreadable_task(brain=brain, key=key):
             return "unsure"
 
-        return "gone"
+        return "away" if task_kind(key) is schema.KINDS["review"] else "gone"
 
     return "open" if is_open(entry) else "done"
 
