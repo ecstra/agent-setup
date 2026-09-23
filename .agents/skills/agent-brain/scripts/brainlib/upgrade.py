@@ -1529,8 +1529,8 @@ def write_bytes(
     """Write a file whole or not at all, through a temporary file beside it, with the mode given.
 
     The temporary file takes the same shape as the tool's other writes,
-    so one left beside a markdown file by an interrupted run is found
-    and removed by doctor.
+    so one left beside its target by an interrupted run is found and
+    removed by doctor.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, passing = tempfile.mkstemp(prefix=f".{path.name}.", suffix=frontmatter.TEMP_SUFFIX, dir=str(path.parent))

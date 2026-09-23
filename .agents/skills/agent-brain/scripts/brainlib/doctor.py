@@ -226,16 +226,18 @@ def check_leftovers(
     Only the tool's own shapes count, a real file named the way a write
     in flight is named and, inside the brain, a real folder named the
     way a put back scratch is named. A person's own dotfile is nobody's
-    to delete. The chat style copies and the hook configs are written
-    the same way outside the brain, so each agent's own folder and the
-    style folder are looked at for a write in flight, the one shape the
+    to delete. The tool writes the same way everywhere it writes, so
+    the whole brain, its skills included, each agent's own folder down
+    to its sub agent files, and the top of the project, where the root
+    files land, are looked at for a write in flight, the one shape the
     tool leaves there.
     """
     found: list[Finding] = []
-    candidates = [path for path in brain.root.rglob(".*") if path.relative_to(brain.root).parts[0] not in SKIP_DIRS]
+    candidates = [path for path in brain.root.rglob(".*") if path.relative_to(brain.root).parts[0] != ".worktrees"]
+    candidates += list(style.project(brain=brain).glob(".*"))
     for folder in style.folders(brain):
         if store.quietly(folder.is_dir):
-            candidates += list(folder.glob(".*"))
+            candidates += list(folder.rglob(".*"))
 
     for path in sorted(candidates):
         if store.quietly(path.is_symlink):
