@@ -124,10 +124,8 @@ def set_batch(
     if status and status not in BATCH_STATUSES:
         raise LedgerError(f"a batch is {' or '.join(BATCH_STATUSES)}, not '{status}'")
 
-    if is_auto(ack):
-        if status != "fixing":
-            raise LedgerError("auto ack is the word at a batch's start, give it with --status fixing")
-
+    auto = is_auto(ack)
+    if auto:
         ack = standing_word(brain)
 
     ack = cell(value=ack, what="ack")
@@ -144,16 +142,19 @@ def set_batch(
             continue
 
         new_status = status or match.group(3)
+        if auto and new_status == "pending":
+            raise LedgerError("auto ack is the word at a batch's start, give it with --status fixing")
+
+        own = in_batch(
+            items=findings(entry),
+            number=number,
+        )
         new_ack = ack or match.group(4)
         starting = match.group(3) == "pending" and status in ("fixing", "verified", "done")
-        if starting and not ack and is_auto(new_ack):
+        if starting and own and not ack and is_auto(new_ack):
             new_ack = standing_word(brain)
 
         if status in ("fixing", "verified", "done"):
-            own = in_batch(
-                items=findings(entry),
-                number=number,
-            )
             still_open = [item["id"] for item in own if is_open(item)]
             if status != "fixing" and still_open:
                 raise LedgerError(f"{', '.join(still_open)} still open, batch {number} is {status} once every finding has landed")

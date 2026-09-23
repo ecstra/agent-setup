@@ -75,9 +75,9 @@ does not read as a word, a moment with no zone in it included, counts
 as no word. While it stands, `brain ledger batch <ledger> <n> --status
 fixing --ack auto` records the ack as `auto` with the day, so the
 ledger says which batches ran on the standing word. Any ack that
-starts with auto, in any case, is that call. It is taken only with
-`--status fixing`, since the word is checked at the batch's start, and
-off or run out it is refused.
+starts with auto, in any case, is that call. It is refused on a batch
+left pending, since the word is checked at the batch's start, and off
+or run out it is refused anywhere.
 
 ## The review ledger
 
