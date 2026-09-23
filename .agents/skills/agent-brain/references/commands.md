@@ -72,7 +72,8 @@ and waits. The state is one dotted file at the root of the brain,
 `.agents/.ack`, the tool's own, gitignored and never listed or checked,
 since it belongs to one machine and one stretch of work. A file that
 does not read as a word, a moment with no zone in it included, counts
-as no word. While it stands, `brain ledger batch <ledger> <n> --status
+as no word, and the status line says so until `brain ack off` clears
+it. While it stands, `brain ledger batch <ledger> <n> --status
 fixing --ack auto` records the ack as `auto` with the day, so the
 ledger says which batches ran on the standing word. Any ack that
 starts with auto, in any case, is that call. It is refused on a batch

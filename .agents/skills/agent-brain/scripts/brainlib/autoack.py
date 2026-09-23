@@ -18,10 +18,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-from . import clock, schema, store
+from . import clock, frontmatter, schema, store
 
 FILE = ".ack"
 OFF = "auto ack off"
+BROKEN = f"{FILE} does not read as a word and brain ack off clears it"
 
 # the last moment every zone can still show on its own clock
 LATEST = datetime(9999, 12, 30, tzinfo=timezone.utc)
@@ -182,9 +183,19 @@ def stamp(
         if held is not None:
             raise AckError(f"auto ack is held, {held.task} cannot be read right now, the owner's word starts a batch")
 
+        if unreadable_word(brain):
+            raise AckError(f"auto ack is off, {BROKEN}, the owner's word starts a batch")
+
         raise AckError("auto ack is off, the owner's word starts a batch")
 
     return f"auto {at:%Y-%m-%d}"
+
+
+def unreadable_word(
+    brain: store.Brain,
+) -> bool:
+    """Whether a state file is there that does not read as a word, which is worth a word to the owner rather than a silent off."""
+    return store.readable_file(path_of(brain)) and read(brain) is None
 
 
 def held_word(
@@ -213,6 +224,9 @@ def describe(
         held = held_word(brain=brain, at=at)
         if held is not None:
             return f"auto ack held, {held.task} cannot be read right now"
+
+        if unreadable_word(brain):
+            return f"{OFF}, {BROKEN}"
 
         return OFF
 
@@ -327,7 +341,8 @@ def parse_until(
     """A moment from 22:00, tomorrow 22:00, 2026-09-24 22:00 or 2026-09-24, on the wall clock the word runs on.
 
     A bare time already past today means the same time tomorrow, since
-    a word given in the evening is meant for the night, not for nothing.
+    a word given in the evening is meant for the night ahead. A date
+    alone means that whole day, through its last moment.
     """
     text = text.strip().lower()
     wall = at.replace(tzinfo=None)
@@ -348,14 +363,14 @@ def parse_until(
         match = DAY_TIME.match(text)
         if match is not None:
             day = datetime.strptime(match.group(1), "%Y-%m-%d")
-            hour = int(match.group(2)) if match.group(2) else 23
-            minute = int(match.group(3)) if match.group(3) else 59
+            if match.group(2) is None:
+                return from_the_wall(at=at, naive=day + timedelta(days=1) - timedelta(microseconds=1))
 
             return from_the_wall(
                 at=at,
                 naive=day.replace(
-                    hour=hour,
-                    minute=minute,
+                    hour=int(match.group(2)),
+                    minute=int(match.group(3)),
                 ),
             )
     except ValueError as bad:
@@ -493,7 +508,10 @@ def write(
         "until": grant.until.isoformat() if grant.until is not None else None,
         "task": grant.task,
     }
-    path_of(brain).write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    frontmatter.write_text(
+        path=str(path_of(brain)),
+        text=json.dumps(data, indent=2) + "\n",
+    )
 
 
 def read(
