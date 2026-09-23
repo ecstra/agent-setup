@@ -24,12 +24,13 @@ from typing import Optional
 FENCE = "---"
 
 # What a write in flight is called, beside its target: the target's own
-# name between a dot and mkstemp's random tail. Doctor knows the exact
-# shape, a markdown target or a dotted one of the tool's own such as the
-# owner's word, so one left by an interrupted run is found, and nothing
-# else that happens to end in .tmp is touched.
+# name between a dot and mkstemp's random tail, whatever the target, a
+# brain file, the owner's word, VERSION or a hook config, since every
+# write goes through the one writer. Doctor knows the exact shape, so
+# one left by an interrupted run is found, and a file that merely ends
+# in .tmp without a target's name and a tail inside is never touched.
 TEMP_SUFFIX = ".tmp"
-TEMP_SHAPE = re.compile(r"^\.(?:.+\.md|\.[a-z]+)\.[A-Za-z0-9_]+\.tmp$")
+TEMP_SHAPE = re.compile(r"^\..+\.[A-Za-z0-9_]+\.tmp$")
 
 # What a field's key looks like: lowercase, digits and hyphens.
 KEY = re.compile(r"^[a-z][a-z0-9-]*$")
