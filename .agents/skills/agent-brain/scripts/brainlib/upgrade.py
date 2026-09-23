@@ -317,8 +317,8 @@ def upgrade(
     report = Report(out=out)
     report.done(f"upgrading {project.root.resolve()}")
     refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
-    if schema.as_tuple(project.version()) > schema.as_tuple(prepared.stamp):
-        raise UpgradeError(f"the project is on {project.version()} and this kit is {prepared.stamp}, use a kit at least that new")
+    if schema.as_tuple(prepared.project_version) > schema.as_tuple(prepared.stamp):
+        raise UpgradeError(f"the project is on {prepared.project_version} and this kit is {prepared.stamp}, use a kit at least that new")
 
     for migration in pending_migrations(project=project, want=prepared.stamp):
         migration.apply(project=project, report=report)
@@ -394,9 +394,10 @@ def pending_migrations(
 
 @dataclass
 class Prepared:
-    """What a run composes from the kit and the project's own configs, read and checked before any write."""
+    """What a run composes from the kit and the project's own configs, read and checked before any write, the project's stamp read once with them."""
 
     stamp: str
+    project_version: str
     front_doors: dict[str, str]
     merged: list[Path]
     layout: str
@@ -407,30 +408,37 @@ def prepare(
     project: Project,
 ) -> Prepared:
     """Read the kit's stamp and front doors and merge the hook configs, so a refusal comes before the first write."""
-    stamped = schema.as_tuple(project.version())
-    for folder in (FOLDER, OLD_FOLDER):
-        for skill in schema.KIT_SKILLS:
+    project_version = project.version()
+    stamped = schema.as_tuple(project_version)
+    for skill in schema.KIT_SKILLS:
+        kits_own_file = skill_folder(
+            brain=kit.brain,
+            name=skill.name,
+        ) / "SKILL.md"
+        shipped = schema.ships(
+            skill=skill,
+            stamp=stamped,
+        )
+        for folder in (FOLDER, OLD_FOLDER):
             home = skill_folder(
                 brain=project.root / folder,
                 name=skill.name,
             )
-            kits_own_file = skill_folder(
-                brain=kit.brain,
-                name=skill.name,
-            ) / "SKILL.md"
-            present = store.quietly(home.is_symlink) or store.quietly(home.exists)
+            if store.quietly(home.is_symlink):
+                raise UpgradeError(f"{folder}/skills/{skill.name} is a symlink, replace it with a real folder first")
+
+            if shipped or not store.quietly(home.exists):
+                continue
+
             kits_copy = store.same_bytes(
                 one=home / "SKILL.md",
                 other=kits_own_file,
             )
-            if present and not schema.ships(skill=skill, stamp=stamped) and not kits_copy:
+            if not kits_copy:
                 raise UpgradeError(
                     f"the kit now ships a skill named {skill.name}, and {folder}/skills/{skill.name} is the project's own, "
                     "move it aside first, or delete it if an interrupted upgrade left it"
                 )
-
-            if store.quietly(home.is_symlink):
-                raise UpgradeError(f"{folder}/skills/{skill.name} is a symlink, replace it with a real folder first")
 
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
@@ -447,6 +455,7 @@ def prepare(
 
     return Prepared(
         stamp=stamp,
+        project_version=project_version,
         front_doors=front_doors,
         merged=merged,
         layout=project.state(),
