@@ -100,9 +100,10 @@ all.
 
 ## Boundaries
 
-- No secrets, ever. This directory is committed, all but the dotted
-  file below.
+- No secrets, ever. This directory is committed, all but the two
+  gitignored paths below.
 - No machine paths, no user personal facts. Project truth only.
-- One dotted file is the tool's own local state, `.ack`, the owner's
-  standing word to proceed with its end. It is gitignored, never
-  listed, indexed or checked, and never written by hand.
+- Two gitignored paths are the one exception. The tool's own local
+  state, `.ack`, holds the owner's standing word to proceed with its
+  end, and is never listed, indexed, checked or written by hand. The
+  worktree home the rules allow is the other.
