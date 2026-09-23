@@ -36,11 +36,11 @@ narrowed validation, a deleted test that covered a real case.
 
 ## callers, the change seen from outside
 
-For each function the diff changes, find every caller with Grep and
-check whether the change breaks the call: a new precondition, a changed
-return shape or type, a new exception, a changed order of effects. Check
-the callees too, since a second change in the same branch can make a
-call unsafe.
+For each function the diff changes, find every caller with grep through
+Bash and check whether the change breaks the call: a new precondition,
+a changed return shape or type, a new exception, a changed order of
+effects. Check the callees too, since a second change in the same
+branch can make a call unsafe.
 
 ## pitfalls, the language's own traps
 
@@ -97,14 +97,15 @@ an exit code.
 ## reuse, simplification and efficiency, the cleanup angles
 
 Three angles, one finder each, run at max. Reuse: new code that does
-what a helper in the codebase already does, found by Grep in the shared
-and the adjacent modules, naming the helper. Simplification: complexity
-the diff adds with no observable effect, redundant or derivable state,
-copy and paste with one variation, deep nesting, dead code left behind,
-naming the simpler form. Efficiency: wasted work the diff introduces, a
-repeated read or computation, independent work run in sequence, blocking
-work on a hot path, naming the cheaper form. A cleanup candidate states
-its cost in the scenario field instead of a failure.
+what a helper in the codebase already does, found by grep through Bash
+in the shared and the adjacent modules, naming the helper.
+Simplification: complexity the diff adds with no observable effect,
+redundant or derivable state, copy and paste with one variation, deep
+nesting, dead code left behind, naming the simpler form. Efficiency:
+wasted work the diff introduces, a repeated read or computation,
+independent work run in sequence, blocking work on a hot path, naming
+the cheaper form. A cleanup candidate states its cost in the scenario
+field instead of a failure.
 
 ## altitude, the fix at the wrong depth
 

@@ -9,8 +9,8 @@ argument-hint: [low|medium|high|max] [<base>...<head>]
 The review protocol of [house-rules.md](../../house-rules.md), run by
 the agent. The level names how wide the finding pass goes and never how
 hard the model thinks, which is the session's effort and the owner's to
-set. Sub agents run wherever the agent has them, in parallel, and the
-last section says what to do without them.
+set. Sub agents do the reading and the judging wherever the agent has
+them, and the last section says what to do without them.
 
 ## What holds throughout
 
@@ -32,9 +32,12 @@ last section says what to do without them.
   and the rule behind it is SYSTEM.md section 7.6.
 - In Claude Code the sub agents are the definitions under
   `.claude/agents/`, on Opus at the session's effort, with Read and
-  Bash. Claude Code reads them when a session starts, so the session
-  that ported the kit spawns a general purpose sub agent with the
-  definition's text at the top of its prompt until it restarts. Another
+  Bash. Claude Code reads them when a session starts, so after a port,
+  an upgrade or an edit to a definition the running session keeps the
+  old text, or has none, until it restarts. The prompt carries every
+  rule and every shape on its own, so the review runs the same either
+  way, and a session with no definition spawns a general purpose sub
+  agent with the definition's text at the top of its prompt. Another
   agent uses the strongest model it has.
 
 ## The gates
@@ -100,14 +103,16 @@ shows it.
    ```
 
 6. Report with the findings shape, then stop. Batch 1 starts on the
-   owner's word.
+   owner's word. When nothing survived, there is no batch and nothing
+   was fixed, so no closing pass is owed. The report says so, the
+   ledger closes, and the branch is ready to merge on the owner's word.
 
 ## The batch loop
 
-One batch at a time, and inside it everything that can run at once does.
+One batch at a time.
 
-1. Mark the batch, fix each finding with one commit, push, and record
-   the hash.
+1. Mark the batch, then fix each finding with one commit, the gates
+   green before every commit, push, and record the hash.
 
    ```bash
    brain ledger batch 2026-09-feat-billing 1 --status fixing

@@ -2,7 +2,7 @@
 name: spec-reviews
 kind: doc
 description: format and lifecycle for .agents/reviews, the code review ledgers
-updated: 2026-09-16
+updated: 2026-09-23
 links: [spec/conventions.md, house-rules.md, spec/bugs.md]
 ---
 
@@ -43,7 +43,8 @@ ledger.
 
 ## Lifecycle
 
-When the last batch closes and the branch merges, the ledger flips to
-`status: closed` and the reviews INDEX regroups it. Nothing moves and
-nothing archives: bug files and decisions link into ledgers by name, and
-git is the archive.
+When the last batch closes, and the closing pass with it where one was
+owed, the ledger flips to `status: closed` and the reviews INDEX
+regroups it, and only then does the branch merge, on the owner's word.
+Nothing moves and nothing archives: bug files and decisions link into
+ledgers by name, and git is the archive.

@@ -74,8 +74,9 @@ Candidates to verify in <project root>, range <base>...<head>, all in
 
 Run this first, as one Bash call:
 git diff <base>...<head> -- <file>
-Then read the enclosing code with Read and grep through Bash until you
-can decide each one.
+When that is too long for one call, read it hunk by hunk with Read on
+the file at the lines the candidates name. Then read the enclosing
+code with Read and grep through Bash until you can decide each one.
 
 Answer with one block per candidate, in this shape and nothing else:
 ### <C-n>
@@ -125,9 +126,10 @@ with the commit that fixed it:
 <F-nn> <file>:<line> <the claim>, fixed by <hash>
 
 Run this first, as one Bash call:
-git show <the hashes>
-Then read the code as it now stands with Read and grep through Bash.
-You may run one small snippet against the code on a temporary copy to
+git show <the hashes> -- <file>
+When that is too long for one call, read it one hash at a time. Then
+read the code as it now stands with Read and grep through Bash. You
+may run one small snippet against the code on a temporary copy to
 reproduce a scenario, never the project's test suite.
 
 Answer with one block per finding, in this shape and nothing else:
@@ -140,8 +142,9 @@ Do not edit, do not commit.
 ## The follow up, sent to a resumed batch verifier
 
 ```text
-Commit <hash> landed for <F-nn>. Run git show <hash> first, re read the
-changed lines before voting, and answer in the same block shape.
+Commit <hash> landed for <F-nn>. Run git show <hash> -- <file> first,
+re read the changed lines before voting, and answer in the same block
+shape.
 ```
 
 ## The closing finder
@@ -157,5 +160,7 @@ fixes introduced or what the review missed.
 ## The sweep finder
 
 The finder prompt with the sweep angle, and the pooled candidates of
-the other angles listed after it, one line each, under the heading
-"Already found".
+the other angles pasted after it as blocks under the heading "Already
+found". The sweep numbers its own candidates from C-1 like any finder,
+and the main session renumbers them after the pooled list when it
+files them.

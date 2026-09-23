@@ -1,12 +1,9 @@
 # The reports
 
-Every report follows SYSTEM.md section 7.6, the state first in plain
-words, then what changed, what is left and what the owner has to do,
-and nothing about the agent's own process. The state lines come from
+Every report follows SYSTEM.md section 7.6. The state lines come from
 `brain ledger report`, never from memory, and the only counts in prose
-are the refuted and hunter counts the shapes below carry. A file is
-named once, with what it does. Never a tip line, and never a pointer at
-the ledger as the answer.
+are the refuted and hunter counts the shapes below carry. Never a tip
+line.
 
 ## After the finding pass
 
@@ -36,17 +33,21 @@ Your call: ack batch <n> to start batch <n+1>.
 ```
 
 The deferred line appears only when there is one. When the batch was the
-last, the last line says the closing pass runs next, or, at low or on
-a sweep branch, that the branch is ready to merge on the owner's word.
+last, the ack line stays, and after it one line says what the ack
+opens, the closing pass, or, at low or on a sweep branch, the close of
+the ledger and then the merge on the owner's word.
 
 ## After the closing pass
 
 ```text
 <the lines brain ledger report prints>
 
-The closing pass found nothing. (or the batch shape above)
+The closing pass found nothing, and the ledger is closed.
 The branch is ready to merge on your word.
 ```
+
+A closing pass that found something reports with the batch shape
+instead, and this shape follows once that batch is done.
 
 ## Without sub agents
 
