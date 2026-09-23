@@ -807,11 +807,27 @@ def skills_folder_outside(
     link made here would point every one of them at this project's
     skills, so doctor names the trouble and leaves the link to a person.
     """
-    folder = project / SKILL_LINKS
+    folder = resolved(project / SKILL_LINKS)
+    root = resolved(project)
+
+    return folder is not None and root is not None and not folder.is_relative_to(root)
+
+
+def resolved(
+    path: Path,
+) -> Optional[Path]:
+    """The path resolved, or None when it reaches nothing.
+
+    A link that loops raises RuntimeError up to 3.12 and resolves to
+    itself from 3.13 on, a folder the process cannot search raises
+    OSError, and a name the system refuses raises ValueError. Each is
+    a path that reaches nothing, answered here once for every check
+    that resolves one.
+    """
     try:
-        return not folder.resolve().is_relative_to(project.resolve())
+        return path.resolve()
     except (OSError, RuntimeError, ValueError):
-        return False
+        return None
 
 
 def skill_missing(
@@ -841,33 +857,32 @@ def stray_skill_links(
     links = project / SKILL_LINKS
     found: list[Finding] = []
 
-    try:
-        homes = (project / SKILL_HOMES).resolve()
-        if links.resolve().is_relative_to(homes):
-            return found
+    homes = resolved(project / SKILL_HOMES)
+    folder = resolved(links)
+    if homes is None or folder is None or folder.is_relative_to(homes):
+        return found
 
+    try:
         entries = sorted(links.iterdir())
-    except (OSError, RuntimeError, ValueError):
+    except OSError:
         return found
 
     for link in entries:
         if link.name in wanted or not store.quietly(link.is_symlink) or not skill_gone(link):
             continue
 
-        try:
-            into_brain = link.resolve().is_relative_to(homes)
-        except (OSError, RuntimeError, ValueError):
-            into_brain = False
+        target = resolved(link)
+        if target is None or not target.is_relative_to(homes):
+            continue
 
-        if into_brain:
-            found.append(
-                Finding(
-                    path=str(SKILL_LINKS / link.name),
-                    check="layout",
-                    message=SKILL_GONE + (SHARED_REMOVAL if shared else ""),
-                    repair=None if shared else remove_link(link),
-                )
+        found.append(
+            Finding(
+                path=str(SKILL_LINKS / link.name),
+                check="layout",
+                message=SKILL_GONE + (SHARED_REMOVAL if shared else ""),
+                repair=None if shared else remove_link(link),
             )
+        )
 
     return found
 
@@ -1022,15 +1037,10 @@ def reaches(
     link: Path,
     home: Path,
 ) -> bool:
-    """Whether the link resolves to the skill's own folder.
+    """Whether the link resolves to the skill's own folder."""
+    target = resolved(link)
 
-    A link that loops raises RuntimeError up to 3.12 and resolves to
-    itself from 3.13 on, and either way it reaches nothing.
-    """
-    try:
-        return link.resolve() == home.resolve()
-    except (OSError, RuntimeError, ValueError):
-        return False
+    return target is not None and target == resolved(home)
 
 
 def check_style_copies(
