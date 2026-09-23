@@ -48,8 +48,11 @@ them, and the last section says what to do without them.
   agent uses the strongest model it has. Each definition caps the turns
   a sub agent may take, wide enough for a finder to read a large branch
   file by file. One that stops at its cap has read and not reported, so
-  it is resumed once with the line to read nothing more and report now,
-  a hunter included.
+  it is resumed once with the cap resume line of
+  [references/prompts.md](references/prompts.md), a hunter included. A
+  finder or a hunter whose report ends with (more remain) had more
+  candidates than its cap and runs again, fresh, with what it reported
+  as its already found list, until a run ends without that line.
 
 ## The gates
 
@@ -142,21 +145,22 @@ One batch at a time.
    re read the changed lines before voting. Hunters are never resumed
    for a follow up. A new hunter runs only when a follow up commit
    touched a file the batch had not touched before.
-5. The batch closes on the first pass where every verifier says gone,
-   the verifiers of the hunter's finds included, and every hunter that
-   ran has returned with its finds filed and handled.
-
-   ```bash
-   brain ledger batch 2026-09-feat-billing 1 --status verified
-   ```
-
-   Then the report, with the batch shape. A finding that cannot be fixed
-   in this branch is deferred into `.agents/bugs/` with `brain new bug`,
-   linked both ways, and named in the report. A finding not worth fixing
-   is set `wontfix`, and either way the tool wants the reason.
+5. A finding that cannot be fixed in this branch is deferred into
+   `.agents/bugs/` with `brain new bug`, linked both ways, and named in
+   the report. A finding not worth fixing is set `wontfix`, and either
+   way the tool wants the reason, before the batch can be verified.
 
    ```bash
    brain ledger set 2026-09-feat-billing F-09 status=wontfix reason="the guard is on purpose"
+   ```
+
+   The batch closes on the first pass where every finding has landed,
+   every verifier says gone, the verifiers of the hunter's finds
+   included, and every hunter that ran has returned with its finds
+   filed and handled. Then the report, with the batch shape.
+
+   ```bash
+   brain ledger batch 2026-09-feat-billing 1 --status verified
    ```
 
 6. The owner's ack closes the batch and opens the next.

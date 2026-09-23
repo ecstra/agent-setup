@@ -1,6 +1,6 @@
 ---
 name: review-hunter
-description: Sweeps a review batch's scope for defects the review missed and defects the fixes introduced. Spawned fresh by the branch-review skill after a batch is fixed, never resumed, never picked on its own.
+description: Sweeps a review batch's scope for defects the review missed and defects the fixes introduced. Spawned fresh by the branch-review skill after a batch is fixed, resumed only when it stops at its turn cap, never picked on its own.
 model: opus
 tools: Read, Bash
 omitClaudeMd: true

@@ -62,10 +62,17 @@ onward, and nothing else before or after:
 
 Report every candidate you can name a scenario for. A candidate you
 half believe still goes on the list, since a verifier judges it next.
-Return the single line (none) when the angle finds nothing. Do not edit
-anything, do not commit, do not run the test suite, and do not widen
-the scope beyond the range you were given.
+When more than <cap> deserve a scenario, report the <cap> that matter
+most and end with the single line (more remain). Return the single line
+(none) when the angle finds nothing. Do not edit anything, do not
+commit, do not run the test suite, and do not widen the scope beyond
+the range you were given.
 ```
+
+A finder or a hunter that ends with (more remain) is spawned again,
+fresh, with the same prompt and what it reported pasted under the
+heading "Already found", the way the sweep gets its list, until a run
+returns without that line.
 
 ## The verifier, in the finding pass
 
@@ -116,9 +123,22 @@ C-1 onward, and nothing else:
 - Type: <breaks or bug or debt or nit>
 - Claim: <the defect in one sentence>
 - Scenario: <the concrete input or state and the wrong result>
-Return the single line (none) when there is nothing. Do not edit
-anything, do not commit, do not run the test suite, and do not widen
-the scope beyond the range you were given.
+When more than 8 deserve a scenario, report the 8 that matter most and
+end with the single line (more remain). Return the single line (none)
+when there is nothing. Do not edit anything, do not commit, do not run
+the test suite, and do not widen the scope beyond the range you were
+given.
+```
+
+## The cap resume
+
+Sent to a finder, a sweep or a hunter that stopped at its turn cap
+with no report.
+
+```text
+You hit the turn cap. Read nothing more. Report now, from what you have
+already read, every candidate you can name a scenario for, in the block
+shape the task gave, numbered C-1 onward, or the single line (none).
 ```
 
 ## The batch verifier
