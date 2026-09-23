@@ -95,9 +95,10 @@ left pending, since the word is checked at the batch's start, refused
 on a batch that already carries the owner's own ack, which it never
 writes over, and off, held or run out it is refused anywhere. On a
 batch that already started on the word, the stamp it carries stays. A
-pending batch that still carries a stamp from an earlier word takes
-the standing word again when it starts, so its start is refused while
-the word is off, and the report says it waits for the owner's word.
+pending batch that holds findings and still carries a stamp from an
+earlier word takes the standing word again when it starts, so its
+start is refused while the word is off, and the report says it waits
+for the owner's word.
 
 ## The review ledger
 
