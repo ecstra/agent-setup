@@ -67,14 +67,17 @@ def turn_on(
     """Record the word with its end, the earliest of the ends given, refused when none is given."""
     at = at or clock.now()
     ends: list[datetime] = []
-    if hours is not None:
-        if hours <= 0:
-            raise AckError("auto ack lasts for a time above zero")
+    try:
+        if hours is not None:
+            if hours <= 0:
+                raise AckError("auto ack lasts for a time above zero")
 
-        ends.append(utc(at) + timedelta(hours=hours))
+            ends.append(utc(at) + timedelta(hours=hours))
 
-    if until_text:
-        ends.append(parse_until(text=until_text, at=at))
+        if until_text:
+            ends.append(utc(parse_until(text=until_text, at=at)))
+    except OverflowError as far:
+        raise AckError("auto ack would end past what any zone can show, give a nearer end") from far
 
     if task is not None:
         task = task_key(brain=brain, key=task)
@@ -82,9 +85,12 @@ def turn_on(
     if not ends and task is None:
         raise AckError("auto ack needs an end, a time with --for or --until, a task with --until-done, or both")
 
-    until = utc(min(ends)) if ends else None
+    until = min(ends) if ends else None
     if until is not None and until <= utc(at):
         raise AckError("auto ack would end before it starts, give a time still to come")
+
+    if until is not None and until > LATEST:
+        raise AckError("auto ack would end past what any zone can show, give a nearer end")
 
     grant = Grant(
         since=at,
@@ -104,7 +110,10 @@ def turn_off(
     if not store.quietly(path.is_file):
         return False
 
-    path.unlink()
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
 
     return True
 
@@ -115,12 +124,12 @@ def current(
 ) -> Optional[Grant]:
     """The word as it stands, or None when none was given, its time ran out, its task is done or gone, or its task cannot be read or told apart right now.
 
-    A word its task has ended, or whose task is gone from the brain, is
-    taken back on the spot, so it never comes back when the task reads
-    open again after a reopen, or when a new entry takes the same id on
-    another branch. A task the brain cannot read or tell apart right
-    now, one a rebase stopped on or a merge doubled, leaves the word
-    off and the file in place, so the word is back once the entry is.
+    A word its task has ended, or whose task is gone from the brain or
+    doubled by a merge, is taken back on the spot, so it never comes
+    back when the task reads open again after a reopen, or when a new
+    entry takes the same id on another branch. A task the brain cannot
+    read right now, one a rebase stopped on, holds the word off with
+    the file in place, so the word is back once the entry is.
     """
     grant = read(brain)
     if grant is None:
@@ -166,22 +175,45 @@ def stamp(
     brain: store.Brain,
     at: Optional[datetime] = None,
 ) -> str:
-    """The ack a ledger records while the word stands, refused when it does not."""
+    """The ack a ledger records while the word stands, refused when it does not, or is held."""
     at = at or clock.now()
     if current(brain=brain, at=at) is None:
+        held = held_word(brain=brain, at=at)
+        if held is not None:
+            raise AckError(f"auto ack is held, {held.task} cannot be read right now, the owner's word starts a batch")
+
         raise AckError("auto ack is off, the owner's word starts a batch")
 
     return f"auto {at:%Y-%m-%d}"
+
+
+def held_word(
+    brain: store.Brain,
+    at: datetime,
+) -> Optional[Grant]:
+    """A word still within its time whose task the brain cannot read right now, which holds it off without ending it."""
+    grant = read(brain)
+    if grant is None or grant.task is None:
+        return None
+
+    if grant.until is not None and utc(at) >= grant.until:
+        return None
+
+    return grant if task_state(brain=brain, key=grant.task) == "unsure" else None
 
 
 def describe(
     brain: store.Brain,
     at: Optional[datetime] = None,
 ) -> str:
-    """One line on the word, off or on with what is left of it, for the hooks and the status line."""
+    """One line on the word, off, held, or on with what is left of it, for the hooks and the status line."""
     at = at or clock.now()
     grant = current(brain=brain, at=at)
     if grant is None:
+        held = held_word(brain=brain, at=at)
+        if held is not None:
+            return f"auto ack held, {held.task} cannot be read right now"
+
         return OFF
 
     if grant.until is None:
@@ -359,7 +391,7 @@ def task_key(
     try:
         brain.find(stored)
     except store.Ambiguous as clash:
-        raise AckError(str(clash)) from clash
+        raise AckError(f"{stored} names more than one entry, so auto ack cannot end with it until the doctor clears the clash") from clash
 
     return stored
 
@@ -375,17 +407,18 @@ def task_state(
     brain: store.Brain,
     key: str,
 ) -> str:
-    """Whether the task is open, done, gone from the brain, or unsure, when the brain cannot read it or tell it apart right now.
+    """Whether the task is open, done, gone from the brain, or unsure, when the brain cannot read it right now.
 
     Every state but open leaves the word off. Done and gone take it
-    back for good. Unsure keeps the file, since an entry that is
-    unreadable while a rebase stops on it, or doubled by a merge, may
-    well read open again.
+    back for good, and so does an id that a merge has doubled, since
+    the brain can then no longer say which entry the owner named.
+    Unsure keeps the file, since an entry that is unreadable while a
+    rebase stops on it may well read open again.
     """
     try:
         entry = brain.find(key)
     except store.Ambiguous:
-        return "unsure"
+        return "gone"
 
     if entry is None:
         return "unsure" if unreadable_task(brain=brain, key=key) else "gone"

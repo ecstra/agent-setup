@@ -64,7 +64,7 @@ for a person.
 |---|---|
 | `brain ack on --for 8h` | Records the word for a duration, in minutes, hours or days, such as 90m, 8h or 2d. |
 | `brain ack on --until "tomorrow 22:00"` | Records it until a moment: a time today, which means tomorrow when it has passed, `tomorrow HH:MM`, a date, which means the end of that day, or a date and time. |
-| `brain ack on --until-done <key>` | Records it until a todo, a bug or a review is done, by id, name or path, a bug on a branch still counting as open. The word follows the entry's id, so a retitle leaves it standing, and it is taken back the moment the entry is done or gone from the brain. An entry the brain cannot read or tell apart right now, one a rebase stopped on or a merge doubled, leaves the word off until the entry reads again. Refused for an entry of any other kind, and for one already past open. Given with a time, the earlier end wins. |
+| `brain ack on --until-done <key>` | Records it until a todo, a bug or a review is done, by id, name or path, a bug on a branch still counting as open. The word follows the entry's id, so a retitle leaves it standing, and it is taken back the moment the entry is done, gone from the brain, or doubled by a merge. An entry the brain cannot read right now, one a rebase stopped on, holds the word off until the entry reads again, and the status line says so. Refused for an entry of any other kind, for one already past open, and for an id that names more than one entry. Given with a time, the earlier end wins. |
 | `brain ack off` | Takes the word back. |
 
 A word with no end is refused, so the agent proposes one to the owner
