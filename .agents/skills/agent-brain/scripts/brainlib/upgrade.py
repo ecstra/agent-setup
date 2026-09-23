@@ -143,13 +143,20 @@ class Kit:
         return read_version(stamp)
 
     def brain_files(self) -> list[Path]:
-        """The kit's own files under .agents/, relative to it, the indexes left out since the tool builds those, and the tool's tests too."""
+        """The kit's own files under .agents/, relative to it, the indexes left out since the tool builds those, and the tool's tests too.
+
+        The skills are the checkout's own, every folder under its skills/
+        that carries a SKILL.md, since the checkout may be a newer release
+        than the tool running the install and ship a skill it never heard
+        of.
+        """
         found = [Path(name) for name in schema.KIT_FILES if name != schema.INDEX]
         found += sorted(path.relative_to(self.brain) for path in (self.brain / "spec").glob("*.md"))
+        skills = store.skill_folders(self.brain)
         found += sorted(
             path.relative_to(self.brain)
             for path in (self.brain / "skills").rglob("*")
-            if ships(path) and kits_skill(path.relative_to(self.brain).parts) and "tests" not in path.relative_to(self.brain / "skills").parts
+            if ships(path) and path.relative_to(self.brain / "skills").parts[0] in skills and "tests" not in path.relative_to(self.brain / "skills").parts
         )
         found.append(Path(VERSION))
 
