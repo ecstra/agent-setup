@@ -24,8 +24,9 @@ OFF = "auto ack off"
 BROKEN = f"{FILE} does not read as a word and brain ack off clears it"
 FOLDER = f"{FILE} is a folder the tool never made, move it away by hand"
 
-# the last moment every zone can still show on its own clock
-LATEST = datetime(9999, 12, 30, tzinfo=timezone.utc)
+# the last moment every machine can still place on its own clock, since
+# Windows stops converting at the year 3000
+LATEST = datetime(2999, 12, 31, tzinfo=timezone.utc)
 
 # the kinds a word can end with, and the statuses that keep each one open
 OPEN_STATUSES = {
@@ -81,7 +82,7 @@ def turn_on(
         if until_text is not None:
             ends.append(utc(parse_until(text=until_text, at=at)))
     except OverflowError as far:
-        raise AckError("auto ack would end past what any zone can show, give a nearer end") from far
+        raise AckError("auto ack would end past the year 2999, give a nearer end") from far
 
     if task is not None:
         task = task_key(brain=brain, key=task)
@@ -94,7 +95,7 @@ def turn_on(
         raise AckError("auto ack would end before it starts, give a time still to come")
 
     if until is not None and until > LATEST:
-        raise AckError("auto ack would end past what any zone can show, give a nearer end")
+        raise AckError("auto ack would end past the year 2999, give a nearer end")
 
     grant = Grant(
         since=at,
@@ -590,7 +591,7 @@ def read(
 def moment_of(
     text: str,
 ) -> datetime:
-    """A moment from the state file, refused when it carries no zone or lies past what any zone can show.
+    """A moment from the state file, refused when it carries no zone or lies past what every machine can place on its clock.
 
     The far end raises an OverflowError on its own, from the conversion
     the comparison needs, and the reader takes that as the refusal.
@@ -600,6 +601,6 @@ def moment_of(
         raise ValueError(f"'{text}' carries no zone")
 
     if utc(moment) > LATEST:
-        raise ValueError(f"'{text}' lies past what any zone can show")
+        raise ValueError(f"'{text}' lies past the year 2999")
 
     return moment
