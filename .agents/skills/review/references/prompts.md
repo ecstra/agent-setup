@@ -18,7 +18,7 @@ The candidate line, returned by finders and hunters:
 ```text
 Review scope: the range <base>...<head> in <project root>. The files:
 <one file per line from git diff --name-only>
-<when git status --porcelain lists anything: "Uncommitted work is in scope too. git diff HEAD shows the tracked changes, and read these untracked files whole, since no diff shows them:" followed by their paths>
+<when git status --porcelain --untracked-files=all lists anything: "Uncommitted work is in scope too. git diff HEAD shows the tracked changes, and read these untracked files whole, since no diff shows them:" followed by their paths>
 
 Run this first, as one Bash call, before anything else:
 git diff <base>...<head> -- <the files>

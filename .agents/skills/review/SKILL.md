@@ -44,22 +44,27 @@ review, and the report says which one.
 ```bash
 git diff --name-only main...HEAD
 git log --oneline main..HEAD
-git status --porcelain
+git status --porcelain --untracked-files=all
 ```
 
 The range is `main...HEAD` unless the owner gave one. The first command
 lists every changed file whole, and the list and the range go into
 every sub agent prompt. Uncommitted work is in scope too. The third
-command lists it, tracked and untracked alike, and a prompt names an
-untracked file as one to read whole, since no diff shows it.
+command lists it file by file, tracked and untracked alike, and a
+prompt names an untracked file as one to read whole, since no diff
+shows it.
 
 ## The finding pass
 
 1. Open the ledger before anything is found, so the review's folder
-   exists the moment it starts, with the level recorded:
+   exists the moment it starts, with the level recorded. The summary
+   comes in on standard input like every line the agent writes from the
+   branch, so the shell never touches it:
 
    ```bash
-   brain ledger open feat/billing --summary "what the branch did, one line" --level high
+   brain ledger open feat/billing --level high --summary - <<'EOF'
+   what the branch did, one line
+   EOF
    ```
 
 2. Spawn the finders, one per angle the level lists in
@@ -116,7 +121,8 @@ One batch at a time, and inside it everything that can run at once does.
    new hunter runs only when a follow up commit touched a file the batch
    had not touched before.
 5. The batch closes on the first pass where every verifier says gone,
-   the verifiers of the hunter's finds included:
+   the verifiers of the hunter's finds included, and the last hunter to
+   run has returned with every find of its own filed and handled:
 
    ```bash
    brain ledger batch 2026-09-feat-billing 1 --status verified
@@ -134,16 +140,18 @@ One batch at a time, and inside it everything that can run at once does.
 
 ## The closing pass
 
-At high and max, once the last batch is done, the finders run once more
-over the whole branch as it now stands, with the closing line added to
-their prompt, looking only for what the fixes introduced or the review
+Above low, once the last batch is done, the finders run once more over
+the whole branch as it now stands, with the closing line added to their
+prompt, looking only for what the fixes introduced or the review
 missed. The pass opens a batch themed `closing pass`, so the ledger
 knows it ran, and what survives verification is filed into it and run
 like any batch. A pass that found nothing leaves the batch empty and
-sets it done, which needs no ack. A sweep branch skips this pass. Then:
+sets it done, which needs no ack. A sweep branch skips this pass. Then,
+with the empty pass as batch 2 here:
 
 ```bash
 brain ledger batch 2026-09-feat-billing --theme "closing pass"
+brain ledger batch 2026-09-feat-billing 2 --status done
 brain ledger close 2026-09-feat-billing
 ```
 

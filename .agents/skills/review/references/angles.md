@@ -7,7 +7,7 @@ the line shape from [prompts.md](prompts.md) and nothing else.
 | Level | Angles | Verify | Closing pass |
 |---|---|---|---|
 | low | scan | no | no |
-| medium | scan, removed, callers, rules | yes | no |
+| medium | scan, removed, callers, rules | yes | yes |
 | high | scan, removed, callers, pitfalls, rules, tests, docs | yes | yes |
 | max | every angle, then the sweep | yes | yes |
 
