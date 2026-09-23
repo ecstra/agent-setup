@@ -124,10 +124,12 @@ report names a step before the close. The standing word is `brain ack
 on` with an end, by time or by task, `brain ack off` takes it back,
 and `brain ack` says where it stands.
 
+A second `brain ack on` replaces the word outright, so two ends go in
+one call.
+
 ```bash
-brain ack on --for 8h
-brain ack on --until-done 2026-09-feat-billing
-brain ledger batch 2026-09-feat-billing 1 --status fixing --ack auto
+brain ack on --for 8h --until-done 2026-10-feat-search
+brain ledger batch 2026-10-feat-search 1 --status fixing --ack auto
 brain ack off
 ```
 
