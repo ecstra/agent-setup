@@ -24,9 +24,9 @@ OFF = "auto ack off"
 BROKEN = f"{FILE} does not read as a word and brain ack off clears it"
 FOLDER = f"{FILE} is a folder the tool never made, move it away by hand"
 
-# the last moment every machine can still place on its own clock, since
-# Windows stops converting at the year 3000
-LATEST = datetime(2999, 12, 31, tzinfo=timezone.utc)
+# the last moment of the year 2999, the last every machine can still
+# place on its own clock, since Windows stops converting at the year 3000
+LATEST = datetime(2999, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
 
 # the kinds a word can end with, and the statuses that keep each one open
 OPEN_STATUSES = {
@@ -81,7 +81,9 @@ def turn_on(
 
         if until_text is not None:
             ends.append(utc(parse_until(text=until_text, at=at)))
-    except OverflowError as far:
+    except (OverflowError, OSError) as far:
+        # the calendar overflows on its own, and Windows refuses to place a
+        # moment past the year 3000 on its clock with an OSError
         raise AckError("auto ack would end past the year 2999, give a nearer end") from far
 
     if task is not None:
@@ -329,10 +331,10 @@ def utc(
     return moment.astimezone(timezone.utc)
 
 
-def on_this_machine(
+def machine_fold(
     at: datetime,
-) -> bool:
-    """Whether the moment is expressed in this machine's own zone, whose daylight saving rules then apply.
+) -> Optional[int]:
+    """Which side of a repeated hour this machine's clock reads the moment on, 0 or 1, or None when the moment is not this machine's.
 
     The clock gives the moment with a fixed offset and no zone name, so
     the test is whether its wall clock, read as this machine's local
@@ -341,14 +343,24 @@ def on_this_machine(
     named zone brings its own rules and is never this machine's.
     """
     if at.tzinfo is None:
-        return True
+        return 0
 
     if type(at.tzinfo) is not timezone:
-        return False
+        return None
 
     naive = at.replace(tzinfo=None)
+    for fold in (0, 1):
+        if naive.replace(fold=fold).astimezone() == at:
+            return fold
 
-    return any(naive.replace(fold=fold).astimezone() == at for fold in (0, 1))
+    return None
+
+
+def on_this_machine(
+    at: datetime,
+) -> bool:
+    """Whether the moment is expressed in this machine's own zone, whose daylight saving rules then apply."""
+    return machine_fold(at) is not None
 
 
 def on_the_wall(
@@ -366,11 +378,17 @@ def from_the_wall(
     at: datetime,
     naive: datetime,
 ) -> datetime:
-    """A wall clock reading placed in the zone the word runs on, this machine's rules when the word was given on it."""
-    if on_this_machine(at):
-        return naive.astimezone()
+    """A wall clock reading placed in the zone the word runs on, this machine's rules when the word was given on it.
 
-    return naive.replace(tzinfo=at.tzinfo)
+    A reading inside a repeated hour lands on the same side of it as
+    the moment the word is given at, so an end asked for in the second
+    pass is not placed an hour early in the first.
+    """
+    fold = machine_fold(at)
+    if fold is not None:
+        return naive.replace(fold=fold).astimezone()
+
+    return naive.replace(tzinfo=at.tzinfo, fold=at.fold)
 
 
 def parse_duration(
