@@ -103,7 +103,7 @@ def add_ack(
     command.add_argument("state", nargs="?", choices=("on", "off"), help="on or off, nothing to see where it stands")
     command.add_argument("--for", dest="lasting", help="how long, such as 8h, 90m or 2d")
     command.add_argument("--until", help="a moment, such as 22:00, tomorrow 22:00 or 2026-09-24 22:00")
-    command.add_argument("--until-done", dest="task", help="an entry the word ends with, a todo, a bug or a review, once it is done, a bug on a branch still counting as open")
+    command.add_argument("--until-done", dest="task", help="an entry the word ends with, a todo, a bug or a review, once it is done or gone, a bug on a branch still counting as open, and one the brain cannot read right now holding the word off")
     command.set_defaults(handler=run_ack)
 
 
