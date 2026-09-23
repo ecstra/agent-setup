@@ -152,6 +152,9 @@ def set_batch(
                 raise LedgerError(f"{', '.join(still_open)} still open, batch {number} is {status} once every finding has landed")
 
             if own and not new_ack:
+                if autoack.current(brain) is not None:
+                    raise LedgerError(f"batch {number} holds findings and runs on the standing word, give --ack auto")
+
                 raise LedgerError(f"batch {number} holds findings and runs on the owner's ack, give --ack")
 
         row = batch_row(
