@@ -125,9 +125,6 @@ def set_batch(
         raise LedgerError(f"a batch is {' or '.join(BATCH_STATUSES)}, not '{status}'")
 
     auto = is_auto(ack)
-    if auto:
-        ack = standing_word(brain)
-
     ack = cell(value=ack, what="ack")
     theme = cell(value=theme, what="theme")
     if not (status or ack or theme):
@@ -149,14 +146,19 @@ def set_batch(
             items=findings(entry),
             number=number,
         )
-        new_ack = ack or match.group(4)
+        old_ack = match.group(4)
         starting = match.group(3) == "pending" and status in ("fixing", "verified", "done")
-        if auto and match.group(4):
-            if not is_auto(match.group(4)):
-                raise LedgerError(f"batch {number} already carries the owner's ack {match.group(4)}")
+        if auto and old_ack and not is_auto(old_ack):
+            raise LedgerError(f"batch {number} already carries the owner's ack {old_ack}")
 
-            if not starting:
-                new_ack = match.group(4)
+        # the word is asked for once the ledger and the batch are known, so a
+        # bad key or number is reported as that, and a stamp already carried
+        # stays past the start while the word still has to stand
+        if auto:
+            fresh = standing_word(brain)
+            new_ack = old_ack if old_ack and not starting else fresh
+        else:
+            new_ack = ack or old_ack
 
         if starting and own and not ack and is_auto(new_ack):
             new_ack = standing_word(brain)
