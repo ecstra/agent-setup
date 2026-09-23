@@ -396,6 +396,7 @@ def close(
         raise LedgerError(f"{names} still open, a ledger closes when every finding has landed")
 
     step = next_step(
+        brain=brain,
         entry=entry,
         rows=batches(entry),
         items=items,
@@ -436,6 +437,7 @@ def report(
         lines.append(f"batch {row['number']}, {row['theme']}: {row['status']}{ack}, {tally(own)}")
 
     step = next_step(
+        brain=brain,
         entry=entry,
         rows=rows,
         items=items,
@@ -476,6 +478,7 @@ def needs_a_batch(
 
 
 def next_step(
+    brain: store.Brain,
     entry: store.Entry,
     rows: list[dict],
     items: list[dict],
@@ -485,8 +488,9 @@ def next_step(
     An open or a fixed finding filed into no batch the table has comes
     first, since nothing moves until it is placed and a fix is verified
     by its batch. Then the batches in order. A pending one waits for the
-    owner's word, the ack that starts it and is recorded on it, and one
-    that carries the ack already is there to start. A batch
+    owner's word, the ack that starts it and is recorded on it, one
+    that carries the ack already is there to start, and so is one with
+    none while the owner's standing word holds. A batch
     past pending needs its open findings fixed, a late one included,
     then its verification, and verification closes it. A batch that
     holds findings with no ack recorded, which a hand edit leaves, or a
@@ -505,7 +509,13 @@ def next_step(
     for row in rows:
         number = row["number"]
         if row["status"] == "pending":
-            return f"start batch {number}, it has the word" if row["ack"] else f"batch {number} on the owner's word"
+            if row["ack"]:
+                return f"start batch {number}, it has the word"
+
+            if autoack.current(brain) is not None:
+                return f"start batch {number} on the standing word"
+
+            return f"batch {number} on the owner's word"
 
         own = in_batch(
             items=items,
