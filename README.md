@@ -26,7 +26,8 @@ written record of what the project knows.
 | `CLAUDE.md` and `GEMINI.md` | One line each, pulling in `AGENTS.md`, because Claude Code and Gemini CLI look for their own filename. |
 | `.agents/SYSTEM.md` | The rulebook. How to write code, how to talk to you, where docs go, how a branch gets reviewed, how git is used. |
 | `.agents/` | The project's memory. Docs, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
-| `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. Plain Python, no dependencies. |
+| `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
+| `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
 | `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking, the link Claude Code needs to find the skill, and the Plain & Short chat style, once per agent in the form that agent reads. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
@@ -39,26 +40,26 @@ stays as it ships, apart from your handle in `CODEOWNERS`.
 
 ## Installation
 
-Three ways to get the kit in, easiest first. All of them end with the
-kit's files sitting in your repo root next to your code.
+The kit installs itself. Get a copy of it next to your project, then run
+its port from your project's root, and the tool puts every file where
+it belongs. Three ways to get the copy, easiest first.
 
 ### Ask your agent
 
 If your machine can already reach the forge (you have cloned from
-`forge.example.com` before, or `tea` is logged in), open Claude Code in
+`forge.example.com` before, or `tea` is logged in), open your agent in
 your project and paste this prompt.
 
 ```text
 Clone https://forge.example.com/example/agent-setup into a folder beside
 this repo, then run its port from our root:
-python3 <that folder>/.agents/skills/agent-brain/scripts/brain.py port.
-It keeps any "## 0. Project Rules" we already have and our own hooks,
-and it refuses while a file it would replace has uncommitted changes,
-so commit first. Copy the kit's CODEOWNERS in with my handle in place
-of @ecstra. If this project already has test, build, or lint commands,
-add a "## 0. Project Rules" section at the top of AGENTS.md naming
-them as the gates. Read what the port printed, and tell me what you
-did and what it listed as left to file.
+python3 <that folder>/.agents/skills/agent-brain/scripts/brain.py port
+It refuses while a file it would replace has uncommitted changes, so
+commit first. Copy the kit's CODEOWNERS in with my handle in place of
+@ecstra. If this project already has test, build, or lint commands, add
+a "## 0. Project Rules" section at the top of AGENTS.md naming them as
+the gates. Read what the port printed, and tell me what you did and
+what it listed as left to file.
 ```
 
 ### Terminal
@@ -72,17 +73,7 @@ python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py port
 cp ../agent-setup/CODEOWNERS .
 ```
 
-Adjust the `../agent-setup` path if you cloned somewhere else. The port
-puts the kit's files in place, keeps any `## 0. Project Rules` and any
-hooks of your own beside the kit's, carries a `CLAUDE.md` or `AGENTS.md`
-of your own whole into section 0 when you had no such section, for your
-agent to trim against the rulebook, puts the kit's ignore lines in a
-block at the top of your `.gitignore` with your own lines kept below it,
-where they win, runs the tool's doctor once, which builds the indexes and
-makes the skill link, and ends by listing what it found that belongs in
-the brain. It refuses while a file it would replace holds uncommitted
-changes, so commit first. `CODEOWNERS` is the one file it leaves to
-you, since it needs your handle in place of `@ecstra`.
+Adjust the `../agent-setup` path if you cloned somewhere else.
 
 ### Download
 
@@ -91,19 +82,44 @@ Unzip it beside your project, then run the port from your project's
 root exactly as the terminal path does, with the unzipped folder's
 path in place of `../agent-setup`.
 
+### What the port does
+
+It works on the git repository around the folder you run it in, never
+on your home folder, and it refuses while a file it would replace holds
+uncommitted work, so commit first. Then it does all of this in one run.
+
+- The kit's files land: the rulebook and its specs under `.agents/`,
+  the front doors at the root, the hooks and the chat style in the
+  agent folders, and the version stamp.
+- Your own rules are kept. A `## 0. Project Rules` section you already
+  had in `AGENTS.md`, `CLAUDE.md` or `GEMINI.md` goes to the top of the
+  new `AGENTS.md`. If you had no such section but a `CLAUDE.md` or
+  `AGENTS.md` of your own, its words go there whole, for your agent to
+  trim against the rulebook.
+- Your own hooks stay. The kit's hooks are added beside them in each
+  agent's config, and any other setting of yours is left as it was.
+- Your `.gitignore` keeps every line it had. The kit's lines go in a
+  block at the top, so your own lines sit below them and win.
+- The tool's doctor runs once, builds the indexes and makes the skill
+  link Claude Code needs.
+- The report names each root file it replaced along with where git
+  keeps the old one, and ends with what it found that belongs in the
+  brain, for your agent to file.
+
+Run it again and it writes nothing.
+
 > **Two things every path leaves to you.**
 >
 > 1. `CODEOWNERS`: copy the kit's in and replace `@ecstra` with your
->    own handle.
+>    own handle. The port never touches ownership.
 > 2. `## 0. Project Rules`: optional. It goes at the top of `AGENTS.md`,
->    directly under the title, and holds what the general rules cannot
->    know about your project. The gates (the exact test suites,
->    analyzers, builds, and validators that must be green before a
->    review), the tooling (how PRs are opened, how the app runs),
->    anything else the general sections do not cover. A project with no
->    gates yet has nothing to put there, so skip it and add it when the
->    first gate exists. A section 0 you already had in an old
->    `CLAUDE.md` or `AGENTS.md` is carried over by the port.
+>    directly under the title and above the comment line, and holds what
+>    the general rules cannot know about your project. The gates (the
+>    exact test suites, analyzers, builds, and validators that must be
+>    green before a review), the tooling (how PRs are opened, how the
+>    app runs), anything else the general sections do not cover. A
+>    project with no gates yet has nothing to put there, so skip it and
+>    add it when the first gate exists.
 
 Commit, and start your first session. The agent reads `.agents/INDEX.md`
 on its own, you do not need to point at anything.
@@ -126,11 +142,12 @@ the agent does the filing, because there is a lot of it and every file
 needs the right header block and index line.
 
 Porting builds on the installation above, so do that first, any of the
-three ways, and skip nothing. Keep your old `AGENTS.md`, `CLAUDE.md`,
-`GEMINI.md`, `CONTRIBUTING.md`, and `CODEOWNERS` aside, and anything
-you had in `.claude/`, `.codex/` or `.gemini/`, since the copy lands on
-top of them. The rules come back in during the port, your own ownership
-goes back into `CODEOWNERS`, and your own hooks sit beside the kit's.
+three ways. Nothing of yours is thrown away by the port. An old rules
+file of yours is carried into section 0 for the agent to trim, a root
+file the kit replaces is named in the report with where git keeps it,
+and your own hooks and ignore lines stay where they were. The port ends
+by listing what it found that belongs in the brain, and that list is
+where the agent starts.
 
 ### What the agent will do
 
@@ -148,11 +165,11 @@ goes back into `CODEOWNERS`, and your own hooks sit beside the kit's.
    the id and the index line, so none of them is typed, and the hook
    refuses a brain file written any other way. Your wording is kept in
    todos and nothing gets shortened on the way.
-4. **Port the old rules, never paste them**: your old `AGENTS.md`,
-   `CLAUDE.md`, or `GEMINI.md` is read against the new rules. Whatever
+4. **Trim the old rules, never keep them whole**: what the port carried
+   into `## 0. Project Rules` is read against the new rulebook. Whatever
    the general sections already say is dropped, and only what is truly
-   project specific is rewritten into `## 0. Project Rules` at the top
-   of the new `AGENTS.md`.
+   project specific stays at the top of the new `AGENTS.md`. Your old
+   `CONTRIBUTING.md` is read the same way, its extra rules into section 0.
 5. **Do all of it**: a project can hold hundreds or thousands of files,
    old and new, and the port covers every one, never a sample. If the
    volume calls for it, the agent lists everything in a ledger first and
@@ -179,13 +196,13 @@ goes back into `CODEOWNERS`, and your own hooks sit beside the kit's.
 
 | What you have today | Where it goes |
 |---|---|
-| Your own `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` | Read against the new rulebook and rewritten into `## 0. Project Rules` at the top of the new `AGENTS.md`. Never pasted whole, anything the general rules already cover is dropped. |
-| A `docs/` folder, wiki pages, architecture or design notes | `.agents/docs/`, sorted into a category folder (`foundation/`, `systems/`, `ops/`, `research/`), one line each in `.agents/docs/INDEX.md`. What a person wrote by hand stays where it is. |
+| Your own `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` | Carried into `## 0. Project Rules` by the port, then read against the new rulebook. Anything the general rules already cover is dropped, only the truly project specific parts stay. |
+| A `docs/` folder, wiki pages, architecture or design notes | `.agents/docs/`, sorted into a category folder (`foundation/`, `systems/`, `ops/`, `research/`), one line each in `.agents/docs/INDEX.md`. What a person wrote by hand stays where it is, and a `docs/` folder you keep links into the brain rather than repeating it. |
 | ADRs or a decisions log | `.agents/decisions/`, one file per decision. |
 | A TODO list, roadmap, or backlog | `.agents/todos/`, one file per item, your wording kept as is. |
 | Known bugs, issue notes | `.agents/bugs/`, one file per bug. |
 | Gotchas, tribal knowledge, "remember that" notes | `.agents/memory/`, one fact per file. |
-| Your `CONTRIBUTING.md` | Replaced by the kit's. Extra rules of yours go into `## 0. Project Rules`. |
+| Your `CONTRIBUTING.md` | Replaced by the kit's, the old one kept by git. Extra rules of yours go into `## 0. Project Rules`. |
 | Your `README.md` | Stays at the root, trimmed to what the project is and how to run it, with links onward. Detail moves into `.agents/docs/`. |
 | Changelogs, status reports, meeting notes | Not agent knowledge. Left where they are or dropped. |
 
@@ -200,66 +217,58 @@ on a new branch. Before anything else, read the new AGENTS.md and the
 rules it points at, and work by them from here on: prose edited with
 the proper edit tools, no scripts or heredocs, the header blocks and
 indexes inside .agents/ left to the brain tool, house style throughout.
-Then read the whole project: the code, every doc and note, our old
-AGENTS.md, CLAUDE.md, GEMINI.md or CONTRIBUTING.md if we have any, and
-every TODO list. Then read .agents/INDEX.md, everything in
-.agents/spec/, and the agent-brain skill so you know the target format
-and the tool that writes it. Show me a plan of what goes where before
-you move anything. Then file it all into .agents/ (docs, decisions,
-todos, bugs, memory, everything) one file at a time through brain new
-with the prose on standard input, never by hand, keeping my wording in
-todos. Do not paste any of our old rulebook files into section 0: read
-them against the new rulebook, drop what the general sections already
-cover, and rewrite only the truly project specific parts into section 0
-at the top of AGENTS.md, and our old CONTRIBUTING.md the same way, its
-extra rules into section 0. This may be hundreds or thousands of files.
-Do every one, never a sample. If the volume needs it, list everything
-in a ledger first and work in batches, ticking each file off. When it
-is all filed, delete the old copies of the docs you moved, but leave
-anything a human wrote by hand where it is and list those for me. If we
-set an old CODEOWNERS aside, put our own ownership rules back into it.
-Run brain doctor --fix and leave it clean. Then tell me what you did
-and where, and wait for me to call the review.
+Then read the whole project: the code, every doc and note, and every
+TODO list, and the list the port printed of what is left to file. Then
+read .agents/INDEX.md, everything in .agents/spec/, and the agent-brain
+skill so you know the target format and the tool that writes it. Show
+me a plan of what goes where before you move anything. Then file it all
+into .agents/ (docs, decisions, todos, bugs, memory, everything) one
+file at a time through brain new with the prose on standard input,
+never by hand, keeping my wording in todos. Section 0 at the top of
+AGENTS.md holds what the port carried over from our old rules: read it
+against the new rulebook, drop what the general sections already cover,
+and keep only the truly project specific parts, and read our old
+CONTRIBUTING.md from git the same way, its extra rules into section 0.
+This may be hundreds or thousands of files. Do every one, never a
+sample. If the volume needs it, list everything in a ledger first and
+work in batches, ticking each file off. When it is all filed, delete
+the old copies of the docs you moved, but leave anything a human wrote
+by hand where it is and list those for me. Run brain doctor --fix and
+leave it clean. Then tell me what you did and where, and wait for me to
+call the review.
 ```
 
 ## Keeping the kit current
 
-When this repo's rulebook changes, copy the kit's own files over yours
-and leave everything your project wrote alone.
-
-- `.agents/SYSTEM.md`: new over old. The rules are the kit's from end to
-  end, so nothing of yours is in there to save.
-- `AGENTS.md`: keep your `## 0. Project Rules` and take the kit's wording
-  for the rest. The comment line under the title marks where the kit's
-  words start, so section 0 stays above it. `CLAUDE.md` and `GEMINI.md`
-  never change from one release to the next, though the move below puts
-  them in place the first time.
-- `CONTRIBUTING.md` and `.agents/house-rules.md`: new over old. They
-  carry the same rules in shorter form, so they move with the rulebook.
-- `.agents/README.md` and `.agents/spec/`: new over old. The spine and
-  the folder indexes are rebuilt by the doctor run at the end, never
-  edited. Nothing else inside `.agents/` is touched, because the rest of
-  it is your project's.
-- `.agents/skills/`, `.agents/VERSION`, and the hook files in `.claude/`,
-  `.codex/` and `.gemini/`: new over old. The tool and the hooks move
-  with the release, and the stamp says which release you are on.
-
-The tool does all of that in one command. Clone the new release beside
-your project and run its upgrade from your project's root.
+When this repo puts out a new release, clone it beside your project and
+run its upgrade from your project's root.
 
 ```bash
 git clone https://forge.example.com/example/agent-setup ../agent-setup
 python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py upgrade
 ```
 
-It refuses while a file it would replace holds uncommitted work, so
-commit first. The root files it replaces stay in your last commit, and
-the report names them. Or hand your agent this.
+The upgrade replaces what is the kit's and leaves what is yours.
+
+- The kit's: the rulebook, `CONTRIBUTING.md`, the house rules, the
+  specs, the tool, the hooks, the chat style, and the version stamp.
+  All new over old.
+- Yours: `## 0. Project Rules`, which stays above the comment line under
+  the title of `AGENTS.md`, every file your project filed into
+  `.agents/`, your own hooks and settings in the agent folders, and every
+  line of your `.gitignore`.
+- Rebuilt: the indexes, by the doctor run at the end, never edited.
+
+It works on the nearest folder above you that carries a brain, refuses a
+kit older than the one you are on, refuses while a file it would replace
+holds uncommitted work, and names each root file it replaces with where
+git keeps the old one. Run it on its own branch and read the diff. Or
+hand your agent this.
 
 ```text
 The agent kit at https://forge.example.com/example/agent-setup has a new
 release. Clone it into a folder beside this repo, then run its upgrade
-from our root: python3 <that folder>/.agents/skills/agent-brain/scripts/brain.py upgrade.
+from our root: python3 <that folder>/.agents/skills/agent-brain/scripts/brain.py upgrade
 Read what it printed, fix by hand whatever doctor still names, and tell
 me what changed.
 ```
@@ -268,13 +277,32 @@ me what changed.
 
 A project that took the kit before the rulebook moved has a `.agent/`
 folder, a root `CLAUDE.md` carrying all the rules, and an `AGENTS.md`
-that copies it. The same `upgrade` command carries it over: the folder
-moves to `.agents/`, every file git sees that named the old folder is
-pointed at the new one (a file git ignores that names it stops the run,
-by name), your `## 0. Project Rules` comes out of `CLAUDE.md` into the
+that copies it. The same `upgrade` command carries it over. The folder
+moves to `.agents/` through git, so the diff shows renames. Every file
+git sees that named the old folder is pointed at the new one, and a file
+git ignores that names it stops the run, by name, so nothing is left
+half done. Your `## 0. Project Rules` comes out of `CLAUDE.md` into the
 new `AGENTS.md`, the kit's files land, the ignore lines follow, and
-doctor rebuilds every index from the files. The moves go through git,
-so the diff shows renames. Run it on its own branch and read the diff.
+doctor rebuilds every index from the files.
+
+## The brain tool
+
+Everything inside `.agents/` goes through `brain`, the script under
+`.agents/skills/agent-brain/scripts/`. Your agent runs it, you rarely
+need to, but the commands are short enough to know.
+
+| Command | What it does |
+|---|---|
+| `brain status` | The brain in numbers, what each tracker holds and whether doctor is clean. The session start hook prints this into the agent's context. |
+| `brain doctor` and `brain doctor --fix` | Checks every file against its spec, and `--fix` repairs the mechanical slips, a stale index, a link written as a name, a chat style copy that drifted. |
+| `brain new`, `brain set`, `brain refile` | Files a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
+| `brain ledger` | Opens, fills and closes a code review ledger, batch by batch. |
+| `brain port` and `brain upgrade` | The two commands above, run from a kit checkout against your project. |
+
+The full contract, every flag and every refusal, is in
+[`commands.md`](.agents/skills/agent-brain/references/commands.md), and
+[`SKILL.md`](.agents/skills/agent-brain/SKILL.md) is what the agent reads
+to use it.
 
 ## What `.agents/` looks like
 
@@ -358,4 +386,5 @@ first time a session hands work over.
 - [`.agents/README.md`](.agents/README.md): how a cold agent boots.
 - [`.agents/house-rules.md`](.agents/house-rules.md): the branch contract and review protocol.
 - [`.agents/spec/conventions.md`](.agents/spec/conventions.md): the shared rules every file in `.agents/` obeys.
+- [`.agents/skills/agent-brain/references/commands.md`](.agents/skills/agent-brain/references/commands.md): every command of the tool, with its flags and refusals.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): the absolutes on one page.
