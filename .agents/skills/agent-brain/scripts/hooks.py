@@ -63,6 +63,7 @@ class Touch:
     replace_all: bool = False
     hunks: tuple[tuple[str, ...], ...] = ()
     moved_from: Optional[Path] = None
+    deleted: bool = False
 
 
 class HookParser(argparse.ArgumentParser):
@@ -264,7 +265,7 @@ def refusal(
     if inside is None:
         return None
 
-    if inside == autoack.FILE:
+    if inside == autoack.FILE and not touch.deleted:
         return f"{inside} is the owner's standing word, set with brain ack on and never written by hand"
 
     if path.suffix != ".md":
@@ -658,7 +659,13 @@ def patch_touches(
                 found.append(Touch(path=path, moved_from=found[updating].path))
                 continue
 
-            found.append(Touch(path=path, content="" if marker.group(1) == "Add File" else None))
+            found.append(
+                Touch(
+                    path=path,
+                    content="" if marker.group(1) == "Add File" else None,
+                    deleted=marker.group(1) == "Delete File",
+                )
+            )
             updating = len(found) - 1 if marker.group(1) == "Update File" else None
             adding = len(found) - 1 if marker.group(1) == "Add File" else None
             continue
