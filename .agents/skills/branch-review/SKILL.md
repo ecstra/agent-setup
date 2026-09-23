@@ -185,7 +185,9 @@ One batch at a time.
    ```
 
 6. The report's call is the ack of the next batch, which starts it as
-   in step 1, or, after the last batch, the closing pass or the close.
+   in step 1, or, after the last batch, the closing pass where house
+   rule 7 owes one. Where none is owed, the ledger closes with no word
+   and the report says so.
 
 ## The closing pass
 
