@@ -416,7 +416,8 @@ def prepare(
             kits_copy = doctor.same_bytes(one=home / "SKILL.md", other=kit.brain / "skills" / skill.name / "SKILL.md")
             if present and stamped < schema.as_tuple(skill.since) and not kits_copy:
                 raise UpgradeError(
-                    f"the kit now ships a skill named {skill.name}, and {folder}/skills/{skill.name} is the project's own, move it aside first"
+                    f"the kit now ships a skill named {skill.name}, and {folder}/skills/{skill.name} is the project's own, "
+                    "move it aside first, or delete it if an interrupted upgrade left it"
                 )
 
             if store.quietly(home.is_symlink):
