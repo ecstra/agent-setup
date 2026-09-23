@@ -1,7 +1,7 @@
 """The clock the hooks put in front of the agent.
 
 A model does not know the time and forgets what it was told, so the
-hooks print this line on every prompt and after every shell call, and
+hooks print this line on every prompt and after tool calls, and
 the tool prints it wherever a decision turns on the time.
 """
 
