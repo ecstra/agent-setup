@@ -16,8 +16,11 @@ Batch 2, <theme>:
 - ...
 
 <n> candidates were refuted and not filed.
-Batch 1 starts on your word.
+Batch <n> starts on your word.
 ```
+
+The batch named last is 1 after the finding pass and the closing pass
+batch after that pass.
 
 ## When nothing survived
 
@@ -44,8 +47,8 @@ The ack starts batch <n+1>.
 ```
 
 The deferred line appears only when there is one. When the batch was
-the last, the closing line says instead what the ack opens, which the
-report's next line names, the closing pass or the close of the ledger
+the last, the closing line says instead what the ack opens, the
+closing pass where house rule 7 owes one, else the close of the ledger
 and then the merge on the owner's word.
 
 ## After the closing pass
