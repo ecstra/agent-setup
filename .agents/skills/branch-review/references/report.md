@@ -62,7 +62,7 @@ the close of the ledger and then the merge on the owner's word.
 ```text
 <the lines brain ledger report prints>
 
-The closing pass found nothing. (or: The closing pass's findings are fixed and acked above.)
+The closing pass found nothing. (or: The closing pass's findings are acked and fixed above.)
 Cut short: <the angle>, after three runs, <the files it never reached, or that candidates past its cap remained>.
 The ledger is closed, and the branch is ready to merge on your word.
 ```

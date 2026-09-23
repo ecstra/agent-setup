@@ -468,12 +468,14 @@ def next_step(
     An open or a fixed finding filed into no batch the table has comes
     first, since nothing moves until it is placed and a fix is verified
     by its batch. Then the batches in order. A pending one waits for the
-    owner's word, the ack that starts it and is recorded on it. A batch
+    owner's word, the ack that starts it and is recorded on it, and one
+    that carries the ack already is there to start. A batch
     past pending needs its open findings fixed, a late one included,
     then its verification, and verification closes it. A batch that
-    holds findings and ran with no ack recorded, which only a hand edit
-    leaves, asks for that ack before anything else. Then the walk moves
-    on to the closing pass or the close.
+    holds findings with no ack recorded, which a hand edit leaves, or a
+    finding filed into an empty batch closed without one, asks for that
+    ack before anything else. Then the walk moves on to the closing
+    pass or the close.
     """
     if entry.field("status") == "closed":
         return "nothing, the ledger is closed"
@@ -486,14 +488,14 @@ def next_step(
     for row in rows:
         number = row["number"]
         if row["status"] == "pending":
-            return f"batch {number} on the owner's word"
+            return f"start batch {number}, it has the word" if row["ack"] else f"batch {number} on the owner's word"
 
         own = in_batch(
             items=items,
             number=number,
         )
         if own and not row["ack"]:
-            return f"record the owner's ack of batch {number}, it ran without one"
+            return f"record the owner's ack of batch {number}, it holds findings and has none"
 
         still_open = [item["id"] for item in own if is_open(item)]
         if still_open:
