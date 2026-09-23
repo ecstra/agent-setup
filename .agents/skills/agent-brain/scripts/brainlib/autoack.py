@@ -440,7 +440,9 @@ def task_key(
     """The id, or the name of a review, of the one open todo, bug or review the key answers to, refused otherwise.
 
     The id is what stays through a retitle, so the word follows the
-    entry wherever its name goes.
+    entry wherever its name goes. A todo or a bug is stored by its id
+    and nothing else, so a stored key with no id prefix is always a
+    review's name, which `task_kind` relies on.
     """
     try:
         entry = brain.find(key)
@@ -455,6 +457,9 @@ def task_key(
 
     if not is_open(entry):
         raise AckError(f"{entry.name} is already {entry.field('status')}, so auto ack cannot end with it")
+
+    if entry.kind.has_ids and entry.identifier is None:
+        raise AckError(f"{entry.relative} carries no id, so auto ack cannot end with it until it is repaired")
 
     if entry.identifier is None and not entry.document.get("name"):
         raise AckError(f"{entry.relative} carries no name, so auto ack cannot end with it until it is repaired")

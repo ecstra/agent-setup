@@ -74,8 +74,8 @@ duration or a moment, one already past, a duration of zero or less, an
 end past what the calendar can show, an empty end flag, a task the
 brain does not know, one of any other kind than a todo, a bug or a
 review, one already past open, a key several entries share, an id
-doubled by a merge among them, and an entry with neither an id nor a
-name. `brain ack` given an end with no `on`, and `brain ack off` given
+doubled by a merge among them, a todo or a bug whose file carries no
+id, and a review with no name. `brain ack` given an end with no `on`, and `brain ack off` given
 any end, are refused too, each with a line that says so. A folder
 where the word goes, which the tool never made and never removes, has
 `brain ack on` and `brain ack off` refused and `brain ack` say so. The
