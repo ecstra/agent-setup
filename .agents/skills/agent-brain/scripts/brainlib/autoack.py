@@ -487,7 +487,10 @@ def task_state(
     back for good, and so does an id that a merge has doubled, since
     the brain can then no longer say which entry the owner named.
     Unsure keeps the file, since an entry that is unreadable while a
-    rebase stops on it may well read open again.
+    rebase stops on it may well read open again. A review ledger that
+    is missing is unsure too, never gone, since it lives on its branch
+    and is back once that branch is checked out again, and no later
+    review takes its name.
     """
     try:
         entry = brain.find(key)
@@ -495,7 +498,10 @@ def task_state(
         return "gone"
 
     if entry is None:
-        return "unsure" if unreadable_task(brain=brain, key=key) else "gone"
+        if unreadable_task(brain=brain, key=key) or task_kind(key) is schema.KINDS["review"]:
+            return "unsure"
+
+        return "gone"
 
     return "open" if is_open(entry) else "done"
 
