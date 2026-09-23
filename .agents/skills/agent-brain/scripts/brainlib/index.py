@@ -174,16 +174,20 @@ def spine_body(
 
     shipped = store.kit_skills_shipped(brain.root)
     skills = [(f"skills/{skill.name}/SKILL.md", skill.hook) for skill in schema.KIT_SKILLS if skill.name in shipped]
-    others = store.project_skills(
-        brain=brain.root,
-        shipped=shipped,
-    )
-    for name in others:
-        hook = hook_of(
-            path=brain.root / "skills" / name / "SKILL.md",
-            fallback=f"the project's own {name} skill",
+    skills += [
+        (
+            f"skills/{name}/SKILL.md",
+            hook_of(
+                path=brain.root / "skills" / name / "SKILL.md",
+                fallback=f"the project's own {name} skill",
+            ),
         )
-        skills.append((f"skills/{name}/SKILL.md", hook))
+        for name in store.project_skills(
+            brain=brain.root,
+            shipped=shipped,
+        )
+    ]
+
     for relative, hook in (*skills, (schema.VERSION_FILE, VERSION_HOOK)):
         if store.readable_file(brain.root / relative):
             lines.append(f"- [{relative}]({relative}), {hook}")
