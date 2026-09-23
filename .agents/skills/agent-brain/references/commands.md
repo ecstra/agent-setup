@@ -64,16 +64,20 @@ for a person.
 |---|---|
 | `brain ack on --for 8h` | Records the word for a duration, in minutes, hours or days, such as 90m, 8h or 2d. |
 | `brain ack on --until "tomorrow 22:00"` | Records it until a moment: a time today, which means tomorrow when it has passed, `tomorrow HH:MM`, a date, which means the end of that day, or a date and time. |
-| `brain ack on --until-done <key>` | Records it until an entry leaves open: a todo, a bug or a review, by id, name or path. Given with a time, the earlier end wins. |
+| `brain ack on --until-done <key>` | Records it until a todo, a bug or a review is done, by id, name or path, a bug on a branch still counting as open. The word follows the entry's id, so a retitle leaves it standing, and it is taken back the moment the entry is done. Refused for an entry of any other kind, and for one already past open. Given with a time, the earlier end wins. |
 | `brain ack off` | Takes the word back. |
 
 A word with no end is refused, so the agent proposes one to the owner
 and waits. The state is one dotted file at the root of the brain,
 `.agents/.ack`, the tool's own, gitignored and never listed or checked,
-since it belongs to one machine and one stretch of work. While it
-stands, `brain ledger batch <n> --status fixing --ack auto` records the
-ack as `auto` with the day, so the ledger says which batches ran on the
-standing word. Off or run out, that call is refused.
+since it belongs to one machine and one stretch of work. A file that
+does not read as a word, a moment with no zone in it included, counts
+as no word. While it stands, `brain ledger batch <ledger> <n> --status
+fixing --ack auto` records the ack as `auto` with the day, so the
+ledger says which batches ran on the standing word. Any ack that
+starts with auto, in any case, is that call. It is taken only with
+`--status fixing`, since the word is checked at the batch's start, and
+off or run out it is refused.
 
 ## The review ledger
 

@@ -124,7 +124,10 @@ def set_batch(
     if status and status not in BATCH_STATUSES:
         raise LedgerError(f"a batch is {' or '.join(BATCH_STATUSES)}, not '{status}'")
 
-    if ack.strip() == AUTO_ACK:
+    if is_auto(ack):
+        if status != "fixing":
+            raise LedgerError("auto ack is the word at a batch's start, give it with --status fixing")
+
         ack = standing_word(brain)
 
     ack = cell(value=ack, what="ack")
@@ -142,6 +145,9 @@ def set_batch(
 
         new_status = status or match.group(3)
         new_ack = ack or match.group(4)
+        if status == "fixing" and not ack and is_auto(new_ack):
+            new_ack = standing_word(brain)
+
         if status in ("fixing", "verified", "done"):
             own = in_batch(
                 items=findings(entry),
@@ -172,6 +178,15 @@ def set_batch(
 
     entry.document.body = body
     save(brain=brain, entry=entry)
+
+
+def is_auto(
+    ack: str,
+) -> bool:
+    """Whether the ack asks for the standing word, auto in any case, alone or with a day after it."""
+    words = ack.strip().casefold().split()
+
+    return bool(words) and words[0] == AUTO_ACK
 
 
 def standing_word(
