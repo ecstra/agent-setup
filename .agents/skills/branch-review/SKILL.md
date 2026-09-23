@@ -26,7 +26,9 @@ them, and the last section says what to do without them.
   never write the ledger. Verifiers judge from the code, and the gates
   run the suite once per commit in the main session.
 - Parallel wherever it can be. Finders by angle, verifiers by file, the
-  hunter beside the verifiers.
+  hunter beside the verifiers. Ledger writes are the one exception and
+  go one at a time, since the tool holds no lock and two at once would
+  lose one.
 - One commit per fix, pushed after each, the hash in the ledger.
 - Every report follows [references/report.md](references/report.md),
   and the rule behind it is SYSTEM.md section 7.6.
@@ -149,7 +151,7 @@ One batch at a time.
    is set `wontfix`, and either way the tool wants the reason.
 
    ```bash
-   brain ledger set 2026-09-feat-billing F-09 status=wontfix reason=the guard is on purpose
+   brain ledger set 2026-09-feat-billing F-09 status=wontfix reason="the guard is on purpose"
    ```
 
 6. The owner's ack closes the batch and opens the next.
@@ -160,15 +162,17 @@ One batch at a time.
 
 ## The closing pass
 
-The level's row in [references/angles.md](references/angles.md) says
-whether the review owes a closing pass, and a sweep branch never does.
-Once the last batch is done, the finders run once more over the whole
-branch as it now stands, with the closing line added to their prompt,
-looking only for what the fixes introduced or the review missed. The
-pass opens a batch themed `closing pass`, so the ledger knows it ran,
-and what survives verification is filed into it and run like any
-batch. A pass that found nothing leaves the batch empty and sets it
-done, which needs no ack. The empty pass is batch 2 here.
+House rule 7 says which reviews owe a closing pass, the tool holds the
+same rule, and the report's next line says when it is due. Once the
+last batch is done, the finders run once more over the whole branch as
+it now stands, with the closing line added to their prompt, looking
+only for what the fixes introduced or the review missed. The pass
+opens a batch themed `closing pass`, so the ledger knows it ran. What
+survives verification is filed into it and reported with the finding
+pass shape, findings first like any other, and the batch then runs on
+the owner's word like any batch. A pass that found nothing leaves the
+batch empty and sets it done, which needs no ack. The empty pass is
+batch 2 here.
 
 ```bash
 brain ledger batch 2026-09-feat-billing --theme "closing pass"
