@@ -101,8 +101,9 @@ folder that dangles, leading to nothing at all, the way a link doctor
 made for a project skill does once that skill is gone. The stray pass
 never removes a link or a folder that still leads somewhere, whatever
 it holds. A link sitting where a skill link belongs and leading
-elsewhere is the one live link doctor replaces, and no other file is
-removed.
+elsewhere is replaced by the right one, and a repair that rewrites a
+file, a stale index or chat style copy, writes a real file in place of
+any link standing there. No other file is removed.
 
 ## Port and upgrade
 
