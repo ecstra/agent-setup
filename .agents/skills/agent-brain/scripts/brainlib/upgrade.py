@@ -19,7 +19,7 @@ import tempfile
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Optional, TextIO
+from typing import Callable, Optional, Protocol, TextIO
 
 from . import doctor, frontmatter, schema, sections, store, style
 
@@ -234,6 +234,16 @@ class Project:
         return read_version(stamp)
 
 
+class Applies(Protocol):
+    """The shape of a migration step, called by keyword like every function of the tool's own."""
+
+    def __call__(
+        self,
+        project: Project,
+        report: Report,
+    ) -> None: ...
+
+
 @dataclass
 class Migration:
     """One layout change, applied while the tree calls for it and the kit is at least `to`.
@@ -246,7 +256,7 @@ class Migration:
     to: str
     says: str
     needed: Callable[[Project], bool]
-    apply: Callable[[Project, Report], None]
+    apply: Applies
 
 
 def read_version(
@@ -988,8 +998,8 @@ def merged_config(
 def indent_of(
     text: str,
 ) -> str:
-    """The indent a JSON file uses, read off its first indented line, two spaces when it has none."""
-    match = re.search(r"^([ \t]+)\S", text, re.MULTILINE)
+    """The indent a JSON file uses, read off its first indented line whatever its line breaks, two spaces when it has none."""
+    match = re.search(r"(?:^|[\r\n])([ \t]+)\S", text)
 
     return match.group(1) if match else "  "
 

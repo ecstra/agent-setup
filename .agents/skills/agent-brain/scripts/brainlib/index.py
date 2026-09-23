@@ -174,7 +174,7 @@ def spine_body(
     for relative in kit_listing(brain):
         lines.append(f"- [{relative}]({relative}), {hook_of(brain.root / relative)}")
 
-    for relative, hook in ((SKILL_PATH, SKILL_HOOK), ("VERSION", VERSION_HOOK)):
+    for relative, hook in ((SKILL_PATH, SKILL_HOOK), (schema.VERSION_FILE, VERSION_HOOK)):
         if store.readable_file(brain.root / relative):
             lines.append(f"- [{relative}]({relative}), {hook}")
 
