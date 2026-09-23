@@ -742,8 +742,8 @@ def check_layout(
             )
         )
 
-    if wanted is not None and not shared:
-        found.extend(stray_skill_links(project=project, wanted=wanted))
+    if wanted is not None:
+        found.extend(stray_skill_links(project=project, wanted=wanted, shared=shared))
 
     found.extend(check_style_copies(brain))
 
@@ -806,15 +806,18 @@ def skills_wanted(
 def stray_skill_links(
     project: Path,
     wanted: list[str],
+    shared: bool,
 ) -> list[Finding]:
     """A link under .claude/skills that doctor once made for a project skill now gone from the brain, with its removal as the repair.
 
-    Only a dangling link that points into the brain's skills folder is
-    doctor's to remove. A link the project made elsewhere is left
-    alone, and so is everything when .claude/skills is itself a link
-    into the brain, since its entries are then the brain's own. The
-    caller skips this pass when the skills folder could not be listed
-    or sits outside the project.
+    Only a link that points into the brain's skills folder and leads to
+    no SKILL.md at all is doctor's to remove. One whose SKILL.md is
+    there but cannot be read is left alone, and so is a link the
+    project made elsewhere, and so is everything when .claude/skills
+    is itself a link into the brain, since its entries are then the
+    brain's own. In a skills folder shared outside the project the
+    trouble is named and the removal is left to a person. The caller
+    skips this pass when the skills folder could not be listed.
     """
     links = project / SKILL_LINKS
     found: list[Finding] = []
@@ -829,7 +832,7 @@ def stray_skill_links(
         return found
 
     for link in entries:
-        if link.name in wanted or not store.quietly(link.is_symlink) or store.quietly(link.exists):
+        if link.name in wanted or not store.quietly(link.is_symlink) or not skill_gone(link):
             continue
 
         try:
@@ -838,9 +841,30 @@ def stray_skill_links(
             into_brain = False
 
         if into_brain:
-            found.append(Finding(path=str(SKILL_LINKS / link.name), check="layout", message=SKILL_GONE, repair=remove_link(link)))
+            found.append(
+                Finding(
+                    path=str(SKILL_LINKS / link.name),
+                    check="layout",
+                    message=SKILL_GONE + (SHARED_FOLDER if shared else ""),
+                    repair=None if shared else remove_link(link),
+                )
+            )
 
     return found
+
+
+def skill_gone(
+    link: Path,
+) -> bool:
+    """Whether the link leads to no SKILL.md at all, as against one the process cannot reach or read."""
+    try:
+        (link / "SKILL.md").stat()
+    except FileNotFoundError:
+        return True
+    except (OSError, RuntimeError, ValueError):
+        return False
+
+    return False
 
 
 def remove_link(
