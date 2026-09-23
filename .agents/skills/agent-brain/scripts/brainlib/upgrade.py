@@ -41,10 +41,9 @@ NOT_SHIPPED = ("settings.local.json",)
 # plain arguments after it: a call of a script under the kit's own skill
 # folder, by either name of the brain, anchored at the project root the
 # way each agent allows or not at all, which is what the kit shipped
-# before the launcher, or python3 -c with any one line text that names
-# the kit's hook script, which is the launcher in every version of its
-# text. A command that wraps such a call, or calls a copy kept
-# elsewhere, is the project's own.
+# before the launcher, or python3 -c with a launcher text the kit has
+# shipped, every version of it listed. A command that wraps such a
+# call, or calls a copy kept elsewhere, is the project's own.
 #
 # The launcher is the one line every shipped hook command runs. It finds
 # the hook script from the project folder the agent names, or by walking
@@ -73,9 +72,13 @@ ROOT_ANCHORS = (
     r'"\$GEMINI_PROJECT_DIR"/',
     r"\$GEMINI_PROJECT_DIR/",
 )
+# every launcher text the kit has shipped, the current one first, since a
+# project ported under an earlier text upgrades by that text, so a change
+# to the launcher appends the text it replaces here
+LAUNCHERS = (LAUNCHER,)
 KIT_HOOK = re.compile(
     r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
-    r'|^python3 -c "[^"]*\.agents/skills/agent-brain/scripts/hooks\.py[^"]*"(?: [\w.-]+)*$'
+    r'|^python3 -c "(?:' + "|".join(re.escape(text) for text in LAUNCHERS) + r')"(?: [\w.-]+)*$'
 )
 IGNORE_FILE = ".gitignore"
 IGNORE_HEADING = "# The agent kit's own ignores."
