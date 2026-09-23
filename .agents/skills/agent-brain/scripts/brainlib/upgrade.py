@@ -695,7 +695,16 @@ def kit_skill_folders(
     brain: Path,
 ) -> list[Path]:
     """The kit's own skill folders under a brain, whether or not they are there yet."""
-    return [skill_folder(brain=brain, name=name) for name in schema.KIT_SKILL_NAMES]
+    folders: list[Path] = []
+    for name in schema.KIT_SKILL_NAMES:
+        folders.append(
+            skill_folder(
+                brain=brain,
+                name=name,
+            )
+        )
+
+    return folders
 
 
 def brain_markdown(

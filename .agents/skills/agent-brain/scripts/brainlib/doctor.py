@@ -719,7 +719,13 @@ def check_layout(
         wanted: Optional[list[str]] = skills_wanted(brain)
     except OSError as error:
         reason = error.strerror or str(error)
-        found.append(Finding(path="skills", check="layout", message=f"the skills folder cannot be listed, so no skill link was checked: {reason}"))
+        found.append(
+            Finding(
+                path="skills",
+                check="layout",
+                message=f"the skills folder cannot be listed, so no skill link was checked: {reason}",
+            )
+        )
         wanted = None
 
     for name in wanted or []:
@@ -915,22 +921,40 @@ def skill_link_trouble(
         if store.readable_file(link / "SKILL.md"):
             return None
 
-        return Trouble(message=skill_missing(name), missing=True, for_a_person=True)
+        return Trouble(
+            message=skill_missing(name),
+            missing=True,
+            for_a_person=True,
+        )
 
     if store.quietly(link.is_symlink):
-        if reaches(link=link, home=home):
+        reached = reaches(
+            link=link,
+            home=home,
+        )
+        if reached:
             return None
 
         return Trouble(message="the skill link does not reach the skill" + CANNOT_SEE)
 
     if store.quietly(link.is_dir):
         if not store.readable_file(link / "SKILL.md"):
-            return Trouble(message=REAL_FOLDER_WITHOUT_SKILL, for_a_person=True)
+            return Trouble(
+                message=REAL_FOLDER_WITHOUT_SKILL,
+                for_a_person=True,
+            )
 
-        if same_bytes(one=link / "SKILL.md", other=home / "SKILL.md"):
+        copied = same_bytes(
+            one=link / "SKILL.md",
+            other=home / "SKILL.md",
+        )
+        if copied:
             return None
 
-        return Trouble(message=ANOTHER_SKILL, for_a_person=True)
+        return Trouble(
+            message=ANOTHER_SKILL,
+            for_a_person=True,
+        )
 
     if store.quietly(link.exists):
         return Trouble(message="something that is not a link sits where the skill link belongs" + CANNOT_SEE)
