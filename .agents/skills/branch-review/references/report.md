@@ -16,7 +16,7 @@ Batch 2, <theme>:
 - ...
 
 <n> candidates were refuted and not filed.
-Cut short: <the angle>, after three runs, <the files it never reached, or the candidates past its cap>.
+Cut short: <the angle>, after three runs, <the files it never reached, or that candidates past its cap remained>.
 Batch <n> starts on your word.
 ```
 
@@ -32,7 +32,7 @@ every shape below the same way.
 
 Nothing survived verification, <n> candidates refuted. No batch, no
 closing pass.
-Cut short: <the angle>, after three runs, <the files it never reached, or the candidates past its cap>.
+Cut short: <the angle>, after three runs, <the files it never reached, or that candidates past its cap remained>.
 The ledger is closed, and the branch is ready to merge on your word.
 ```
 
@@ -46,7 +46,7 @@ Fixed:
 The hunter found <n> more, fixed above. (or: The hunter found nothing.)
 
 Deferred: <F-nn> as <BUG-nnn>, <why it cannot be fixed here>.
-Cut short: the hunter, after three runs, <the files it never reached, or the candidates past its cap>.
+Cut short: the hunter, after three runs, <the files it never reached, or that candidates past its cap remained>.
 Your call: ack batch <n>.
 The ack starts batch <n+1>.
 ```
@@ -64,7 +64,7 @@ and then the merge on the owner's word.
 <the lines brain ledger report prints>
 
 The closing pass found nothing. (or: The closing pass's findings are fixed and acked above.)
-Cut short: <the angle>, after three runs, <the files it never reached, or the candidates past its cap>.
+Cut short: <the angle>, after three runs, <the files it never reached, or that candidates past its cap remained>.
 The ledger is closed, and the branch is ready to merge on your word.
 ```
 

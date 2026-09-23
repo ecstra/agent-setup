@@ -55,9 +55,9 @@ them, and the last section says what to do without them.
   fresh, with every block reported so far by every run pasted under
   Already found, and, after a cap resume, with the files it named
   unread as its file list. A finder runs at most three times in a pass
-  and a hunter three times in a batch, and a report names one cut
-  short that way, with the files it never reached or the candidates
-  past its cap.
+  and a hunter three times in a batch, each hunter counted on its own,
+  and a report names one cut short that way, with the files it never
+  reached, or that candidates past its cap remained.
 
 ## The gates
 
@@ -186,9 +186,12 @@ only for what the fixes introduced or the review missed. The pass
 opens a batch themed `closing pass`, so the ledger knows it ran. What
 survives verification is filed into it and reported with the finding
 pass shape, findings first like any other, and the batch then runs on
-the owner's word like any batch. A pass that found nothing leaves the
-batch empty and sets it done, which needs no ack. The empty pass is
-batch 2 here.
+the owner's word like any batch. When more survives than one round of
+fixes closes, it is batched by theme in severity order like the
+finding pass, the first batch themed `closing pass` and the rest
+`closing pass, <theme>`, each on the owner's ack like any batch. A
+pass that found nothing leaves the batch empty and sets it done, which
+needs no ack. The empty pass is batch 2 here.
 
 ```bash
 brain ledger batch 2026-09-feat-billing --theme "closing pass"
