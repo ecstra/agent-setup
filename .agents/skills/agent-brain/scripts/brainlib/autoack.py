@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-from . import clock, store
+from . import clock, schema, store
 
 FILE = ".ack"
 OFF = "auto ack off"
@@ -396,12 +396,38 @@ def unreadable_task(
     brain: store.Brain,
     key: str,
 ) -> bool:
-    """Whether a file the brain could not read this time carries the task's id or name."""
+    """Whether the task may still be there unread, in a file the brain could not read this time or a folder it could not list."""
     for path in brain.unreadable:
         if path.stem == key or path.stem.startswith(f"{key}-") or path.parent.name == key:
             return True
 
-    return False
+    folder = brain.folder(task_kind(key))
+
+    return store.quietly(folder.is_dir) and not listable(folder)
+
+
+def task_kind(
+    key: str,
+) -> schema.Kind:
+    """The kind a stored task key names, by its id prefix, a review when it has none."""
+    for name in OPEN_STATUSES:
+        kind = schema.KINDS[name]
+        if kind.id_prefix and key.startswith(f"{kind.id_prefix}-"):
+            return kind
+
+    return schema.KINDS["review"]
+
+
+def listable(
+    folder: Path,
+) -> bool:
+    """Whether the folder can be listed right now, which the scan needs to see what is in it."""
+    try:
+        next(iter(folder.iterdir()), None)
+    except OSError:
+        return False
+
+    return True
 
 
 def write(
