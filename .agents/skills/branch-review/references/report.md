@@ -63,11 +63,11 @@ Your call: ack batch <n+1>, which starts it.
 
 The deferred line appears only when there is one, and the cut short
 line only when the hunter ran three times and still ended with (more
-remain). When the batch was
-the last, there is no next batch to ack, and the closing line says
-instead what comes, the closing pass where house rule 7 owes one. Where
-none is owed, the ledger closes with no word and the line reads "The
-ledger is closed, and the branch is ready to merge on your ask."
+remain). When the batch was the last, there is no next batch to ack,
+and the closing line says instead what comes, the closing pass where
+house rule 7 owes one. Where none is owed, the ledger closes with no
+word and the line reads "The ledger is closed, and the branch is ready
+to merge on your ask."
 
 ## After the closing pass
 
