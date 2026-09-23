@@ -24,14 +24,15 @@ from typing import Optional
 FENCE = "---"
 
 # What a write in flight is called, beside its target: the target's own
-# name between a dot and mkstemp's random tail, whatever the target, a
-# brain file, the owner's word, VERSION or a hook config, since every
-# write goes through the one writer. Doctor knows the exact shape, so
-# one left by an interrupted run is found, and the tail is the eight
-# characters mkstemp draws, so a file whose own suffix sits where the
-# tail would, a person's .notes.md.tmp, is never touched.
+# name between a dot and the eight characters mkstemp draws, whatever
+# the target, a brain file, the owner's word, VERSION or a hook config,
+# since every write goes through the one writer. Doctor knows the exact
+# shape and sweeps it where the tool writes in every run, so one left by
+# an interrupted run there is found. A person's own dotfile matches only
+# when its own suffix is eight such characters, so at the top of the
+# project doctor looks only beside the kit's own files.
 TEMP_SUFFIX = ".tmp"
-TEMP_SHAPE = re.compile(r"^\..+\.[a-z0-9_]{8}\.tmp$")
+TEMP_SHAPE = re.compile(r"^\.(.+)\.[a-z0-9_]{8}\.tmp$")
 
 # What a field's key looks like: lowercase, digits and hyphens.
 KEY = re.compile(r"^[a-z][a-z0-9-]*$")
@@ -285,6 +286,15 @@ def write(
 ) -> None:
     """Write the document as a real file, whole or not at all."""
     write_text(path=path, text=render(document))
+
+
+def target_of(
+    name: str,
+) -> Optional[str]:
+    """The file a write in flight was for, read off its name, or None for a name of any other shape."""
+    match = TEMP_SHAPE.match(name)
+
+    return None if match is None else match.group(1)
 
 
 def write_text(

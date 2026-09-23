@@ -27,9 +27,9 @@ FOLDER = ".agents"
 OLD_FOLDER = ".agent"
 VERSION = schema.VERSION_FILE
 
-FRONT_DOORS = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
+FRONT_DOORS = schema.FRONT_DOORS
 OLD_LAYOUT_DOORS = ("CLAUDE.md", "AGENTS.md", "GEMINI.md")
-ROOT_FILES = (*FRONT_DOORS, "CONTRIBUTING.md")
+ROOT_FILES = schema.ROOT_FILES
 AGENT_FOLDERS = store.NEAR_ROOTS[1:]
 
 # The hook configs are merged into what the project has, so its own hooks
@@ -85,7 +85,7 @@ KIT_HOOK = re.compile(
     r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
     r'|^python3 -c "(?:' + "|".join(re.escape(text) for text in LAUNCHERS) + r')"(?: [\w.-]+)*$'
 )
-IGNORE_FILE = ".gitignore"
+IGNORE_FILE = schema.IGNORE_FILE
 IGNORE_HEADING = "# The agent kit's own ignores."
 BOM = codecs.BOM_UTF8.decode("utf-8")
 
