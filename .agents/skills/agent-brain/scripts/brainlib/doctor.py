@@ -714,6 +714,7 @@ def check_layout(
     if not store.readable_file(brain.root / schema.VERSION_FILE):
         found.append(Finding(path=schema.VERSION_FILE, check="layout", message="no kit version stamp, run the upgrade"))
 
+    shared = skills_folder_outside(project)
     for name in skills_wanted(brain):
         trouble = skill_link_trouble(project=project, name=name)
         if trouble is None:
@@ -721,6 +722,10 @@ def check_layout(
 
         missing = trouble == skill_missing(name)
         for_a_person = missing or trouble in (REAL_FOLDER_WITHOUT_SKILL, ANOTHER_SKILL)
+        if shared and not for_a_person:
+            trouble += SHARED_FOLDER
+            for_a_person = True
+
         found.append(
             Finding(
                 path=str((SKILL_HOMES if missing else SKILL_LINKS) / name),
@@ -738,6 +743,23 @@ def check_layout(
 CANNOT_SEE = ", so Claude Code cannot see the skill"
 REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs" + CANNOT_SEE
 ANOTHER_SKILL = "a skill of its own sits where the skill link belongs, so Claude Code loads that one instead"
+SHARED_FOLDER = ", and the skills folder sits outside the project, so the link is yours to make"
+
+
+def skills_folder_outside(
+    project: Path,
+) -> bool:
+    """Whether `.claude/skills` resolves to a folder outside the project.
+
+    Such a folder is shared with other checkouts on the machine, and a
+    link made here would point every one of them at this project's
+    skills, so doctor names the trouble and leaves the link to a person.
+    """
+    folder = project / SKILL_LINKS
+    try:
+        return not folder.resolve().is_relative_to(project.resolve())
+    except OSError:
+        return False
 
 
 def skill_missing(
