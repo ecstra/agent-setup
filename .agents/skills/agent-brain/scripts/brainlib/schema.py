@@ -282,6 +282,10 @@ INDEXED_FOLDERS: tuple[str, ...] = tuple(kind.folder for kind in KINDS.values() 
 INDEX = "INDEX.md"
 LEDGER = "ledger.md"
 
+# The kit's version stamp at the root of .agents/, written by a port or
+# an upgrade and read by the doctor and the status line.
+VERSION_FILE = "VERSION"
+
 # The one word for a status a file does not carry, wherever it is counted.
 UNKNOWN = "unknown"
 

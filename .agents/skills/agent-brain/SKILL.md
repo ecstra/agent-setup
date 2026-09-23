@@ -121,3 +121,18 @@ one header, a chat style copy that drifted from the Claude Code one, a
 missing or dead skill link, and stamps every file it touches. Whatever
 is left needs a decision, so read it and act on it. Silencing a finding
 is never the answer.
+
+## Bringing a project to the kit
+
+```bash
+python3 <kit>/.agents/skills/agent-brain/scripts/brain.py port
+python3 <kit>/.agents/skills/agent-brain/scripts/brain.py upgrade
+```
+
+Run from the project's root, with `<kit>` a checkout of agent-setup.
+`port` installs the kit into a project with no brain and lists what is
+left to file through `brain new`. `upgrade` brings an existing brain up
+to the kit, the old `.agent/` layout included, migrations first. Both
+keep the project's section 0, its own hooks and everything it wrote,
+and end with `doctor --fix`. The full contract is in
+[commands.md](references/commands.md).

@@ -711,8 +711,8 @@ def check_layout(
     found: list[Finding] = []
     project = brain.root.parent
 
-    if not store.readable_file(brain.root / "VERSION"):
-        found.append(Finding(path="VERSION", check="layout", message="no kit version stamp, run the upgrade"))
+    if not store.readable_file(brain.root / schema.VERSION_FILE):
+        found.append(Finding(path=schema.VERSION_FILE, check="layout", message="no kit version stamp, run the upgrade"))
 
     trouble = skill_link_trouble(project)
     if trouble is not None:

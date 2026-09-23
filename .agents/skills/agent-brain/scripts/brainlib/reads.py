@@ -14,7 +14,7 @@ from . import doctor, frontmatter, links, schema, store
 def version(
     brain: store.Brain,
 ) -> str:
-    stamp = brain.root / "VERSION"
+    stamp = brain.root / schema.VERSION_FILE
     if not store.readable_file(stamp):
         return "unversioned"
 
