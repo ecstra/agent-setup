@@ -427,7 +427,7 @@ def run_ledger_add(
     """File one claim from the command line, or one per line of standard input, so the shell never touches the words."""
     claims = [args.claim]
     if args.claim == "-":
-        claims = [line.strip() for line in stdin_text().splitlines() if line.strip()]
+        claims = [line.strip() for line in stdin_text().replace("\r\n", "\n").split("\n") if line.strip()]
         if not claims:
             print("no claims on standard input, one per line", file=sys.stderr)
             return REFUSED
