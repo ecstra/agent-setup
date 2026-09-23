@@ -78,19 +78,22 @@ links that resolve, links written as paths with each file once, body
 links that resolve, indexes current, no dashes or semicolons in prose,
 no machine paths, nothing shaped like a secret, the version stamp, the
 chat style copies for Codex and Gemini CLI matching the Claude Code
-one where the project keeps those agents' folders, and the skill links
+one where the project keeps those agents' folders, the skill links
 Claude Code needs, one per skill the kit ships and one per skill folder
 the project keeps, each of which must reach its skill rather than point
-at nothing or be a plain file.
+at nothing or be a plain file, a link doctor once made for a project
+skill since gone from the brain, and a skills folder it cannot list.
 
 What `--fix` repairs: a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written
 as a name, a file linked more than once in one header, which keeps the
 first, a stale index, a stale chat style copy, and a skill link when
 it is missing, dead or a plain file. Each repaired file gets
-today's date. The one thing `--fix` deletes is what an interrupted
+today's date. The only things `--fix` removes are what an interrupted
 write left behind, a temporary file or a scratch folder named the way
-the tool names them. No other file is ever removed.
+the tool names them, and a dangling link under `.claude/skills` that
+doctor itself made for a project skill since gone from the brain. No
+other file is ever removed.
 
 ## Port and upgrade
 
