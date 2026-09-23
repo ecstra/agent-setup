@@ -22,7 +22,7 @@ from . import clock, frontmatter, schema, store
 
 FILE = ".ack"
 OFF = "auto ack off"
-BROKEN = f"{FILE} does not read as a word, brain ack off clears it and brain ack on writes over it"
+BROKEN = f"{FILE} does not read as a word and brain ack off clears it"
 FOLDER = f"{FILE} is a folder the tool never made, move it away by hand"
 
 # the last moment every zone can still show on its own clock

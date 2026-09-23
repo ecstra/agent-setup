@@ -76,14 +76,16 @@ brain does not know, one of any other kind than a todo, a bug or a
 review, one already past open, a key several entries share, an id
 doubled by a merge among them, and an entry with neither an id nor a
 name. `brain ack` given an end with no `on`, and `brain ack off` given
-any end, are refused too, each with a line that says so, and so is
-either when a folder sits where the word goes, which the tool never
-removes. The state is one dotted file at the root of the brain,
+any end, are refused too, each with a line that says so. A folder
+where the word goes, which the tool never made and never removes, has
+`brain ack on` and `brain ack off` refused and `brain ack` say so. The
+state is one dotted file at the root of the brain,
 `.agents/.ack`, the tool's own, gitignored and never listed or checked,
 since it belongs to one machine and one stretch of work. A file that
 does not read as a word, a moment with no zone in it included, counts
 as no word, and the status line says so until `brain ack off` clears
-it or `brain ack on` writes over it. While it stands, `brain ledger batch <ledger> <n> --status
+it, as `brain ack on` does too where the file can be written. While it
+stands, `brain ledger batch <ledger> <n> --status
 fixing --ack auto` records the ack as `auto` with the day, so the
 ledger says which batches ran on the standing word. Any ack that
 starts with auto, in any case, is that call. It is refused on a batch
