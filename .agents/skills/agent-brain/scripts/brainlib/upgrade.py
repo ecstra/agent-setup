@@ -45,7 +45,7 @@ NOT_SHIPPED = ("settings.local.json",)
 # script. A command that wraps such a call, or calls a copy kept
 # elsewhere, is the project's own.
 CODEX_WALK = (
-    r'"\$\(d=\$PWD; while \[ ! -f "\$d/\.agents?/skills/agent-brain/scripts/hooks\.py" \] && \[ "\$d" != / \]; '
+    r'"\$\(d=\$\(pwd -P\); while \[ ! -f "\$d/\.agents?/skills/agent-brain/scripts/hooks\.py" \] && \[ "\$d" != / \]; '
     r'do d=\$\(dirname "\$d"\); done; echo "\$d"\)"/'
 )
 ROOT_ANCHORS = (
