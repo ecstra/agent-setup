@@ -338,6 +338,29 @@ def readable_file(
     return quietly(path.is_file)
 
 
+def stamp_of(
+    brain: Path,
+) -> Optional[tuple[int, ...]]:
+    """The kit release the brain is stamped with, as numbers, or None when the stamp is missing or not a version."""
+    stamp = brain / schema.VERSION_FILE
+    if not readable_file(stamp):
+        return None
+
+    try:
+        return schema.as_tuple(stamp.read_text(encoding="utf-8").strip())
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+
+
+def kit_skills_shipped(
+    brain: Path,
+) -> list[str]:
+    """The kit skills a brain should carry by its stamp, all of them when there is no stamp to read, else those the stamped release shipped."""
+    stamped = stamp_of(brain)
+
+    return [skill.name for skill in schema.KIT_SKILLS if stamped is None or schema.as_tuple(skill.since) <= stamped]
+
+
 def skill_folders(
     brain: Path,
 ) -> list[str]:

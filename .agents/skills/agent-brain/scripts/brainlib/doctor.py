@@ -716,13 +716,13 @@ def check_layout(
 
     shared = skills_folder_outside(project)
     try:
-        wanted = skills_wanted(brain)
+        wanted: Optional[list[str]] = skills_wanted(brain)
     except OSError as error:
         reason = error.strerror or str(error)
         found.append(Finding(path="skills", check="layout", message=f"the skills folder cannot be listed, so no skill link was checked: {reason}"))
-        wanted = []
+        wanted = None
 
-    for name in wanted:
+    for name in wanted or []:
         trouble = skill_link_trouble(project=project, name=name)
         if trouble is None:
             continue
@@ -742,7 +742,9 @@ def check_layout(
             )
         )
 
-    found.extend(stray_skill_links(project=project, wanted=wanted))
+    if wanted is not None and not shared:
+        found.extend(stray_skill_links(project=project, wanted=wanted))
+
     found.extend(check_style_copies(brain))
 
     return found
@@ -795,8 +797,7 @@ def skills_wanted(
     `store.skill_folders` does, so the check reports that instead of
     passing a project skill it could not see.
     """
-    stamped = stamp_of(brain)
-    names = [skill.name for skill in schema.KIT_SKILLS if stamped is None or schema.as_tuple(skill.since) <= stamped]
+    names = store.kit_skills_shipped(brain.root)
     others = [name for name in store.skill_folders(brain.root) if name not in names]
 
     return names + others
@@ -808,20 +809,27 @@ def stray_skill_links(
 ) -> list[Finding]:
     """A link under .claude/skills that doctor once made for a project skill now gone from the brain, with its removal as the repair.
 
-    Only a link that points into the brain's skills folder is doctor's
-    to remove. A link the project made elsewhere is left alone.
+    Only a dangling link that points into the brain's skills folder is
+    doctor's to remove. A link the project made elsewhere is left
+    alone, and so is everything when .claude/skills is itself a link
+    into the brain, since its entries are then the brain's own. The
+    caller skips this pass when the skills folder could not be listed
+    or sits outside the project.
     """
     links = project / SKILL_LINKS
-    homes = (project / SKILL_HOMES).resolve()
     found: list[Finding] = []
 
     try:
+        homes = (project / SKILL_HOMES).resolve()
+        if links.resolve().is_relative_to(homes):
+            return found
+
         entries = sorted(links.iterdir())
-    except OSError:
+    except (OSError, RuntimeError, ValueError):
         return found
 
     for link in entries:
-        if link.name in wanted or not store.quietly(link.is_symlink) or store.readable_file(link / "SKILL.md"):
+        if link.name in wanted or not store.quietly(link.is_symlink) or store.quietly(link.exists):
             continue
 
         try:
@@ -842,20 +850,6 @@ def remove_link(
         link.unlink()
 
     return repair
-
-
-def stamp_of(
-    brain: store.Brain,
-) -> Optional[tuple[int, ...]]:
-    """The kit release the brain is stamped with, as numbers, or None when the stamp is missing or not a version."""
-    stamp = brain.root / schema.VERSION_FILE
-    if not store.readable_file(stamp):
-        return None
-
-    try:
-        return schema.as_tuple(stamp.read_text(encoding="utf-8").strip())
-    except (OSError, UnicodeDecodeError, ValueError):
-        return None
 
 
 def skill_link_trouble(
