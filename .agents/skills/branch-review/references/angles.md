@@ -65,9 +65,9 @@ forwards every method the callers use.
 
 ## rules, the house rules the diff breaks
 
-Read `.agents/SYSTEM.md` sections 1 to 3, section 6, section 7.5 and
-section 8.2, and the section 0 of AGENTS.md when the project has one. Then check every changed line
-against them. In code that is an exception swallowed to quiet it, a
+Read `.agents/SYSTEM.md` sections 1 to 3, section 5, section 6,
+section 7.5 and section 8.2, and the section 0 of AGENTS.md when the
+project has one. Then check every changed line against them. In code that is an exception swallowed to quiet it, a
 hack over a symptom, a test that cannot fail, a comment that restates
 the code, a name that hides its meaning, a missing type annotation, a
 positional call where the language has keyword arguments, a compressed
