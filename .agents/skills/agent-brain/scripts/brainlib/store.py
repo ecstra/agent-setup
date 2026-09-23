@@ -13,6 +13,9 @@ from typing import Callable, Optional
 
 from . import frontmatter, schema
 
+# what the store notes for a folder it could not list, beside the files it could not read
+UNLISTED = "cannot be listed"
+
 
 class StoreError(Exception):
     """The brain is missing, or something in it cannot be read."""
@@ -128,14 +131,14 @@ class Brain:
         self,
         kind: schema.Kind,
     ) -> list[Entry]:
-        """Read one folder. A file that cannot be read or parsed is noted, not fatal."""
+        """Read one folder. A file that cannot be read or parsed is noted, not fatal, and so is a folder that cannot be listed."""
         folder = self.folder(kind)
         if not folder.is_dir():
             return []
 
         found: list[Entry] = []
 
-        for path in sorted(folder.rglob("*.md")):
+        for path in self.markdown_under(folder):
             if hidden(path.relative_to(folder)) or path.name == schema.INDEX:
                 continue
 
@@ -148,6 +151,25 @@ class Brain:
                 self.unreadable[path] = str(error)
 
         return found
+
+    def markdown_under(
+        self,
+        folder: Path,
+    ) -> list[Path]:
+        """Every path named like a markdown file under the folder, sorted, with a folder the walk could not list noted as unreadable rather than skipped without a word.
+
+        A folder named like a file is listed too, so the read notes it
+        the way it always has.
+        """
+        trouble: list[OSError] = []
+        paths: list[Path] = []
+        for root, folders, names in os.walk(folder, onerror=trouble.append):
+            paths += [Path(root) / name for name in folders + names if name.endswith(".md")]
+
+        for error in trouble:
+            self.unreadable[Path(error.filename)] = UNLISTED
+
+        return sorted(paths)
 
     def read(
         self,

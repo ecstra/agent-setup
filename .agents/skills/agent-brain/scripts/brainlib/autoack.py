@@ -11,7 +11,6 @@ indexed, since it belongs to this machine and this stretch of work.
 """
 
 import json
-import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -486,13 +485,15 @@ def unreadable_task(
     key: str,
 ) -> bool:
     """Whether the task may still be there unread, in a file the brain could not read this time or a folder it could not list."""
-    for path in brain.unreadable:
+    folder = brain.folder(task_kind(key))
+    for path, trouble in brain.unreadable.items():
         if path.stem == key or path.stem.startswith(f"{key}-") or path.parent.name == key:
             return True
 
-    folder = brain.folder(task_kind(key))
+        if trouble == store.UNLISTED and (path == folder or folder in path.parents):
+            return True
 
-    return store.quietly(folder.is_dir) and not listable_throughout(folder)
+    return False
 
 
 def task_kind(
@@ -505,23 +506,6 @@ def task_kind(
             return kind
 
     return schema.KINDS["review"]
-
-
-def listable_throughout(
-    folder: Path,
-) -> bool:
-    """Whether the folder and every folder under it can be listed right now, which the scan needs to see what is in them.
-
-    The scan walks the tree and skips a folder it cannot list without a
-    word, so an entry in such a folder, a review's own folder say, looks
-    gone when it is only unread.
-    """
-    trouble: list[OSError] = []
-    for _ in os.walk(folder, onerror=trouble.append):
-        if trouble:
-            return False
-
-    return not trouble
 
 
 def write(
