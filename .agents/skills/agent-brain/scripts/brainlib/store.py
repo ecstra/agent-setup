@@ -380,6 +380,20 @@ def skill_folders(
     )
 
 
+def project_skills(
+    brain: Path,
+    shipped: list[str],
+) -> list[str]:
+    """The skill folders the project keeps beside the kit's shipped ones, in name order.
+
+    The one split of skills/ into the kit's and the project's, read by
+    doctor for the links and by the spine for its lines, so the two
+    never disagree. Raises OSError when the folder cannot be listed,
+    the way `skill_folders` does.
+    """
+    return [name for name in skill_folders(brain) if name not in shipped]
+
+
 def category_folder(
     category: str,
 ) -> Path:

@@ -174,8 +174,8 @@ def spine_body(
 
     shipped = store.kit_skills_shipped(brain.root)
     skills = [(f"skills/{skill.name}/SKILL.md", skill.hook) for skill in schema.KIT_SKILLS if skill.name in shipped]
-    others = project_skills(
-        brain=brain,
+    others = store.project_skills(
+        brain=brain.root,
         shipped=shipped,
     )
     for name in others:
@@ -229,21 +229,6 @@ def hook_of(
         description = None
 
     return description or fallback or path.name
-
-
-def project_skills(
-    brain: store.Brain,
-    shipped: list[str],
-) -> list[str]:
-    """The skill folders the project keeps beside the kit's shipped ones, in name order.
-
-    None when the folder cannot be listed, which doctor reports on its
-    own line, so the spine stays buildable and says nothing false.
-    """
-    try:
-        return [name for name in store.skill_folders(brain.root) if name not in shipped]
-    except OSError:
-        return []
 
 
 def spine_line(

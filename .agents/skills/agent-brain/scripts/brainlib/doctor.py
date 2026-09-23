@@ -610,8 +610,16 @@ def set_links(
 def check_indexes(
     brain: store.Brain,
 ) -> list[Finding]:
-    """One build of the brain serves the check and every repair it hands out."""
-    wanted = index.build(brain)
+    """One build of the brain serves the check and every repair it hands out.
+
+    A brain whose skills folder cannot be listed has no spine the tool
+    can build, so the indexes are reported as unbuildable and left as
+    they are rather than rewritten without the project's skills.
+    """
+    try:
+        wanted = index.build(brain)
+    except OSError as error:
+        return [Finding(path=schema.INDEX, check="index", message=f"cannot be rebuilt, {store.explain(error)}")]
 
     return [
         Finding(
@@ -715,20 +723,25 @@ def check_layout(
         found.append(Finding(path=schema.VERSION_FILE, check="layout", message="no kit version stamp, run the upgrade"))
 
     shared = skills_folder_outside(project)
+    wanted = store.kit_skills_shipped(brain.root)
+    listed = True
     try:
-        wanted: Optional[list[str]] = skills_wanted(brain)
+        wanted += store.project_skills(
+            brain=brain.root,
+            shipped=wanted,
+        )
     except OSError as error:
         reason = error.strerror or str(error)
         found.append(
             Finding(
                 path="skills",
                 check="layout",
-                message=f"the skills folder cannot be listed, so no skill link was checked: {reason}",
+                message=f"the skills folder cannot be listed, so only the kit's skill links were checked: {reason}",
             )
         )
-        wanted = None
+        listed = False
 
-    for name in wanted or []:
+    for name in wanted:
         trouble = skill_link_trouble(
             project=project,
             name=name,
@@ -758,7 +771,7 @@ def check_layout(
             )
         )
 
-    if wanted is not None:
+    if listed:
         strays = stray_skill_links(
             project=project,
             wanted=wanted,
@@ -808,21 +821,6 @@ def skill_missing(
     name: str,
 ) -> str:
     return f"the skill itself is missing from .agents/skills/{name}, reinstall the kit"
-
-
-def skills_wanted(
-    brain: store.Brain,
-) -> list[str]:
-    """The skills Claude Code should find: every one the kit shipped by the brain's stamp, then every other folder under skills/ that carries a SKILL.md.
-
-    Raises OSError when the skills folder cannot be listed, the way
-    `store.skill_folders` does, so the check reports that instead of
-    passing a project skill it could not see.
-    """
-    names = store.kit_skills_shipped(brain.root)
-    others = [name for name in store.skill_folders(brain.root) if name not in names]
-
-    return names + others
 
 
 def stray_skill_links(
