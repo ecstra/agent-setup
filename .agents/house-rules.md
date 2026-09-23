@@ -91,10 +91,12 @@ suites or a brain with broken links.
    they say so. The ack is that word to start a batch, recorded on the
    batch it starts, and verification is what closes a batch. A standing
    word, `brain ack on` with an end by time or by task, is the ack for
-   every gate until that end, the batch, the closing pass, the close,
-   the PR and the merge, and each report says it ran on it. A standing
-   word with no end is not taken, the agent proposes one and waits.
-   Nothing starts a review but the owner's own word.
+   every gate of the review until that end, the batch, the closing pass
+   and the close, and each report says it ran on it. The PR and the
+   merge are not the review's gates and stay on the owner's explicit
+   ask, per the git rules below. A standing word with no end is not
+   taken, the agent proposes one and waits. Nothing starts a review but
+   the owner's own word.
 7. **The closing pass.** Above low, the branch gets one more pass over
    itself as it stands after the last batch, to catch what the fixes
    introduced and what the review missed. Sweeps skip this.

@@ -54,10 +54,11 @@ headings and nothing else, for filling in afterwards.
 
 The owner's ack is the word to proceed with what the agent proposed
 next. Said once as "auto ack" with an end, it stands until that end,
-and the agent passes the gates that normally wait for it, a batch, the
-closing pass, the close, the PR and the merge, saying in each report
-that it did. It never starts a review, and it never passes a gate the
-rulebook or section 0 holds for a person.
+and the agent passes the review's gates that normally wait for it,
+house rule 6 names them, saying in each report that it did. It never
+starts a review, never opens a PR or merges, since those stay on the
+owner's ask, and never passes a gate the rulebook or section 0 holds
+for a person.
 
 | Command | What it does |
 |---|---|
