@@ -149,4 +149,8 @@ standard input:
 | `post-write` | After a write inside `.agents/`, runs doctor and hands its findings back as context. |
 
 The config files that wire them up ship with the kit: `.claude/settings.json`,
-`.codex/hooks.json` and `.gemini/settings.json`.
+`.codex/hooks.json` and `.gemini/settings.json`. The Claude Code one also
+carries the kit's two settings, `CLAUDE_CODE_SUBAGENT_MODEL` for the sub
+agents' model and `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how many
+tool calls may run at once. The port and the upgrade add each to a
+project's `env` when it lacks the key and leave a value the project set.
