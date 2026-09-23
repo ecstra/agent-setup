@@ -289,7 +289,9 @@ def left(
     since: datetime,
     until: datetime,
 ) -> str:
-    minutes = int((utc(until) - utc(since)).total_seconds() // 60)
+    """What is left of the word in whole minutes, rounded up, so a word just given shows what was asked and the last minute never reads as none."""
+    seconds = (utc(until) - utc(since)).total_seconds()
+    minutes = int(-(-seconds // 60))
     hours, minutes = divmod(minutes, 60)
     if hours and minutes:
         return f"{hours} h {minutes} min"
