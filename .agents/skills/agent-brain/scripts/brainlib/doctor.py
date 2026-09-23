@@ -226,9 +226,10 @@ def check_leftovers(
     Only the tool's own shapes count, a real file named the way a write
     in flight is named and, inside the brain, a real folder named the
     way a put back scratch is named. A person's own dotfile is nobody's
-    to delete. The chat style copies are written the same way outside
-    the brain, so their folders are looked at for a write in flight,
-    the one shape the tool leaves there.
+    to delete. The chat style copies and the hook configs are written
+    the same way outside the brain, so each agent's own folder and the
+    style folder are looked at for a write in flight, the one shape the
+    tool leaves there.
     """
     found: list[Finding] = []
     candidates = [path for path in brain.root.rglob(".*") if path.relative_to(brain.root).parts[0] not in SKIP_DIRS]
