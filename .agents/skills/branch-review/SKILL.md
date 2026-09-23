@@ -24,10 +24,9 @@ them, and the last section says what to do without them.
   the gate waits for the word in chat. The PR and the merge are not the
   review's gates and wait for the owner's ask either way. An owner who
   says "auto ack" with no end is asked for one, with a proposal such as
-  this review's ledger as the task, which is
-  `brain ack on --until-done <its key>` once the ledger is open and
-  ends when it closes, or a time tonight, and nothing is recorded
-  until they answer.
+  this review's ledger as the task, which once the ledger is open is
+  `brain ack on --until-done <its key>` and ends when it closes, or a
+  time tonight, and nothing is recorded until they answer.
 - Every sub agent gets the scope, one fetch command to run first, its
   angle or its findings, and the block shape it returns. It never gets
   the diff pasted in and never hears what the main session thinks.
@@ -137,9 +136,9 @@ shows it.
 6. Report with the findings shape. Batch 1 starts on the owner's word,
    so stop there, unless the standing word holds, in which case batch
    1 starts on it and the report's last line says so. When nothing
-   survived, there is no batch and nothing
-   was fixed, so no closing pass is owed. The report says so, the
-   ledger closes, and the branch is ready to merge on the owner's ask.
+   survived, there is no batch and nothing was fixed, so no closing
+   pass is owed. The report says so, the ledger closes, and the branch
+   is ready to merge on the owner's ask.
 
 ## The batch loop
 

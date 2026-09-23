@@ -120,9 +120,9 @@ or as `auto` while the owner's standing word holds, and verification
 closes it, `report` says where the review stands and what comes next,
 the closing pass leaves a batch of its own, empty when it found
 nothing, and `close` refuses while any finding is still open or the
-report names a step before the close. The standing word is `brain ack
-on` with an end, by time or by task, `brain ack off` takes it back,
-and `brain ack` says where it stands.
+report names a step before the close. The standing word is
+`brain ack on` with an end, by time or by task, `brain ack off` takes
+it back, and `brain ack` says where it stands.
 
 A second `brain ack on` replaces the word outright, so two ends go in
 one call.

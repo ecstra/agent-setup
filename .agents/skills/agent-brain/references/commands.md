@@ -78,18 +78,18 @@ one already past open, a key several entries share, an id doubled by a
 merge among them, a todo or a bug whose file carries no id, and a
 review with no name. `brain ack` given an end with no `on`, and
 `brain ack off` given any end, are refused too, each with a line that
-says so. A folder
-where the word goes, which the tool never made and never removes, has
-`brain ack on` and `brain ack off` refused and `brain ack` say so. The
-state is one dotted file at the root of the brain, `.agents/.ack`, the
-tool's own, which git ignores since it belongs to one machine and one
-stretch of work, and the brain's conventions say the rest. A file that
-does not read as a word, a moment with no zone in it included, counts
-as no word, and the status line says so until `brain ack off` clears
-it, as `brain ack on` does too where the file can be written. While it
-stands, `brain ledger batch <ledger> <n> --status
-fixing --ack auto` records the ack as `auto` with the day, so the
-ledger says which batches ran on the standing word. Any ack that
+says so. A folder where the word goes, which the tool never made and
+never removes, has `brain ack on` and `brain ack off` refused and
+`brain ack` say so. The state is one dotted file at the root of the
+brain, `.agents/.ack`, the tool's own, which git ignores since it
+belongs to one machine and one stretch of work, and the brain's
+conventions say the rest. A file that does not read as a word, a
+moment with no zone in it included, counts as no word, and the status
+line says so until `brain ack off` clears it, as `brain ack on` does
+too where the file can be written. While it stands,
+`brain ledger batch <ledger> <n> --status fixing --ack auto` records
+the ack as `auto` with the day, so the ledger says which batches ran
+on the standing word. Any ack that
 starts with auto, in any case, is that call. It is refused on a batch
 left pending, since the word is checked at the batch's start, refused
 on a batch that already carries the owner's own ack, which it never
