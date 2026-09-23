@@ -2,19 +2,20 @@
 
 Each angle is one finder sub agent, and the angle's text below is its
 whole brief. The level picks the set. Every finder returns candidates in
-the line shape from [prompts.md](prompts.md) and nothing else.
+the block shape from [prompts.md](prompts.md) and nothing else, and
+every candidate goes through a verifier at every level.
 
-| Level | Angles | Verify | Closing pass |
-|---|---|---|---|
-| low | scan | no | no |
-| medium | scan, removed, callers, rules | yes | yes |
-| high | scan, removed, callers, pitfalls, rules, tests, docs | yes | yes |
-| max | every angle, then the sweep | yes | yes |
+| Level | Angles | Closing pass |
+|---|---|---|
+| low | scan | no |
+| medium | scan, removed, callers, rules | yes |
+| high | scan, removed, callers, pitfalls, rules, tests, docs | yes |
+| max | every angle, then the sweep | yes |
 
 Low fits a small mechanical branch. Medium is the floor for anything
 that touches logic. High is the usual level for a feature branch. Max
-is for a wide surface or subtle logic, and the owner names it. A finder
-returns up to 8 candidates, up to 12 at max.
+is for a wide surface or subtle logic. A finder returns up to 8
+candidates, up to 12 at max.
 
 ## scan, the line by line read
 
@@ -113,10 +114,10 @@ the candidate names the simpler general change.
 
 ## sweep, the gaps after everything else
 
-Run at max and in the closing pass, after the other angles have
-returned and their candidates were verified. The finder gets the
-verified list and re reads the diff and the enclosing functions looking
-only for defects not already on it: moved or extracted code that dropped
-a guard, a default evaluated once, a lock scope that shrank, a predicate
-with a side effect, a config default flipped. It returns nothing when
-there is nothing new.
+Run at max, spawned once the other angles have returned, with their
+pooled candidates as its already found list, and the same way in the
+closing pass at max. The finder re reads the diff and the enclosing
+functions looking only for defects not already on the list: moved or
+extracted code that dropped a guard, a default evaluated once, a lock
+scope that shrank, a predicate with a side effect, a config default
+flipped. It returns nothing when there is nothing new.

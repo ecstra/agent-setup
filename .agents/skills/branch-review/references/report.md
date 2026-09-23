@@ -1,13 +1,12 @@
 # The reports
 
-Every report to the owner opens with the state, then says what changed,
-what is left and what the owner has to do, in plain words a reader who
-has not opened the code, the ledger or the brain can follow. A file is
-named once, with what it does. Nothing about the agent's own process,
-effort, passes or reasoning. No counts in prose beyond the state lines,
-and the state lines come from `brain ledger report`, never from memory.
-No closing summary, no tip line, and never a pointer at the ledger as
-the answer.
+Every report follows SYSTEM.md section 7.6, the state first in plain
+words, then what changed, what is left and what the owner has to do,
+and nothing about the agent's own process. The state lines come from
+`brain ledger report`, never from memory, and the only counts in prose
+are the refuted and hunter counts the shapes below carry. A file is
+named once, with what it does. Never a tip line, and never a pointer at
+the ledger as the answer.
 
 ## After the finding pass
 
@@ -51,5 +50,5 @@ The branch is ready to merge on your word.
 
 ## Without sub agents
 
-The same shapes, opened with one line: "This review ran without sub
-agents, every angle in one context."
+The same shapes, with one line right after the state lines: "This
+review ran without sub agents, every angle in one context."

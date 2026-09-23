@@ -1,6 +1,6 @@
 ---
-name: review
-description: The kit's code review, run on the owner's word over one branch. Finder sub agents in parallel by angle, one verifier per candidate, the ledger through the brain tool, then the batch loop of fixes, hunter and verifier until clean. Use it when the owner asks for a review, and never start one on your own.
+name: branch-review
+description: The kit's code review, run on the owner's word over one branch. Finder sub agents in parallel by angle, verifiers by file, the ledger through the brain tool, then the batch loop of fixes, hunter and verifiers until clean. Use it when the owner asks for a review, and never start one on your own.
 argument-hint: [low|medium|high|max] [<base>...<head>]
 ---
 
@@ -8,34 +8,38 @@ argument-hint: [low|medium|high|max] [<base>...<head>]
 
 The review protocol of [house-rules.md](../../house-rules.md), run by
 the agent. The level names how wide the finding pass goes and never how
-hard the model thinks. Thinking is the session's effort, which the owner
-sets. Sub agents run wherever the agent has them, in parallel, and where
-it has none the agent works through each angle itself, in sequence, and
-says so in every report.
+hard the model thinks, which is the session's effort and the owner's to
+set. Sub agents run wherever the agent has them, in parallel, and the
+last section says what to do without them.
 
 ## What holds throughout
 
 - The owner said "review". The agent never decides a branch is ready.
 - Every sub agent gets the scope, one fetch command to run first, its
-  angle or its finding, and the shape of the line it returns. It never
-  gets the diff pasted in and never hears what the main session thinks.
-- A sub agent returns lines. The main session files them with the brain
-  tool and never re reads what a sub agent read.
-- Parallel wherever two sub agents do not write the same file. Sub
-  agents never write the ledger and never commit.
+  angle or its findings, and the block shape it returns. It never gets
+  the diff pasted in and never hears what the main session thinks.
+- A sub agent returns blocks, one per candidate or verdict, in the
+  shapes [references/prompts.md](references/prompts.md) gives. The main
+  session files them with the brain tool and never re reads what a sub
+  agent read.
+- Sub agents never edit, never commit, never run the test suite and
+  never write the ledger. Verifiers judge from the code, and the gates
+  run the suite once per commit in the main session.
+- Parallel wherever it can be. Finders by angle, verifiers by file, the
+  hunter beside the verifiers.
 - One commit per fix, pushed after each, the hash in the ledger.
-- The ledger is the record and never the answer. Every report opens
-  with the lines `brain ledger report` prints, then says what changed,
-  what is left and what the owner has to do, and nothing about the
-  agent's own process. The shapes are in
-  [references/report.md](references/report.md).
+- Every report follows [references/report.md](references/report.md),
+  and the rule behind it is SYSTEM.md section 7.6.
 - In Claude Code the sub agents are the definitions under
-  `.claude/agents/`, on Opus at xhigh. Another agent uses the strongest
-  model it has.
+  `.claude/agents/`, on Opus at the session's effort, with Read and
+  Bash. Claude Code reads them when a session starts, so the session
+  that ported the kit spawns a general purpose sub agent with the
+  definition's text at the top of its prompt until it restarts. Another
+  agent uses the strongest model it has.
 
 ## The gates
 
-Before the pass: every suite, analyzer and build that AGENTS.md section
+Before the pass, every suite, analyzer and build that AGENTS.md section
 0 names is green, and `brain doctor` is clean. A red gate stops the
 review, and the report says which one.
 
@@ -59,7 +63,7 @@ shows it.
 1. Open the ledger before anything is found, so the review's folder
    exists the moment it starts, with the level recorded. The summary
    comes in on standard input like every line the agent writes from the
-   branch, so the shell never touches it:
+   branch, so the shell never touches it.
 
    ```bash
    brain ledger open feat/billing --level high --summary - <<'EOF'
@@ -69,14 +73,16 @@ shows it.
 
 2. Spawn the finders, one per angle the level lists in
    [references/angles.md](references/angles.md), all at once, each with
-   the finder prompt from [references/prompts.md](references/prompts.md).
-   A finder returns candidate lines and nothing else.
-3. Pool the candidates, drop exact repeats, same file and line and
-   defect, and number them C-1 onward.
-4. Spawn the verifiers, one per candidate, all at once, with the
-   verifier prompt. Low skips this step. A verdict is CONFIRMED,
-   PLAUSIBLE or REFUTED. A refuted candidate is never filed, and the
-   report gives the refuted count only.
+   the finder prompt. A finder returns candidate blocks and nothing
+   else. At max the sweep finder waits for step 3.
+3. Pool the candidates, merge those on the same file and line that name
+   the same defect, and number them C-1 onward. At max, spawn the sweep
+   finder now, with the pooled list as its already found list.
+4. Spawn the verifiers, one per file with that file's candidates, at
+   most six candidates each, all at once, with the verifier prompt. A
+   verdict is CONFIRMED, PLAUSIBLE or REFUTED. A refuted candidate is
+   never filed, and the report gives the refuted count only. The
+   sweep's candidates go through a second, smaller round the same way.
 5. Grade and batch what survived. Severity is breaks, bug, debt or nit
    per [spec/reviews.md](../../spec/reviews.md). Batches are by theme in
    severity order, correctness first, nits last, and a batch is sized so
@@ -101,7 +107,7 @@ shows it.
 One batch at a time, and inside it everything that can run at once does.
 
 1. Mark the batch, fix each finding with one commit, push, and record
-   the hash:
+   the hash.
 
    ```bash
    brain ledger batch 2026-09-feat-billing 1 --status fixing
@@ -109,12 +115,12 @@ One batch at a time, and inside it everything that can run at once does.
    ```
 
 2. Spawn at once, all fresh, a hunter over the batch's scope with the
-   hunter prompt and one verifier per finding of the batch with the
-   batch verifier prompt.
+   hunter prompt and verifiers over the batch's findings, one per file,
+   with the batch verifier prompt.
 3. What the hunter found goes through verifiers, all at once, and what
    survives is filed with `--found-by hunter --batch N` and fixed in this
-   batch. No backlog. Each of those fixes then gets a fresh batch
-   verifier of its own, the way the batch's first findings did.
+   batch. No backlog. Those fixes then get fresh batch verifiers of
+   their own, grouped by file the same way.
 4. After a follow up commit, the verifier of each finding it touched is
    resumed with the follow up prompt, which tells it the commits and to
    re read the changed lines before voting. Hunters are never resumed. A
@@ -122,7 +128,7 @@ One batch at a time, and inside it everything that can run at once does.
    had not touched before.
 5. The batch closes on the first pass where every verifier says gone,
    the verifiers of the hunter's finds included, and every hunter that
-   ran has returned with its finds filed and handled:
+   ran has returned with its finds filed and handled.
 
    ```bash
    brain ledger batch 2026-09-feat-billing 1 --status verified
@@ -131,12 +137,13 @@ One batch at a time, and inside it everything that can run at once does.
    Then the report, with the batch shape. A finding that cannot be fixed
    in this branch is deferred into `.agents/bugs/` with `brain new bug`,
    linked both ways, and named in the report. A finding not worth fixing
-   is set `wontfix`, and either way the tool wants the reason:
+   is set `wontfix`, and either way the tool wants the reason.
 
    ```bash
    brain ledger set 2026-09-feat-billing F-09 status=wontfix reason=the guard is on purpose
    ```
-6. The owner's ack closes the batch and opens the next:
+
+6. The owner's ack closes the batch and opens the next.
 
    ```bash
    brain ledger batch 2026-09-feat-billing 1 --status done --ack 2026-09-23
@@ -144,27 +151,34 @@ One batch at a time, and inside it everything that can run at once does.
 
 ## The closing pass
 
-Above low, once the last batch is done, the finders run once more over
-the whole branch as it now stands, with the closing line added to their
-prompt, looking only for what the fixes introduced or the review
-missed. The pass opens a batch themed `closing pass`, so the ledger
-knows it ran, and what survives verification is filed into it and run
-like any batch. A pass that found nothing leaves the batch empty and
-sets it done, which needs no ack. A sweep branch skips this pass. Then,
-with the empty pass as batch 2 here:
+The level's row in [references/angles.md](references/angles.md) says
+whether the review owes a closing pass, and a sweep branch never does.
+Once the last batch is done, the finders run once more over the whole
+branch as it now stands, with the closing line added to their prompt,
+looking only for what the fixes introduced or the review missed. The
+pass opens a batch themed `closing pass`, so the ledger knows it ran,
+and what survives verification is filed into it and run like any
+batch. A pass that found nothing leaves the batch empty and sets it
+done, which needs no ack. With the empty pass as batch 2 here:
 
 ```bash
 brain ledger batch 2026-09-feat-billing --theme "closing pass"
 brain ledger batch 2026-09-feat-billing 2 --status done
-brain ledger close 2026-09-feat-billing
 ```
 
-The closing report says the branch is ready to merge on the owner's
-word, and the merge itself waits for that word.
+## Closing the ledger
+
+Once every batch is done, and the closing pass with it where one was
+owed, the ledger closes and the report says the branch is ready to
+merge on the owner's word. The merge itself waits for that word.
+
+```bash
+brain ledger close 2026-09-feat-billing
+```
 
 ## Without sub agents
 
 An agent that cannot spawn sub agents works through the angles of its
 level itself, one after another in the same context, checks each
-candidate itself against the code before filing it, and opens every
-report with one line saying the review ran without sub agents.
+candidate itself against the code before filing it, and says so in
+every report, right after the state lines.
