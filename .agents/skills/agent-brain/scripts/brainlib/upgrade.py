@@ -40,14 +40,20 @@ NOT_SHIPPED = ("settings.local.json",)
 # A hook group is the kit's when its command is nothing but a call of a
 # script under the kit's own skill folder, by either name of the brain,
 # anchored at the project root the way each agent allows or not at all,
-# with plain arguments after it. A command that wraps such a call, or
-# calls a copy kept elsewhere, is the project's own.
+# with plain arguments after it. Codex gives no root, so its anchor is
+# a walk up from the session's folder to the first one that holds the
+# script. A command that wraps such a call, or calls a copy kept
+# elsewhere, is the project's own.
+CODEX_WALK = (
+    r'"\$\(d=\$PWD; while \[ ! -f "\$d/\.agents?/skills/agent-brain/scripts/hooks\.py" \] && \[ "\$d" != / \]; '
+    r'do d=\$\(dirname "\$d"\); done; echo "\$d"\)"/'
+)
 ROOT_ANCHORS = (
     r'"\$CLAUDE_PROJECT_DIR"/',
     r"\$CLAUDE_PROJECT_DIR/",
     r'"\$GEMINI_PROJECT_DIR"/',
     r"\$GEMINI_PROJECT_DIR/",
-    r'"\$\(\[ -f \.agents?/skills/agent-brain/scripts/hooks\.py \] && pwd \|\| git rev-parse --show-toplevel\)"/',
+    CODEX_WALK,
 )
 KIT_HOOK = re.compile(
     r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$([ -f .agents/skills/agent-brain/scripts/hooks.py ] && pwd || git rev-parse --show-toplevel)\"/.agents/skills/agent-brain/scripts/hooks.py session-start --agent codex --with-rules"
+            "command": "python3 \"$(d=$PWD; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; echo \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py session-start --agent codex --with-rules"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$([ -f .agents/skills/agent-brain/scripts/hooks.py ] && pwd || git rev-parse --show-toplevel)\"/.agents/skills/agent-brain/scripts/hooks.py prompt --agent codex"
+            "command": "python3 \"$(d=$PWD; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; echo \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py prompt --agent codex"
           }
         ]
       }
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$([ -f .agents/skills/agent-brain/scripts/hooks.py ] && pwd || git rev-parse --show-toplevel)\"/.agents/skills/agent-brain/scripts/hooks.py pre-write --agent codex"
+            "command": "python3 \"$(d=$PWD; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; echo \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py pre-write --agent codex"
           }
         ]
       }
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$([ -f .agents/skills/agent-brain/scripts/hooks.py ] && pwd || git rev-parse --show-toplevel)\"/.agents/skills/agent-brain/scripts/hooks.py post-write --agent codex"
+            "command": "python3 \"$(d=$PWD; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; echo \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py post-write --agent codex"
           }
         ]
       },
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$([ -f .agents/skills/agent-brain/scripts/hooks.py ] && pwd || git rev-parse --show-toplevel)\"/.agents/skills/agent-brain/scripts/hooks.py tick --agent codex"
+            "command": "python3 \"$(d=$PWD; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; echo \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py tick --agent codex"
           }
         ]
       }
