@@ -46,7 +46,7 @@ NOT_SHIPPED = ("settings.local.json",)
 # elsewhere, is the project's own.
 CODEX_WALK = (
     r'"\$\(d=\$\(pwd -P\) \|\| d=/; while \[ ! -f "\$d/\.agents?/skills/agent-brain/scripts/hooks\.py" \] && \[ "\$d" != / \]; '
-    r'do d=\$\(dirname "\$d"\); done; echo "\$d"\)"/'
+    r'do d=\$\(dirname "\$d"\); done; printf \'%s\' "\$d"\)"/'
 )
 ROOT_ANCHORS = (
     r'"\$CLAUDE_PROJECT_DIR"/',
