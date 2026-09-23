@@ -33,8 +33,14 @@ def project(
 def folders(
     brain: store.Brain,
 ) -> list[Path]:
-    """The folders the style files live in, where a write in flight would be left."""
-    return [project(brain) / relative.parent for relative in (SOURCE, *COPIES)]
+    """The folders the tool writes into outside the brain, where a write in flight would be left: each agent's own folder, which holds its hook config, and the style folder under Claude Code's."""
+    found: list[Path] = []
+    for relative in (SOURCE, *COPIES):
+        for folder in (project(brain) / relative.parts[0], project(brain) / relative.parent):
+            if folder not in found:
+                found.append(folder)
+
+    return found
 
 
 def source_body(

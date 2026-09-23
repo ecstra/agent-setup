@@ -118,7 +118,7 @@ def turn_off(
 ) -> bool:
     """Take the word back, whatever sits where the word goes short of a folder. True when there was something to take."""
     path = path_of(brain=brain)
-    if a_folder(path):
+    if a_folder(path=path):
         raise AckError(FOLDER)
 
     if not store.quietly(path.exists) and not store.quietly(path.is_symlink):
