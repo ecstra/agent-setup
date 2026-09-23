@@ -923,14 +923,16 @@ def skill_link_trouble(
     or a real copy of its SKILL.md, the way a ZIP download or a checkout
     without symlinks leaves one. A link that lands elsewhere is dead or
     points at another skill and is remade, except in a skills folder
-    shared outside the project, where a link to this skill in another
-    checkout is how the sharing works and passes. A real folder whose
-    SKILL.md names this skill but differs from the brain's is a copy
-    that fell behind and is refreshed, since the name is the kit's. One
-    naming another skill is a skill of its own and is left for a
-    person, and so is a real folder with no SKILL.md at all. A link can
-    only be made when the skill itself is in the brain to point at, and
-    a copy with nothing left to point at is all there is, so it passes.
+    shared outside the project, where a link or a real copy of this
+    skill from another checkout is how the sharing works and passes. A
+    real folder whose SKILL.md names a kit skill but differs from the
+    brain's is a copy that fell behind and is refreshed, since the name
+    is the kit's. Under a project skill's name the same folder holds a
+    person's own text, and it is left for them like a folder naming
+    another skill, and like a real folder with no SKILL.md at all. A
+    link can only be made when the skill itself is in the brain to point
+    at, and a copy with nothing left to point at is all there is, so it
+    passes.
     """
     link = project / SKILL_LINKS / name
     home = project / SKILL_HOMES / name
@@ -980,7 +982,10 @@ def skill_link_trouble(
         if copied:
             return None
 
-        if carries_skill(folder=link, name=name):
+        if shared and carries_skill(folder=link, name=name):
+            return None
+
+        if name in schema.KIT_SKILL_NAMES and carries_skill(folder=link, name=name):
             return Trouble(
                 message=STALE_COPY,
                 path=at_link,
