@@ -123,11 +123,31 @@ def current(
     if grant.until is not None and utc(at) >= grant.until:
         return None
 
-    if grant.task is not None and task_done(brain=brain, key=grant.task):
-        turn_off(brain)
-        return None
+    if grant.task is not None:
+        state = task_state(brain=brain, key=grant.task)
+        if state == "done":
+            forget(brain)
+
+        if state != "open":
+            return None
 
     return grant
+
+
+def forget(
+    brain: store.Brain,
+) -> None:
+    """Drop the file of a word its task has ended.
+
+    This runs on every read of the word, from hooks in parallel among
+    them, so a file another read dropped first, or a root that cannot
+    be written right now, is no reason to fail the read. The word is off
+    either way, and the next read tries again.
+    """
+    try:
+        path_of(brain).unlink()
+    except OSError:
+        pass
 
 
 def stamp(
@@ -323,7 +343,14 @@ def task_key(
     if not is_open(entry):
         raise AckError(f"{entry.name} is already {entry.field('status')}, so auto ack cannot end with it")
 
-    return entry.identifier or entry.name
+    stored = entry.identifier or entry.name
+    try:
+        if brain.find(stored) is None:
+            raise AckError(f"{stored} does not lead back to {entry.name}, so auto ack cannot end with it")
+    except store.Ambiguous as clash:
+        raise AckError(str(clash)) from clash
+
+    return stored
 
 
 def is_open(
@@ -333,17 +360,25 @@ def is_open(
     return (entry.field("status") or "open") in OPEN_STATUSES.get(entry.kind.name, ("open",))
 
 
-def task_done(
+def task_state(
     brain: store.Brain,
     key: str,
-) -> bool:
-    """Whether the entry is past open, or gone, either of which ends the word."""
+) -> str:
+    """Whether the task is open, done, or unsure, when the brain cannot read it or tell it apart right now.
+
+    Done and unsure both leave the word off. Only done takes the word
+    back for good, since an entry that is unreadable while a rebase
+    stops on it, or doubled by a merge, may well read open again.
+    """
     try:
         entry = brain.find(key)
     except store.Ambiguous:
-        return True
+        return "unsure"
 
-    return entry is None or not is_open(entry)
+    if entry is None:
+        return "unsure"
+
+    return "open" if is_open(entry) else "done"
 
 
 def write(
