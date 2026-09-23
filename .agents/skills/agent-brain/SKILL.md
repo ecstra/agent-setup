@@ -122,10 +122,8 @@ the closing pass leaves a batch of its own, empty when it found
 nothing, and `close` refuses while any finding is still open or the
 report names a step before the close. The standing word is
 `brain ack on` with an end, by time or by task, `brain ack off` takes
-it back, and `brain ack` says where it stands.
-
-A second `brain ack on` replaces the word outright, so two ends go in
-one call.
+it back, `brain ack` says where it stands, and the reference says what
+a second `brain ack on` does and what each refuses.
 
 ```bash
 brain ack on --for 8h --until-done 2026-10-feat-search
