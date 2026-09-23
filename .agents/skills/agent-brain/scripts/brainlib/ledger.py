@@ -400,7 +400,16 @@ def in_batch(
     items: list[dict],
     number: int,
 ) -> list[dict]:
-    return [item for item in items if item.get("batch") == str(number)]
+    return [item for item in items if batch_of(item) == number]
+
+
+def batch_of(
+    item: dict,
+) -> Optional[int]:
+    """The batch a finding says it is in, as the table numbers it, or None when the cell is blank or not a number."""
+    cell_text = (item.get("batch") or "").strip()
+
+    return int(cell_text) if cell_text.isdigit() else None
 
 
 def is_open(
@@ -427,8 +436,8 @@ def next_step(
     if entry.field("status") == "closed":
         return "nothing, the ledger is closed"
 
-    known = {str(row["number"]) for row in rows}
-    stray = [item["id"] for item in items if is_open(item) and item.get("batch") not in known]
+    known = {row["number"] for row in rows}
+    stray = [item["id"] for item in items if is_open(item) and batch_of(item) not in known]
     if stray:
         return f"put {', '.join(stray)} in a batch"
 
