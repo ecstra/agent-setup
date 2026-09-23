@@ -155,8 +155,8 @@ class Kit:
         skills = store.skill_folders(self.brain)
         found += sorted(
             path.relative_to(self.brain)
-            for path in (self.brain / "skills").rglob("*")
-            if ships(path) and path.relative_to(self.brain / "skills").parts[0] in skills and "tests" not in path.relative_to(self.brain / "skills").parts
+            for path in (self.brain / schema.SKILLS).rglob("*")
+            if ships(path) and path.relative_to(self.brain / schema.SKILLS).parts[0] in skills and "tests" not in path.relative_to(self.brain / schema.SKILLS).parts
         )
         found.append(Path(VERSION))
 
@@ -421,7 +421,7 @@ def prepare(
         kits_own_file = skill_folder(
             brain=kit.brain,
             name=skill.name,
-        ) / "SKILL.md"
+        ) / schema.SKILL_FILE
         shipped = schema.ships(
             skill=skill,
             stamp=stamped,
@@ -432,24 +432,24 @@ def prepare(
                 name=skill.name,
             )
             if store.quietly(home.is_symlink):
-                raise UpgradeError(f"{folder}/skills/{skill.name} is a symlink, replace it with a real folder first")
+                raise UpgradeError(f"{folder}/{schema.SKILLS}/{skill.name} is a symlink, replace it with a real folder first")
 
             if shipped or not store.quietly(home.exists):
                 continue
 
             kits_copy = store.same_bytes(
-                one=home / "SKILL.md",
+                one=home / schema.SKILL_FILE,
                 other=kits_own_file,
             )
             if not kits_copy:
                 raise UpgradeError(
-                    f"the kit now ships a skill named {skill.name}, and {folder}/skills/{skill.name} is the project's own, "
+                    f"the kit now ships a skill named {skill.name}, and {folder}/{schema.SKILLS}/{skill.name} is the project's own, "
                     "move it aside first, or delete it if an interrupted upgrade left it"
                 )
 
         linked = project.root / doctor.SKILL_LINKS / skill.name
         own_folder = store.quietly(linked.is_dir) and not store.quietly(linked.is_symlink)
-        if not shipped and own_folder and not store.same_bytes(one=linked / "SKILL.md", other=kits_own_file):
+        if not shipped and own_folder and not store.same_bytes(one=linked / schema.SKILL_FILE, other=kits_own_file):
             raise UpgradeError(
                 f"the kit now ships a skill named {skill.name}, and {doctor.SKILL_LINKS / skill.name} holds a folder of the project's own "
                 "where the kit's skill link goes, move it aside first"
@@ -711,7 +711,7 @@ def kits_skill(
     parts: tuple[str, ...],
 ) -> bool:
     """Whether a path split under the brain leads into one of the kit's skill folders."""
-    return len(parts) > 1 and parts[0] == "skills" and parts[1] in schema.KIT_SKILL_NAMES
+    return len(parts) > 1 and parts[0] == schema.SKILLS and parts[1] in schema.KIT_SKILL_NAMES
 
 
 def skill_folder(
@@ -719,7 +719,7 @@ def skill_folder(
     name: str,
 ) -> Path:
     """Where a skill of that name lives under a brain, whether or not it is there yet."""
-    return brain / "skills" / name
+    return brain / schema.SKILLS / name
 
 
 def kit_skill_folders(

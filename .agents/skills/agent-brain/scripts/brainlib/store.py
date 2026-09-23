@@ -398,14 +398,14 @@ def skill_folders(
     Raises OSError when the folder is there but cannot be listed, so a
     caller that checks the skills can say so rather than see none.
     """
-    folder = brain / "skills"
+    folder = brain / schema.SKILLS
     if not quietly(folder.is_dir):
         return []
 
     return sorted(
         path.name
         for path in folder.iterdir()
-        if schema.is_slug(path.name) and readable_file(path / "SKILL.md")
+        if schema.is_slug(path.name) and readable_file(path / schema.SKILL_FILE)
     )
 
 

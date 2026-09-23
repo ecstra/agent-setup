@@ -358,6 +358,11 @@ INDEXED_FOLDERS: tuple[str, ...] = tuple(kind.folder for kind in KINDS.values() 
 INDEX = "INDEX.md"
 LEDGER = "ledger.md"
 
+# Where the skills live under .agents/, one folder each with this file
+# in it, the layout Claude Code loads a skill from through its link.
+SKILLS = "skills"
+SKILL_FILE = "SKILL.md"
+
 # The kit's version stamp at the root of .agents/, written by a port or
 # an upgrade and read by the doctor and the status line.
 VERSION_FILE = "VERSION"

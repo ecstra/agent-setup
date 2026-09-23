@@ -17,7 +17,7 @@ from typing import Callable, Optional
 
 from . import frontmatter, index, links, schema, sections, store, style, writes
 
-SKIP_DIRS: frozenset[str] = frozenset({"skills", ".worktrees"})
+SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, ".worktrees"})
 
 # A header block the parser refuses, taken off by its fences alone so
 # the prose under it is still read.
@@ -33,8 +33,8 @@ SECRET_SHAPES = (
     re.compile(r"(?i)\b(password|passwd|secret|token)\s*[:=]\s*\S{6,}"),
 )
 
-SKILL_LINKS = Path(".claude") / "skills"
-SKILL_HOMES = Path(".agents") / "skills"
+SKILL_LINKS = Path(".claude") / schema.SKILLS
+SKILL_HOMES = Path(".agents") / schema.SKILLS
 
 # How many repair passes one --fix may take. Two is the longest chain
 # the checks can form, a name put right and then its index rebuilt.
@@ -190,7 +190,7 @@ def all_markdown(
         if store.hidden(relative_path):
             continue
 
-        if parts[0] in SKIP_DIRS and not (with_skills and parts[0] == "skills"):
+        if parts[0] in SKIP_DIRS and not (with_skills and parts[0] == schema.SKILLS):
             continue
 
         if path.name in schema.NO_FRONTMATTER and len(parts) == 1:
@@ -736,7 +736,7 @@ def check_layout(
         reason = error.strerror or str(error)
         found.append(
             Finding(
-                path="skills",
+                path=schema.SKILLS,
                 check="layout",
                 message=f"the skills folder cannot be listed, so only the kit's skill links were checked: {reason}",
             )
@@ -833,7 +833,7 @@ def resolved(
 def skill_missing(
     name: str,
 ) -> str:
-    return f"the skill itself is missing from .agents/skills/{name}, reinstall the kit"
+    return f"the skill itself is missing from {SKILL_HOMES / name}, reinstall the kit"
 
 
 def stray_skill_links(
@@ -939,8 +939,8 @@ def skill_link_trouble(
         name=name,
     )
 
-    if not store.readable_file(home / "SKILL.md"):
-        if store.readable_file(link / "SKILL.md"):
+    if not store.readable_file(home / schema.SKILL_FILE):
+        if store.readable_file(link / schema.SKILL_FILE):
             return None
 
         return Trouble(
@@ -966,15 +966,15 @@ def skill_link_trouble(
         )
 
     if store.quietly(link.is_dir):
-        if not store.readable_file(link / "SKILL.md"):
+        if not store.readable_file(link / schema.SKILL_FILE):
             return Trouble(
                 message=REAL_FOLDER_WITHOUT_SKILL,
                 path=at_link,
             )
 
         copied = store.same_bytes(
-            one=link / "SKILL.md",
-            other=home / "SKILL.md",
+            one=link / schema.SKILL_FILE,
+            other=home / schema.SKILL_FILE,
         )
         if copied:
             return None
@@ -1014,7 +1014,7 @@ def carries_skill(
 ) -> bool:
     """Whether the folder's SKILL.md is a skill of this name, by the name its frontmatter gives."""
     try:
-        document = frontmatter.read(str(folder / "SKILL.md"))
+        document = frontmatter.read(str(folder / schema.SKILL_FILE))
     except frontmatter.FrontmatterError:
         return False
 
