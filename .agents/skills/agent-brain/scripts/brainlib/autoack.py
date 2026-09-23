@@ -149,9 +149,12 @@ def current(
     A word its task has ended, or whose task is gone from the brain or
     doubled by a merge, is taken back on the spot, so it never comes
     back when the task reads open again after a reopen, or when a new
-    entry takes the same id on another branch. A task the brain cannot
-    read right now, one a rebase stopped on, holds the word off with
-    the file in place, so the word is back once the entry is.
+    entry takes the same id on another branch. Where the brain's folder
+    cannot be written the file stays, `describe` says so, and the word
+    would stand again on a reopen until `brain ack off` clears it. A
+    task the brain cannot read right now, one a rebase stopped on,
+    holds the word off with the file in place, so the word is back
+    once the entry is.
     """
     grant = read(brain)
     if grant is None:
@@ -243,16 +246,16 @@ def held_word(
 def stale_word(
     brain: store.Brain,
     at: datetime,
-) -> bool:
-    """Whether a word within its time whose task has ended is still on disk, which means `forget` could not drop it."""
+) -> Optional[Grant]:
+    """A word within its time whose task has ended and whose file is still on disk, which means `forget` could not drop it."""
     grant = read(brain)
     if grant is None or grant.task is None:
-        return False
+        return None
 
     if grant.until is not None and utc(at) >= grant.until:
-        return False
+        return None
 
-    return task_state(brain=brain, key=grant.task) in ("done", "gone")
+    return grant if task_state(brain=brain, key=grant.task) in ("done", "gone") else None
 
 
 def describe(
@@ -267,8 +270,9 @@ def describe(
         if held is not None:
             return f"auto ack held, {held.task} cannot be read right now"
 
-        if stale_word(brain=brain, at=at):
-            return f"{OFF}, {FILE} could not be cleared, the brain's folder cannot be written"
+        stale = stale_word(brain=brain, at=at)
+        if stale is not None:
+            return f"{OFF}, {FILE} could not be cleared since the brain's folder cannot be written, and the word would stand again if {stale.task} were reopened"
 
         if unreadable_word(brain):
             return f"{OFF}, {trouble_text(brain)}"
