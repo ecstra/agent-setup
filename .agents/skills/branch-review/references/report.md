@@ -8,9 +8,9 @@ line.
 While the owner's standing word holds, a line below that says a step
 starts on the owner's word says instead that it started on the standing
 word and what is left of it, "Batch 1 started on your standing word,
-2 h left.", and a line that says the ledger is closed adds that it
-closed on the standing word. The merge line stays as written, since
-the PR and the merge wait for the owner's ask either way.
+2 h left." The close and the merge lines stay as written, since the
+close follows the last batch with no word and the PR and the merge
+wait for the owner's ask either way.
 
 ## After the finding pass
 

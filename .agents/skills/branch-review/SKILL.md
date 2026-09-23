@@ -213,9 +213,9 @@ brain ledger batch 2026-09-feat-billing 2 --status done
 
 Once every batch is done, and the closing pass with it where one was
 owed, the ledger closes and the report says the branch is ready to
-merge on the owner's word. The close runs on the standing word while
-it holds, and the report says so. The PR and the merge wait for the
-owner's ask whether or not a standing word holds.
+merge on the owner's word. The close follows the last batch with no
+word. The PR and the merge wait for the owner's ask whether or not a
+standing word holds.
 
 ```bash
 brain ledger close 2026-09-feat-billing
