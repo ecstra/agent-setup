@@ -1,7 +1,8 @@
 {
   "outputStyle": "Plain & Short",
   "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "opus"
+    "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
+    "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY": "20"
   },
   "hooks": {
     "SessionStart": [
