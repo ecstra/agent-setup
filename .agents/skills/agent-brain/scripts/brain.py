@@ -338,7 +338,7 @@ def add_ledger(
 
     opening = actions.add_parser("open", help="start the ledger for a branch")
     opening.add_argument("branch")
-    opening.add_argument("--summary", required=True)
+    opening.add_argument("--summary", required=True, help="one line, or - to read it from standard input")
     opening.add_argument("--level", default="high", choices=ledger.LEVELS, help="how wide the finding pass goes")
     opening.set_defaults(handler=run_ledger_open)
 
@@ -377,10 +377,15 @@ def run_ledger_open(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
+    summary = stdin_text().strip() if args.summary == "-" else args.summary
+    if not summary:
+        print("no summary on standard input", file=sys.stderr)
+        return REFUSED
+
     entry = ledger.open_ledger(
         brain=brain,
         branch=args.branch,
-        summary=args.summary,
+        summary=summary,
         level=args.level,
     )
     index.write(brain)
