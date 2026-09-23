@@ -427,7 +427,7 @@ def run_ledger_add(
     """File one claim from the command line, or one per line of standard input, so the shell never touches the words."""
     claims = [args.claim]
     if args.claim == "-":
-        claims = [line.strip() for line in stdin_text().replace("\r\n", "\n").split("\n") if line.strip()]
+        claims = [line.strip() for line in stdin_text().split("\n") if line.strip()]
         if not claims:
             print("no claims on standard input, one per line", file=sys.stderr)
             return REFUSED
@@ -506,15 +506,19 @@ def stdin_text() -> str:
     A closed standard input leaves `sys.stdin` as None, and a terminal
     means nobody piped anything, so both read as an empty body. The
     bytes are read as UTF-8 whatever the locale says, and a byte that
-    is not UTF-8 is a refusal rather than a traceback.
+    is not UTF-8 is a refusal rather than a traceback. Line breaks come
+    out as one newline whatever the pipe wrote, the way the text layer
+    reads a pipe on Windows, since the bytes are read under it.
     """
     if sys.stdin is None or sys.stdin.isatty():
         return ""
 
     try:
-        return sys.stdin.buffer.read().decode("utf-8")
+        text = sys.stdin.buffer.read().decode("utf-8")
     except UnicodeDecodeError as bad:
         raise writes.WriteError(f"standard input is not UTF-8 at byte {bad.start}") from bad
+
+    return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def missing(
