@@ -145,7 +145,8 @@ def set_batch(
 
         new_status = status or match.group(3)
         new_ack = ack or match.group(4)
-        if status == "fixing" and not ack and is_auto(new_ack):
+        starting = match.group(3) == "pending" and status in ("fixing", "verified", "done")
+        if starting and not ack and is_auto(new_ack):
             new_ack = standing_word(brain)
 
         if status in ("fixing", "verified", "done"):
@@ -183,10 +184,8 @@ def set_batch(
 def is_auto(
     ack: str,
 ) -> bool:
-    """Whether the ack asks for the standing word, auto in any case, alone or with a day after it."""
-    words = ack.strip().casefold().split()
-
-    return bool(words) and words[0] == AUTO_ACK
+    """Whether the ack asks for the standing word, anything that starts with auto in any case."""
+    return ack.strip().casefold().startswith(AUTO_ACK)
 
 
 def standing_word(
@@ -527,10 +526,11 @@ def next_step(
     for row in rows:
         number = row["number"]
         if row["status"] == "pending":
-            if row["ack"]:
+            standing = autoack.current(brain) is not None
+            if row["ack"] and not (is_auto(row["ack"]) and not standing):
                 return f"start batch {number}, it has the word"
 
-            if autoack.current(brain) is not None:
+            if standing:
                 return f"start batch {number} on the standing word"
 
             return f"batch {number} on the owner's word"
