@@ -155,13 +155,13 @@ def set_batch(
         # bad key or number is reported as that, and a stamp already carried
         # stays past the start while the word still has to stand
         if auto:
-            fresh = standing_word(brain)
+            fresh = standing_word(brain=brain)
             new_ack = old_ack if old_ack and not starting else fresh
         else:
             new_ack = ack or old_ack
 
         if starting and own and not ack and is_auto(new_ack):
-            new_ack = standing_word(brain)
+            new_ack = standing_word(brain=brain)
 
         if status in ("fixing", "verified", "done"):
             still_open = [item["id"] for item in own if is_open(item)]
@@ -518,8 +518,8 @@ def next_step(
     owner's word, the ack that starts it and is recorded on it, one
     that carries the ack already is there to start, and so is one with
     none while the owner's standing word holds. A stamp from an
-    earlier word counts as no ack while the word is off, since the
-    start checks the word again. A batch
+    earlier word counts as no ack while the word is off, since a start
+    with findings in the batch takes the word again. A batch
     past pending needs its open findings fixed, a late one included,
     then its verification, and verification closes it. A batch that
     holds findings with no ack recorded, which a hand edit leaves, or a
