@@ -11,6 +11,16 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py prompt --agent codex"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "apply_patch",
@@ -29,6 +39,15 @@
           {
             "type": "command",
             "command": "python3 .agents/skills/agent-brain/scripts/hooks.py post-write --agent codex"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py tick --agent codex"
           }
         ]
       }

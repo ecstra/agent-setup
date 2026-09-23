@@ -11,6 +11,16 @@
         ]
       }
     ],
+    "BeforeAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py prompt --agent gemini"
+          }
+        ]
+      }
+    ],
     "BeforeTool": [
       {
         "matcher": "write_file|replace",
@@ -29,6 +39,15 @@
           {
             "type": "command",
             "command": "python3 .agents/skills/agent-brain/scripts/hooks.py post-write --agent gemini"
+          }
+        ]
+      },
+      {
+        "matcher": "run_shell_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/skills/agent-brain/scripts/hooks.py tick --agent gemini"
           }
         ]
       }

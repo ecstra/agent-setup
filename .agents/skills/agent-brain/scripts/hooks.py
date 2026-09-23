@@ -1,11 +1,17 @@
 """The hook every agent runs, so the brain is checked without anyone asking.
 
 Claude Code, Codex and Gemini CLI each call this with their own event
-JSON on standard input and the event name as the first argument. Three
-events matter: the start of a session, a write that is about to create
-a file inside .agents/, and a write that just landed there.
+JSON on standard input and the event name as the first argument. Five
+events matter: the start of a session, each prompt the owner sends, a
+tick after the agent's tool calls, a write that is about to create a
+file inside .agents/, and a write that just landed there. The prompt
+and the tick carry the clock, since a model does not know the time and
+forgets what it was told, and the owner's standing word to proceed
+while one holds.
 
     python3 .agents/skills/agent-brain/scripts/hooks.py session-start --agent claude
+    python3 .agents/skills/agent-brain/scripts/hooks.py prompt --agent claude
+    python3 .agents/skills/agent-brain/scripts/hooks.py tick --agent claude
     python3 .agents/skills/agent-brain/scripts/hooks.py pre-write --agent codex
     python3 .agents/skills/agent-brain/scripts/hooks.py post-write --agent gemini
 
@@ -21,7 +27,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional
 
-from brainlib import doctor, frontmatter, links, reads, schema, store
+from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, store
 
 BLOCK = 2
 FAILED = 1
@@ -63,7 +69,7 @@ def main(
     argv: Optional[list[str]] = None,
 ) -> int:
     parser = argparse.ArgumentParser(prog="hooks")
-    parser.add_argument("event", choices=("session-start", "pre-write", "post-write"))
+    parser.add_argument("event", choices=("session-start", "prompt", "tick", "pre-write", "post-write"))
     parser.add_argument("--agent", choices=("claude", "codex", "gemini"), default="claude")
     parser.add_argument("--with-rules", action="store_true", help="add SYSTEM.md to the context")
     args = parser.parse_args(argv)
@@ -92,6 +98,12 @@ def run(
 
     if args.event == "session-start":
         return session_start(brain=brain, agent=args.agent, with_rules=args.with_rules)
+
+    if args.event == "prompt":
+        return prompt(brain=brain, agent=args.agent)
+
+    if args.event == "tick":
+        return tick(brain=brain, agent=args.agent)
 
     if args.event == "pre-write":
         return pre_write(brain=brain, event=event, agent=args.agent)
@@ -134,7 +146,7 @@ def session_start(
     agent: str,
     with_rules: bool,
 ) -> int:
-    text = "The brain, counted from the files right now:\n" + reads.render_status(reads.status(brain))
+    text = the_moment(brain) + "\n\nThe brain, counted from the files right now:\n" + reads.render_status(reads.status(brain))
     if with_rules:
         rules = brain.root / "SYSTEM.md"
         if store.readable_file(rules):
@@ -146,6 +158,36 @@ def session_start(
 
     emit_context(agent=agent, text=text, event_name="SessionStart")
     return 0
+
+
+def prompt(
+    brain: store.Brain,
+    agent: str,
+) -> int:
+    """On each prompt the owner sends, the clock and the standing word, so both are in front of the model when it reads the prompt."""
+    emit_context(agent=agent, text=the_moment(brain), event_name=PROMPT.get(agent, "UserPromptSubmit"))
+    return 0
+
+
+def tick(
+    brain: store.Brain,
+    agent: str,
+) -> int:
+    """After the agent's tool calls, the clock again, and the standing word while one holds, so a long stretch of work never loses either."""
+    text = clock.line()
+    word = autoack.describe(brain)
+    if word != autoack.OFF:
+        text += "\n" + word
+
+    emit_context(agent=agent, text=text, event_name=TICK.get(agent, "PostToolUse"))
+    return 0
+
+
+def the_moment(
+    brain: store.Brain,
+) -> str:
+    """The clock and the standing word, the two lines the prompt hook and the session start carry."""
+    return clock.line() + "\n" + autoack.describe(brain)
 
 
 def text_of(
@@ -637,6 +679,17 @@ def settled(
 # Claude Code and Codex say PostToolUse, Gemini CLI says AfterTool.
 AFTER_WRITE = {"claude": "PostToolUse", "codex": "PostToolUse", "gemini": "AfterTool"}
 
+# What each agent calls the event on a prompt, and the one the tick rides
+# on. Claude Code fires PostToolBatch once before each model call, Codex
+# PostToolUse after each tool, Gemini CLI AfterTool after each tool.
+PROMPT = {"claude": "UserPromptSubmit", "codex": "UserPromptSubmit", "gemini": "BeforeAgent"}
+TICK = {"claude": "PostToolBatch", "codex": "PostToolUse", "gemini": "AfterTool"}
+
+# The events on which Codex takes plain text on standard output as
+# developer context. On its tool events plain text is dropped and only
+# the JSON object reaches the model.
+CODEX_PLAIN = ("SessionStart", "UserPromptSubmit")
+
 
 def emit_context(
     agent: str,
@@ -645,10 +698,11 @@ def emit_context(
 ) -> None:
     """Hand text back the way this agent takes context from a hook.
 
-    Codex takes plain text on standard output as developer context.
-    Claude Code and Gemini CLI take one JSON object naming the event.
+    Codex takes plain text on standard output at the start of a session
+    and on a prompt, and the JSON object after a tool. Claude Code and
+    Gemini CLI take one JSON object naming the event.
     """
-    if agent == "codex":
+    if agent == "codex" and event_name in CODEX_PLAIN:
         print(text)
         return
 

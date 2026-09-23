@@ -1,0 +1,23 @@
+"""The clock the hooks put in front of the agent.
+
+A model does not know the time and forgets what it was told, so the
+hooks print this line on every prompt and after every shell call, and
+the tool prints it wherever a decision turns on the time.
+"""
+
+from datetime import datetime
+from typing import Optional
+
+
+def now() -> datetime:
+    """The local time, aware of its zone."""
+    return datetime.now().astimezone()
+
+
+def line(
+    at: Optional[datetime] = None,
+) -> str:
+    """One line naming the day, the date, the time and the zone, the way every hook prints it."""
+    at = at or now()
+
+    return f"now: {at:%A} {at:%Y-%m-%d %H:%M} {at:%Z}"
