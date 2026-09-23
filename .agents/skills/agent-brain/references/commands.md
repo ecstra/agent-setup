@@ -214,7 +214,11 @@ a session and on a prompt, and gets it there. On its tool events plain
 text is dropped, so those get the JSON object too.
 
 The config files that wire them up ship with the kit: `.claude/settings.json`,
-`.codex/hooks.json` and `.gemini/settings.json`. The Claude Code one also
+`.codex/hooks.json` and `.gemini/settings.json`. Codex runs its hooks
+in the session's own folder with no variable for the project's, so the
+Codex commands walk up to the script from there through a POSIX shell,
+and each carries a Windows form beside it that runs the script by its
+path from the project root. The Claude Code one also
 carries the kit's two settings, `CLAUDE_CODE_SUBAGENT_MODEL` for the sub
 agents' model and `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how many
 tool calls may run at once. The port and the upgrade add each to a

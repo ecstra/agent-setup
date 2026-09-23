@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(d=$(pwd -P) || d=/; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; printf '%s' \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py session-start --agent codex --with-rules"
+            "command": "python3 \"$(d=$(pwd -P) || d=/; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; printf '%s' \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py session-start --agent codex --with-rules",
+            "commandWindows": "py -3 .agents/skills/agent-brain/scripts/hooks.py session-start --agent codex --with-rules"
           }
         ]
       }
@@ -16,7 +17,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(d=$(pwd -P) || d=/; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; printf '%s' \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py prompt --agent codex"
+            "command": "python3 \"$(d=$(pwd -P) || d=/; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; printf '%s' \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py prompt --agent codex",
+            "commandWindows": "py -3 .agents/skills/agent-brain/scripts/hooks.py prompt --agent codex"
           }
         ]
       }
@@ -27,7 +29,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(d=$(pwd -P) || d=/; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; printf '%s' \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py pre-write --agent codex"
+            "command": "python3 \"$(d=$(pwd -P) || d=/; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; printf '%s' \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py pre-write --agent codex",
+            "commandWindows": "py -3 .agents/skills/agent-brain/scripts/hooks.py pre-write --agent codex"
           }
         ]
       }
@@ -38,7 +41,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(d=$(pwd -P) || d=/; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; printf '%s' \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py post-write --agent codex"
+            "command": "python3 \"$(d=$(pwd -P) || d=/; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; printf '%s' \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py post-write --agent codex",
+            "commandWindows": "py -3 .agents/skills/agent-brain/scripts/hooks.py post-write --agent codex"
           }
         ]
       },
@@ -47,7 +51,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(d=$(pwd -P) || d=/; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; printf '%s' \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py tick --agent codex"
+            "command": "python3 \"$(d=$(pwd -P) || d=/; while [ ! -f \"$d/.agents/skills/agent-brain/scripts/hooks.py\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; printf '%s' \"$d\")\"/.agents/skills/agent-brain/scripts/hooks.py tick --agent codex",
+            "commandWindows": "py -3 .agents/skills/agent-brain/scripts/hooks.py tick --agent codex"
           }
         ]
       }
