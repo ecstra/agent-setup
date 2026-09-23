@@ -76,8 +76,10 @@ as no word. While it stands, `brain ledger batch <ledger> <n> --status
 fixing --ack auto` records the ack as `auto` with the day, so the
 ledger says which batches ran on the standing word. Any ack that
 starts with auto, in any case, is that call. It is refused on a batch
-left pending, since the word is checked at the batch's start, and off
-or run out it is refused anywhere.
+left pending, since the word is checked at the batch's start, refused
+on a batch that already carries the owner's own ack, which it never
+writes over, and off or run out it is refused anywhere. On a batch
+that already started on the word, the stamp it carries stays.
 
 ## The review ledger
 

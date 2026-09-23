@@ -150,10 +150,14 @@ def set_batch(
             number=number,
         )
         new_ack = ack or match.group(4)
-        if auto and match.group(4):
-            new_ack = match.group(4)
-
         starting = match.group(3) == "pending" and status in ("fixing", "verified", "done")
+        if auto and match.group(4):
+            if not is_auto(match.group(4)):
+                raise LedgerError(f"batch {number} already carries the owner's ack {match.group(4)}")
+
+            if not starting:
+                new_ack = match.group(4)
+
         if starting and own and not ack and is_auto(new_ack):
             new_ack = standing_word(brain)
 
