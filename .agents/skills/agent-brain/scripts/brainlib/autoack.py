@@ -22,6 +22,9 @@ from . import clock, store
 FILE = ".ack"
 OFF = "auto ack off"
 
+# the last moment every zone can still show on its own clock
+LATEST = datetime(9999, 12, 30, tzinfo=timezone.utc)
+
 # the kinds a word can end with, and the statuses that keep each one open
 OPEN_STATUSES = {
     "todo": ("open",),
@@ -109,11 +112,14 @@ def current(
     brain: store.Brain,
     at: Optional[datetime] = None,
 ) -> Optional[Grant]:
-    """The word as it stands, or None when none was given, its time ran out, or its task is done.
+    """The word as it stands, or None when none was given, its time ran out, its task is done or gone, or its task cannot be read or told apart right now.
 
-    A word its task has ended is taken back on the spot, so it never
-    comes back when the task reads open again, after a checkout of
-    another branch or a reopen.
+    A word its task has ended, or whose task is gone from the brain, is
+    taken back on the spot, so it never comes back when the task reads
+    open again after a reopen, or when a new entry takes the same id on
+    another branch. A task the brain cannot read or tell apart right
+    now, one a rebase stopped on or a merge doubled, leaves the word
+    off and the file in place, so the word is back once the entry is.
     """
     grant = read(brain)
     if grant is None:
@@ -125,8 +131,8 @@ def current(
 
     if grant.task is not None:
         state = task_state(brain=brain, key=grant.task)
-        if state == "done":
-            forget(brain)
+        if state in ("done", "gone"):
+            forget(brain=brain, grant=grant)
 
         if state != "open":
             return None
@@ -136,14 +142,19 @@ def current(
 
 def forget(
     brain: store.Brain,
+    grant: Grant,
 ) -> None:
-    """Drop the file of a word its task has ended.
+    """Drop the file of a word its task has ended, as long as it still holds that word.
 
     This runs on every read of the word, from hooks in parallel among
-    them, so a file another read dropped first, or a root that cannot
-    be written right now, is no reason to fail the read. The word is off
-    either way, and the next read tries again.
+    them, so a file another read dropped first, one a newer word has
+    since replaced, or a root that cannot be written right now, is no
+    reason to fail the read. The word is off either way, and the next
+    read tries again.
     """
+    if read(brain) != grant:
+        return
+
     try:
         path_of(brain).unlink()
     except OSError:
@@ -345,8 +356,7 @@ def task_key(
 
     stored = entry.identifier or entry.name
     try:
-        if brain.find(stored) is None:
-            raise AckError(f"{stored} does not lead back to {entry.name}, so auto ack cannot end with it")
+        brain.find(stored)
     except store.Ambiguous as clash:
         raise AckError(str(clash)) from clash
 
@@ -364,11 +374,12 @@ def task_state(
     brain: store.Brain,
     key: str,
 ) -> str:
-    """Whether the task is open, done, or unsure, when the brain cannot read it or tell it apart right now.
+    """Whether the task is open, done, gone from the brain, or unsure, when the brain cannot read it or tell it apart right now.
 
-    Done and unsure both leave the word off. Only done takes the word
-    back for good, since an entry that is unreadable while a rebase
-    stops on it, or doubled by a merge, may well read open again.
+    Every state but open leaves the word off. Done and gone take it
+    back for good. Unsure keeps the file, since an entry that is
+    unreadable while a rebase stops on it, or doubled by a merge, may
+    well read open again.
     """
     try:
         entry = brain.find(key)
@@ -376,9 +387,21 @@ def task_state(
         return "unsure"
 
     if entry is None:
-        return "unsure"
+        return "unsure" if unreadable_task(brain=brain, key=key) else "gone"
 
     return "open" if is_open(entry) else "done"
+
+
+def unreadable_task(
+    brain: store.Brain,
+    key: str,
+) -> bool:
+    """Whether a file the brain could not read this time carries the task's id or name."""
+    for path in brain.unreadable:
+        if path.stem == key or path.stem.startswith(f"{key}-") or path.parent.name == key:
+            return True
+
+    return False
 
 
 def write(
@@ -412,7 +435,7 @@ def read(
             until=None if data.get("until") is None else moment_of(data["until"]),
             task=data.get("task"),
         )
-    except (OSError, ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError, OverflowError):
         return None
 
     if grant.until is None and grant.task is None:
@@ -427,9 +450,16 @@ def read(
 def moment_of(
     text: str,
 ) -> datetime:
-    """A moment from the state file, refused as a ValueError when it carries no zone."""
+    """A moment from the state file, refused when it carries no zone or lies past what any zone can show.
+
+    The far end raises an OverflowError on its own, from the conversion
+    the comparison needs, and the reader takes that as the refusal.
+    """
     moment = datetime.fromisoformat(text)
     if moment.tzinfo is None:
         raise ValueError(f"'{text}' carries no zone")
+
+    if utc(moment) > LATEST:
+        raise ValueError(f"'{text}' lies past what any zone can show")
 
     return moment
