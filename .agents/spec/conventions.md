@@ -73,11 +73,11 @@ writing is a todo, not a dangling link.
 `.agents/INDEX.md` is the spine, one line each for the rulebook, the
 readme, the house rules and VERSION, one per spec, one per skill, then
 one per folder, its index with the counts or the folder itself where
-it keeps none, grouped.
-The trackers, the docs library, and memory carry their own INDEX.md too,
-however few files they hold, and the spine may summarize those groups
-with counts plus the open items. `spec/` and `handover/` carry none, the
-spine names them directly. An index line is `- [name](path), hook` where
+it keeps none, grouped. The trackers, the docs library, and memory
+carry their own INDEX.md too, however few files they hold, and the
+spine may summarize those groups with counts plus the open items.
+`spec/` and `handover/` carry none, the spine names them directly. An
+index line is `- [name](path), hook` where
 the hook is the description or a shorter cut of it.
 
 The upkeep rule: any change to a file updates its `updated:` date in the

@@ -10,9 +10,8 @@ links: [INDEX.md, spec/conventions.md, house-rules.md]
 
 This directory is the project's brain: everything an agent needs to work
 on this project, committed to the repo, all but what git ignores
-there, so any agent on any machine resumes cold.
-Humans read docs/ at the repo root when the project keeps one, agents
-read this.
+there, so any agent on any machine resumes cold. Humans read docs/ at
+the repo root when the project keeps one, agents read this.
 
 ## Booting
 

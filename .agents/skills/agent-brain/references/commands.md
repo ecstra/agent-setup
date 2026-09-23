@@ -91,14 +91,13 @@ too where the file can be written. While it stands,
 the ack as `auto` with the day, so the ledger says which batches ran
 on the standing word. Any ack that starts with auto, in any case, is
 that call. It is refused on a batch left pending, since the word is
-checked at the batch's start, refused
-on a batch that already carries the owner's own ack, which it never
-writes over, and off, held or run out it is refused anywhere. On a
-batch that already started on the word, the stamp it carries stays. A
-pending batch that holds findings and still carries a stamp from an
-earlier word takes the standing word again when it starts, so its
-start is refused while the word is off, and the report says it waits
-for the owner's word.
+checked at the batch's start, refused on a batch that already carries
+the owner's own ack, which it never writes over, and off, held or run
+out it is refused anywhere. On a batch that already started on the
+word, the stamp it carries stays. A pending batch that holds findings
+and still carries a stamp from an earlier word takes the standing word
+again when it starts, so its start is refused while the word is off,
+and the report says it waits for the owner's word.
 
 ## The review ledger
 
@@ -231,5 +230,5 @@ Codex hook carries the same line in a Windows form beside it, run
 through the `py` launcher. The Claude Code one also carries the kit's
 two settings, `CLAUDE_CODE_SUBAGENT_MODEL` for the sub agents' model
 and `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how many tool calls may
-run at once. The port and the upgrade add each to a
-project's `env` when it lacks the key and leave a value the project set.
+run at once. The port and the upgrade add each to a project's `env`
+when it lacks the key and leave a value the project set.
