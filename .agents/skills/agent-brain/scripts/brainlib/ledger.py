@@ -10,7 +10,7 @@ import re
 from datetime import date
 from typing import Optional
 
-from . import frontmatter, schema, sections, store, writes
+from . import autoack, frontmatter, schema, sections, store, writes
 
 FINDING = re.compile(r"^### (F-\d+): (.+?)[ \t]*$", re.MULTILINE)
 BULLET = re.compile(r"^- ([a-z-]+):[ \t]*(.*?)[ \t]*$", re.MULTILINE)
@@ -47,6 +47,10 @@ SWEEP_PREFIX = "sweep/"
 # The next step the report gives once nothing else stands, and close
 # refuses until the report gives it.
 CLOSE_STEP = "close the ledger"
+
+# The ack a batch takes while the owner's standing word holds, recorded
+# as auto with the day, so the trail says which batches ran unattended.
+AUTO_ACK = "auto"
 
 
 class LedgerError(Exception):
@@ -120,6 +124,9 @@ def set_batch(
     if status and status not in BATCH_STATUSES:
         raise LedgerError(f"a batch is {' or '.join(BATCH_STATUSES)}, not '{status}'")
 
+    if ack.strip() == AUTO_ACK:
+        ack = standing_word(brain)
+
     ack = cell(value=ack, what="ack")
     theme = cell(value=theme, what="theme")
     if not (status or ack or theme):
@@ -162,6 +169,16 @@ def set_batch(
 
     entry.document.body = body
     save(brain=brain, entry=entry)
+
+
+def standing_word(
+    brain: store.Brain,
+) -> str:
+    """The auto ack as the batch records it, refused as a ledger error when the word does not stand."""
+    try:
+        return autoack.stamp(brain)
+    except autoack.AckError as off:
+        raise LedgerError(str(off)) from off
 
 
 def batch_row(
