@@ -58,6 +58,7 @@ headings and nothing else, for filling in afterwards.
 | `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. Refuses when given none of them. The ack, like the theme, is one line with no pipe. |
 | `brain ledger add <ledger> "claim" --severity S [--found-by review\|hunter] [--batch n]` | Records the next finding, numbered past the highest one, and prints its id. The claim is one line. |
 | `brain ledger set <ledger> F-NN field=value ...` | Changes a finding, each value one line taken as written. The fields are severity, found-by, batch, status and fix, and a line a hand edit lost comes back. A fixed finding always names its commit, `fix=<hash>`. Statuses: open, fixed, wontfix, deferred. |
+| `brain ledger report <ledger>` | The ledger's state in a few lines, counted from the file: the status and the counts, one line per batch with its status, ack and counts, and a last line saying what comes next, from "batch 1 on the owner's word" through "fix F-03 in batch 2", "verify batch 2", "the owner's ack of batch 2", "start batch 3" and "close the ledger". Every review report opens with these lines. |
 | `brain ledger close <ledger>` | Flips the ledger to closed and writes the count under Summary. Refuses while a finding is open or has no status. |
 
 ## Doctor
@@ -77,15 +78,16 @@ links that resolve, links written as paths with each file once, body
 links that resolve, indexes current, no dashes or semicolons in prose,
 no machine paths, nothing shaped like a secret, the version stamp, the
 chat style copies for Codex and Gemini CLI matching the Claude Code
-one where the project keeps those agents' folders, and the skill link
-Claude Code needs, which must reach the skill rather than point at
-nothing or be a plain file.
+one where the project keeps those agents' folders, and the skill links
+Claude Code needs, one per skill the kit ships and one per skill folder
+the project keeps, each of which must reach its skill rather than point
+at nothing or be a plain file.
 
 What `--fix` repairs: a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written
 as a name, a file linked more than once in one header, which keeps the
-first, a stale index, a stale chat style copy, and the skill link
-when it is missing, dead or a plain file. Each repaired file gets
+first, a stale index, a stale chat style copy, and a skill link when
+it is missing, dead or a plain file. Each repaired file gets
 today's date. The one thing `--fix` deletes is what an interrupted
 write left behind, a temporary file or a scratch folder named the way
 the tool names them. No other file is ever removed.

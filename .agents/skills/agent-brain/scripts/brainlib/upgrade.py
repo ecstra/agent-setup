@@ -422,8 +422,9 @@ def prepare(
 ) -> Prepared:
     """Read the kit's stamp and front doors and merge the hook configs, so a refusal comes before the first write."""
     for folder in (FOLDER, OLD_FOLDER):
-        if store.quietly((project.root / folder / "skills" / "agent-brain").is_symlink):
-            raise UpgradeError(f"{folder}/skills/agent-brain is a symlink, replace it with a real folder first")
+        for name in schema.KIT_SKILLS:
+            if store.quietly((project.root / folder / "skills" / name).is_symlink):
+                raise UpgradeError(f"{folder}/skills/{name} is a symlink, replace it with a real folder first")
 
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
@@ -477,10 +478,11 @@ def install(
     if specs:
         report.done("the old ones are still in git: " + ", ".join(f"git show {spec}" for spec in specs))
 
-    skill_home = project.brain / "skills" / "agent-brain"
     shipped = [Path(FOLDER) / relative for relative in kit.brain_files() if relative.name != VERSION]
     written = sum(copy(kit=kit, project=project, relative=relative) for relative in shipped)
-    retired = retire(project=project, folder=skill_home, keep=set(shipped))
+    retired: list[str] = []
+    for name in schema.KIT_SKILLS:
+        retired += retire(project=project, folder=project.brain / "skills" / name, keep=set(shipped))
     report.done(f"the kit's {len(shipped)} files under {FOLDER}/, {written} written, {len(retired)} retired")
     for relative in retired:
         report.done(f"retired {relative}, the kit no longer ships it")
@@ -512,12 +514,12 @@ def check(
 ) -> tuple[list[doctor.Finding], list[doctor.Finding]]:
     """Doctor with --fix over the brain as installed: what it could not clear in the project's files, and what sits in the kit's own.
 
-    A finding under the kit's skill folder is in a file the install
-    replaces every time, so it is the kit's to put right, reported
-    apart and never counted against the project.
+    A finding under one of the kit's skill folders is in a file the
+    install replaces every time, so it is the kit's to put right,
+    reported apart and never counted against the project.
     """
     found = doctor.run(brain=store.Brain(root=project.brain), fix=True)
-    kits = [finding for finding in found if finding.path.startswith("skills/agent-brain/")]
+    kits = [finding for finding in found if finding.path.startswith(tuple(f"skills/{name}/" for name in schema.KIT_SKILLS))]
 
     return [finding for finding in found if finding not in kits], kits
 
@@ -645,23 +647,30 @@ def in_skill_folder(
     project: Project,
     path: Path,
 ) -> bool:
-    """Whether the path sits under the kit's own skill folder, by either name of the brain."""
+    """Whether the path sits under one of the kit's own skill folders, by either name of the brain."""
     parts = path.relative_to(project.root).parts
 
-    return len(parts) > 2 and parts[0] in (OLD_FOLDER, FOLDER) and parts[1:3] == ("skills", "agent-brain")
+    return len(parts) > 2 and parts[0] in (OLD_FOLDER, FOLDER) and kits_skill(parts[1:])
+
+
+def kits_skill(
+    parts: tuple[str, ...],
+) -> bool:
+    """Whether a path split under the brain leads into one of the kit's skill folders."""
+    return len(parts) > 1 and parts[0] == "skills" and parts[1] in schema.KIT_SKILLS
 
 
 def brain_markdown(
     brain: Path,
 ) -> list[Path]:
-    """Every markdown file under the brain outside the kit's own skill folder, what the folder migration reads outside git."""
+    """Every markdown file under the brain outside the kit's own skill folders, what the folder migration reads outside git."""
     if not store.quietly(brain.is_dir):
         return []
 
     return sorted(
         path
         for path in brain.rglob("*.md")
-        if path.is_file() and path.relative_to(brain).parts[:2] != ("skills", "agent-brain")
+        if path.is_file() and not kits_skill(path.relative_to(brain).parts)
     )
 
 
@@ -1092,7 +1101,8 @@ def guarded_paths(
 
     brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
     paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
-    paths += files_under(root=project.root, folder=brain / "skills" / "agent-brain", taken=retire_takes)
+    for name in schema.KIT_SKILLS:
+        paths += files_under(root=project.root, folder=brain / "skills" / name, taken=retire_takes)
 
     if pending_migrations(project=project, want=kit.version()):
         paths += [str(path.relative_to(project.root)) for path in migration_targets(project)]

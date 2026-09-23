@@ -2,7 +2,7 @@
 name: agent-index
 kind: doc
 description: the spine of the agent directory, what exists and where
-updated: 2026-09-18
+updated: 2026-09-23
 links: [README.md, spec/conventions.md, house-rules.md]
 ---
 
@@ -26,6 +26,7 @@ rather than this one.
 - [spec/reviews.md](spec/reviews.md), format and lifecycle for .agents/reviews, the code review ledgers
 - [spec/handover.md](spec/handover.md), format for .agents/handover, session handoffs
 - [skills/agent-brain/SKILL.md](skills/agent-brain/SKILL.md), the brain tool, the one way anything here is filed, changed or checked
+- [skills/review/SKILL.md](skills/review/SKILL.md), the code review, run on the owner's word with sub agents in parallel
 - [VERSION](VERSION), the kit release this brain is on
 
 ## The knowledge

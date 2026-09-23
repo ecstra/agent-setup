@@ -270,6 +270,15 @@ KIT_FILES: tuple[str, ...] = (
     "house-rules.md",
 )
 
+# The skills the kit ships under skills/, each a folder with a SKILL.md.
+# Claude Code finds them through links under .claude/skills/, which
+# doctor makes, and the port and the upgrade treat each folder as the
+# kit's own, replaced whole.
+KIT_SKILLS: tuple[str, ...] = (
+    "agent-brain",
+    "review",
+)
+
 # SYSTEM.md is the rulebook. An agent takes it as it stands, so it is the
 # one markdown file at the root of the directory with no frontmatter. The
 # tool's own docs under skills/ follow the Agent Skills standard instead.
