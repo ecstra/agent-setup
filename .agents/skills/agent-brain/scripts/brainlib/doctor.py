@@ -758,7 +758,7 @@ def skills_folder_outside(
     folder = project / SKILL_LINKS
     try:
         return not folder.resolve().is_relative_to(project.resolve())
-    except OSError:
+    except (OSError, RuntimeError, ValueError):
         return False
 
 
@@ -842,10 +842,14 @@ def reaches(
     link: Path,
     home: Path,
 ) -> bool:
-    """Whether the link resolves to the skill's own folder."""
+    """Whether the link resolves to the skill's own folder.
+
+    A link that loops raises RuntimeError on the 3.9 floor and OSError
+    on newer interpreters, and either way it reaches nothing.
+    """
     try:
         return link.resolve() == home.resolve()
-    except OSError:
+    except (OSError, RuntimeError, ValueError):
         return False
 
 
