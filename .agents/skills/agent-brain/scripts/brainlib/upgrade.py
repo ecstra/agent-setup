@@ -48,9 +48,13 @@ NOT_SHIPPED = ("settings.local.json",)
 # from the project folder the agent names, or by walking up from the
 # session's own folder where none is named, hands it the event, and does
 # nothing where there is no script, so a checkout without the kit never
-# blocks a prompt or a write
+# blocks a prompt or a write. Run through -c, Python puts the session's
+# folder first on the import path, where a file named like a standard
+# module would shadow it, so that entry goes before anything is imported
 LAUNCHER = (
-    "import os,pathlib,runpy,sys;"
+    "import sys;"
+    "'' in sys.path and sys.path.remove('');"
+    "import os,pathlib,runpy;"
     "h='.agents/skills/agent-brain/scripts/hooks.py';"
     "c=pathlib.Path(os.environ.get('CLAUDE_PROJECT_DIR') or os.environ.get('GEMINI_PROJECT_DIR') or os.getcwd());"
     "p=next((d/h for d in [c,*c.parents] if (d/h).is_file()),None);"
