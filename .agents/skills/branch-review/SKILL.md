@@ -132,8 +132,10 @@ shows it.
    EOF
    ```
 
-6. Report with the findings shape, then stop. Batch 1 starts on the
-   owner's word. When nothing survived, there is no batch and nothing
+6. Report with the findings shape. Batch 1 starts on the owner's word,
+   so stop there, unless the standing word holds, in which case batch
+   1 starts on it and the report's last line says so. When nothing
+   survived, there is no batch and nothing
    was fixed, so no closing pass is owed. The report says so, the
    ledger closes, and the branch is ready to merge on the owner's word.
 

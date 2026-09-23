@@ -5,6 +5,13 @@ Every report follows SYSTEM.md section 7.6. The state lines come from
 are the refuted and hunter counts the shapes below carry. Never a tip
 line.
 
+While the owner's standing word holds, a line below that says a step
+starts on the owner's word says instead that it started on the standing
+word and what is left of it, "Batch 1 started on your standing word,
+2 h left.", and a line that says the ledger is closed adds that it
+closed on the standing word. The merge line stays as written, since
+the PR and the merge wait for the owner's ask either way.
+
 ## After the finding pass
 
 ```text
@@ -49,9 +56,6 @@ Deferred: <F-nn> as <BUG-nnn>, <why it cannot be fixed here>.
 Cut short: the hunter, after three runs, <the files it never reached, or that candidates past its cap remained>.
 Your call: ack batch <n+1>, which starts it.
 ```
-
-On the standing word the last line reads instead "Batch <n+1> started
-on your standing word, <what is left of it>."
 
 The deferred line appears only when there is one, and the cut short
 line only when the hunter ran three times and still ended with (more
