@@ -103,9 +103,9 @@ replaced it.
 `refile --kind bug` turns a todo into a bug, or the reverse, with the
 new body on standard input. Both files stay and link to each other, the
 old one marked `refiled` and naming the new one in `became`, so the id
-trail holds and every step of an open entry that pointed at the old one
-follows it. It is refused when a step of the new body would point back,
-at any remove, at an open entry that points at the old one.
+trail holds and every step that pointed at the old one follows it. It
+is refused when a step of the new body would point back, at any
+remove, at an open entry that points at the old one.
 
 ## A review
 
