@@ -497,6 +497,10 @@ def table_write_of(
         if line is not None:
             return f"{inside}: a hunk the hook cannot place touches the steps table with '{line}', and {TABLE_IS_THE_TOOLS}"
 
+        line = step_line_in(hunk)
+        if line is not None:
+            return f"{inside}: a hunk the hook cannot place carries '{line}', which reads as a step or the Steps heading and could land in the list the tool turns into the table, and {TABLE_IS_THE_TOOLS}"
+
     if after is None:
         return None
 
@@ -798,6 +802,21 @@ def row_line_in(
             return text
 
     return None
+
+
+def step_line_in(
+    hunk: tuple[str, ...],
+) -> Optional[str]:
+    """The first line of a hunk, kept, removed or added, that is a numbered step opening with a key or a Steps heading, blank space around it aside, since a list the hook cannot place could be the one under Steps, which the tool turns into the table."""
+    for line in hunk:
+        text = line[1:].strip()
+        if steps.opens_with_a_key(text) or STEPS_HEADING.match(text):
+            return line[1:]
+
+    return None
+
+
+STEPS_HEADING = re.compile(r"^#{1,6}[ \t]+steps[ \t]*$", re.IGNORECASE)
 
 
 def outcome_of(

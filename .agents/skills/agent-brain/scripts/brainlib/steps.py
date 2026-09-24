@@ -533,6 +533,19 @@ def doubled_word(
     return "name" if schema.is_review_folder(key.lower()) else "id"
 
 
+def opens_with_a_key(
+    line: str,
+) -> bool:
+    """Whether a line is a numbered step whose text opens with an id shaped key or a review's name, the shape a pointer takes in a list."""
+    numbered = LISTED.match(line)
+    if numbered is None:
+        return False
+
+    opened = POINTER.match(numbered.group(2))
+
+    return opened is not None and looks_like_a_key(opened.group(1))
+
+
 def looks_like_a_key(
     word: str,
 ) -> bool:
