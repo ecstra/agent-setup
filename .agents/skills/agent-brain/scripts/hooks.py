@@ -27,7 +27,7 @@ import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import BinaryIO, NoReturn, Optional
+from typing import BinaryIO, NoReturn, Optional, Union
 
 from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, steps, store, task
 
@@ -235,13 +235,22 @@ def pre_write(
     event: dict,
     agent: str,
 ) -> int:
-    for touch in touches(event=event, agent=agent):
+    touched = touches(event=event, agent=agent)
+    for touch in touched:
         verdict = refusal(brain=brain, touch=touch)
         if verdict is None:
             continue
 
         print(verdict, file=sys.stderr)
         return BLOCK
+
+    # a patch that reaches several brain files is judged across them too, since each alone reads as fine against the disk
+    if len(touched) > 1:
+        writes = [write for write in (table_write_of(touch=touch, inside=inside) for touch, inside in ((touch, entry_path(brain=brain, path=touch.path)) for touch in touched) if inside is not None) if isinstance(write, TableWrite)]
+        verdict = loop_across(brain=brain, writes=writes)
+        if verdict is not None:
+            print(verdict, file=sys.stderr)
+            return BLOCK
 
     emit_nothing(agent)
     return 0
@@ -413,6 +422,50 @@ def table_change(
     that fits nowhere and carries a row is refused, since the hook
     cannot tell where it would land.
     """
+    write = table_write_of(touch=touch, inside=inside)
+    if write is None:
+        return None
+
+    if isinstance(write, str):
+        return write
+
+    why = changed_row(brain=brain, before=write.before, rows=write.rows, key=write.key, status=write.status, closed=write.closed) or added_row(
+        brain=brain,
+        before=write.before,
+        rows=write.rows,
+        key=write.key,
+        status=write.status,
+        closed=write.closed,
+        own=write.own,
+    )
+    if why is None:
+        return None
+
+    return f"{inside}: {TABLE_IS_THE_TOOLS}, {why}, and the prose around it is yours to edit"
+
+
+@dataclass(frozen=True)
+class TableWrite:
+    """A write to a stepped file as the hook reads it: the file's key and keys, its state, the rows it holds and the rows it would hold."""
+
+    inside: str
+    key: str
+    own: set[str]
+    status: str
+    closed: bool
+    before: list[steps.Step]
+    rows: list[steps.Step]
+
+    @property
+    def added(self) -> list[steps.Step]:
+        return self.rows[len(self.before):]
+
+
+def table_write_of(
+    touch: Touch,
+    inside: str,
+) -> Union[TableWrite, str, None]:
+    """The steps table a write reaches, as it is and as the write would leave it, a refusal when the write cannot be judged as a table, or None when there is no table to judge."""
     text = frontmatter.load(str(touch.path))
     try:
         current = frontmatter.parse(text)
@@ -452,13 +505,47 @@ def table_change(
 
     key = Path(inside).stem
     status = str(current.get("status") or "")
-    closed = status not in steps.OPEN_STATUSES[kind]
-    own = own_keys_of(inside=inside, name=str(current.get("name") or key))
-    why = changed_row(brain=brain, before=before, rows=rows, key=key, status=status, closed=closed) or added_row(brain=brain, before=before, rows=rows, key=key, status=status, closed=closed, own=own)
-    if why is None:
-        return None
 
-    return f"{inside}: {TABLE_IS_THE_TOOLS}, {why}, and the prose around it is yours to edit"
+    return TableWrite(
+        inside=inside,
+        key=key,
+        own=own_keys_of(inside=inside, name=str(current.get("name") or key)),
+        status=status,
+        closed=status not in steps.OPEN_STATUSES[kind],
+        before=before,
+        rows=rows,
+    )
+
+
+def loop_across(
+    brain: store.Brain,
+    writes: list[TableWrite],
+) -> Optional[str]:
+    """Why two files of one patch may not each add a row pointing at the other, which the disk cannot show since neither row is written yet, or None when no two do."""
+    for first in writes:
+        for second in writes:
+            if first is second:
+                continue
+
+            for step in first.added:
+                if reaches(brain=brain, key=step.points_at, own=second.own) and any(reaches(brain=brain, key=other.points_at, own=first.own) for other in second.added):
+                    return f"{first.inside}: {TABLE_IS_THE_TOOLS}, step {step.number} points at {step.points_at}, whose steps would point back here in the same patch, and the two would wait on each other for good, and the prose around it is yours to edit"
+
+    return None
+
+
+def reaches(
+    brain: store.Brain,
+    key: str,
+    own: set[str],
+) -> bool:
+    """Whether a row's pointer reaches the file whose keys these are."""
+    if not key:
+        return False
+
+    target = steps.pointed(brain=brain, key=key)
+
+    return target is not None and steps.pointer_of(target) in own
 
 
 def changed_row(
