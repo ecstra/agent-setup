@@ -552,7 +552,7 @@ def check_table(
 ) -> list[Finding]:
     found: list[Finding] = []
     try:
-        rows = steps.rows_of(entry)
+        rows = steps.stored_rows(entry)
     except steps.StepsError as broken:
         message = str(broken).split(": ", 1)[1]
         if entry.kind.name == "bug" and not steps.has_table(entry.document.body):
@@ -560,21 +560,33 @@ def check_table(
 
         return [Finding(path=entry.relative, check="steps", message=message, repair=convert_steps(brain=brain, entry=entry))]
 
+    derived: list[steps.Step] = []
     for step in rows:
+        fresh = steps.derived_row(brain=brain, step=step)
+        derived.append(fresh)
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
             found.append(Finding(path=entry.relative, check="steps", message=f"step {step.number} points at '{step.points_at}', which reaches no todo, bug or review"))
-        elif step.points_at and steps.derived_status(brain=brain, step=step) != step.status:
+        elif fresh.points_at != step.points_at:
             found.append(
                 Finding(
                     path=entry.relative,
                     check="steps",
-                    message=f"step {step.number} is marked {step.status} while {step.points_at} says {steps.derived_status(brain=brain, step=step)}",
+                    message=f"step {step.number} points at {step.points_at}, which was refiled as {fresh.points_at}",
+                    repair=refresh_steps(brain=brain, entry=entry),
+                )
+            )
+        elif fresh.status != step.status:
+            found.append(
+                Finding(
+                    path=entry.relative,
+                    check="steps",
+                    message=f"step {step.number} is marked {step.status} while {step.points_at} says {fresh.status}",
                     repair=refresh_steps(brain=brain, entry=entry),
                 )
             )
 
     is_open = (entry.field("status") or "") in steps.OPEN_STATUSES[entry.kind.name]
-    if is_open and rows and steps.all_settled(rows):
+    if is_open and derived and steps.all_settled(derived):
         closing = steps.CLOSING[entry.kind.name]
         found.append(Finding(path=entry.relative, check="steps", message=f"every step is settled, close the {entry.kind.name} with brain set status={closing}"))
 

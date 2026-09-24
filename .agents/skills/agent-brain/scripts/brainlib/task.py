@@ -227,7 +227,7 @@ def may_push(
     if plan is None:
         return False
 
-    rows = steps.rows_of(plan)
+    rows = steps.rows_of(brain=brain, entry=plan)
     step = steps.current_step(rows)
     if step is None:
         return False
@@ -243,7 +243,7 @@ def mark(
 ) -> list[Item]:
     """Mark the step the innermost link stands on done or skipped, so the work moves to the next pending one."""
     chain, entry = innermost(brain)
-    rows = steps.rows_of(entry)
+    rows = steps.rows_of(brain=brain, entry=entry)
     step = steps.current_step(rows)
     if step is None:
         raise TaskError(f"{entry.name} has no step pending" if rows else f"{entry.name} has no steps, add some with brain steps {key_of(entry)} add")
@@ -333,17 +333,18 @@ def describe_item(
     if item.kind == "review":
         return f"{item.key}, {batch_text(entry)}"
 
-    where = step_text(entry)
+    where = step_text(brain=brain, entry=entry)
 
     return f"{item.key}, {where}" if where else item.key
 
 
 def step_text(
+    brain: store.Brain,
     entry: store.Entry,
 ) -> str:
     """Where the work stands in the entry's steps, nothing for a todo or a bug with none."""
     try:
-        rows = steps.rows_of(entry)
+        rows = steps.rows_of(brain=brain, entry=entry)
     except steps.StepsError:
         return "the steps table cannot be read"
 

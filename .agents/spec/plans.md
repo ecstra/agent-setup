@@ -50,15 +50,21 @@ The steps table:
 ```
 
 A step is numbered from 1 and never renumbered or deleted. It points
-at a todo, a bug or a review by id or name, or at nothing when it is a
-plain line such as something the owner does themselves. `By` says who
-set the step, `owner` or `agent`, so the agreed steps read apart from
-the ones the agent added on its own. `Status` is `pending`, `done` or
-`skipped`, and a step that points at an entry takes its status from
-that entry, done when the todo is done, the bug fixed or wontfix, or
-the review closed, skipped when the entry was dropped or refiled. Only
-a step that points at nothing is marked by hand, and a step that
-turned out wrong is skipped rather than removed.
+at a todo or a bug by id, which a retitle never moves, or at a review
+by name, or at nothing when it is a plain line such as something the
+owner does themselves. `By` says who set the step, `owner` or `agent`,
+so the agreed steps read apart from the ones the agent added on its
+own. `Status` is `pending`, `done` or `skipped`, and a step that
+points at an entry takes its status from that entry, done when the
+todo is done, the bug fixed or wontfix, or the review closed, skipped
+when the entry was dropped, and a step whose todo or bug was refiled
+follows it to the entry filed in its place. Every reader reads a
+pointed step off its entry rather than off the cell, so a mark that
+went stale in the file misleads nothing, and doctor repairs the cell.
+Only a step that points at nothing is marked by hand, and a step that
+turned out wrong is skipped rather than removed. Two entries whose
+steps point at each other would wait on each other for good, so the
+second pointer is refused.
 
 ## The tool
 

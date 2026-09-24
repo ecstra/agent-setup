@@ -68,6 +68,9 @@ POINTER = re.compile(r"^([A-Za-z0-9][\w.-]*)[,:][ \t]+(.+)$")
 # a heading meant as the Steps section that the readers would never find
 STEPS_LOOKALIKE = re.compile(r"^#{1,6}[ \t]+steps:?[ \t]*$", re.IGNORECASE | re.MULTILINE)
 
+# a date opening a step line is prose, though it is shaped like a review's name
+DATE_SHAPE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
 
 class StepsError(Exception):
     """A steps table that does not read as one, or a step that cannot be added or marked as asked, with the reason in the message."""
@@ -184,9 +187,17 @@ def span(
 
 
 def rows_of(
+    brain: store.Brain,
     entry: store.Entry,
 ) -> list[Step]:
-    """The entry's steps, none for a todo or a bug without a Steps section or with an empty one, refused with the path named when the table does not read."""
+    """The entry's steps as they stand, each pointed one read off the entry it points at rather than off the file, so a mark that went stale in the file never misleads a reader, none for a todo or a bug without a Steps section or with an empty one, and refused with the path named when the table does not read."""
+    return [derived_row(brain=brain, step=step) for step in stored_rows(entry)]
+
+
+def stored_rows(
+    entry: store.Entry,
+) -> list[Step]:
+    """The entry's steps as the file holds them, which doctor reads to see what drifted."""
     if entry.kind.name != "plan" and blank(entry.document.body):
         return []
 
@@ -308,10 +319,12 @@ def checked(
     rows = table(body)
     fresh: list[Step] = []
     for step in rows:
-        if step.points_at and pointed(brain=brain, key=step.points_at) is None:
+        target = pointed(brain=brain, key=step.points_at) if step.points_at else None
+        if step.points_at and target is None:
             raise StepsError(f"step {step.number} points at '{step.points_at}', which is not a todo, a bug or a review the brain knows")
 
-        fresh.append(Step(number=step.number, text=step.text, points_at=step.points_at, by=step.by, status=derived_status(brain=brain, step=step)))
+        pointer = pointer_of(target) if target is not None else ""
+        fresh.append(derived_row(brain=brain, step=Step(number=step.number, text=step.text, points_at=pointer, by=step.by, status=step.status)))
 
     return rewrite(body=body, rows=fresh)
 
@@ -339,6 +352,9 @@ def converted(
     for step in rows:
         if own and step.points_at in own:
             raise StepsError(f"step {step.number} points at {step.points_at} itself, and a step points at other work")
+
+    if own:
+        refuse_cycles(brain=brain, rows=rows, own=own)
 
     if status != "pending":
         rows = [step if step.points_at else Step(number=step.number, text=step.text, points_at="", by=step.by, status=status) for step in rows]
@@ -398,41 +414,119 @@ def row_from(
 
     points_at = ""
     match = POINTER.match(line)
-    if match is not None and pointed(brain=brain, key=match.group(1)) is not None:
-        points_at = match.group(1)
-        line = match.group(2).strip()
-    elif match is not None and looks_like_a_key(match.group(1)):
-        raise StepsError(f"step {number} points at '{match.group(1)}', which is not a todo, a bug or a review the brain knows")
+    if match is not None:
+        target = pointed(brain=brain, key=match.group(1))
+        if target is not None:
+            points_at = pointer_of(target)
+            line = match.group(2).strip()
+        elif looks_like_a_key(match.group(1)) and not known(brain=brain, key=match.group(1)):
+            raise StepsError(f"step {number} points at '{match.group(1)}', which is not a todo, a bug or a review the brain knows")
 
     if not line:
         raise StepsError(f"step {number} has no text")
 
-    step = Step(number=number, text=line, points_at=points_at, by=by, status="pending")
-
-    return Step(number=number, text=line, points_at=points_at, by=by, status=derived_status(brain=brain, step=step))
+    return derived_row(brain=brain, step=Step(number=number, text=line, points_at=points_at, by=by, status="pending"))
 
 
 def looks_like_a_key(
     word: str,
 ) -> bool:
-    """Whether a word opening a step line is meant as an id or a review's name rather than a word of prose."""
-    return schema.FILENAME_WITH_ID.match(f"{word}-x.md") is not None or schema.is_review_folder(word)
+    """Whether a word opening a step line is meant as an id, in any case, or a review's name rather than a word of prose, a plain date being prose."""
+    if DATE_SHAPE.match(word):
+        return False
+
+    return schema.FILENAME_WITH_ID.match(f"{word.upper()}-x.md") is not None or schema.is_review_folder(word)
+
+
+def known(
+    brain: store.Brain,
+    key: str,
+) -> bool:
+    """Whether the key names an entry of any kind, so a step opening with a decision's id reads as prose rather than a pointer that reaches nothing."""
+    return found(brain=brain, key=key) is not None
+
+
+def found(
+    brain: store.Brain,
+    key: str,
+) -> Optional[store.Entry]:
+    """The entry the key names, an id answering in any case, or None when it names nothing or more than one file."""
+    for candidate in (key, key.upper()):
+        try:
+            entry = brain.find(candidate)
+        except store.Ambiguous:
+            return None
+
+        if entry is not None:
+            return entry
+
+    return None
 
 
 def pointed(
     brain: store.Brain,
     key: str,
 ) -> Optional[store.Entry]:
-    """The todo, bug or review a step points at, or None when the key reaches nothing or more than one file."""
-    try:
-        entry = brain.find(key)
-    except store.Ambiguous:
-        return None
-
+    """The todo, bug or review a step points at by its id or its name, or None when the key reaches nothing of those kinds, or reaches one by a stem or a path a step never uses."""
+    entry = found(brain=brain, key=key)
     if entry is None or entry.kind.name not in POINTED_KINDS:
         return None
 
+    if key not in (entry.identifier, entry.name) and key.upper() != entry.identifier:
+        return None
+
     return entry
+
+
+def pointer_of(
+    entry: store.Entry,
+) -> str:
+    """The key a step stores for the entry, the id for a todo or a bug, which a retitle never moves, and the name for a review."""
+    return entry.identifier or entry.name
+
+
+def derived_row(
+    brain: store.Brain,
+    step: Step,
+    seen: Optional[set[str]] = None,
+) -> Step:
+    """The row a pointed step should carry, its mark read off the entry it points at, and its pointer moved on to the entry a refile filed in its place, or the row as it is when it points at nothing the brain can read."""
+    if not step.points_at:
+        return step
+
+    entry = pointed(brain=brain, key=step.points_at)
+    if entry is None:
+        return step
+
+    status = entry.field("status") or ""
+    if status == "refiled":
+        seen = (seen or set()) | {step.points_at}
+        successor = refiled_to(brain=brain, entry=entry)
+        if successor is not None and pointer_of(successor) not in seen:
+            moved = Step(number=step.number, text=step.text, points_at=pointer_of(successor), by=step.by, status=step.status)
+            return derived_row(brain=brain, step=moved, seen=seen)
+
+    if status in POINTED_KINDS[entry.kind.name]:
+        mark = "done"
+    elif status in POINTED_GONE[entry.kind.name]:
+        mark = "skipped"
+    else:
+        mark = "pending"
+
+    return Step(number=step.number, text=step.text, points_at=step.points_at, by=step.by, status=mark)
+
+
+def refiled_to(
+    brain: store.Brain,
+    entry: store.Entry,
+) -> Optional[store.Entry]:
+    """The todo or bug a refiled entry was filed as, the last of its links that reaches one, or None."""
+    for link in reversed(entry.document.get_list("links")):
+        target = found(brain=brain, key=link)
+        if target is not None and target.kind.name in ("todo", "bug") and target is not entry:
+            return target
+
+    return None
 
 
 def derived_status(
@@ -440,21 +534,47 @@ def derived_status(
     step: Step,
 ) -> str:
     """The status a pointed step should carry, read off the entry it points at, or its own when it points at nothing."""
-    if not step.points_at:
-        return step.status
+    return derived_row(brain=brain, step=step).status
 
-    entry = pointed(brain=brain, key=step.points_at)
+
+def points_back(
+    brain: store.Brain,
+    key: str,
+    own: set[str],
+    seen: Optional[set[str]] = None,
+) -> bool:
+    """Whether the entry the key names has a step that points, at any remove, at one of the own keys, which would leave the two waiting on each other for good."""
+    entry = pointed(brain=brain, key=key)
     if entry is None:
-        return step.status
+        return False
 
-    status = entry.field("status") or ""
-    if status in POINTED_KINDS[entry.kind.name]:
-        return "done"
+    seen = (seen or set()) | {key}
+    try:
+        rows = table(entry.document.body) if entry.kind.name in STEPPED_KINDS and not blank(entry.document.body) else []
+    except StepsError:
+        return False
 
-    if status in POINTED_GONE[entry.kind.name]:
-        return "skipped"
+    for step in rows:
+        if not step.points_at:
+            continue
 
-    return "pending"
+        if step.points_at in own or step.points_at.upper() in own:
+            return True
+
+        if step.points_at not in seen and points_back(brain=brain, key=step.points_at, own=own, seen=seen):
+            return True
+
+    return False
+
+
+def refuse_cycles(
+    brain: store.Brain,
+    rows: list[Step],
+    own: set[str],
+) -> None:
+    for step in rows:
+        if step.points_at and points_back(brain=brain, key=step.points_at, own=own):
+            raise StepsError(f"step {step.number} points at {step.points_at}, whose steps point back here, and the two would wait on each other for good")
 
 
 def add(
@@ -485,6 +605,8 @@ def add(
         if step.points_at in own:
             raise StepsError(f"step {step.number} points at {entry.name} itself, and a step points at other work")
 
+    refuse_cycles(brain=brain, rows=added, own=own)
+
     entry.document.body = rewrite(body=body, rows=rows + added)
     save(brain=brain, entry=entry)
 
@@ -502,7 +624,7 @@ def mark(
         raise StepsError(f"a step is {' or '.join(STEP_STATUSES)}, not '{status}'")
 
     entry = stepped_entry(brain=brain, key=key)
-    rows = rows_of(entry)
+    rows = rows_of(brain=brain, entry=entry)
     step = step_numbered(entry=entry, rows=rows, number=number)
     if step.points_at:
         raise StepsError(f"step {number} points at {step.points_at}, so its mark follows that entry, close or drop it instead")
@@ -529,7 +651,7 @@ def view(
 ) -> str:
     """The entry's steps in a few lines: its state, then one line per step with its mark."""
     entry = stepped_entry(brain=brain, key=key)
-    rows = rows_of(entry)
+    rows = rows_of(brain=brain, entry=entry)
     settled = sum(1 for step in rows if step.status in ("done", "skipped"))
     lines = [f"{entry.name}, {entry.field('status')}, {settled} of {len(rows)} steps settled"]
     for step in rows:
@@ -569,12 +691,9 @@ def refresh(
     entry: store.Entry,
     stamp: str = "",
 ) -> bool:
-    """Bring every pointed step's mark in line with the entry it points at, and say whether anything changed."""
-    rows = rows_of(entry)
-    fresh = [
-        Step(number=step.number, text=step.text, points_at=step.points_at, by=step.by, status=derived_status(brain=brain, step=step))
-        for step in rows
-    ]
+    """Bring every pointed step's row in line with the entry it points at, and say whether anything changed."""
+    rows = stored_rows(entry)
+    fresh = [derived_row(brain=brain, step=step) for step in rows]
     if fresh == rows:
         return False
 
@@ -589,9 +708,9 @@ def refresh_pointing(
     key: str,
     stamp: str = "",
 ) -> list[str]:
-    """Refresh every plan, todo and bug with a step that points at the entry, and name the ones that changed."""
-    entry = pointed(brain=brain, key=key)
-    if entry is None:
+    """Refresh every plan, todo and bug with a step that points at the entry, named by any key the brain answers to, and name the ones that changed."""
+    entry = found(brain=brain, key=key)
+    if entry is None or entry.kind.name not in POINTED_KINDS:
         return []
 
     keys = {entry.identifier, entry.name} - {None}
@@ -599,7 +718,7 @@ def refresh_pointing(
     for kind_name in STEPPED_KINDS:
         for holder in brain.entries_of(schema.kind_named(kind_name)):
             try:
-                rows = rows_of(holder)
+                rows = stored_rows(holder)
             except StepsError:
                 continue
 
@@ -617,11 +736,12 @@ def all_settled(
 
 
 def gaps(
+    brain: store.Brain,
     kind: schema.Kind,
     fields: dict[str, str],
     body: str,
 ) -> list[str]:
-    """What an entry closing falls short of, the one rule its table sets: closed means every step is done or skipped."""
+    """What an entry closing falls short of, the one rule its table sets: closed means every step is done or skipped, each pointed step read off its entry."""
     status = fields.get("status", "")
     if kind.name not in CLOSING or status != CLOSING[kind.name]:
         return []
@@ -630,7 +750,7 @@ def gaps(
         return []
 
     try:
-        rows = table(body)
+        rows = [derived_row(brain=brain, step=step) for step in table(body)]
     except StepsError as broken:
         return [str(broken)]
 

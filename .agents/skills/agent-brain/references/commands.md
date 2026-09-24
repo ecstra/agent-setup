@@ -140,12 +140,15 @@ per [spec/plans.md](../../../spec/plans.md), a plan always, a todo or
 a bug when its work has steps. Whoever files the entry lists the steps
 as numbered lines under a Steps heading, and `brain new` turns them
 into the table, each line free to open with the id or the name of a
-todo, a bug or a review followed by a comma, which points the step at
-that entry, `by` being the todo's own `by` and agent for a bug. A
-pointer that reaches nothing of those kinds is refused, and so is a
-line under Steps that is not a numbered step, a wrapped step's lines
-indented under it aside, since a line the table cannot carry is never
-dropped without a word. A pipe in a step is written into its cell as
+todo, a bug or a review followed by a comma or a colon, which points
+the step at that entry, the id in any case and stored in upper case,
+`by` being the todo's own `by` and agent for a bug. A word shaped like
+an id or a review's name that reaches nothing at all is refused, one
+that reaches a decision or another kind a step cannot point at reads
+as prose, and so does a plain date. A line under Steps that is not a
+numbered step is refused too, a wrapped step's lines indented under it
+aside, since a line the table cannot carry is never dropped without a
+word. A pipe in a step is written into its cell as
 `\|`, the way markdown reads it, and read back as a pipe.
 
 | Command | What it does |
