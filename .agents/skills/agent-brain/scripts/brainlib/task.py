@@ -4,14 +4,13 @@ One chain at a time, kept in a local file the tool writes and every
 hook prints, so the model always knows the task, the plan it serves,
 the step inside it and the review running on it. A plan, a todo, a bug
 or a review is the root. A todo, a bug or a review pushes under the
-step that points at it, a review pushes under the todo or bug it
-reviews too,
-and a link whose entry closes drops off with everything under it. The
-step a link stands on is the first pending row of the entry's steps
-table, read each time with a pointed step's mark taken from its entry,
-so nothing is stored beside the table and `brain task done` moves the
-work by marking. The rule in SYSTEM.md 8.3 is that multi step work
-starts with `brain task on`.
+step that points at it, a review pushes under the todo or bug the work
+is on too, and a link whose entry closes drops off with everything
+under it. The step a link stands on is the first pending row of the
+entry's steps table, read each time with a pointed step's mark taken
+from its entry, so nothing is stored beside the table and `brain task
+done` moves the work by marking. The rule in SYSTEM.md 8.3 is that
+multi step work starts with `brain task on`.
 """
 
 import json
