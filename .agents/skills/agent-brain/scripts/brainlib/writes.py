@@ -200,9 +200,9 @@ def retitle(
 
     stamp = stamp or today()
 
-    # a step cell that names the entry by hand is written as its id while the name still resolves
+    # a step cell that names the entry by hand is written as its id while the name still resolves, or as the new name while the id is doubled
     if entry.kind.name in steps.POINTED_KINDS:
-        steps.rename_pointing(brain=brain, key=entry.relative, stamp=stamp)
+        steps.rename_pointing(brain=brain, key=entry.relative, stamp=stamp, doubled_as=stem)
         entry = located(brain=brain, key=key)
 
     before = frontmatter.load(str(entry.path))

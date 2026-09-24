@@ -952,15 +952,23 @@ def rename_pointing(
     brain: store.Brain,
     key: str,
     stamp: str = "",
+    doubled_as: str = "",
 ) -> list[str]:
-    """Write every cell that names the entry by hand as its id, in closed holders as much as open ones, since a key move is no mark and a retitle would strand the name, and name the holders that changed."""
+    """Write every cell that names the entry by hand as its id, in closed holders as much as open ones, since a key move is no mark and a retitle would strand the name, and name the holders that changed.
+
+    While two files carry the id, the cells take the name given in its
+    place, the one the retitle is about to give the file, so they keep
+    reaching the file they mean.
+    """
     entry = found(brain=brain, key=key)
     if entry is None or entry.kind.name not in POINTED_KINDS:
         return []
 
     keys = {key for key in {entry.identifier, entry.name} - {None}}
+    pointer = pointer_of(entry)
+    to = doubled_as if doubled_as and doubled(brain=brain, key=pointer) else pointer
 
-    return repoint(brain=brain, keys=keys, to=pointer_of(entry), stamp=stamp)
+    return repoint(brain=brain, keys=keys, to=to, stamp=stamp)
 
 
 def repoint(
