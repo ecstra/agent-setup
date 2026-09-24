@@ -226,7 +226,10 @@ def retitle(
 
     # the chain stores a plan by its name, so the name it holds follows
     if entry.kind.name == "plan":
-        task.renamed(brain=brain, kind="plan", old=old_name, new=stem)
+        try:
+            task.renamed(brain=brain, kind="plan", old=old_name, new=stem)
+        except (OSError, task.TaskError) as error:
+            raise Partial(f"{stem} was written, and the chain could not follow the name, {store.explain(error)}, so it says plan {old_name}, not in this checkout, until the work is started again with brain task on") from error
 
     return brain.read(path=target, kind=entry.kind)
 

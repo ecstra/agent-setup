@@ -25,7 +25,7 @@ BROKEN = f"{FILE} does not read as a chain and brain task off --all clears it"
 FOLDER = f"{FILE} is a folder the tool never made, move it away by hand"
 
 # what a link's entry is this time, and only a closed one drops the link
-OPEN, CLOSED, AWAY, DOUBLED, UNREADABLE = "open", "closed", "away", "doubled", "unreadable"
+OPEN, CLOSED, AWAY, DOUBLED, UNREADABLE, UNKNOWN = "open", "closed", "away", "doubled", "unreadable", "unknown"
 
 # the word each kind is printed under
 WORDS: dict[str, str] = {
@@ -154,28 +154,61 @@ def state_of(
     brain: store.Brain,
     item: Item,
 ) -> str:
-    """What the link's entry is this time: open, closed, unreadable in a file or folder the brain could not read, doubled by a merge, or away in another checkout."""
+    """What the link's entry is this time: open, closed, unreadable in a file or folder the brain could not read, doubled by a merge, away in another checkout, or in a status the tool does not know."""
+    return looked_up(brain=brain, item=item)[0]
+
+
+def looked_up(
+    brain: store.Brain,
+    item: Item,
+) -> tuple[str, Optional[store.Entry]]:
+    """The link's state and its entry, which is there for an open or a closed one and for one in an unknown status."""
     try:
         entry = brain.find(item.key)
     except store.Ambiguous:
-        return DOUBLED
+        return DOUBLED, None
 
     if entry is None or entry.kind.name != item.kind:
-        return UNREADABLE if unreadable(brain=brain, item=item) else AWAY
+        return (UNREADABLE if unreadable(brain=brain, item=item) else AWAY), None
 
-    return OPEN if is_open(entry) else CLOSED
+    status = entry.field("status") or ""
+    if status in steps.OPEN_STATUSES.get(item.kind, ()):
+        return OPEN, entry
+
+    if status in known_statuses(entry.kind):
+        return CLOSED, entry
+
+    return UNKNOWN, entry
+
+
+def known_statuses(
+    kind: schema.Kind,
+) -> tuple[str, ...]:
+    return next((field.values for field in kind.fields if field.name == "status"), ())
 
 
 def entry_of(
     brain: store.Brain,
     item: Item,
 ) -> Optional[store.Entry]:
-    try:
-        entry = brain.find(item.key)
-    except store.Ambiguous:
-        return None
+    return looked_up(brain=brain, item=item)[1]
 
-    return entry if entry is not None and entry.kind.name == item.kind else None
+
+def why_not_open(
+    item: Item,
+    state: str,
+) -> str:
+    """The reason a link cannot be worked on right now, in the words the chain's line and its refusals share."""
+    if state == DOUBLED:
+        return "two files carry the id" if item.kind in ("todo", "bug") else "two files answer to the name"
+
+    if state == AWAY:
+        return "not in this checkout"
+
+    if state == UNKNOWN:
+        return "the status is not one the tool knows, which brain doctor reports"
+
+    return "cannot be read right now"
 
 
 def unreadable(
@@ -197,7 +230,7 @@ def unreadable(
                 return True
             continue
 
-        if path.parent != folder:
+        if folder not in path.parents:
             continue
 
         if path.stem == item.key or (item.kind != "plan" and path.stem.startswith(f"{item.key}-")):
@@ -320,8 +353,13 @@ def reopen(
 def innermost(
     brain: store.Brain,
 ) -> tuple[list[Item], store.Entry]:
-    """The chain and the entry of its innermost link, which must carry steps of its own."""
-    chain = current(brain=brain, chain=written(brain))
+    """The chain as written and the entry of its innermost link, which must be open and carry steps of its own.
+
+    The link is taken as written, like off takes it, so a link whose
+    entry closed meanwhile is refused rather than passed over, which
+    would land the mark on the step above it that nobody did.
+    """
+    chain = written(brain)
     if not chain:
         raise TaskError("no work is on, start it with brain task on")
 
@@ -329,9 +367,12 @@ def innermost(
     if item.kind == "review":
         raise TaskError("a review's step is its batch, read off the ledger, so it takes no mark here")
 
-    entry = entry_of(brain=brain, item=item)
-    if entry is None:
-        raise TaskError(f"{item.key} cannot be read right now")
+    state, entry = looked_up(brain=brain, item=item)
+    if state == CLOSED:
+        raise TaskError(f"{item.key} has closed and holds the place until brain task off drops it")
+
+    if entry is None or state != OPEN:
+        raise TaskError(f"{item.key}, {why_not_open(item=item, state=state)}")
 
     return chain, entry
 
@@ -390,16 +431,9 @@ def describe_item(
     item: Item,
 ) -> str:
     """One link in words: the key, then where it stands, the step and its text, the batch and its status, or what is missing."""
-    entry = entry_of(brain=brain, item=item)
-    if entry is None:
-        state = state_of(brain=brain, item=item)
-        if state == DOUBLED:
-            return f"{item.key}, two files carry the id"
-
-        if state == AWAY:
-            return f"{item.key}, not in this checkout"
-
-        return f"{item.key}, cannot be read right now"
+    state, entry = looked_up(brain=brain, item=item)
+    if entry is None or state == UNKNOWN:
+        return f"{item.key}, {why_not_open(item=item, state=state)}"
 
     if item.kind == "review":
         return f"{item.key}, {batch_text(entry)}"
