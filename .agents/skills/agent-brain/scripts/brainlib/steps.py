@@ -214,12 +214,31 @@ def rewrite(
 def listed(
     body: str,
 ) -> list[str]:
-    """The numbered lines of a Steps section as someone filed it, in order, or none where there is no such section."""
+    """The steps of a Steps section as someone filed it, one per numbered line with its indented continuation lines joined on, refused when the section holds anything else, since a line the table cannot carry is never dropped without a word."""
     text = sections.block(body=body, title="Steps")
     if text is None:
         return []
 
-    return [match.group(2) for match in LISTED.finditer(text)]
+    found: list[str] = []
+    for line in text.split("\n"):
+        if not line.strip():
+            continue
+
+        match = LISTED.match(line)
+        if match is not None:
+            if int(match.group(1)) != len(found) + 1:
+                raise StepsError(f"the steps are numbered 1 onward in order, and {match.group(1)} sits where {len(found) + 1} should")
+
+            found.append(match.group(2))
+            continue
+
+        if found and line[0] in " \t":
+            found[-1] = f"{found[-1]} {line.strip()}"
+            continue
+
+        raise StepsError(f"the Steps section holds a line that is not a numbered step, one per line with its wrapped lines indented under it: {line.strip()!r}")
+
+    return found
 
 
 def tabled(
