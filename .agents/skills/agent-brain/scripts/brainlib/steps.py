@@ -639,7 +639,8 @@ def derived_row(
     if status == "refiled":
         seen = (seen or set()) | {step.points_at}
         successor = refiled_to(brain=brain, entry=entry)
-        if successor is not None and pointer_of(successor) not in seen and not doubled(brain=brain, key=pointer_of(successor)) and not (own and (pointer_of(successor) in own or points_back(brain=brain, key=pointer_of(successor), own=own))):
+        # the hand off waits on a successor whose steps do not read as much as on one that points back, since either could leave the two waiting on each other
+        if successor is not None and pointer_of(successor) not in seen and not doubled(brain=brain, key=pointer_of(successor)) and not (own and (pointer_of(successor) in own or unreadable_reached(brain=brain, key=pointer_of(successor)) is not None or points_back(brain=brain, key=pointer_of(successor), own=own))):
             moved = Step(number=step.number, text=step.text, points_at=pointer_of(successor), by=step.by, status=step.status)
             return derived_row(brain=brain, step=moved, own=own, seen=seen)
 
@@ -783,7 +784,13 @@ def pointers_in(
     if has_table(body):
         return [step.points_at for step in table(body) if step.points_at]
 
+    if table_shaped(body):
+        raise StepsError(TABLE_LINES_WITHOUT_THE_HEADER)
+
     return [step.points_at for step in listed_rows(body) if step.points_at]
+
+
+TABLE_LINES_WITHOUT_THE_HEADER = "the Steps section holds table lines without the header the tool reads, | # | Step | Points at | By | Status |"
 
 
 def refuse_cycles(
@@ -851,7 +858,7 @@ def reopening_gaps(
         except StepsError as broken:
             return [f"{unreadable}, {broken}, so the tool cannot tell whether it and another entry would wait on each other, and brain doctor names what is wrong with it"]
     elif table_shaped(body):
-        return [f"{unreadable}, the Steps section holds table lines without the header the tool reads, | # | Step | Points at | By | Status |, so the tool cannot tell whether it and another entry would wait on each other, and brain doctor names what is wrong with it"]
+        return [f"{unreadable}, {TABLE_LINES_WITHOUT_THE_HEADER}, so the tool cannot tell whether it and another entry would wait on each other, and brain doctor names what is wrong with it"]
     else:
         rows = listed_rows(body)
 
@@ -890,16 +897,19 @@ def table_shaped(
 def listed_rows(
     body: str,
 ) -> list[Step]:
-    """The steps a list under Steps holds, as rows to judge, numbered as listed, each pointing at the key its line opens with as written, and none when the list does not read as one, which doctor reports."""
-    try:
-        lines = listed(body)
-    except StepsError:
+    """The numbered lines under Steps, as rows to judge, each numbered as written and pointing at the key its line opens with, whatever else sits among them, since a pointer counts for a loop whether or not the list reads whole, which is doctor's to report."""
+    where = span(body)
+    if where is None:
         return []
 
+    spans = sections.code_spans(body)
     rows: list[Step] = []
-    for number, line in enumerate(lines, 1):
-        opened = POINTER.match(line.strip())
-        rows.append(Step(number=number, text=line, points_at=opened.group(1) if opened is not None else "", by="agent", status="pending"))
+    for match in LISTED.finditer(string=body, pos=where[0], endpos=where[1]):
+        if sections.in_code(spans=spans, position=match.start()):
+            continue
+
+        opened = POINTER.match(match.group(2).strip())
+        rows.append(Step(number=int(match.group(1)), text=match.group(2), points_at=opened.group(1) if opened is not None else "", by="agent", status="pending"))
 
     return rows
 

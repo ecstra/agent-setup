@@ -605,6 +605,7 @@ def check_table(
         return [Finding(path=entry.relative, check="steps", message=message, repair=offered)]
 
     found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.became_slips(brain=brain, entry=entry)]
+    found += [Finding(path=entry.relative, check="steps", message=f"step {step.number} has no text, which no write should have let stand, so fill it in by hand") for step in rows if not step.text.strip()]
 
     if not steps.is_open(entry):
         pending = [step.number for step in rows if step.status == "pending"]

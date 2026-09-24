@@ -509,10 +509,10 @@ def table_write_of(
     except frontmatter.FrontmatterError:
         return None
 
-    key = Path(inside).stem
+    entry = entry_at(brain=brain, inside=inside)
+    key = entry.name if entry is not None else Path(inside).stem
     status = str(current.get("status") or "")
-    name = str(current.get("name") or key)
-    own = own_keys_of(brain=brain, inside=inside, name=name)
+    own = steps.own_keys(entry) if entry is not None else {str(current.get("name") or key)}
     write = TableWrite(
         inside=inside,
         key=key,
@@ -706,7 +706,8 @@ def changed_row(
 
             return f"step {step.number} is marked {fresh.status} with {marking_command(key=key, number=step.number, status=fresh.status)}"
 
-        if fresh.text != step.text:
+        # a cell left empty by a write from before the tool refused one is filled in by hand, since no command rewords a step
+        if fresh.text != step.text and step.text.strip():
             return f"step {step.number} is worded as it was filed"
 
         if fresh.points_at != step.points_at:
@@ -729,19 +730,18 @@ def marking_command(
     return f"{by_task} or brain steps {key} step {number} {status}"
 
 
-def own_keys_of(
+def entry_at(
     brain: store.Brain,
     inside: str,
-    name: str,
-) -> set[str]:
-    """The keys a step would use to point at the file being written, as the store reads them off the file on disk, since a disk that ignores case takes the write however the path is spelled and a plan's slug carries no id however it starts, and the name the header says when the store holds no entry at that path."""
+) -> Optional[store.Entry]:
+    """The stepped entry the store holds at the path being written, matched in any case since a disk that ignores case takes the write however the path is spelled, so the keys a step would use to point at it and the key a command names it by are the store's, a plan's slug carrying no id however it starts, or None when the store holds no entry there."""
     wanted = inside.casefold()
     for kind_name in steps.STEPPED_KINDS:
         for entry in brain.entries_of(schema.kind_named(kind_name)):
             if entry.relative.casefold() == wanted:
-                return steps.own_keys(entry)
+                return entry
 
-    return {name}
+    return None
 
 
 def added_row(
@@ -765,6 +765,9 @@ def added_row(
         target = steps.pointed(brain=brain, key=step.points_at) if step.points_at else None
         if step.points_at and target is None:
             return str(steps.unreachable(brain=brain, number=step.number, key=step.points_at))
+
+        if target is not None and steps.doubled(brain=brain, key=steps.pointer_of(target)):
+            return str(steps.doubled_pointer(number=step.number, key=step.points_at, pointer=steps.pointer_of(target)))
 
         if target is not None and steps.pointer_of(target) in own:
             return f"step {step.number} points at {key} itself, and a step points at other work"

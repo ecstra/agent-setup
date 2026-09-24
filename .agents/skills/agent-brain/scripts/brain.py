@@ -38,6 +38,14 @@ def main(
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(errors="backslashreplace")
 
+    # an argument the shell handed over in bytes that are not UTF-8 carries escapes no file takes, so it is refused up front the way standard input is
+    for word in sys.argv[1:] if argv is None else argv:
+        try:
+            word.encode("utf-8")
+        except UnicodeEncodeError:
+            print(f"an argument is not UTF-8, '{word.encode('utf-8', 'backslashreplace').decode('ascii')}'", file=sys.stderr)
+            return REFUSED
+
     try:
         # port and upgrade run before a brain exists, and the flag is theirs alone, since a default a parent parser sets too would win over theirs on Python 3.9.8 and 3.10.0
         if not getattr(args, "needs_brain", True):
