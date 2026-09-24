@@ -389,8 +389,9 @@ def converted(
     if own and status == "pending":
         refuse_cycles(brain=brain, rows=rows, own=own)
 
+    # a closed entry's list becomes its record, every row settled by the entry's own status, the pointed ones too
     if status != "pending":
-        rows = [step if step.points_at else Step(number=step.number, text=step.text, points_at="", by=step.by, status=status) for step in rows]
+        rows = [Step(number=step.number, text=step.text, points_at=step.points_at, by=step.by, status=status) for step in rows]
 
     return with_table(body=body, rows=rows, kind=kind)
 
@@ -897,6 +898,39 @@ def refresh(
     save(brain=brain, entry=entry, stamp=stamp)
 
     return True
+
+
+def rename_pointing(
+    brain: store.Brain,
+    key: str,
+    stamp: str = "",
+) -> list[str]:
+    """Write every cell that names the entry by hand as its id, in closed holders as much as open ones, since a key move is no mark and a retitle would strand the name, and name the holders that changed."""
+    entry = found(brain=brain, key=key)
+    if entry is None or entry.kind.name not in POINTED_KINDS:
+        return []
+
+    keys = {key.lower() for key in {entry.identifier, entry.name} - {None}}
+    changed: list[str] = []
+    for kind_name in STEPPED_KINDS:
+        for holder in brain.entries_of(schema.kind_named(kind_name)):
+            try:
+                rows = stored_rows(holder)
+            except StepsError:
+                continue
+
+            fresh = [
+                Step(number=step.number, text=step.text, points_at=pointer_of(entry), by=step.by, status=step.status)
+                if step.points_at.lower() in keys and step.points_at != pointer_of(entry)
+                else step
+                for step in rows
+            ]
+            if fresh != rows:
+                holder.document.body = rewrite(body=holder.document.body, rows=fresh)
+                save(brain=brain, entry=holder, stamp=stamp)
+                changed.append(holder.name)
+
+    return changed
 
 
 def refresh_pointing(

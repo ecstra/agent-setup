@@ -566,7 +566,7 @@ def check_table(
         pending = [step.number for step in rows if step.status == "pending"]
         if pending and entry.field("status") == steps.CLOSING[entry.kind.name]:
             numbers = ", ".join(str(number) for number in pending)
-            found.append(Finding(path=entry.relative, check="steps", message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it or mark the step by hand"))
+            found.append(Finding(path=entry.relative, check="steps", message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it and close it again once the step is settled"))
 
         return found
 

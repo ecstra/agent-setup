@@ -201,7 +201,7 @@ def retitle(
 
     # a step cell that names the entry by hand is written as its id while the name still resolves
     if entry.kind.name in steps.POINTED_KINDS:
-        steps.refresh_pointing(brain=brain, key=entry.relative, stamp=stamp)
+        steps.rename_pointing(brain=brain, key=entry.relative, stamp=stamp)
         entry = located(brain=brain, key=key)
 
     before = frontmatter.load(str(entry.path))
@@ -359,8 +359,8 @@ def convert(
 
     try:
         update(brain=brain, key=key, changes=closing, stamp=stamp)
-    except Partial:
-        raise
+    except Partial as partial:
+        raise Partial(f"{created.relative} was filed and {partial}") from partial
     except (WriteError, OSError):
         created.path.unlink()
         brain.refresh()
