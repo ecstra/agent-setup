@@ -270,8 +270,11 @@ def resolve(
 def key_of(
     entry: store.Entry,
 ) -> str:
-    """The key the chain stores, the id for a todo or a bug, the name for a plan or a review."""
-    return entry.identifier or entry.name
+    """The key the chain stores: the id for a todo or a bug, the file's stem for a plan, which a copy that kept the name field cannot double, and the name for a review, whose file is its folder's ledger."""
+    if entry.identifier:
+        return entry.identifier
+
+    return entry.name if entry.kind.name == "review" else entry.path.stem
 
 
 def turn_on(

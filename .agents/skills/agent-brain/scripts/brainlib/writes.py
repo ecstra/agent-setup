@@ -176,7 +176,7 @@ def retitle(
 ) -> store.Entry:
     """Rename a file for a new title. The id stays, every link follows, and so does the chain where it holds the name."""
     entry = located(brain=brain, key=key)
-    old_name = entry.name
+    old_stem = entry.path.stem
 
     if entry.kind.name == "review":
         raise WriteError("a review keeps the name of its branch")
@@ -224,12 +224,12 @@ def retitle(
     finally:
         brain.refresh()
 
-    # the chain stores a plan by its name, so the name it holds follows
+    # the chain stores a plan by its file, so the stem it holds follows
     if entry.kind.name == "plan":
         try:
-            task.renamed(brain=brain, kind="plan", old=old_name, new=stem)
+            task.renamed(brain=brain, kind="plan", old=old_stem, new=stem)
         except (OSError, task.TaskError) as error:
-            raise Partial(f"{stem} was written, and the chain could not follow the name, {store.explain(error)}, so it says plan {old_name}, not in this checkout, until the work is started again with brain task on") from error
+            raise Partial(f"{stem} was written, and the chain could not follow the name, {store.explain(error)}, so it says plan {old_stem}, not in this checkout, until brain task off drops it or brain task on --replace sets it aside") from error
 
     return brain.read(path=target, kind=entry.kind)
 
