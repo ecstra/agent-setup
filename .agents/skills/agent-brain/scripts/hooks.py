@@ -536,6 +536,10 @@ def table_write_of(
         if before:
             return f"{inside}: {TABLE_IS_THE_TOOLS}, its rows are never taken away, and the prose around it is yours to edit"
 
+        # a plan's table stands even empty, and its Steps section with it, since a plan with no table is doctor's finding
+        if kind == "plan" and steps.has_table(current.body):
+            return f"{inside}: {TABLE_IS_THE_TOOLS}, and a plan's table is never taken away, empty or not, and the prose around it is yours to edit"
+
         return listed_change(brain=brain, write=write, kind=kind, was=current.body, body=body)
 
     try:
