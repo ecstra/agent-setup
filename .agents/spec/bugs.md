@@ -43,7 +43,7 @@ Body sections, in order:
 
 ```
 ## Problem
-What misbehaves, as observed. Repro steps if known.
+What misbehaves, as observed.
 
 ## Evidence
 Logs, field notes, screenshots described, and the steps that reproduce
