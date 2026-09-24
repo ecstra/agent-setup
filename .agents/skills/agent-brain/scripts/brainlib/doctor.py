@@ -228,9 +228,9 @@ def check_leftovers(
     way a put back scratch is named. A person's own dotfile is nobody's
     to delete, and a suffix of eight letters looks like the tail the
     writer draws, so a temp file counts only when its target is one the
-    tool would write, a markdown or JSON file, VERSION, the word, a
-    file that exists beside it, or one of the kit's own files at the
-    top of the project. The places the tool writes to in every run are
+    tool would write, a markdown or JSON file, VERSION, the word, the
+    current work, a file that exists beside it, or one of the kit's own
+    files at the top of the project. The places the tool writes to in every run are
     looked at, the whole brain with its skills, each agent's own folder
     down to its sub agent files, and the top of the project. The one
     time move from `.agent/` rewrites files anywhere in the project,

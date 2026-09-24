@@ -6,8 +6,9 @@ events matter, the start of a session, each prompt the owner sends, a
 tick after the agent's tool calls, a write that is about to create a
 file inside .agents/, and a write that just landed there. The session
 start, the prompt and the tick carry the clock, since a model does not
-know the time and forgets what it was told, and where the owner's
-standing word to proceed stands, on, held or off.
+know the time and forgets what it was told, where the owner's standing
+word to proceed stands, on, held or off, and the work the agent is on,
+the chain from the plan down to the step.
 
     python3 .agents/skills/agent-brain/scripts/hooks.py session-start --agent claude
     python3 .agents/skills/agent-brain/scripts/hooks.py prompt --agent claude
@@ -198,7 +199,7 @@ def prompt(
     brain: store.Brain,
     agent: str,
 ) -> int:
-    """On each prompt the owner sends, the clock and the standing word, so both are in front of the model when it reads the prompt."""
+    """On each prompt the owner sends, the clock, the standing word and the current work, so all three are in front of the model when it reads the prompt."""
     emit_context(agent=agent, text=the_moment(brain=brain), event_name=PROMPT.get(agent, "UserPromptSubmit"))
     return 0
 
@@ -207,7 +208,7 @@ def tick(
     brain: store.Brain,
     agent: str,
 ) -> int:
-    """After the agent's tool calls, the clock and the standing word again, off included, so a long stretch of work never loses either and sees the word end."""
+    """After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end."""
     emit_context(agent=agent, text=the_moment(brain=brain), event_name=TICK.get(agent, "PostToolUse"))
     return 0
 
