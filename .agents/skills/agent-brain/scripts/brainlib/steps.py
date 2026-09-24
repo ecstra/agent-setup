@@ -878,7 +878,7 @@ def reopening_gaps(
 def table_shaped(
     body: str,
 ) -> bool:
-    """Whether the Steps section holds a line shaped like a table's, outside code, while no header the tool reads sits there, a table typed with another header or a separator the tool does not read."""
+    """Whether the Steps section holds a line shaped like a table's, at the margin and outside code, while no header the tool reads sits there, a table typed with another header or a separator the tool does not read, an indented line being a step's wrapped line whatever it opens with."""
     where = span(body)
     if where is None:
         return False
@@ -886,7 +886,7 @@ def table_shaped(
     spans = sections.code_spans(body)
     position = where[0]
     for line in body[where[0] : where[1]].split("\n"):
-        if line.lstrip().startswith("|") and not sections.in_code(spans=spans, position=position):
+        if line.startswith("|") and not sections.in_code(spans=spans, position=position):
             return True
 
         position += len(line) + 1
