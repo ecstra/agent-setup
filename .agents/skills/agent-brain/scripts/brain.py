@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import autoack, clock, doctor, frontmatter, index, ledger, plans, reads, schema, steps, store, upgrade, writes
+from brainlib import autoack, clock, doctor, frontmatter, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
 
 REFUSED = 1
 FINDINGS_REMAIN = 2
@@ -45,6 +45,7 @@ def main(
         ledger.LedgerError,
         plans.PlanError,
         steps.StepsError,
+        task.TaskError,
         upgrade.UpgradeError,
         autoack.AckError,
         frontmatter.FrontmatterError,
@@ -67,6 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_version(commands)
     add_status(commands)
     add_ack(commands)
+    add_task(commands)
     add_list(commands)
     add_show(commands)
     add_path(commands)
@@ -139,6 +141,69 @@ def run_ack(
     return 0
 
 
+def add_task(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser("task", help="the current work: on an entry, its step, off, or where it stands")
+    actions = command.add_subparsers(dest="action")
+
+    starting = actions.add_parser("on", help="start work on a plan, a todo, a bug or a review")
+    starting.add_argument("key", help="the entry, by id, name or path")
+    starting.add_argument("--step", type=int, help="the step to start on, the first pending one unless given")
+    starting.add_argument("--replace", action="store_true", help="in place of the chain that stands, which is otherwise kept")
+    starting.set_defaults(handler=run_task_on)
+
+    stepping = actions.add_parser("step", help="move the innermost link to another of its steps")
+    stepping.add_argument("number", type=int)
+    stepping.set_defaults(handler=run_task_step)
+
+    stopping = actions.add_parser("off", help="drop the innermost link, or the whole chain")
+    stopping.add_argument("--all", dest="everything", action="store_true")
+    stopping.set_defaults(handler=run_task_off)
+
+    command.set_defaults(handler=run_task_show)
+
+
+def run_task_show(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    print(task.describe(brain=brain))
+    return 0
+
+
+def run_task_on(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    task.turn_on(
+        brain=brain,
+        key=args.key,
+        step=args.step,
+        replace=args.replace,
+    )
+    print(task.describe(brain=brain))
+    return 0
+
+
+def run_task_step(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    task.set_step(brain=brain, number=args.number)
+    print(task.describe(brain=brain))
+    return 0
+
+
+def run_task_off(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    task.turn_off(brain=brain, everything=args.everything)
+    print(task.describe(brain=brain))
+    return 0
+
+
 def add_status(
     commands: argparse._SubParsersAction,
 ) -> None:
@@ -158,6 +223,7 @@ def run_status(
 
     print(clock.line())
     print(autoack.describe(brain=brain))
+    print(task.describe(brain=brain))
     print(reads.render_status(data))
     return 0
 
@@ -504,6 +570,11 @@ def run_ledger_open(
     )
     index.write(brain)
     print(entry.relative)
+
+    kept_off = task.push_review(brain=brain, name=entry.name)
+    if kept_off is not None:
+        print(f"the review is not the current work, {kept_off}", file=sys.stderr)
+
     return 0
 
 

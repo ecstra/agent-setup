@@ -16,6 +16,12 @@
 .agents/.ack
 .agents/..ack.*.tmp
 
+# The brain tool keeps the current work, the chain from the plan down
+# to the step the agent is on, in this file. It belongs to one machine
+# too, so it never enters git, and neither does its write in flight.
+.agents/.task
+.agents/..task.*.tmp
+
 # Python leaves compiled bytecode beside the brain tool. It never ships.
 __pycache__/
 *.pyc

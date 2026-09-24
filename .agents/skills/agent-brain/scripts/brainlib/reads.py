@@ -5,10 +5,11 @@ text for a person or as JSON for a hook. Counting happens here, on the
 files as they are right now.
 """
 
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
-from . import doctor, frontmatter, links, schema, store
+from . import doctor, frontmatter, links, schema, store, task
 
 
 def version(
@@ -40,6 +41,7 @@ def status(
         "counts": counts,
         "open_reviews": [entry.name for entry in reviews],
         "latest_handover": handovers[-1].relative if handovers else None,
+        "task": [asdict(item) for item in task.current(brain)],
         "unreadable": [str(path.relative_to(brain.root)) for path in brain.unreadable],
     }
 

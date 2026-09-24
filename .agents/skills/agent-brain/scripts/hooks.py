@@ -28,7 +28,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional
 
-from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, store
+from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, store, task
 
 BLOCK = 2
 FAILED = 1
@@ -215,8 +215,8 @@ def tick(
 def the_moment(
     brain: store.Brain,
 ) -> str:
-    """The clock and the standing word, the two lines the session start, the prompt hook and the tick carry."""
-    return clock.line() + "\n" + autoack.describe(brain=brain)
+    """The clock, the standing word and the current work, the lines the session start, the prompt hook and the tick carry."""
+    return clock.line() + "\n" + autoack.describe(brain=brain) + "\n" + task.describe(brain=brain)
 
 
 def text_of(
@@ -270,6 +270,9 @@ def refusal(
     # .ACK for the file itself, and the suffix as the store reads it
     if inside.casefold() == autoack.FILE and not touch.deleted:
         return f"{autoack.FILE} is the owner's standing word, set with brain ack on and never written by hand"
+
+    if inside.casefold() == task.FILE and not touch.deleted:
+        return f"{task.FILE} is the current work, set with brain task on and never written by hand"
 
     if not markdown_named(path):
         return None

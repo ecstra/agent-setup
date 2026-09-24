@@ -15,7 +15,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import autoack, frontmatter, index, links, schema, sections, steps, store, style, writes
+from . import autoack, frontmatter, index, links, schema, sections, steps, store, style, task, writes
 
 SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, ".worktrees"})
 
@@ -278,7 +278,7 @@ def tools_own_write(
     if path.parent == project:
         return target in (*schema.ROOT_FILES, schema.IGNORE_FILE)
 
-    if target.endswith((".md", ".json")) or target in (schema.VERSION_FILE, autoack.FILE):
+    if target.endswith((".md", ".json")) or target in (schema.VERSION_FILE, autoack.FILE, task.FILE):
         return True
 
     return store.quietly((path.parent / target).exists)
