@@ -154,9 +154,9 @@ brain ack off
 ## The current work
 
 Work of more than one step starts with `brain task on` before the
-first step, and SYSTEM.md section 8.3 is the rule: what may go under
-what, when a link drops off, and that `--replace` is the owner's call.
-The step the work stands on is the first pending row of the entry's
+first step, and SYSTEM.md section 8.3 is the rule for what may go
+under what and when a link drops off, `--replace` being the owner's
+call. The step the work stands on is the first pending row of the entry's
 steps table, `brain task done` marks it done and moves on, `brain task
 skip` marks it skipped, `brain task step <n>` reopens one, and
 `brain task off` drops the innermost link. The reference says what
