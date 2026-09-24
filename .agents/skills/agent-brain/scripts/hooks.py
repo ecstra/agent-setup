@@ -415,10 +415,10 @@ def table_change(
     taken away, and a table the write would leave unreadable is refused
     too. A row may follow the last one, held to what add holds a step
     to, pending, pointing at an entry the brain knows or at nothing,
-    and on an open entry. A numbered list under a new Steps heading is
-    a list the tool turns into the table, so it passes, and a file
-    whose table does not read now is doctor's, not the hook's. A hunk
-    that fits nowhere and carries a row is refused, since the hook
+    and on an open entry. A numbered list under Steps, new or written
+    to, is the table in waiting, held to what filing holds it to, and a
+    file whose table does not read now is doctor's, not the hook's. A
+    hunk that fits nowhere and carries a row is refused, since the hook
     cannot tell where it would land.
     """
     write = table_write_of(brain=brain, touch=touch, inside=inside)
@@ -482,10 +482,14 @@ def table_write_of(
     if kind not in steps.STEPPED_KINDS:
         return None
 
+    # a table that does not read now is doctor's, and a list on disk is the table in waiting, judged whole as the write leaves it
     try:
         before = steps.stored_rows_of(kind=kind, body=current.body)
     except steps.StepsError:
-        return None
+        if steps.has_table(current.body):
+            return None
+
+        before = []
 
     after, loose = outcome_of(touch=touch, text=text)
     for hunk in loose:
@@ -521,7 +525,7 @@ def table_write_of(
         if before:
             return f"{inside}: {TABLE_IS_THE_TOOLS}, its rows are never taken away, and the prose around it is yours to edit"
 
-        return listed_change(brain=brain, write=write, kind=kind, body=body)
+        return listed_change(brain=brain, write=write, kind=kind, was=current.body, body=body)
 
     try:
         rows = steps.stored_rows_of(kind=kind, body=body)
@@ -535,11 +539,15 @@ def listed_change(
     brain: store.Brain,
     write: TableWrite,
     kind: str,
+    was: str,
     body: str,
 ) -> Union[TableWrite, str, None]:
-    """A numbered list written under a new Steps heading, as the rows the tool would turn it into, held to what filing holds a list to since the tool would refuse it then, a refusal when it does not pass, or None when the section is empty."""
-    if steps.blank(body):
+    """A numbered list under Steps, new or written to, as the rows the tool would turn it into, held to what filing holds a list to since the tool would refuse it then, a refusal when it does not pass or the entry is closed, or None when the section is empty or the write leaves it as it was."""
+    if steps.blank(body) or steps_text(was) == steps_text(body):
         return None
+
+    if write.closed:
+        return f"{write.inside}: {TABLE_IS_THE_TOOLS}, {write.key} is {write.status}, and a closed table is its record, so no step is added to it, and the prose around it is yours to edit"
 
     try:
         turned = steps.converted(brain=brain, body=body, by="agent", kind=schema.kind_named(kind), own=write.own)
@@ -547,6 +555,15 @@ def listed_change(
         return f"{write.inside}: {TABLE_IS_THE_TOOLS}, {refused}, and the prose around it is yours to edit"
 
     return replace(write, rows=steps.table(turned), listed=True)
+
+
+def steps_text(
+    body: str,
+) -> str:
+    """What the Steps section holds, as written, so a write elsewhere in the file leaves a list on disk unjudged."""
+    where = steps.span(body)
+
+    return body[where[0] : where[1]].strip() if where is not None else ""
 
 
 def table_writes_of(

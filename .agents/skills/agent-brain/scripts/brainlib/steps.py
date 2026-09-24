@@ -748,8 +748,13 @@ def points_back(
     except StepsError:
         return False
 
+    # a cell is read by the entry it reaches, so one holding an id two files carry, which reaches nothing, points back at neither
     for pointed_key in keys:
-        if pointed_key in own or pointed_key.upper() in own:
+        target = pointed(brain=brain, key=pointed_key)
+        if target is None:
+            continue
+
+        if any(answer in own and not doubled(brain=brain, key=answer) for answer in own_keys(target)):
             return True
 
         if pointed_key not in seen and points_back(brain=brain, key=pointed_key, own=own, seen=seen):
@@ -832,13 +837,20 @@ def reopening_gaps(
     if entry.kind.name not in STEPPED_KINDS or was_open or status not in OPEN_STATUSES[entry.kind.name]:
         return []
 
-    try:
-        rows = stored_rows(entry)
-    except StepsError:
-        return []
+    body = entry.document.body
+    own = own_keys(entry)
+    if not has_table(body):
+        back = [key for key in pointers_in(body) if points_back(brain=brain, key=key, own=own)]
+
+        return [f"reopening {entry.name} would leave it and another entry waiting on each other, its steps point at {back[0]}, whose steps point back here, and the two would wait on each other for good"] if back else []
 
     try:
-        refuse_cycles(brain=brain, rows=rows, own=own_keys(entry))
+        rows = table(body)
+    except StepsError as broken:
+        return [f"reopening {entry.name} waits on its steps table, which does not read, {broken}, so the tool cannot tell whether it and another entry would wait on each other, and brain doctor names what is wrong with it"]
+
+    try:
+        refuse_cycles(brain=brain, rows=rows, own=own)
     except StepsError as loop:
         return [f"reopening {entry.name} would leave it and another entry waiting on each other, {loop}"]
 
@@ -1049,7 +1061,7 @@ def repoint(
     to: str,
     stamp: str = "",
 ) -> list[str]:
-    """Write every cell that points at one of the keys, in any case, as the pointer given, in closed holders as much as open ones, and name the holders that changed."""
+    """Write every cell that points at one of the keys, in any case, as the pointer given, in closed holders as much as open ones, a list not yet turned into a table having its opening keys written the same way since it is the table in waiting, and name the holders that changed."""
     wanted = {key.lower() for key in keys}
     changed: list[str] = []
     for kind_name in STEPPED_KINDS:
@@ -1057,6 +1069,12 @@ def repoint(
             try:
                 rows = stored_rows(holder)
             except StepsError:
+                relisted = repointed_list(body=holder.document.body, wanted=wanted, to=to)
+                if relisted != holder.document.body:
+                    holder.document.body = relisted
+                    save(brain=brain, entry=holder, stamp=stamp)
+                    changed.append(holder.name)
+
                 continue
 
             fresh = [
@@ -1071,6 +1089,28 @@ def repoint(
                 changed.append(holder.name)
 
     return changed
+
+
+def repointed_list(
+    body: str,
+    wanted: set[str],
+    to: str,
+) -> str:
+    """The body with every numbered line under Steps that opens with one of the keys, in any case, opening with the pointer given instead, and as it was when the section holds a table or nothing."""
+    where = span(body)
+    if where is None or has_table(body):
+        return body
+
+    def relined(line: re.Match) -> str:
+        opened = POINTER.match(line.group(2))
+        if opened is None or opened.group(1).lower() not in wanted:
+            return line.group(0)
+
+        return f"{line.group(0)[: line.start(2) - line.start(0)]}{to}{line.group(2)[len(opened.group(1)) :]}"
+
+    start, end = where
+
+    return body[:start] + LISTED.sub(relined, body[start:end]) + body[end:]
 
 
 def refresh_pointing(
