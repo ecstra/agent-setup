@@ -440,7 +440,6 @@ def close(
     entry.document.set(key="status", value="closed")
     save(brain=brain, entry=entry, stamp=stamp)
 
-    # a step that points at this review takes its mark from it
     writes.refresh_after(brain=brain, entry=entry, stamp=stamp)
 
 
