@@ -34,7 +34,8 @@ def main(
         return REFUSED
 
     try:
-        if not args.needs_brain:
+        # port and upgrade run before a brain exists, and the flag is theirs alone, since a default a parent parser sets too would win over theirs on Python 3.9.8 and 3.10.0
+        if not getattr(args, "needs_brain", True):
             return args.handler(brain=None, args=args)
 
         brain = store.find_brain(Path.cwd())
@@ -71,7 +72,6 @@ def build_parser() -> argparse.ArgumentParser:
         description="file, change, count and check what is in .agents/",
     )
     commands = parser.add_subparsers(dest="command")
-    parser.set_defaults(needs_brain=True)
 
     add_version(commands)
     add_status(commands)
@@ -158,23 +158,37 @@ def add_task(
     starting = actions.add_parser("on", help="start work on a plan, a todo, a bug or a review")
     starting.add_argument("key", help="the entry, by id, name or path")
     starting.add_argument("--replace", action="store_true", help="in place of the chain that stands, which is otherwise kept")
-    starting.set_defaults(handler=run_task_on)
 
     finishing = actions.add_parser("done", help="mark the step the work stands on done, and stand on the next")
-    finishing.set_defaults(handler=run_task_mark, status="done")
+    finishing.set_defaults(status="done")
 
     skipping = actions.add_parser("skip", help="mark the step the work stands on skipped, and stand on the next")
-    skipping.set_defaults(handler=run_task_mark, status="skipped")
+    skipping.set_defaults(status="skipped")
 
     reopening = actions.add_parser("step", help="mark a step pending again, and stand on the first pending step")
     reopening.add_argument("number", type=int, help="the step's number in the entry's table")
-    reopening.set_defaults(handler=run_task_step)
 
     stopping = actions.add_parser("off", help="drop the innermost link, or the whole chain")
     stopping.add_argument("--all", dest="everything", action="store_true", help="the whole chain, and the file with it")
-    stopping.set_defaults(handler=run_task_off)
 
-    command.set_defaults(handler=run_task_show)
+    # the one handler picks the action itself, since a default the sub actions set too would lose to it on Python 3.9.8 and 3.10.0
+    command.set_defaults(handler=run_task)
+
+
+def run_task(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    handlers = {
+        None: run_task_show,
+        "on": run_task_on,
+        "done": run_task_mark,
+        "skip": run_task_mark,
+        "step": run_task_step,
+        "off": run_task_off,
+    }
+
+    return handlers[args.action](brain=brain, args=args)
 
 
 def run_task_show(
@@ -360,7 +374,9 @@ def run_new(
             title=args.title,
             description=args.description,
             body=stdin_text(),
-            by=args.by or "owner",
+            values=field_values(args),
+            category=args.category,
+            links=args.link,
         )
         index.write(brain)
         print(entry.relative)
@@ -492,14 +508,26 @@ def add_steps(
     adding = actions.add_parser("add", help="append steps, one per line of standard input, or the one given")
     adding.add_argument("step", nargs="?", help="one step, or - to read one per line from standard input")
     adding.add_argument("--by", default="agent", choices=steps.BY, help="who set the steps, agent unless said otherwise")
-    adding.set_defaults(handler=run_steps_add)
 
     marking = actions.add_parser("step", help="mark a step that points at nothing, or one whose pointer reaches nothing the brain can read")
     marking.add_argument("number", type=int, help="the step's number in the entry's table")
     marking.add_argument("status", choices=steps.STEP_STATUSES, help="the mark to give it")
-    marking.set_defaults(handler=run_steps_mark)
 
-    command.set_defaults(handler=run_steps_show)
+    # the one handler picks the action itself, for the same reason as the task command's
+    command.set_defaults(handler=run_steps)
+
+
+def run_steps(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    handlers = {
+        None: run_steps_show,
+        "add": run_steps_add,
+        "step": run_steps_mark,
+    }
+
+    return handlers[args.action](brain=brain, args=args)
 
 
 def run_steps_show(

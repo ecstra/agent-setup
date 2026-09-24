@@ -7,6 +7,7 @@ find out.
 """
 
 from datetime import date
+from typing import Optional
 
 from . import schema, steps, store, writes
 
@@ -20,12 +21,17 @@ def create(
     title: str,
     description: str,
     body: str,
-    by: str = "owner",
+    by: str = "",
+    values: Optional[dict[str, str]] = None,
+    category: str = "",
+    links: Optional[list[str]] = None,
     stamp: str = "",
 ) -> store.Entry:
-    """File a plan from its prose, the steps it lists under Steps turned into the table, or an empty table when it lists none."""
-    if by not in steps.BY:
-        raise PlanError(f"a plan is set by {' or '.join(steps.BY)}, not '{by}'")
+    """File a plan from its prose, the steps it lists under Steps turned into the table, or an empty table when it lists none, with the fields, the category and the links any other kind takes."""
+    fields = dict(values or {})
+    fields["by"] = by or fields.get("by") or "owner"
+    if fields["by"] not in steps.BY:
+        raise PlanError(f"a plan is set by {' or '.join(steps.BY)}, not '{fields['by']}'")
 
     stamp = stamp or date.today().isoformat()
     text = body if body.strip() else ""
@@ -41,7 +47,9 @@ def create(
         kind=kind,
         title=title,
         description=description,
-        values={"by": by},
+        values=fields,
         body=text,
+        category=category,
+        links=links or [],
         stamp=stamp,
     )
