@@ -2,7 +2,8 @@
 
 Every field a kind carries is checked here before anything reaches disk,
 so a file cannot arrive in the brain already breaking its spec. The
-prose comes from the caller and is written through untouched.
+prose comes from the caller and is written through as it came, the
+Steps section aside, whose numbered list becomes the table.
 """
 
 from datetime import date
@@ -161,7 +162,6 @@ def update(
     frontmatter.write(path=str(entry.path), document=entry.document)
     brain.refresh()
 
-    # a step that points at this entry takes its mark from it
     if "status" in changes and entry.kind.name in steps.POINTED_KINDS:
         refresh_after(brain=brain, entry=entry, stamp=stamp)
 
