@@ -11,7 +11,7 @@ on standard error, 2 doctor still has findings.
 | `brain version` | The kit version this project carries, from `.agents/VERSION`. |
 | `brain status [--json]` | The clock, the standing word and the current work first, then version, doctor health, counts per tracker, open reviews, the latest handover, unreadable files. The JSON form carries all of that but the clock and the word, the chain under `task`, which is null when the file does not read as a chain. |
 | `brain ack` | The clock and where the owner's standing word to proceed stands, off, held, or on with what is left of it and what ends it. |
-| `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. Kinds: bug, decision, doc, handover, memory, review, todo. |
+| `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. Kinds: bug, decision, doc, handover, memory, plan, review, todo. |
 | `brain show <key> [--meta]` | The whole file, or with `--meta` its frontmatter only. |
 | `brain path <key>` | The absolute path behind an id, a name or a brain relative path. |
 | `brain links <key> [--json]` | What the entry links to, and every entry that links to it. |
@@ -41,6 +41,9 @@ Fields by kind, all passed as flags to `new` or as `field=value` to `set`:
   done, dropped or refiled, `born` defaults to today, `done` is the
   closing date, `became` the id of the bug a refiled todo was filed
   as, held to the same rule.
+- plan: `--by owner|agent`, owner unless said otherwise. `status` is
+  open, done or dropped, `born` defaults to today, `done` is the
+  closing date.
 - decision: `--area` required. `status` is standing or superseded,
   `date` defaults to today, `superseded-by` names the successor.
 - memory: `--type project|feedback|reference` required.
@@ -48,10 +51,12 @@ Fields by kind, all passed as flags to `new` or as `field=value` to `set`:
   `brain ledger open`, which writes the body shape too.
 - doc and handover: no extra fields.
 
-Required headings, which the body must carry: bug `Problem` and
-`Evidence`, todo `What` and `Done when`, decision `Decision`, review
-`Summary`, `Batches` and `Findings`. An empty standard input writes the
-headings and nothing else, for filling in afterwards.
+Required headings, which the body must carry: plan `Why`, `Steps` and
+`Done when`, bug `Problem` and `Evidence`, todo `What` and `Done when`,
+decision `Decision`, review `Summary`, `Batches` and `Findings`. An
+empty standard input writes the headings and nothing else, for filling
+in afterwards, a plan aside, which is filed from its prose or not at
+all.
 
 ## The standing word
 
@@ -111,9 +116,9 @@ outermost first, `task none` when nothing is on. A plan prints as
 `plan <name>, step <n> of <m>, <text>`, a todo as
 `task <id>, step <n> of <m>, <text>`, a bug as `bug <id>` the same
 way, a review as `review <name>, batch <n> of <m>, <status>`, the
-first batch not yet done. The step is never stored, it is the first
-pending row of the entry's steps table, so the marks in the file are
-where the work stands, a todo or a bug with no table prints its id
+first batch not yet done. The step is the first pending row of the
+entry's steps table, read fresh each time, so the marks in the file
+are where the work stands, a todo or a bug with no table prints its id
 alone, and an entry whose every step is settled says so and how to
 close it.
 
@@ -215,7 +220,7 @@ that is what it is.
 
 | Command | What it does |
 |---|---|
-| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. |
+| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill links and what a write left behind. |
 | `brain doctor --fix` | Applies every fixable repair, in passes until a pass changes nothing, then reports what is left. A repair that fails is reported as a flag with the reason. |
 
 What doctor checks: nothing left behind by an interrupted write, no

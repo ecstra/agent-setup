@@ -1,6 +1,6 @@
 ---
 name: agent-brain
-description: The one way to file, change, count or check anything in the project's .agents/ brain. Use it to file a todo, a bug, a decision, a doc or a memory, to run a review ledger, to retitle a file, or to check the brain. Never write a brain file by hand.
+description: The one way to file, change, count or check anything in the project's .agents/ brain. Use it to file a plan, a todo, a bug, a decision, a doc or a memory, to set the work the agent is on and mark its steps, to run a review ledger, to retitle a file, or to check the brain. Never write a brain file by hand.
 ---
 
 # The brain tool
@@ -154,17 +154,13 @@ brain ack off
 ## The current work
 
 Work of more than one step starts with `brain task on` before the
-first step, SYSTEM.md section 8.3 requires it, and every hook line then
-says what the agent is on. The work is one chain at a time, a plan, a
-todo, a bug or a review at the root, a todo, a bug or a review under
-the step that points at it, a review under the todo or bug it reviews
-too. The step the work stands on is the first pending row of the
-entry's steps table, `brain task done` marks it done and moves on,
-`brain task skip` marks it skipped, `brain task step <n>` reopens one,
-`brain task off` drops the innermost link, a link whose entry closes
-drops off on its own, and a second root is refused while one stands
-unless `--replace` sets the chain aside, which is the owner's call.
-The reference says what each line looks like and what each refuses.
+first step, and SYSTEM.md section 8.3 is the rule: what may go under
+what, when a link drops off, and that `--replace` is the owner's call.
+The step the work stands on is the first pending row of the entry's
+steps table, `brain task done` marks it done and moves on, `brain task
+skip` marks it skipped, `brain task step <n>` reopens one, and
+`brain task off` drops the innermost link. The reference says what
+each line looks like and what each refuses.
 
 ```bash
 brain task on kit-phase-7
@@ -183,8 +179,9 @@ brain doctor --fix
 Doctor reports each defect on its own line, marked `fixable` or `flag`.
 `--fix` repairs the mechanical ones, a stale index, a name that
 disagrees with its filename, a link written as a name or repeated in
-one header, a chat style copy that drifted from the Claude Code one, a
-missing or dead skill link, and stamps every file it touches. Whatever
+one header, a pointed step's mark that drifted from its entry, a chat
+style copy that drifted from the Claude Code one, a missing or dead
+skill link, and stamps every file it touches. Whatever
 is left needs a decision, so read it and act on it. Silencing a finding
 is never the answer.
 

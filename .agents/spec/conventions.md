@@ -89,9 +89,9 @@ doctor rebuilds.
 A brain written before the tool existed reads these rules as its
 target. `brain upgrade` brings it to the current layout first. Then
 doctor names every way it falls short, `--fix` repairs the mechanical
-part (indexes, names, links, dates, the style copies and the skill
-link), and what is left is fixed by hand through the tool, one finding
-at a time.
+part (indexes, names, links, dates, a pointed step's drifted mark, the
+style copies and the skill link), and what is left is fixed by hand
+through the tool, one finding at a time.
 
 ## Prose
 
