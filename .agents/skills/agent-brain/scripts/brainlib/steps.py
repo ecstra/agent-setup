@@ -163,6 +163,15 @@ def located(
     return header, rows
 
 
+def blank(
+    body: str,
+) -> bool:
+    """Whether the body has no Steps section, or one with nothing under its heading, which a todo or a bug reads as no steps at all."""
+    where = span(body)
+
+    return where is None or not body[where[0] : where[1]].strip()
+
+
 def span(
     body: str,
 ) -> Optional[tuple[int, int]]:
@@ -177,8 +186,8 @@ def span(
 def rows_of(
     entry: store.Entry,
 ) -> list[Step]:
-    """The entry's steps, none for a todo or a bug without a Steps section, refused with the path named when the table does not read."""
-    if entry.kind.name != "plan" and span(entry.document.body) is None:
+    """The entry's steps, none for a todo or a bug without a Steps section or with an empty one, refused with the path named when the table does not read."""
+    if entry.kind.name != "plan" and blank(entry.document.body):
         return []
 
     try:
@@ -617,7 +626,7 @@ def gaps(
     if kind.name not in CLOSING or status != CLOSING[kind.name]:
         return []
 
-    if kind.name != "plan" and span(body) is None:
+    if kind.name != "plan" and blank(body):
         return []
 
     try:
