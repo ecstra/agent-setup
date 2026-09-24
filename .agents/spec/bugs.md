@@ -30,7 +30,7 @@ status: open | branched | fixed | wontfix | refiled
 severity: breaks | bug | debt | nit
 area: <the project's own area vocabulary, kept consistent>
 reported: <YYYY-MM-DD>
-became: <the todo it was refiled as, written by the refile>
+became: <the id of the todo it was refiled as, written by the refile>
 parent: <name of the bug or finding that spawned this one, if any>
 ```
 

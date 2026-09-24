@@ -23,7 +23,7 @@ by: owner | agent
 area: <the project's own area vocabulary, kept consistent>
 born: <YYYY-MM-DD>
 done: <YYYY-MM-DD, when closed>
-became: <the bug it was refiled as, written by the refile>
+became: <the id of the bug it was refiled as, written by the refile>
 ```
 
 Body sections:

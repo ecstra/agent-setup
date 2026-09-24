@@ -64,7 +64,7 @@ LISTED = re.compile(r"^(\d+)\.[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 
 # a step line may open with the key of the entry it points at
 POINTER = re.compile(r"^([A-Za-z0-9][\w.-]*)[,:][ \t]+(.+)$")
-KEY_START = re.compile(r"^([A-Za-z0-9][\w.-]*)")
+KEY_START = re.compile(r"^([A-Za-z0-9-]+)")
 
 # a heading meant as the Steps section that the readers would never find
 STEPS_LOOKALIKE = re.compile(r"^#{1,6}[ \t]+steps:?[ \t]*$", re.IGNORECASE | re.MULTILINE)
@@ -441,7 +441,7 @@ def row_from(
             raise StepsError(f"step {number} points at '{match.group(1)}', which is not a todo, a bug or a review the brain knows")
     else:
         opening = KEY_START.match(line)
-        word = opening.group(1).rstrip(".") if opening is not None else ""
+        word = opening.group(1) if opening is not None else ""
         if looks_like_a_key(word) and pointed(brain=brain, key=word) is not None:
             raise StepsError(f"step {number} opens with {word} and no comma or colon after it, so it would point at nothing, and a step that points at it reads '{word}, what to do'")
 
@@ -547,7 +547,7 @@ def refiled_to(
     brain: store.Brain,
     entry: store.Entry,
 ) -> Optional[store.Entry]:
-    """The entry a refiled todo or bug was filed as, named by the became field the refile writes, or for a file from before that field the last link of the other kind whose own links name it back, or None."""
+    """The entry a refiled todo or bug was filed as, named by id in the became field the refile writes, which a retitle never moves, or for a file from before that field the last link of the other kind whose own links name it back, or None."""
     wanted = "bug" if entry.kind.name == "todo" else "todo"
     named = entry.field("became")
     if named:
