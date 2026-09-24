@@ -867,7 +867,7 @@ def settle(
     brain: store.Brain,
     entry: store.Entry,
 ) -> None:
-    """Write the rows an open entry's readers derive into its document, without saving, so a close leaves the file as the readers saw it."""
+    """Write the rows an entry's readers would derive into its document, without saving, so a status move leaves the file as the readers see it, whatever status it moves from."""
     try:
         rows = stored_rows(entry)
     except StepsError:

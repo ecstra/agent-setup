@@ -145,8 +145,8 @@ def update(
 
     refuse_gaps(gaps)
 
-    # a table closes as its readers saw it, so the file settles before the close is written
-    if moving and entry.kind.name in steps.STEPPED_KINDS and steps.is_open(entry):
+    # a table moves as its readers would see it, so the file settles before any status move is written, a close from dropped as much as from open
+    if moving and entry.kind.name in steps.STEPPED_KINDS:
         steps.settle(brain=brain, entry=entry)
 
     was_refiled = entry.field("status") == "refiled"
