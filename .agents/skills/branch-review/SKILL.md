@@ -102,13 +102,13 @@ shows it.
    branch, so the shell never touches it. The open puts the review on
    the current work chain, under the todo or the bug the work is on,
    which is the one it reviews when the work was set as the rule asks,
-   under the plan, the todo or the bug whose current step points at
-   it, or as the root when nothing is on, and every hook line then
-   names the batch the review stands at. When the chain keeps it off,
-   the open says so, and the review goes on with
-   `brain task on <its key>` once the work in the way is finished or
-   dropped with `brain task off`, or with `--replace` on the owner's
-   word.
+   or as the root when nothing is on, and every hook line then names
+   the batch the review stands at. When the chain keeps it off, the
+   open says so, and the review goes on with `brain task on <its key>`
+   once the work in the way is finished or dropped with
+   `brain task off`, or with `--replace` on the owner's word, and once
+   a step points at it, under the plan, the todo or the bug whose
+   current step that is.
 
    ```bash
    brain ledger open feat/billing --level high --summary - <<'EOF'

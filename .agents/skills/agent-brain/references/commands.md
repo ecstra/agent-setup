@@ -1,8 +1,11 @@
 # Every command and flag
 
 All of them run as `python3 .agents/skills/agent-brain/scripts/brain.py`,
-shortened here to `brain`. Exit codes: 0 done, 1 refused with the reason
-on standard error, 2 doctor still has findings.
+shortened here to `brain`. A command exits 0 when done, 1 when refused,
+with the reason on standard error, and 2 when doctor still has findings.
+A write that landed its entry and then lost a second write, an index, a
+step cell or the chain, exits 0 with that failure on standard error,
+since the command did its work and doctor reports what is left.
 
 ## Reading
 
@@ -51,13 +54,13 @@ Fields by kind, all passed as flags to `new` or as `field=value` to `set`:
   `brain ledger open`, which writes the body shape too.
 - doc and handover: no extra fields.
 
-Required headings, which the body must carry: plan `Why` and
-`Done when`, its `Steps` added by the tool when the prose has none,
-bug `Problem` and `Evidence`, todo `What` and `Done when`,
-decision `Decision`, review `Summary`, `Batches` and `Findings`. An
-empty standard input writes the headings and nothing else, for filling
-in afterwards, a plan aside, which is filed from its prose or not at
-all.
+The body must carry its kind's required headings. A plan carries `Why`
+and `Done when`, with `Steps` added by the tool when the prose has
+none, a bug `Problem` and `Evidence`, a todo `What` and `Done when`, a
+decision `Decision`, and a review `Summary`, `Batches` and `Findings`.
+An empty standard input writes the headings and nothing else, for
+filling in afterwards, a plan aside, which is filed from its prose or
+not at all.
 
 ## The standing word
 
@@ -134,30 +137,30 @@ every step is settled says so and how to close it.
 The state is one dotted file at the root of the brain, `.agents/.task`,
 the tool's own, which git ignores like `.ack`. A link whose entry goes
 done, dropped, fixed, wontfix, refiled or closed drops off on the next
-read with everything under it, and only such a link drops: one whose
-entry the brain cannot read right now, one two files carry the id of
-or answer to the name of after a merge, one whose entry is not in this
-checkout, filed on another branch, and one whose status is none the
-tool knows, all stay, and the line says which. A plan is on the chain
-by its file and a review by its folder, and a retitled plan keeps its
-place, since the chain follows through `brain refile` and through the
-doctor's name repair, a review's link and the steps that point at it
-too. A name changed on another branch leaves the link saying not in
-this checkout until `brain task off` drops it or `--replace` sets it
-aside. A reading never writes the file, so the hook line cannot write
-over a chain set meanwhile, and a closed link stays in the file until
-the next command that moves the chain. `brain task off`,
-`brain task done`, `brain task skip` and `brain task step` take the
-innermost link as written, so off after a close drops the closed link
-and keeps the one above it, and a mark after a close is refused until
-off drops it, since the step above is one nobody did. A file that does
-not read as a chain counts as none, the line says so, `brain task on`,
-`brain task done`, `brain task skip` and `brain task step` refuse until
-`brain task off --all` clears it, and `--replace` writes over it. A
-folder standing in the file's place, which the tool never made, is
-named by every line and moved away by hand.
-`brain ledger open` puts the new review on the chain where the rules
-allow, and says on standard error when they keep it off.
+read with everything under it, and only such a link drops. A link
+whose entry the brain cannot read right now, one two files carry the
+id of or answer to the name of after a merge, one whose entry is not
+in this checkout, filed on another branch, and one whose status is
+none the tool knows all stay, and the line says which. A plan is on
+the chain by its file and a review by its folder, and a retitled plan
+keeps its place, since the chain follows through `brain refile` and
+through the doctor's name repair, a review's link and the steps that
+point at it too. A name changed on another branch leaves the link
+saying not in this checkout until `brain task off` drops it or
+`--replace` sets it aside. A reading never writes the file, so the
+hook line cannot write over a chain set meanwhile, and a closed link
+stays in the file until the next command that moves the chain.
+`brain task off`, `brain task done`, `brain task skip` and
+`brain task step` take the innermost link as written, so off after a
+close drops the closed link and keeps the one above it, and a mark
+after a close is refused until off drops it, since the step above is
+one nobody did. A file that does not read as a chain counts as none,
+the line says so, `brain task on`, `brain task done`, `brain task skip`
+and `brain task step` refuse until `brain task off --all` clears it,
+and `--replace` writes over it. A folder standing in the file's place,
+which the tool never made, is named by every line and moved away by
+hand. `brain ledger open` puts the new review on the chain where the
+rules allow, and says on standard error when they keep it off.
 
 ## The steps
 
@@ -179,7 +182,7 @@ dropped without a word. A pipe in a step is written into its cell as
 
 | Command | What it does |
 |---|---|
-| `brain new plan --title T --description D [--by owner\|agent] [--link P] [--category C]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. `by` is owner unless said otherwise, `--link` and `--category` work as for any kind, and a field flag a plan does not carry is refused. |
+| `brain new plan --title T --description D [--by owner\|agent] [--link P] [--category C]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. The steps go under a level two heading, `## Steps`, and a Steps heading at another level is refused, since the readers would never find it. `by` is owner unless said otherwise, `--link` and `--category` work as for any kind, and a field flag a plan does not carry is refused. |
 | `brain steps <key>` | The entry in a few lines, its status and the count of settled steps, then one line per step with what it points at and its mark. |
 | `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers. A todo or a bug with no Steps section gets one where its spec puts it, and a numbered list written under Steps by hand becomes the table first, its rows set by the plan's or the todo's own `by` and by agent on a bug. Refused on an entry that is not open, for a step that points at the entry itself, for one that points at an entry whose steps point back here at any remove, since the two would wait on each other for good, and on a plan whose steps sit under a heading that is not `## Steps`. |
 | `brain steps <key> step <n> pending\|done\|skipped` | Marks a step that points at nothing, or one whose pointer reaches nothing the brain can read, a dead key or an id two files carry after a merge, which doctor reports. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped, and a step whose todo or bug was refiled follows it to the entry filed in its place. The tool refreshes it whenever the entry's status changes, a ledger close included, while the holder is open, and a retitle rewrites a cell naming the entry by hand as its id in every holder, so marking a pointed step by hand is refused. Refused on an entry that is not open, whose table is its record. |
@@ -187,7 +190,16 @@ dropped without a word. A pipe in a step is written into its cell as
 A plan goes done, a todo done and a bug fixed with `brain set` once
 every step is done or skipped, and the tool refuses it before then,
 a todo or a bug with no Steps section closing freely and an entry with
-an empty table closing on its Done when alone. Doctor reports a Steps
+an empty table closing on its Done when alone. A todo or a bug whose
+Steps holds prose or bullets from before the table, neither the table
+nor a numbered list, is refused its close too, since the tool cannot
+read what it holds, and neither `--fix` nor `brain steps add` turns
+that into the table. Make it a numbered list, which add then turns, or
+move it under another heading by hand, and doctor names the line
+meanwhile. Reopening a closed entry with `brain set` is refused while
+its steps and another open entry's would point at each other, and
+while its own table, or the steps of an entry it points at, does not
+read, since the tool cannot tell. Doctor reports a Steps
 section with no table or one that does not read, a step line sitting
 outside the table, a step whose pointer reaches nothing, a pointed mark
 that drifted, a pointer left on a refiled entry or written by name, two
@@ -225,15 +237,15 @@ that is what it is.
 | `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill links and what a write left behind. |
 | `brain doctor --fix` | Applies every fixable repair, in passes until a pass changes nothing, then reports what is left. A repair that fails is reported as a flag with the reason. |
 
-What doctor checks: nothing left behind by an interrupted write, no
-stray files, meaning every markdown file under `.agents/` is either an
-entry the store lists or a file the kit owns, frontmatter present and
-complete, `updated` a real date, names matching filenames and unique,
-kind matching folder, fields and values against the spec, required
-headings, the lifecycle rules, filename patterns and duplicate ids,
-links that resolve, links written as paths with each file once, body
-links that resolve, the steps tables as the steps section says,
-indexes current, no dashes or semicolons in prose,
+Doctor checks that nothing was left behind by an interrupted write,
+that there are no stray files, meaning every markdown file under
+`.agents/` is either an entry the store lists or a file the kit owns,
+frontmatter present and complete, `updated` a real date, names
+matching filenames and unique, kind matching folder, fields and values
+against the spec, required headings, the lifecycle rules, filename
+patterns and duplicate ids, links that resolve, links written as paths
+with each file once, body links that resolve, the steps tables as the
+steps section says, indexes current, no dashes or semicolons in prose,
 no machine paths, nothing shaped like a secret, the version stamp, the
 chat style copies for Codex and Gemini CLI matching the Claude Code
 one where the project keeps those agents' folders, the skill links
@@ -244,7 +256,7 @@ fell behind the brain's, a dangling link doctor once made for a project
 skill since gone from the brain, a skills folder it cannot list, and a
 version stamp that is not a version.
 
-What `--fix` repairs: a missing or blank `updated` date, blank `links`
+`--fix` repairs a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written
 as a name, a file linked more than once in one header, which keeps the
 first, a pointed step's mark that drifted from its entry or its pointer
@@ -317,7 +329,7 @@ standard input:
 | `session-start` | Prints the clock, the standing word, the current work and `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy, for an agent that does not expand imports. |
 | `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
 | `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Claude Code fires it once after each round of tool calls, Codex and Gemini CLI after each shell call. |
-| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand and the table never taken away, a row after the last passing when it is held to what `brain steps add` holds a step to, pending, pointing at an entry the brain knows or at nothing, and on an open entry, a numbered list under a new Steps heading passing as the list the tool turns into the table, a write that would leave the table unreadable refused, and a patch hunk that fits nowhere and carries a row refused too. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence or a field the file's header carries or its kind allows, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
+| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
 | `post-write` | After a write inside `.agents/`, runs doctor and hands its findings back as context. |
 
 Context goes back as one JSON object naming the event, which all three

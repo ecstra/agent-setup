@@ -23,7 +23,7 @@ The examples below shorten that to `brain`. Every flag is listed in
   `brain refile`, and the rows of a steps table through `brain task`
   and `brain steps`. The prose below and around them is yours to edit,
   and doctor reads the file after. A hook holds all of this in every
-  agent that runs hooks: a new file, an index, a rename, a header
+  agent that runs hooks, so a new file, an index, a rename, a header
   change or a step row changed by hand is refused. A delete is not,
   and doctor runs after it.
 - Ids only go up. A gap left by a moved or deleted file stays a gap.
