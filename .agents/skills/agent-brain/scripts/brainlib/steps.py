@@ -526,10 +526,10 @@ def doubled(
     brain: store.Brain,
     key: str,
 ) -> bool:
-    """Whether the key names more than one file, the doubled id a merge leaves."""
+    """Whether the key names more than one file, in any case, the doubled id or name a merge leaves."""
     try:
-        brain.find(key)
-        brain.find(key.upper())
+        for candidate in (key, key.upper(), key.lower()):
+            brain.find(candidate)
     except store.Ambiguous:
         return True
 
@@ -540,12 +540,16 @@ def pointed(
     brain: store.Brain,
     key: str,
 ) -> Optional[store.Entry]:
-    """The todo, bug or review a step points at by its id or its name, or None when the key reaches nothing of those kinds, or reaches one by a stem or a path a step never uses."""
+    """The todo, bug or review a step points at by its id or its name, a review's folder answering as its name does, or None when the key reaches nothing of those kinds, or reaches one by a stem or a path a step never uses."""
     entry = found(brain=brain, key=key)
     if entry is None or entry.kind.name not in POINTED_KINDS:
         return None
 
-    if key not in (entry.identifier, entry.name) and key.upper() != entry.identifier and key.lower() != entry.name:
+    answers = {entry.identifier, entry.name} - {None}
+    if entry.kind.name == "review":
+        answers.add(entry.path.parent.name)
+
+    if not {key, key.upper(), key.lower()} & answers:
         return None
 
     return entry

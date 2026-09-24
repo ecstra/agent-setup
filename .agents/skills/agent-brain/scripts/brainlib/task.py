@@ -164,11 +164,11 @@ def looked_up(
 ) -> tuple[str, Optional[store.Entry]]:
     """The link's state and its entry, which is there for an open or a closed one and for one in an unknown status."""
     try:
-        entry = brain.find(item.key)
+        entry = find_link(brain=brain, item=item)
     except store.Ambiguous:
         return DOUBLED, None
 
-    if entry is None or entry.kind.name != item.kind:
+    if entry is None:
         return (UNREADABLE if unreadable(brain=brain, item=item) else AWAY), None
 
     status = entry.field("status") or ""
@@ -179,6 +179,47 @@ def looked_up(
         return CLOSED, entry
 
     return UNKNOWN, entry
+
+
+def find_link(
+    brain: store.Brain,
+    item: Item,
+) -> Optional[store.Entry]:
+    """The entry a link means, looked up among its own kind, by the file first and by the header's name second.
+
+    A file of another kind cannot stand in the way, the file itself
+    wins over a copy that kept its name, and one renamed by hand still
+    answers by its header until the doctor's repair moves the link.
+    Two files of the kind that answer alike are refused.
+    """
+    entries = brain.entries_of(schema.kind_named(item.kind))
+    for keyed in (file_key, header_key):
+        matches = [entry for entry in entries if keyed(entry) == item.key]
+        if len(matches) > 1:
+            paths = ", ".join(entry.relative for entry in matches)
+            raise store.Ambiguous(f"'{item.key}' names {len(matches)} files: {paths}")
+
+        if matches:
+            return matches[0]
+
+    return None
+
+
+def file_key(
+    entry: store.Entry,
+) -> str:
+    """The key the file itself gives: the id a todo or a bug carries in its name, a review's folder, a plan's stem."""
+    if entry.identifier:
+        return entry.identifier
+
+    return entry.path.parent.name if entry.kind.name == "review" else entry.path.stem
+
+
+def header_key(
+    entry: store.Entry,
+) -> Optional[str]:
+    """The name a plan's or a review's header says, which parts from the file's key only through a rename by hand."""
+    return None if entry.identifier else entry.name
 
 
 def known_statuses(
@@ -270,11 +311,8 @@ def resolve(
 def key_of(
     entry: store.Entry,
 ) -> str:
-    """The key the chain stores: the id for a todo or a bug, the file's stem for a plan, which a copy that kept the name field cannot double, and the name for a review, whose file is its folder's ledger."""
-    if entry.identifier:
-        return entry.identifier
-
-    return entry.name if entry.kind.name == "review" else entry.path.stem
+    """The key the chain stores, the one the file itself gives, which a copy that kept the header's name cannot double."""
+    return file_key(entry)
 
 
 def turn_on(

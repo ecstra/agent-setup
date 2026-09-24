@@ -133,7 +133,7 @@ entry the brain cannot read right now, one two files carry the id of
 or answer to the name of after a merge, one whose entry is not in this
 checkout, filed on another branch, and one whose status is none the
 tool knows, all stay, and the line says which. A plan is on the chain
-by its file and a review by its name, and a retitled plan keeps its
+by its file and a review by its folder, and a retitled plan keeps its
 place, since the chain follows through `brain refile` and through the
 doctor's name repair, a review's link and the steps that point at it
 too. A name changed on another branch leaves the link saying not in

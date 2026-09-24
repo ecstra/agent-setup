@@ -265,6 +265,10 @@ class Brain:
             keyed: dict[str, list[Entry]] = {}
             for entry in self.entries():
                 keys = {entry.identifier, entry.name, entry.relative, entry.path.stem} - {None}
+                # a review's file is its folder's ledger, so the folder's name answers for it as a plan's stem does
+                if entry.kind.name == "review":
+                    keys.add(entry.path.parent.name)
+
                 for key in keys:
                     keyed.setdefault(key, []).append(entry)
             self.keyed = keyed
