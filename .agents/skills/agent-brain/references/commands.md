@@ -285,8 +285,8 @@ any link standing there. No other file is removed.
 Both run from a checkout of the kit, since a project without the tool
 has nothing to run, so the port is
 `python3 <kit>/.agents/skills/agent-brain/scripts/brain.py port` from
-the project's root. A project that already carries the tool can
-run its own copy with `--kit` pointing at the newer checkout. Without
+the project's root. A project that already carries the tool can run
+its own copy with `--kit` pointing at the newer checkout. Without
 `--project`, a port works on the top of the git repository around the
 current folder and an upgrade on the nearest folder at or above the
 current one that carries a brain, and neither ever works on your home
@@ -342,19 +342,19 @@ text is dropped, so those get the JSON object too.
 
 The config files that wire them up ship with the kit, as
 `.claude/settings.json`, `.codex/hooks.json` and
-`.gemini/settings.json`. Every command in them
-is the same one line of Python, which finds the script from the
-project folder the agent names in `CLAUDE_PROJECT_DIR` or
-`GEMINI_PROJECT_DIR`, or by walking up from the session's own folder
-where Codex names none, hands it the event, and does nothing where no
-script is found, so a checkout that predates the kit never blocks a
-prompt or a write. The script that runs is the one checked out, so a
-session whose hooks name an event and a checkout of a kit from before
-that event still block on it until the session restarts, which this
-kit's script no longer does for events it will learn later. Each
-Codex hook carries the same line in a Windows form beside it, run
-through the `py` launcher. The Claude Code one also carries the kit's
-two settings, `CLAUDE_CODE_SUBAGENT_MODEL` for the sub agents' model
-and `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how many tool calls may
-run at once. The port and the upgrade add each to a project's `env`
-when it lacks the key and leave a value the project set.
+`.gemini/settings.json`. Every command in them is the same one line of
+Python, which finds the script from the project folder the agent names
+in `CLAUDE_PROJECT_DIR` or `GEMINI_PROJECT_DIR`, or by walking up from
+the session's own folder where Codex names none, hands it the event,
+and does nothing where no script is found, so a checkout that predates
+the kit never blocks a prompt or a write. The script that runs is the
+one checked out, so a session whose hooks name an event and a checkout
+of a kit from before that event still block on it until the session
+restarts, which this kit's script no longer does for events it will
+learn later. Each Codex hook carries the same line in a Windows form
+beside it, run through the `py` launcher. The Claude Code one also
+carries the kit's two settings, `CLAUDE_CODE_SUBAGENT_MODEL` for the
+sub agents' model and `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how
+many tool calls may run at once. The port and the upgrade add each to
+a project's `env` when it lacks the key and leave a value the project
+set.
