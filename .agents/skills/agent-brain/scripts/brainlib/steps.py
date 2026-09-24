@@ -53,8 +53,9 @@ CLOSING: dict[str, str] = {
 
 TABLE_HEADER = "| # | Step | Points at | By | Status |\n|---|---|---|---|---|\n"
 HEADER_LINE = re.compile(r"^\|[ \t]*#[ \t]*\|[ \t]*Step[ \t]*\|[ \t]*Points at[ \t]*\|[ \t]*By[ \t]*\|[ \t]*Status[ \t]*\|[ \t]*\n\|[-| \t]+\|[ \t]*$", re.MULTILINE)
-# a cell runs to the next pipe, and a pipe written as \| is part of the cell
-CELL = r"((?:\\.|[^|\n])*?)"
+# a cell runs to the next pipe, and a pipe written as \| is part of the cell,
+# the one escape there is, so every other backslash is the cell's own
+CELL = r"((?:\\\||[^|\n])*?)"
 ROW = re.compile(
     rf"^\|[ \t]*(\d+)[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*$",
     re.MULTILINE,
@@ -207,15 +208,14 @@ def render_row(
 def escaped(
     text: str,
 ) -> str:
-    """A cell's text with its backslashes and pipes escaped, so a step ending in a backslash never swallows the pipe after it."""
-    return text.replace("\\", "\\\\").replace("|", "\\|")
+    """A cell's text with its pipes escaped, the one escape the table has, so a backslash in a step is written as it is."""
+    return text.replace("|", "\\|")
 
 
 def unescaped(
     text: str,
 ) -> str:
-    """A cell's text with the two escapes the tool writes undone, and any other backslash kept, since a hand typed row keeps its own."""
-    return re.sub(r"\\([\\|])", r"\1", text)
+    return text.replace("\\|", "|")
 
 
 def rewrite(
