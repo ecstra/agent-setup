@@ -484,6 +484,8 @@ def table_write_of(
 
     status = str(current.get("status") or "")
     closed = status not in steps.OPEN_STATUSES[kind]
+    entry = entry_at(brain=brain, inside=inside)
+    key = entry.name if entry is not None else Path(inside).stem
 
     # a table that does not read now is doctor's, and a list on disk is the table in waiting, judged whole as the write leaves it
     try:
@@ -507,7 +509,7 @@ def table_write_of(
         # on a closed entry any numbered line could land under Steps as a step the record never had, and a table row would be refused there
         line = numbered_line_in(hunk) if closed else None
         if line is not None:
-            return f"{inside}: a hunk the hook cannot place carries '{line}', which reads as a step, and {Path(inside).stem} is {status}, a closed table being its record, so no step is added to it"
+            return f"{inside}: a hunk the hook cannot place carries '{line}', which reads as a step, and {key} is {status}, a closed table being its record, so no step is added to it"
 
     if after is None:
         return None
@@ -517,8 +519,6 @@ def table_write_of(
     except frontmatter.FrontmatterError:
         return None
 
-    entry = entry_at(brain=brain, inside=inside)
-    key = entry.name if entry is not None else Path(inside).stem
     own = steps.own_keys(entry) if entry is not None else {str(current.get("name") or key)}
     write = TableWrite(
         inside=inside,
@@ -713,15 +713,36 @@ def changed_row(
 
             return f"step {step.number} is marked {fresh.status} with {marking_command(key=key, number=step.number, status=fresh.status)}"
 
-        # a cell left empty by a write from before the tool refused one is filled in by hand, since no command rewords a step
-        if fresh.text != step.text and step.text.strip():
-            return f"step {step.number} is worded as it was filed"
+        # a cell left empty by a write from before the tool refused one is filled in by hand, since no command rewords a step, and held to what a new row's text is held to
+        if fresh.text != step.text:
+            if step.text.strip():
+                return f"step {step.number} is worded as it was filed"
+
+            why = opens_with_a_key(brain=brain, step=fresh) if not fresh.points_at else None
+            if why is not None:
+                return why
 
         if fresh.points_at != step.points_at:
             return f"step {step.number} points where it was filed to point"
 
         if fresh.by != step.by:
             return f"step {step.number} is set by whom it was filed by"
+
+    return None
+
+
+def opens_with_a_key(
+    brain: store.Brain,
+    step: steps.Step,
+) -> Optional[str]:
+    """Why a row's text may not open with a key, since a row points through its Points at cell, or None when it does not."""
+    try:
+        word = steps.opening_key(brain=brain, number=step.number, text=step.text)
+    except steps.StepsError as refused:
+        return str(refused)
+
+    if word:
+        return f"step {step.number} opens with {word} in its Step cell, and a row points through its Points at cell"
 
     return None
 
@@ -786,13 +807,9 @@ def added_row(
             return f"step {step.number} is added pending, and marked once it is {step.status} with {marking_command(key=key, number=step.number, status=step.status)}"
 
         if not step.points_at:
-            try:
-                word = steps.opening_key(brain=brain, number=step.number, text=step.text)
-            except steps.StepsError as refused:
-                return str(refused)
-
-            if word:
-                return f"step {step.number} opens with {word} in its Step cell, and a row points through its Points at cell"
+            why = opens_with_a_key(brain=brain, step=step)
+            if why is not None:
+                return why
 
     try:
         steps.refuse_cycles(brain=brain, rows=added, own=own)
