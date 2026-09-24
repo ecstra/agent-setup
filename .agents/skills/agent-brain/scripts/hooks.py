@@ -246,8 +246,7 @@ def pre_write(
 
     # a patch that reaches several brain files is judged across them too, since each alone reads as fine against the disk
     if len(touched) > 1:
-        writes = [write for write in (table_write_of(touch=touch, inside=inside) for touch, inside in ((touch, entry_path(brain=brain, path=touch.path)) for touch in touched) if inside is not None) if isinstance(write, TableWrite)]
-        verdict = loop_across(brain=brain, writes=writes)
+        verdict = loop_across(brain=brain, writes=table_writes_of(brain=brain, touched=touched))
         if verdict is not None:
             print(verdict, file=sys.stderr)
             return BLOCK
@@ -422,7 +421,7 @@ def table_change(
     that fits nowhere and carries a row is refused, since the hook
     cannot tell where it would land.
     """
-    write = table_write_of(touch=touch, inside=inside)
+    write = table_write_of(brain=brain, touch=touch, inside=inside)
     if write is None:
         return None
 
@@ -463,12 +462,13 @@ class TableWrite:
 
 
 def table_write_of(
+    brain: store.Brain,
     touch: Touch,
     inside: str,
 ) -> Union[TableWrite, str, None]:
-    """The steps table a write reaches, as it is and as the write would leave it, a refusal when the write cannot be judged as a table, or None when there is no table to judge."""
-    text = frontmatter.load(str(touch.path))
+    """The steps table a write reaches, as it is and as the write would leave it, a refusal when the write cannot be judged as a table, or None when there is no table to judge, a file the hook cannot read being taken as its repair the way the header check takes it."""
     try:
+        text = frontmatter.load(str(touch.path))
         current = frontmatter.parse(text)
     except frontmatter.FrontmatterError:
         return None
@@ -496,29 +496,69 @@ def table_write_of(
     except frontmatter.FrontmatterError:
         return None
 
+    key = Path(inside).stem
+    status = str(current.get("status") or "")
+    name = str(current.get("name") or key)
+    own = own_keys_of(inside=inside, name=name)
+
     if not steps.has_table(body):
-        return f"{inside}: {TABLE_IS_THE_TOOLS}, its rows are never taken away, and the prose around it is yours to edit" if before else None
+        if before:
+            return f"{inside}: {TABLE_IS_THE_TOOLS}, its rows are never taken away, and the prose around it is yours to edit"
+
+        return listed_change(brain=brain, inside=inside, kind=kind, body=body, own=own)
 
     try:
         rows = steps.stored_rows_of(kind=kind, body=body)
     except steps.StepsError as error:
         return f"{inside}: after that write the steps table would not read, {error}"
 
-    key = Path(inside).stem
-    status = str(current.get("status") or "")
-    name = str(current.get("name") or key)
-    own = own_keys_of(inside=inside, name=name)
-
     return TableWrite(
         inside=inside,
         key=key,
         own=own,
-        node=next((one for one in own if one != name), name),
+        node=inside.casefold(),
         status=status,
         closed=status not in steps.OPEN_STATUSES[kind],
         before=before,
         rows=rows,
     )
+
+
+def listed_change(
+    brain: store.Brain,
+    inside: str,
+    kind: str,
+    body: str,
+    own: set[str],
+) -> Optional[str]:
+    """Why a numbered list written under a new Steps heading may not come in, held to what filing holds a list to, since the tool turns it into the table later and would refuse it then, or None when it may."""
+    if steps.blank(body):
+        return None
+
+    try:
+        steps.converted(brain=brain, body=body, by="agent", kind=schema.kind_named(kind), own=own)
+    except steps.StepsError as refused:
+        return f"{inside}: {TABLE_IS_THE_TOOLS}, {refused}, and the prose around it is yours to edit"
+
+    return None
+
+
+def table_writes_of(
+    brain: store.Brain,
+    touched: list[Touch],
+) -> list[TableWrite]:
+    """The steps tables a patch reaches, one per brain file it touches that reads as a table, the refusals having been judged touch by touch already."""
+    writes: list[TableWrite] = []
+    for touch in touched:
+        inside = entry_path(brain=brain, path=touch.path)
+        if inside is None:
+            continue
+
+        write = table_write_of(brain=brain, touch=touch, inside=inside)
+        if isinstance(write, TableWrite):
+            writes.append(write)
+
+    return writes
 
 
 def loop_across(
@@ -552,7 +592,11 @@ def loop_across(
 def pointer_graph(
     brain: store.Brain,
 ) -> dict[str, set[str]]:
-    """Every pointer the open steps tables hold, as edges from the holder's own key to the entry pointed at, a closed entry's steps waiting on nothing."""
+    """Every pointer the open steps tables hold, as edges from the holder's file to the file pointed at, a closed entry's steps waiting on nothing.
+
+    A file is its own node, the path folded in case, so two files that
+    carry one id after a merge stay two nodes rather than one.
+    """
     edges: dict[str, set[str]] = {}
     for kind_name in steps.STEPPED_KINDS:
         for entry in brain.entries_of(schema.kind_named(kind_name)):
@@ -567,7 +611,7 @@ def pointer_graph(
             for step in rows:
                 target = resolved(brain=brain, key=step.points_at)
                 if target is not None:
-                    edges.setdefault(steps.pointer_of(entry), set()).add(target)
+                    edges.setdefault(entry.relative.casefold(), set()).add(target)
 
     return edges
 
@@ -576,13 +620,13 @@ def resolved(
     brain: store.Brain,
     key: str,
 ) -> Optional[str]:
-    """The own key of the entry a row's pointer reaches, or None when it reaches nothing."""
+    """The node of the entry a row's pointer reaches, its path folded in case, or None when it reaches nothing."""
     if not key:
         return None
 
     target = steps.pointed(brain=brain, key=key)
 
-    return steps.pointer_of(target) if target is not None else None
+    return target.relative.casefold() if target is not None else None
 
 
 def leads_to(
@@ -662,8 +706,8 @@ def own_keys_of(
     inside: str,
     name: str,
 ) -> set[str]:
-    """The keys a step would use to point at the file being written, its id from the filename and the name its header says, the way steps.own_keys reads them off an entry."""
-    match = schema.FILENAME_WITH_ID.match(Path(inside).name)
+    """The keys a step would use to point at the file being written, its id from the filename and the name its header says, the way steps.own_keys reads them off an entry, the filename read in any case since a disk that ignores case takes the write however it is spelled."""
+    match = schema.FILENAME_WITH_ID.match(f"{Path(inside).stem.upper()}.md")
     identifier = f"{match.group(1)}-{match.group(2)}" if match else None
 
     return {identifier, name} - {None}
@@ -684,6 +728,9 @@ def added_row(
         return f"{key} is {status}, and a closed table is its record, so no step is added to it"
 
     for step in added:
+        if not step.text.strip():
+            return f"step {step.number} has no text"
+
         target = steps.pointed(brain=brain, key=step.points_at) if step.points_at else None
         if step.points_at and target is None:
             return str(steps.unreachable(brain=brain, number=step.number, key=step.points_at))
