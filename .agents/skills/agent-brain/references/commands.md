@@ -128,11 +128,19 @@ close it.
 The state is one dotted file at the root of the brain, `.agents/.task`,
 the tool's own, which git ignores like `.ack`. A link whose entry goes
 done, dropped, fixed, wontfix, refiled or closed drops off on the next
-read with everything under it, and a link whose entry the brain cannot
-read right now stays and says so. A file that does not read as a chain
-counts as none, the line says so, `brain task on`, `brain task done`,
+read with everything under it, and only such a link drops: one whose
+entry the brain cannot read right now, one two files carry the id of
+after a merge, and one whose entry is not in this checkout, filed on
+another branch, all stay, and the line says which. A retitled plan
+keeps its place, since the chain follows the name. `brain task off`
+drops the innermost link as written, so a link whose entry closed just
+before goes and the one above it stays. A reading never writes over a
+chain set meanwhile. A file that does not read as a chain counts as
+none, the line says so, `brain task on`, `brain task done`,
 `brain task skip` and `brain task step` refuse until
-`brain task off --all` clears it, and `--replace` writes over it.
+`brain task off --all` clears it, and `--replace` writes over it. A
+folder standing in the file's place, which the tool never made, is
+named by every line and moved away by hand.
 `brain ledger open` puts the new review on the chain where the rules
 allow, and says on standard error when they keep it off.
 
