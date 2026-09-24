@@ -446,22 +446,26 @@ def set_name(
     actual: str,
     expected: str,
 ) -> Callable[[], None]:
-    """A repair that sets the name the file says, and moves a plan's link on the chain with it, since a plan is on the chain by its name.
+    """A repair that sets the name the file says, and moves the links that hold the old name with it: a plan's or a review's link on the chain, and the step cells that point at a review.
 
-    The chain moves first: the new name resolves by the file's stem
-    whether or not the field follows, and a chain that cannot be
+    The chain and the cells move first: the new name resolves by the
+    file whether or not the field follows, and a chain that cannot be
     written leaves the field as it was, so the finding stays to report
-    the failure. A link stays where it is when another file answers to
-    the old name, a copy that kept it, since the link means that file.
+    the failure. The links stay where they are when another file
+    answers to the old name, a copy that kept it, since they mean that
+    file.
     """
     set_the_field = set_field(path=entry.path, key="name", value=expected)
-    follows = entry.kind.name == "plan" and not any(
+    follows = entry.kind.name in ("plan", "review") and not any(
         other.path != entry.path and actual in (other.name, other.path.stem) for other in brain.entries()
     )
 
     def repair() -> None:
         if follows:
-            task.renamed(brain=brain, kind="plan", old=actual, new=expected)
+            task.renamed(brain=brain, kind=entry.kind.name, old=actual, new=expected)
+
+        if follows and entry.kind.name == "review":
+            steps.repoint(brain=brain, keys={actual}, to=expected)
 
         set_the_field()
 
@@ -604,7 +608,8 @@ def check_table(
         fresh = steps.derived_row(brain=brain, step=step, own=own)
         derived.append(fresh)
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
-            why = "which two files carry, so it reaches nothing while the id is doubled" if steps.doubled(brain=brain, key=step.points_at) else "which reaches no todo, bug or review"
+            doubled_key = "name" if schema.is_review_folder(step.points_at.lower()) else "id"
+            why = f"which two files carry, so it reaches nothing while the {doubled_key} is doubled" if steps.doubled(brain=brain, key=step.points_at) else "which reaches no todo, bug or review"
             found.append(Finding(path=entry.relative, check="steps", message=f"step {step.number} points at '{step.points_at}', {why}, and brain steps <key> step {step.number} marks it by hand meanwhile"))
         elif fresh.points_at != step.points_at:
             target = steps.pointed(brain=brain, key=step.points_at)

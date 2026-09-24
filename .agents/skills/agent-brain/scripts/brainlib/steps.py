@@ -910,7 +910,19 @@ def rename_pointing(
     if entry is None or entry.kind.name not in POINTED_KINDS:
         return []
 
-    keys = {key.lower() for key in {entry.identifier, entry.name} - {None}}
+    keys = {key for key in {entry.identifier, entry.name} - {None}}
+
+    return repoint(brain=brain, keys=keys, to=pointer_of(entry), stamp=stamp)
+
+
+def repoint(
+    brain: store.Brain,
+    keys: set[str],
+    to: str,
+    stamp: str = "",
+) -> list[str]:
+    """Write every cell that points at one of the keys, in any case, as the pointer given, in closed holders as much as open ones, and name the holders that changed."""
+    wanted = {key.lower() for key in keys}
     changed: list[str] = []
     for kind_name in STEPPED_KINDS:
         for holder in brain.entries_of(schema.kind_named(kind_name)):
@@ -920,8 +932,8 @@ def rename_pointing(
                 continue
 
             fresh = [
-                Step(number=step.number, text=step.text, points_at=pointer_of(entry), by=step.by, status=step.status)
-                if step.points_at.lower() in keys and step.points_at != pointer_of(entry)
+                Step(number=step.number, text=step.text, points_at=to, by=step.by, status=step.status)
+                if step.points_at.lower() in wanted and step.points_at != to
                 else step
                 for step in rows
             ]
