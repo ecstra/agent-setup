@@ -552,10 +552,13 @@ def loop_across(
 def pointer_graph(
     brain: store.Brain,
 ) -> dict[str, set[str]]:
-    """Every pointer the brain's steps tables hold, as edges from the holder's own key to the entry pointed at."""
+    """Every pointer the open steps tables hold, as edges from the holder's own key to the entry pointed at, a closed entry's steps waiting on nothing."""
     edges: dict[str, set[str]] = {}
     for kind_name in steps.STEPPED_KINDS:
         for entry in brain.entries_of(schema.kind_named(kind_name)):
+            if not steps.is_open(entry):
+                continue
+
             try:
                 rows = steps.stored_rows(entry)
             except steps.StepsError:
