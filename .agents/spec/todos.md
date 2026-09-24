@@ -23,6 +23,7 @@ by: owner | agent
 area: <the project's own area vocabulary, kept consistent>
 born: <YYYY-MM-DD>
 done: <YYYY-MM-DD, when closed>
+became: <the bug it was refiled as, written by the refile>
 ```
 
 Body sections:
@@ -62,5 +63,6 @@ with counts (each closed file carries its own description, the id finds
 it).
 A todo that turns out to describe a defect is refiled as a bug through
 the tool, `brain refile --kind bug`. The todo stays, marked `refiled`
-with its closing date, and the two link to each other, so the id trail
-holds and no id is ever reused. A refiled todo always links to a bug.
+with its closing date, names the bug in `became`, and the two link to
+each other, so the id trail holds and no id is ever reused. A refiled
+todo always links to a bug.

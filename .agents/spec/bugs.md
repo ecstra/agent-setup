@@ -30,13 +30,14 @@ status: open | branched | fixed | wontfix | refiled
 severity: breaks | bug | debt | nit
 area: <the project's own area vocabulary, kept consistent>
 reported: <YYYY-MM-DD>
+became: <the todo it was refiled as, written by the refile>
 parent: <name of the bug or finding that spawned this one, if any>
 ```
 
 `branched` means a branch is carrying the fix right now (name it in the
 body). `wontfix` requires the reason written in the body. `refiled`
-means the file turned out to be a todo, which the tool filed and linked
-here, so a refiled bug always links to a todo.
+means the file turned out to be a todo, which the tool filed, named in
+`became` and linked here, so a refiled bug always links to a todo.
 
 Body sections, in order:
 

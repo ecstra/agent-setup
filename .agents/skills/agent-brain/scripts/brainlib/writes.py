@@ -319,7 +319,7 @@ def convert(
     source = located(brain=brain, key=key)
 
     trail = [link for link in source.document.get_list("links") if link != created.relative]
-    closing = {"status": "refiled", "links": frontmatter.render_list([*trail, created.relative])}
+    closing = {"status": "refiled", "links": frontmatter.render_list([*trail, created.relative]), "became": created.relative}
     if source.kind.name == "todo":
         closing["done"] = stamp
 

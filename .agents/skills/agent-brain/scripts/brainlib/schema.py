@@ -135,6 +135,7 @@ KINDS: dict[str, Kind] = {
             ),
             Field(name="area"),
             Field(name="reported", is_date=True),
+            Field(name="became", required=False),
             Field(name="parent", required=False),
         ),
         sections=(
@@ -180,6 +181,7 @@ KINDS: dict[str, Kind] = {
             Field(name="area"),
             Field(name="born", is_date=True),
             Field(name="done", required=False, is_date=True),
+            Field(name="became", required=False),
         ),
         sections=(
             Section(title="What"),

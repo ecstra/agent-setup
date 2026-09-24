@@ -441,7 +441,7 @@ def row_from(
             raise StepsError(f"step {number} points at '{match.group(1)}', which is not a todo, a bug or a review the brain knows")
     else:
         opening = KEY_START.match(line)
-        word = opening.group(1) if opening is not None else ""
+        word = opening.group(1).rstrip(".") if opening is not None else ""
         if looks_like_a_key(word) and pointed(brain=brain, key=word) is not None:
             raise StepsError(f"step {number} opens with {word} and no comma or colon after it, so it would point at nothing, and a step that points at it reads '{word}, what to do'")
 
@@ -547,8 +547,13 @@ def refiled_to(
     brain: store.Brain,
     entry: store.Entry,
 ) -> Optional[store.Entry]:
-    """The entry a refiled todo or bug was filed as, a todo becoming a bug and a bug a todo, the last of its links that reaches one of that kind whose own links name it back, which a refile writes and a related link never does, or None."""
+    """The entry a refiled todo or bug was filed as, named by the became field the refile writes, or for a file from before that field the last link of the other kind whose own links name it back, or None."""
     wanted = "bug" if entry.kind.name == "todo" else "todo"
+    named = entry.field("became")
+    if named:
+        target = found(brain=brain, key=named)
+        return target if target is not None and target.kind.name == wanted else None
+
     for link in reversed(entry.document.get_list("links")):
         target = found(brain=brain, key=link)
         if target is None or target.kind.name != wanted:
