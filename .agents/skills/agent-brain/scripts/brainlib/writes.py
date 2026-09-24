@@ -30,7 +30,9 @@ def create(
     category: str = "",
     links: Optional[list[str]] = None,
     stamp: str = "",
+    in_place_of: Optional[set[str]] = None,
 ) -> store.Entry:
+    """File a new entry, its steps checked against the keys of the entry it is filed in place of, since a refile hands that entry's pointers on to it."""
     stamp = stamp or today()
 
     slug = schema.slugify(title)
@@ -75,7 +77,7 @@ def create(
     check(kind=kind, fields=fields)
     text = framed(body) if body else sections.skeleton(kind=kind, title=title)
     if kind.name in steps.STEPPED_KINDS:
-        text = steps.tabled(brain=brain, body=text, by=fields.get("by") or "agent", kind=kind)
+        text = steps.tabled(brain=brain, body=text, by=fields.get("by") or "agent", kind=kind, own=in_place_of)
     refuse_gaps(sections.lifecycle_gaps(kind=kind, fields=fields, body=text))
 
     document = frontmatter.Document(
@@ -311,6 +313,7 @@ def convert(
         body=body,
         links=[source.relative],
         stamp=stamp,
+        in_place_of=steps.own_keys(source),
     )
 
     source = located(brain=brain, key=key)

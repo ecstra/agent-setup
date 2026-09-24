@@ -309,20 +309,22 @@ def tabled(
     body: str,
     by: str,
     kind: schema.Kind,
+    own: Optional[set[str]] = None,
 ) -> str:
-    """The body with the numbered lines under Steps turned into the table, or as it was when it has no Steps section or already holds the table."""
+    """The body with the numbered lines under Steps turned into the table, or as it was when it has no Steps section or already holds the table, its steps checked against the keys the entry takes over when a refile files it."""
     if span(body) is None:
         return body
 
     if has_table(body):
-        return checked(brain=brain, body=body)
+        return checked(brain=brain, body=body, own=own)
 
-    return converted(brain=brain, body=body, by=by, kind=kind)
+    return converted(brain=brain, body=body, by=by, kind=kind, own=own)
 
 
 def checked(
     brain: store.Brain,
     body: str,
+    own: Optional[set[str]] = None,
 ) -> str:
     """The body with a table someone typed by hand read, its pointers resolved, its marks derived and a step line left outside it refused, so a filed table passes every check a listed step does."""
     rows = table(body)
@@ -333,7 +335,13 @@ def checked(
             raise StepsError(f"step {step.number} points at '{step.points_at}', which is not a todo, a bug or a review the brain knows")
 
         pointer = pointer_of(target) if target is not None else ""
-        fresh.append(derived_row(brain=brain, step=Step(number=step.number, text=step.text, points_at=pointer, by=step.by, status=step.status)))
+        if own and pointer in own:
+            raise StepsError(f"step {step.number} points at {pointer} itself, and a step points at other work")
+
+        fresh.append(derived_row(brain=brain, step=Step(number=step.number, text=step.text, points_at=pointer, by=step.by, status=step.status), own=own))
+
+    if own:
+        refuse_cycles(brain=brain, rows=fresh, own=own)
 
     return rewrite(body=body, rows=fresh)
 
@@ -430,6 +438,13 @@ def row_from(
             line = match.group(2).strip()
         elif looks_like_a_key(match.group(1)) and not known(brain=brain, key=match.group(1)):
             raise StepsError(f"step {number} points at '{match.group(1)}', which is not a todo, a bug or a review the brain knows")
+    else:
+        word = line.split(None, 1)[0].rstrip(".,:;") if line else ""
+        if looks_like_a_key(word) and pointed(brain=brain, key=word) is not None:
+            raise StepsError(f"step {number} opens with {word} and no comma or colon after it, so it would point at nothing, and a step that points at it reads '{word}, what to do'")
+
+        if looks_like_a_key(word) and not known(brain=brain, key=word):
+            raise StepsError(f"step {number} points at '{word}', which is not a todo, a bug or a review the brain knows")
 
     if not line:
         raise StepsError(f"step {number} has no text")
@@ -530,10 +545,11 @@ def refiled_to(
     brain: store.Brain,
     entry: store.Entry,
 ) -> Optional[store.Entry]:
-    """The todo or bug a refiled entry was filed as, the last of its links that reaches one, or None."""
+    """The entry a refiled todo or bug was filed as, a todo becoming a bug and a bug a todo, the last of its links that reaches one of that kind, or None."""
+    wanted = "bug" if entry.kind.name == "todo" else "todo"
     for link in reversed(entry.document.get_list("links")):
         target = found(brain=brain, key=link)
-        if target is not None and target.kind.name in ("todo", "bug") and target is not entry:
+        if target is not None and target.kind.name == wanted:
             return target
 
     return None
@@ -606,7 +622,7 @@ def reopening_gaps(
     try:
         refuse_cycles(brain=brain, rows=rows, own=own_keys(entry))
     except StepsError as loop:
-        return [f"reopening {entry.name} would leave it waiting on itself, {loop}"]
+        return [f"reopening {entry.name} would leave it and another entry waiting on each other, {loop}"]
 
     return []
 
@@ -775,7 +791,7 @@ def refresh_pointing(
             except StepsError:
                 continue
 
-            if any(step.points_at in keys for step in rows) and refresh(brain=brain, entry=holder, stamp=stamp):
+            if any(step.points_at.lower() in {key.lower() for key in keys} for step in rows) and refresh(brain=brain, entry=holder, stamp=stamp):
                 changed.append(holder.name)
 
     return changed
