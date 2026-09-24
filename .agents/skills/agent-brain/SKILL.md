@@ -184,9 +184,8 @@ pointer left on a refiled one or written by name, a numbered list
 under a plan's or a todo's Steps and a plan with no Steps section,
 which get the table, a chat style copy that drifted from the Claude
 Code one, a missing or dead skill link, and stamps every file it
-touches. Whatever
-is left needs a decision, so read it and act on it. Silencing a finding
-is never the answer.
+touches. Whatever is left needs a decision, so read it and act on it.
+Silencing a finding is never the answer.
 
 ## Bringing a project to the kit
 

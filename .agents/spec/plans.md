@@ -85,9 +85,8 @@ with no Steps section, which get the table, and it reports an id a
 step names that reaches nothing, a became field naming nothing or the
 wrong thing, two open entries whose steps wait on each other, and a
 done plan with a step still pending, a dropped one closing as it is.
-The same
-table, the same commands and the same checks serve a todo or a bug
-whose work has steps, per [spec/todos.md](todos.md) and
+The same table, the same commands and the same checks serve a todo or
+a bug whose work has steps, per [spec/todos.md](todos.md) and
 [spec/bugs.md](bugs.md).
 
 ## Lifecycle

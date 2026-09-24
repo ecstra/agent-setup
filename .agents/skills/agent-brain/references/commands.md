@@ -169,8 +169,8 @@ into the table, each line free to open with the id or the name of a
 todo, a bug or a review followed by a comma or a colon, which points
 the step at that entry, the id in any case and stored in upper case,
 `by` being the plan's or the todo's own `by` and agent for a bug. A
-word shaped like
-an id or a review's name that reaches nothing at all is refused, one
+word shaped like an id or a review's name that reaches nothing at all
+is refused, one
 that reaches a decision or another kind a step cannot point at reads
 as prose, and so does a plain date. A line under Steps that is not a
 numbered step is refused too, a wrapped step's lines indented under it
@@ -196,8 +196,8 @@ open entries whose steps wait on each other, a `became` on an entry
 that is not refiled or naming nothing, two files or the wrong kind, an
 entry done or fixed with a step still pending, since dropped, wontfix
 and refiled close as they are, and a plan with no Steps section at all.
-Four of
-those it repairs under `--fix`: the drifted mark, the pointer, which it
+Four of those it repairs under `--fix`, the drifted mark, the pointer,
+which it
 moves on to the entry filed in the refiled one's place or writes as the
 id, a numbered list under a plan's or a todo's Steps, which becomes
 the table with its rows marked by the entry's own status, pending
@@ -252,9 +252,8 @@ as a name, a file linked more than once in one header, which keeps the
 first, a pointed step's mark that drifted from its entry or its pointer
 left behind by a refile or written by name, a numbered list under a
 plan's or a todo's Steps and a plan with no Steps section, which get
-the table, a stale
-index, a stale chat style copy, a skill link when it is
-missing, dead, pointing elsewhere or a plain file, which the link
+the table, a stale index, a stale chat style copy, a skill link when
+it is missing, dead, pointing elsewhere or a plain file, which the link
 replaces, and a real folder copy of a kit skill that fell behind the
 brain's, which is refreshed from it. Each repaired file gets today's
 date. The only things `--fix` removes are what an interrupted write
