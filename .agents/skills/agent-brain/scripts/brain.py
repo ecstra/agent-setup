@@ -33,6 +33,11 @@ def main(
         parser.print_help()
         return REFUSED
 
+    # a step's text is read as UTF-8 whatever the locale says, so a character the output codec lacks is written as its escape rather than ending the command in a traceback
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
+
     try:
         # port and upgrade run before a brain exists, and the flag is theirs alone, since a default a parent parser sets too would win over theirs on Python 3.9.8 and 3.10.0
         if not getattr(args, "needs_brain", True):
