@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import autoack, clock, doctor, frontmatter, index, ledger, reads, schema, store, upgrade, writes
+from brainlib import autoack, clock, doctor, frontmatter, index, ledger, plans, reads, schema, steps, store, upgrade, writes
 
 REFUSED = 1
 FINDINGS_REMAIN = 2
@@ -43,6 +43,8 @@ def main(
         store.StoreError,
         writes.WriteError,
         ledger.LedgerError,
+        plans.PlanError,
+        steps.StepsError,
         upgrade.UpgradeError,
         autoack.AckError,
         frontmatter.FrontmatterError,
@@ -74,6 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_refile(commands)
     add_index(commands)
     add_doctor(commands)
+    add_plan(commands)
     add_ledger(commands)
     add_port(commands)
     add_upgrade(commands)
@@ -262,6 +265,18 @@ def run_new(
     args: argparse.Namespace,
 ) -> int:
     kind = schema.kind_named(args.kind)
+    if kind.name == "plan":
+        entry = plans.create(
+            brain=brain,
+            title=args.title,
+            description=args.description,
+            body=stdin_text(),
+            by=args.by or "owner",
+        )
+        index.write(brain)
+        print(entry.relative)
+        return 0
+
     entry = writes.create(
         brain=brain,
         kind=kind,
@@ -376,6 +391,57 @@ def run_doctor(
         print("clean" if not found else f"{len(found)} findings")
 
     return FINDINGS_REMAIN if found else 0
+
+
+def add_plan(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser("plan", help="a plan's steps: show them, add some, or mark a plain one")
+    command.add_argument("key", help="the plan, by name or path")
+    actions = command.add_subparsers(dest="action")
+
+    adding = actions.add_parser("add", help="append steps, one per line of standard input, or the one given")
+    adding.add_argument("step", nargs="?", help="one step, or - to read one per line from standard input")
+    adding.add_argument("--by", default="agent", choices=steps.BY, help="who set the steps, agent unless said otherwise")
+    adding.set_defaults(handler=run_plan_add)
+
+    marking = actions.add_parser("step", help="mark a step that points at nothing")
+    marking.add_argument("number", type=int)
+    marking.add_argument("status", choices=steps.STEP_STATUSES)
+    marking.set_defaults(handler=run_plan_step)
+
+    command.set_defaults(handler=run_plan_show)
+
+
+def run_plan_show(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    print(plans.view(brain=brain, key=args.key))
+    return 0
+
+
+def run_plan_add(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    lines = [args.step] if args.step and args.step != "-" else [line.strip() for line in stdin_text().split("\n") if line.strip()]
+    if not lines:
+        print("no steps given, one per line on standard input, or one after add", file=sys.stderr)
+        return REFUSED
+
+    numbers = plans.add(brain=brain, key=args.key, lines=lines, by=args.by)
+    index.write(brain)
+    print("\n".join(str(number) for number in numbers))
+    return 0
+
+
+def run_plan_step(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    plans.set_step(brain=brain, key=args.key, number=args.number, status=args.status)
+    return 0
 
 
 def add_ledger(
