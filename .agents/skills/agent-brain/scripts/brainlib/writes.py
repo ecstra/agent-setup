@@ -123,8 +123,13 @@ def update(
     if "became" in changes:
         refuse_gaps(steps.became_gaps(brain=brain, entry=entry, fields=fields))
 
+    was_refiled = entry.field("status") == "refiled"
     for name, value in changes.items():
         entry.document.set(key=name, value=value)
+
+    # an entry that leaves refiled behind was refiled as nothing any more
+    if was_refiled and changes.get("status", "refiled") != "refiled" and "became" not in changes:
+        entry.document.drop("became")
 
     entry.document.set(key="updated", value=stamp)
     frontmatter.write(path=str(entry.path), document=entry.document)

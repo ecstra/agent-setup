@@ -83,6 +83,13 @@ class Document:
 
         self.lines.append(f"{key}: {value}")
 
+    def drop(
+        self,
+        key: str,
+    ) -> None:
+        """Take one field out of the header, and do nothing when it is not there."""
+        self.lines = [line for line in self.lines if split_field(line)[0] != key.strip()]
+
     def fields(self) -> dict[str, str]:
         found: dict[str, str] = {}
 

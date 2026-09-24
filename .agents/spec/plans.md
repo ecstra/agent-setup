@@ -61,8 +61,9 @@ when the entry was dropped, and a step whose todo or bug was refiled
 follows it to the entry filed in its place. Every reader reads a
 pointed step off its entry rather than off the cell, so a mark that
 went stale in the file misleads nothing, and doctor repairs the cell.
-Only a step that points at nothing is marked by hand, and a step that
-turned out wrong is skipped rather than removed. Two entries whose
+Only a step that points at nothing is marked by hand, or one whose
+pointer reaches nothing the brain can read, and a step that turned out
+wrong is skipped rather than removed. Two entries whose
 steps point at each other would wait on each other for good, so the
 second pointer is refused.
 

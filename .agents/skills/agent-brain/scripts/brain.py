@@ -486,7 +486,7 @@ def add_steps(
     adding.add_argument("--by", default="agent", choices=steps.BY, help="who set the steps, agent unless said otherwise")
     adding.set_defaults(handler=run_steps_add)
 
-    marking = actions.add_parser("step", help="mark a step that points at nothing")
+    marking = actions.add_parser("step", help="mark a step that points at nothing, or one whose pointer reaches nothing the brain can read")
     marking.add_argument("number", type=int)
     marking.add_argument("status", choices=steps.STEP_STATUSES)
     marking.set_defaults(handler=run_steps_mark)

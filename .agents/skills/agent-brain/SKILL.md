@@ -83,8 +83,9 @@ work has steps. `brain new` turns a numbered Steps list in the prose,
 each line free to open with the id or the name of the todo, bug or
 review it points at, into that table. `brain steps <key> add` appends
 steps as the work teaches them, `brain steps <key> step <n> done`
-marks a step that points at nothing, a pointed step follows its entry
-on its own, and `brain steps <key>` shows the table with its marks. An
+marks a step that points at nothing, or one whose pointer reaches
+nothing the brain can read, a pointed step follows its entry on its
+own, and `brain steps <key>` shows the table with its marks. An
 entry with steps closes only once every step is done or skipped.
 
 ## Changing something

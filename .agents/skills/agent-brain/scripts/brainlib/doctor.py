@@ -566,7 +566,7 @@ def check_table(
         fresh = steps.derived_row(brain=brain, step=step, own=own)
         derived.append(fresh)
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
-            why = "which two files carry, so it reaches nothing until one is refiled" if steps.doubled(brain=brain, key=step.points_at) else "which reaches no todo, bug or review"
+            why = "which two files carry, so it reaches nothing while the id is doubled" if steps.doubled(brain=brain, key=step.points_at) else "which reaches no todo, bug or review"
             found.append(Finding(path=entry.relative, check="steps", message=f"step {step.number} points at '{step.points_at}', {why}, and brain steps <key> step {step.number} marks it by hand meanwhile"))
         elif fresh.points_at != step.points_at:
             target = steps.pointed(brain=brain, key=step.points_at)
