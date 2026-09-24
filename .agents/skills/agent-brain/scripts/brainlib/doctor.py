@@ -15,7 +15,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import autoack, frontmatter, index, links, schema, sections, store, style, writes
+from . import autoack, frontmatter, index, links, schema, sections, steps, store, style, writes
 
 SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, ".worktrees"})
 
@@ -525,6 +525,63 @@ def check_sections(
             found.append(Finding(path=entry.relative, check="lifecycle", message=message))
 
     return found
+
+
+def check_steps(
+    brain: store.Brain,
+) -> list[Finding]:
+    """The steps a plan's table and a todo's list carry, per spec/plans.md and spec/todos.md.
+
+    A plan's table must read as one, every step that points at an entry
+    must reach one, a pointed step's mark must be the one its entry
+    gives, which is repaired, and a plan still open once every step is
+    settled is told to close. A todo's or a bug's list must be numbered
+    1 onward with nothing else in the section.
+    """
+    found: list[Finding] = []
+
+    for entry in brain.entries():
+        if entry.kind.name in steps.POINTED_KINDS or entry.kind.name == "bug":
+            found += [Finding(path=entry.relative, check="steps", message=slip) for slip in steps.list_slips(entry.document.body)]
+
+        if entry.kind.name != "plan":
+            continue
+
+        try:
+            rows = steps.table(entry.document.body)
+        except steps.StepsError as broken:
+            found.append(Finding(path=entry.relative, check="steps", message=str(broken)))
+            continue
+
+        for step in rows:
+            if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
+                found.append(Finding(path=entry.relative, check="steps", message=f"step {step.number} points at '{step.points_at}', which reaches no todo, bug or review"))
+            elif step.points_at and steps.derived_status(brain=brain, step=step) != step.status:
+                found.append(
+                    Finding(
+                        path=entry.relative,
+                        check="steps",
+                        message=f"step {step.number} is marked {step.status} while {step.points_at} says {steps.derived_status(brain=brain, step=step)}",
+                        repair=refresh_steps(brain=brain, entry=entry),
+                    )
+                )
+
+        if entry.field("status") == "open" and steps.all_settled(rows):
+            found.append(Finding(path=entry.relative, check="steps", message="every step is settled, close the plan with brain set status=done"))
+
+    return found
+
+
+def refresh_steps(
+    brain: store.Brain,
+    entry: store.Entry,
+) -> Callable[[], None]:
+    """A repair that brings a plan's pointed marks in line with their entries, stamping the file."""
+
+    def repair() -> None:
+        steps.refresh(brain=brain, entry=brain.read(path=entry.path, kind=entry.kind))
+
+    return repair
 
 
 def check_filenames(
@@ -1169,6 +1226,7 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_kinds,
     check_fields,
     check_sections,
+    check_steps,
     check_filenames,
     check_links,
     check_indexes,
