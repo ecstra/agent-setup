@@ -360,7 +360,11 @@ def may_push(
     if holder is None:
         return False
 
-    rows = steps.rows_of(brain=brain, entry=holder)
+    try:
+        rows = steps.rows_of(brain=brain, entry=holder)
+    except steps.StepsError:
+        return False
+
     step = steps.current_step(rows)
     if step is None:
         return False
@@ -515,16 +519,27 @@ def step_text(
 
     step = steps.current_step(rows)
     if step is None:
-        return f"every step settled, close it with {closing_command(entry)}"
+        return f"every step settled, close it with {closing_command(brain=brain, entry=entry)}"
 
     return f"step {step} of {len(rows)}, {rows[step - 1].text}"
 
 
 def closing_command(
+    brain: store.Brain,
     entry: store.Entry,
 ) -> str:
-    """The set command that closes the entry, with the closing date a plan or a todo wants, and the section a bug or a todo wants filled named."""
+    """The set command that closes the entry, with the closing date a plan or a todo wants, and the section a bug or a todo wants filled named.
+
+    The entry goes by its key, or by its path when a file of another
+    kind answers to the key too, which a merge can bring in, so the
+    command goes through as written.
+    """
     key = key_of(entry)
+    try:
+        brain.find(key)
+    except store.Ambiguous:
+        key = entry.relative
+
     if entry.kind.name == "bug":
         return f"brain set {key} status=fixed once Fix names the cause and the commit"
 
