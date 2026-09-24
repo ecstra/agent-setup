@@ -613,7 +613,7 @@ def derived_row(
     if status == "refiled":
         seen = (seen or set()) | {step.points_at}
         successor = refiled_to(brain=brain, entry=entry)
-        if successor is not None and pointer_of(successor) not in seen and not (own and (pointer_of(successor) in own or points_back(brain=brain, key=pointer_of(successor), own=own))):
+        if successor is not None and pointer_of(successor) not in seen and not doubled(brain=brain, key=pointer_of(successor)) and not (own and (pointer_of(successor) in own or points_back(brain=brain, key=pointer_of(successor), own=own))):
             moved = Step(number=step.number, text=step.text, points_at=pointer_of(successor), by=step.by, status=step.status)
             return derived_row(brain=brain, step=moved, own=own, seen=seen)
 
@@ -624,7 +624,18 @@ def derived_row(
     else:
         mark = "pending"
 
-    return Step(number=step.number, text=step.text, points_at=pointer_of(entry), by=step.by, status=mark)
+    return Step(number=step.number, text=step.text, points_at=kept_pointer(brain=brain, step=step, entry=entry), by=step.by, status=mark)
+
+
+def kept_pointer(
+    brain: store.Brain,
+    step: Step,
+    entry: store.Entry,
+) -> str:
+    """The pointer a derived row stores, the entry's own id or name, unless two files carry that and the cell as written still reaches the one it means."""
+    pointer = pointer_of(entry)
+
+    return step.points_at if doubled(brain=brain, key=pointer) else pointer
 
 
 def refiled_to(
