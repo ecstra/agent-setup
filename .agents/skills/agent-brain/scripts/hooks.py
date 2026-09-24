@@ -451,6 +451,7 @@ class TableWrite:
     inside: str
     key: str
     own: set[str]
+    node: str
     status: str
     closed: bool
     before: list[steps.Step]
@@ -505,11 +506,14 @@ def table_write_of(
 
     key = Path(inside).stem
     status = str(current.get("status") or "")
+    name = str(current.get("name") or key)
+    own = own_keys_of(inside=inside, name=name)
 
     return TableWrite(
         inside=inside,
         key=key,
-        own=own_keys_of(inside=inside, name=str(current.get("name") or key)),
+        own=own,
+        node=next((one for one in own if one != name), name),
         status=status,
         closed=status not in steps.OPEN_STATUSES[kind],
         before=before,
@@ -521,31 +525,83 @@ def loop_across(
     brain: store.Brain,
     writes: list[TableWrite],
 ) -> Optional[str]:
-    """Why two files of one patch may not each add a row pointing at the other, which the disk cannot show since neither row is written yet, or None when no two do."""
-    for first in writes:
-        for second in writes:
-            if first is second:
-                continue
+    """Why a row a patch adds may not close a loop, or None when none does.
 
-            for step in first.added:
-                if reaches(brain=brain, key=step.points_at, own=second.own) and any(reaches(brain=brain, key=other.points_at, own=first.own) for other in second.added):
-                    return f"{first.inside}: {TABLE_IS_THE_TOOLS}, step {step.number} points at {step.points_at}, whose steps would point back here in the same patch, and the two would wait on each other for good, and the prose around it is yours to edit"
+    Each file alone reads as fine against the disk, since the other
+    rows of the patch are not written yet, so the pointers of the brain
+    as it stands and the rows the patch adds are walked together, and a
+    row whose entry leads back to its own file is refused, whether the
+    way back is another row of the patch or one already on disk.
+    """
+    edges = pointer_graph(brain)
+    for write in writes:
+        for step in write.added:
+            target = resolved(brain=brain, key=step.points_at)
+            if target is not None:
+                edges.setdefault(write.node, set()).add(target)
+
+    for write in writes:
+        for step in write.added:
+            target = resolved(brain=brain, key=step.points_at)
+            if target is not None and leads_to(edges=edges, start=target, goal=write.node):
+                return f"{write.inside}: {TABLE_IS_THE_TOOLS}, step {step.number} points at {step.points_at}, whose steps lead back here once the patch lands, and the entries would wait on each other for good, and the prose around it is yours to edit"
 
     return None
 
 
-def reaches(
+def pointer_graph(
+    brain: store.Brain,
+) -> dict[str, set[str]]:
+    """Every pointer the brain's steps tables hold, as edges from the holder's own key to the entry pointed at."""
+    edges: dict[str, set[str]] = {}
+    for kind_name in steps.STEPPED_KINDS:
+        for entry in brain.entries_of(schema.kind_named(kind_name)):
+            try:
+                rows = steps.stored_rows(entry)
+            except steps.StepsError:
+                continue
+
+            for step in rows:
+                target = resolved(brain=brain, key=step.points_at)
+                if target is not None:
+                    edges.setdefault(steps.pointer_of(entry), set()).add(target)
+
+    return edges
+
+
+def resolved(
     brain: store.Brain,
     key: str,
-    own: set[str],
-) -> bool:
-    """Whether a row's pointer reaches the file whose keys these are."""
+) -> Optional[str]:
+    """The own key of the entry a row's pointer reaches, or None when it reaches nothing."""
     if not key:
-        return False
+        return None
 
     target = steps.pointed(brain=brain, key=key)
 
-    return target is not None and steps.pointer_of(target) in own
+    return steps.pointer_of(target) if target is not None else None
+
+
+def leads_to(
+    edges: dict[str, set[str]],
+    start: str,
+    goal: str,
+) -> bool:
+    """Whether the pointers lead from one entry to another, at any remove."""
+    seen: set[str] = set()
+    ahead = [start]
+    while ahead:
+        node = ahead.pop()
+        if node == goal:
+            return True
+
+        if node in seen:
+            continue
+
+        seen.add(node)
+        ahead.extend(edges.get(node, ()))
+
+    return False
 
 
 def changed_row(
