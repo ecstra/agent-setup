@@ -122,7 +122,7 @@ def located(
     pulled apart would otherwise be written back without the lines
     between.
     """
-    found = sections.span(body=body, title="Steps")
+    found = span(body)
     if found is None:
         raise StepsError("there is no Steps section")
 
@@ -135,7 +135,7 @@ def located(
             break
 
     if header is None:
-        raise StepsError("the Steps section has no table, its header is | # | Step | Points at | By | Status |, and brain steps <key> add fills one")
+        raise StepsError("the Steps section has no table, its header is | # | Step | Points at | By | Status |, and brain doctor --fix turns a numbered list there into one")
 
     rows: list[re.Match] = []
     position = header.end()
@@ -156,14 +156,29 @@ def located(
         if match.start() not in read and not sections.in_code(spans=spans, position=match.start()):
             raise StepsError("a step row sits apart from the table, put it directly under the header")
 
+    for match in LISTED.finditer(string=body, pos=start, endpos=end):
+        if not sections.in_code(spans=spans, position=match.start()):
+            raise StepsError(f"step lines go in the table, and {match.group(0).strip()!r} sits outside it")
+
     return header, rows
+
+
+def span(
+    body: str,
+) -> Optional[tuple[int, int]]:
+    """Where the Steps section's text starts and ends, up to the next heading of level one or two, so a subheading inside it belongs to the section and reads as a line the table cannot carry."""
+    for match in sections.heading_matches(body):
+        if match.group(1).lower() == "steps":
+            return match.end(), sections.heading_after(body=body, start=match.end(), depth=2)
+
+    return None
 
 
 def rows_of(
     entry: store.Entry,
 ) -> list[Step]:
     """The entry's steps, none for a todo or a bug without a Steps section, refused with the path named when the table does not read."""
-    if entry.kind.name != "plan" and sections.span(body=entry.document.body, title="Steps") is None:
+    if entry.kind.name != "plan" and span(entry.document.body) is None:
         return []
 
     try:
@@ -176,7 +191,7 @@ def has_table(
     body: str,
 ) -> bool:
     """Whether the Steps section already holds the table's header, outside code."""
-    found = sections.span(body=body, title="Steps")
+    found = span(body)
     if found is None:
         return False
 
@@ -234,12 +249,12 @@ def listed(
     body: str,
 ) -> list[str]:
     """The steps of a Steps section as someone filed it, one per numbered line with its indented continuation lines joined on, refused when the section holds anything else, since a line the table cannot carry is never dropped without a word."""
-    text = sections.block(body=body, title="Steps")
-    if text is None:
+    where = span(body)
+    if where is None:
         return []
 
     found: list[str] = []
-    for line in text.split("\n"):
+    for line in body[where[0] : where[1]].split("\n"):
         if not line.strip():
             continue
 
@@ -267,7 +282,7 @@ def tabled(
     kind: schema.Kind,
 ) -> str:
     """The body with the numbered lines under Steps turned into the table, or as it was when it has no Steps section or already holds the table."""
-    if sections.span(body=body, title="Steps") is None:
+    if span(body) is None:
         return body
 
     if has_table(body):
@@ -289,12 +304,6 @@ def checked(
 
         fresh.append(Step(number=step.number, text=step.text, points_at=step.points_at, by=step.by, status=derived_status(brain=brain, step=step)))
 
-    start, end = sections.span(body=body, title="Steps") or (0, 0)
-    spans = sections.code_spans(body)
-    for match in LISTED.finditer(string=body, pos=start, endpos=end):
-        if not sections.in_code(spans=spans, position=match.start()):
-            raise StepsError(f"step lines go in the table, and {match.group(0).strip()!r} sits outside it")
-
     return rewrite(body=body, rows=fresh)
 
 
@@ -314,9 +323,14 @@ def converted(
     by: str,
     kind: schema.Kind,
     status: str = "pending",
+    own: Optional[set[str]] = None,
 ) -> str:
-    """The body with the list under Steps turned into the table, each row marked as given unless it points at an entry, which gives the mark."""
+    """The body with the list under Steps turned into the table, each row marked as given unless it points at an entry, which gives the mark, and a row pointing at the entry's own keys refused."""
     rows = [row_from(brain=brain, number=number, line=line, by=by) for number, line in enumerate(listed(body), 1)]
+    for step in rows:
+        if own and step.points_at in own:
+            raise StepsError(f"step {step.number} points at {step.points_at} itself, and a step points at other work")
+
     if status != "pending":
         rows = [step if step.points_at else Step(number=step.number, text=step.text, points_at="", by=step.by, status=status) for step in rows]
 
@@ -340,11 +354,14 @@ def with_table(
     kind: schema.Kind,
 ) -> str:
     """The body with its Steps section holding the table and nothing else, added where the kind's sections put it when the prose had none."""
-    found = sections.span(body=body, title="Steps")
+    found = span(body)
     table_text = TABLE_HEADER.rstrip("\n") + "".join("\n" + render_row(step) for step in rows) + "\n"
     if found is not None:
         start, end = found
         return body[:start] + "\n\n" + table_text + "\n" + body[end:]
+
+    if kind.name == "plan":
+        refuse_lookalike(body)
 
     titles = [section.title for section in kind.sections]
     for title in titles[titles.index("Steps") + 1 :]:
@@ -443,18 +460,18 @@ def add(
     if status not in OPEN_STATUSES[entry.kind.name]:
         raise StepsError(f"{entry.name} is {status}, a step is added while it is open")
 
+    own = {entry.identifier, entry.name} - {None}
     body = entry.document.body
-    if sections.span(body=body, title="Steps") is None:
+    if span(body) is None:
         body = with_table(body=body, rows=[], kind=entry.kind)
     elif not has_table(body):
-        body = converted(brain=brain, body=body, by=entry.field("by") or "agent", kind=entry.kind)
+        body = converted(brain=brain, body=body, by=entry.field("by") or "agent", kind=entry.kind, own=own)
 
     rows = table(body)
     added = [row_from(brain=brain, number=len(rows) + offset, line=line, by=by) for offset, line in enumerate(lines, 1)]
     if not added:
         raise StepsError("no steps given, one per line")
 
-    own = {entry.identifier, entry.name}
     for step in added:
         if step.points_at in own:
             raise StepsError(f"step {step.number} points at {entry.name} itself, and a step points at other work")
@@ -600,7 +617,7 @@ def gaps(
     if kind.name not in CLOSING or status != CLOSING[kind.name]:
         return []
 
-    if kind.name != "plan" and sections.span(body=body, title="Steps") is None:
+    if kind.name != "plan" and span(body) is None:
         return []
 
     try:

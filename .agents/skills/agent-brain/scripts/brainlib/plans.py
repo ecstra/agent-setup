@@ -8,7 +8,7 @@ find out.
 
 from datetime import date
 
-from . import schema, sections, steps, store, writes
+from . import schema, steps, store, writes
 
 
 class PlanError(Exception):
@@ -33,8 +33,7 @@ def create(
         raise PlanError("a plan needs its prose on standard input, the Why and the Done when at least")
 
     kind = schema.kind_named("plan")
-    if sections.span(body=text, title="Steps") is None:
-        steps.refuse_lookalike(text)
+    if steps.span(text) is None:
         text = steps.with_table(body=text, rows=[], kind=kind)
 
     return writes.create(
