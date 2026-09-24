@@ -70,7 +70,7 @@ KEY_START = re.compile(r"^([A-Za-z0-9-]+)")
 STEPS_LOOKALIKE = re.compile(r"^#{1,6}[ \t]+steps:?[ \t]*$", re.IGNORECASE | re.MULTILINE)
 
 # a date opening a step line is prose, though it is shaped like a review's name
-DATE_SHAPE = re.compile(r"^\d{4}-\d{2}-\d{2}(?!-)")
+DATE_SHAPE = re.compile(r"^\d{4}-\d{2}-\d{2}(?![\d-])")
 
 
 class StepsError(Exception):
