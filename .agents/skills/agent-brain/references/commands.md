@@ -130,19 +130,24 @@ the tool's own, which git ignores like `.ack`. A link whose entry goes
 done, dropped, fixed, wontfix, refiled or closed drops off on the next
 read with everything under it, and only such a link drops: one whose
 entry the brain cannot read right now, one two files carry the id of
-after a merge, and one whose entry is not in this checkout, filed on
-another branch, all stay, and the line says which. A retitled plan
-keeps its place, since the chain follows the name. A reading never
-writes the file, so the hook line cannot write over a chain set
-meanwhile, and a closed link stays in the file until the next command
-that moves the chain. `brain task off` drops the innermost link as
-written, so a link whose entry closed just before goes and the one
-above it stays. A file that does not read as a chain counts as none,
-the line says so, `brain task on`, `brain task done`, `brain task skip`
-and `brain task step` refuse until `brain task off --all` clears it,
-and `--replace` writes over it. A folder standing in the file's place,
-which the tool never made, is named by every line and moved away by
-hand.
+or answer to the name of after a merge, one whose entry is not in this
+checkout, filed on another branch, and one whose status is none the
+tool knows, all stay, and the line says which. A retitled plan keeps
+its place, since the chain follows the name through `brain refile` and
+through the doctor's name repair, and a name changed on another branch
+leaves the link saying not in this checkout until the work is started
+again. A reading never writes the file, so the hook line cannot write
+over a chain set meanwhile, and a closed link stays in the file until
+the next command that moves the chain. `brain task off`,
+`brain task done`, `brain task skip` and `brain task step` take the
+innermost link as written, so off after a close drops the closed link
+and keeps the one above it, and a mark after a close is refused until
+off drops it, since the step above is one nobody did. A file that does
+not read as a chain counts as none, the line says so, `brain task on`,
+`brain task done`, `brain task skip` and `brain task step` refuse until
+`brain task off --all` clears it, and `--replace` writes over it. A
+folder standing in the file's place, which the tool never made, is
+named by every line and moved away by hand.
 `brain ledger open` puts the new review on the chain where the rules
 allow, and says on standard error when they keep it off.
 
