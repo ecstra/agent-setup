@@ -98,7 +98,7 @@ def run(
             attempted.add(key_of(finding))
             try:
                 finding.repair()
-            except (OSError, frontmatter.FrontmatterError, task.TaskError) as error:
+            except (OSError, frontmatter.FrontmatterError, task.TaskError, steps.StepsError) as error:
                 failed[key_of(finding)] = store.explain(error)
 
         brain.refresh()
