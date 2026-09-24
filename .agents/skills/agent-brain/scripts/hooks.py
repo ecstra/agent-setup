@@ -483,7 +483,7 @@ def changed_row(
             if step.points_at and steps.pointed(brain=brain, key=step.points_at) is not None:
                 return f"step {step.number} points at {step.points_at} and takes its mark from that entry"
 
-            return f"step {step.number} is marked with brain task done or skip, or brain steps {key} step {step.number} done or skipped"
+            return f"step {step.number} is marked {fresh.status} with {marking_command(key=key, number=step.number, status=fresh.status)}"
 
         if fresh.text != step.text:
             return f"step {step.number} is worded as it was filed"
@@ -495,6 +495,17 @@ def changed_row(
             return f"step {step.number} is set by whom it was filed by"
 
     return None
+
+
+def marking_command(
+    key: str,
+    number: int,
+    status: str,
+) -> str:
+    """The commands that give a step the mark asked for: the task command when the work stands on the entry, the steps command in any case."""
+    by_task = {"done": "brain task done", "skipped": "brain task skip", "pending": f"brain task step {number}"}[status]
+
+    return f"{by_task} or brain steps {key} step {number} {status}"
 
 
 def added_row(
@@ -512,7 +523,7 @@ def added_row(
 
     for step in added:
         if step.status != "pending":
-            return f"step {step.number} is added pending, and marked once it is done with brain task done or brain steps {key} step {step.number} done"
+            return f"step {step.number} is added pending, and marked once it is {step.status} with {marking_command(key=key, number=step.number, status=step.status)}"
 
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
             return str(steps.unreachable(brain=brain, number=step.number, key=step.points_at))
