@@ -482,6 +482,9 @@ def table_write_of(
     if kind not in steps.STEPPED_KINDS:
         return None
 
+    status = str(current.get("status") or "")
+    closed = status not in steps.OPEN_STATUSES[kind]
+
     # a table that does not read now is doctor's, and a list on disk is the table in waiting, judged whole as the write leaves it
     try:
         before = steps.stored_rows_of(kind=kind, body=current.body)
@@ -501,6 +504,11 @@ def table_write_of(
         if line is not None:
             return f"{inside}: a hunk the hook cannot place carries '{line}', which reads as a step or the Steps heading and could land in the list the tool turns into the table, and {TABLE_IS_THE_TOOLS}"
 
+        # on a closed entry any numbered line could land under Steps as a step the record never had, and a table row would be refused there
+        line = numbered_line_in(hunk) if closed else None
+        if line is not None:
+            return f"{inside}: a hunk the hook cannot place carries '{line}', which reads as a step, and {Path(inside).stem} is {status}, a closed table being its record, so no step is added to it"
+
     if after is None:
         return None
 
@@ -511,7 +519,6 @@ def table_write_of(
 
     entry = entry_at(brain=brain, inside=inside)
     key = entry.name if entry is not None else Path(inside).stem
-    status = str(current.get("status") or "")
     own = steps.own_keys(entry) if entry is not None else {str(current.get("name") or key)}
     write = TableWrite(
         inside=inside,
@@ -519,7 +526,7 @@ def table_write_of(
         own=own,
         node=inside.casefold(),
         status=status,
-        closed=status not in steps.OPEN_STATUSES[kind],
+        closed=closed,
         before=before,
         rows=[],
         listed=False,
@@ -814,6 +821,17 @@ def step_line_in(
     for line in hunk:
         text = line[1:].strip()
         if steps.opens_with_a_key(text) or STEPS_HEADING.match(text):
+            return line[1:]
+
+    return None
+
+
+def numbered_line_in(
+    hunk: tuple[str, ...],
+) -> Optional[str]:
+    """The first added line of a hunk that is a numbered line, blank space around it aside."""
+    for line in hunk:
+        if line.startswith("+") and steps.LISTED.match(line[1:].strip()):
             return line[1:]
 
     return None

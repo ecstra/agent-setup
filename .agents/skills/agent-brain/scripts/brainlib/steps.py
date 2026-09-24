@@ -897,19 +897,31 @@ def table_shaped(
 def listed_rows(
     body: str,
 ) -> list[Step]:
-    """The numbered lines under Steps, as rows to judge, each numbered as written and pointing at the key its line opens with, whatever else sits among them, since a pointer counts for a loop whether or not the list reads whole, which is doctor's to report."""
+    """The numbered lines under Steps, as rows to judge, each numbered as written, its indented wrapped lines joined on the way listed joins them, and pointing at the key it opens with, whatever else sits among them, since a pointer counts for a loop whether or not the list reads whole, which is doctor's to report."""
     where = span(body)
     if where is None:
         return []
 
     spans = sections.code_spans(body)
-    rows: list[Step] = []
-    for match in LISTED.finditer(string=body, pos=where[0], endpos=where[1]):
-        if sections.in_code(spans=spans, position=match.start()):
+    numbered: list[tuple[int, str]] = []
+    position = where[0]
+    for line in body[where[0] : where[1]].split("\n"):
+        start = position
+        position += len(line) + 1
+        if not line.strip() or sections.in_code(spans=spans, position=start):
             continue
 
-        opened = POINTER.match(match.group(2).strip())
-        rows.append(Step(number=int(match.group(1)), text=match.group(2), points_at=opened.group(1) if opened is not None else "", by="agent", status="pending"))
+        match = LISTED.match(line)
+        if match is not None:
+            numbered.append((int(match.group(1)), match.group(2)))
+        elif numbered and line[0] in " \t":
+            number, text = numbered[-1]
+            numbered[-1] = (number, f"{text} {line.strip()}")
+
+    rows: list[Step] = []
+    for number, text in numbered:
+        opened = POINTER.match(text.strip())
+        rows.append(Step(number=number, text=text, points_at=opened.group(1) if opened is not None else "", by="agent", status="pending"))
 
     return rows
 
