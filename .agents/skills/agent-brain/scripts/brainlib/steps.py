@@ -219,13 +219,21 @@ def stored_rows(
     entry: store.Entry,
 ) -> list[Step]:
     """The entry's steps as the file holds them, which doctor reads to see what drifted."""
-    if entry.kind.name != "plan" and blank(entry.document.body):
-        return []
-
     try:
-        return table(entry.document.body)
+        return stored_rows_of(kind=entry.kind.name, body=entry.document.body)
     except StepsError as broken:
         raise StepsError(f"{entry.relative}: {broken}") from broken
+
+
+def stored_rows_of(
+    kind: str,
+    body: str,
+) -> list[Step]:
+    """The steps a body of the kind holds as written, none for a todo or a bug with no Steps section or an empty one."""
+    if kind != "plan" and blank(body):
+        return []
+
+    return table(body)
 
 
 def has_table(

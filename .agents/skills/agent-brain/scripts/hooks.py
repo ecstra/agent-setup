@@ -28,7 +28,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional
 
-from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, store, task
+from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, steps, store, task
 
 BLOCK = 2
 FAILED = 1
@@ -293,7 +293,7 @@ def refusal(
         return None
 
     if store.quietly(path.exists):
-        return header_change(touch=touch, inside=inside)
+        return header_change(touch=touch, inside=inside) or table_change(touch=touch, inside=inside)
 
     if Path(inside).parts[0] == "spec":
         return f"{inside} would nest inside spec/, which holds its files directly"
@@ -384,6 +384,62 @@ def header_change(
 
     if current is not None and header_lines(wanted) != header_lines(current):
         return f"{inside}: {HEADER_IS_THE_TOOLS}"
+
+    return None
+
+
+def table_change(
+    touch: Touch,
+    inside: str,
+) -> Optional[str]:
+    """Why this write may not touch the steps table of a plan, a todo or a bug, or None if it may.
+
+    The rows the file holds are the tool's: a mark moves through the
+    task or the steps command, a step is never reworded, repointed or
+    deleted, and a table the write would leave unreadable is refused
+    too. Rows may follow the last one, the way a table typed by hand is
+    read, and a file whose table does not read now is doctor's, not the
+    hook's.
+    """
+    try:
+        current = frontmatter.parse(frontmatter.load(str(touch.path)))
+    except frontmatter.FrontmatterError:
+        return None
+
+    if current.get("kind") not in steps.STEPPED_KINDS:
+        return None
+
+    try:
+        before = steps.stored_rows_of(kind=str(current.get("kind")), body=current.body)
+    except steps.StepsError:
+        return None
+
+    after, _ = outcome_of(touch=touch, text=frontmatter.load(str(touch.path)))
+    if after is None:
+        return None
+
+    try:
+        rows = steps.stored_rows_of(kind=str(current.get("kind")), body=frontmatter.parse(after).body)
+    except (frontmatter.FrontmatterError, steps.StepsError) as error:
+        return f"{inside}: after that write the steps table would not read, {error}"
+
+    key = Path(inside).stem
+    for step in before:
+        fresh = rows[step.number - 1] if step.number <= len(rows) else None
+        why = None
+        if fresh is None:
+            why = f"step {step.number} is never deleted, a step that turned out wrong is skipped"
+        elif fresh.status != step.status:
+            why = f"step {step.number} is marked with brain task done or brain steps {key} step {step.number}"
+        elif fresh.text != step.text:
+            why = f"step {step.number} is worded as it was filed"
+        elif fresh.points_at != step.points_at:
+            why = f"step {step.number} points where it was filed to point"
+        elif fresh.by != step.by:
+            why = f"step {step.number} is set by whom it was filed by"
+
+        if why is not None:
+            return f"{inside}: the steps table is the tool's, {why}, and the prose around it is yours to edit"
 
     return None
 
