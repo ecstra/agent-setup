@@ -583,6 +583,15 @@ def check_table(
     entry: store.Entry,
 ) -> list[Finding]:
     found: list[Finding] = []
+    # a plan with no Steps heading is the sections check's finding, said once, unless a heading meant as one sits where no reader finds it
+    if entry.kind.name == "plan" and steps.span(entry.document.body) is None:
+        try:
+            steps.refuse_lookalike(entry.document.body)
+        except steps.StepsError as lookalike:
+            found.append(Finding(path=entry.relative, check="steps", message=str(lookalike)))
+
+        return found
+
     try:
         rows = steps.stored_rows(entry)
     except steps.StepsError as broken:
