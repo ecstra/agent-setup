@@ -50,6 +50,9 @@ the repo root when the project keeps one, agents read this.
 - `.ack`: the owner's standing word to proceed and its end, the tool's
   own, which git ignores since it lives on one machine, and the
   conventions say the rest.
+- `.task`: the current work, the chain from the plan down to the step
+  the agent is on, which every hook prints, the tool's own and ignored
+  the same way.
 
 ## Two absolutes
 

@@ -107,8 +107,11 @@ all.
   ignores there.
 - No machine paths, no user personal facts. Project truth only.
 - What git ignores here is the one exception, since it never enters
-  the repo. That is the tool's own local state, `.ack`, which holds
-  the owner's standing word to proceed with its end and is never
-  listed, indexed, checked or written by hand, the write in flight the
-  tool makes it through beside it, Python's cache beside the tool, and
-  the worktree home the rules allow.
+  the repo. That is the tool's own local state, two dotted files at
+  the root of the brain that are never listed, indexed, checked or
+  written by hand. `.ack` holds the owner's standing word to proceed
+  with its end, and `.task` holds the current work as a chain from the
+  plan down to the step the agent is on, one chain at a time, set with
+  `brain task on`. Beside them sit the write in flight the tool makes
+  each through, Python's cache beside the tool, and the worktree home
+  the rules allow.

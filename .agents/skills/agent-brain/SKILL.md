@@ -140,6 +140,26 @@ brain ledger batch 2026-10-feat-search 1 --status fixing --ack auto
 brain ack off
 ```
 
+## The current work
+
+Work of more than one step starts with `brain task on` before the
+first step, SYSTEM.md section 8.3 requires it, and every hook line then
+says what the agent is on. The work is one chain at a time, a plan, a
+todo, a bug or a review at the root, a todo or a bug under the plan
+step that points at it, a review under the todo or bug it reviews.
+`brain task step` moves the innermost link, `brain task off` drops it,
+a link whose entry closes drops off on its own, and a second root is
+refused while one stands unless `--replace` sets the chain aside, which
+is the owner's call. The reference says what each line looks like and
+what each refuses.
+
+```bash
+brain task on kit-phase-7
+brain task on TODO-015
+brain task step 3
+brain task off
+```
+
 ## Checking the brain
 
 ```bash

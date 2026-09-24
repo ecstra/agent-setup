@@ -99,6 +99,35 @@ and still carries a stamp from an earlier word takes the standing word
 again when it starts, so a start that gives no ack is refused while
 the word is off, and the report says it waits for the owner's word.
 
+## The current work
+
+The chain from the plan down to the step the agent is on, per
+[spec/conventions.md](../../../spec/conventions.md), which every hook
+prints under the clock and the standing word, one line per link,
+outermost first, `task none` when nothing is on. A plan prints as
+`plan <name>, step <n> of <m>, <text>`, a todo as
+`task <id>, step <n> of <m>, <text>`, a bug as `bug <id>` the same
+way, a review as `review <name>, batch <n> of <m>, <status>`, the
+first batch not yet done, and a plan step that is already done or
+skipped says so and to move on.
+
+| Command | What it does |
+|---|---|
+| `brain task` | The chain as it stands, or `task none`. |
+| `brain task on <key> [--step <n>] [--replace]` | Starts work on an open plan, todo, bug or review, by id, name or path. With nothing on, it is the root. With a chain on, it goes under the innermost link only where the rules allow, which is a review under a todo or a bug, and under a plan the todo, the bug or the review its current step points at. Anything else is refused with the link that stands, and `--replace` sets the whole chain aside for it. A plan starts on its first pending step, a todo or a bug on step 1 of its Steps list where it has one, and `--step` picks another, refused past the list or the table and refused on a review, whose step is its batch. Refused for a closed entry, a decision, a doc or a memory, an unknown key, or one several entries share. |
+| `brain task step <n>` | Moves the innermost link to another of its steps, with the same checks. |
+| `brain task off [--all]` | Drops the innermost link, or the whole chain, and takes the file away once it is empty. |
+
+The state is one dotted file at the root of the brain, `.agents/.task`,
+the tool's own, which git ignores like `.ack`. A link whose entry goes
+done, dropped, fixed, wontfix, refiled or closed drops off on the next
+read with everything under it, and a link whose entry the brain cannot
+read right now stays and says so. A file that does not read as a chain
+counts as none, the line says so, `brain task on` and `brain task step`
+refuse until `brain task off --all` clears it, and `--replace` writes
+over it. `brain ledger open` puts the new review on the chain where
+the rules allow, and says on standard error when they keep it off.
+
 ## The plans
 
 A plan is a goal with the steps that reach it, per
@@ -222,10 +251,10 @@ standard input:
 
 | Event | What happens |
 |---|---|
-| `session-start` | Prints the clock, the standing word and `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy, for an agent that does not expand imports. |
-| `prompt` | On each prompt the owner sends, puts the clock and the standing word in front of the model, since a model does not know the time and forgets what it was told. |
-| `tick` | After the agent's tool calls, the clock and the standing word again, off included, so a long stretch of work never loses either and sees the word end. Claude Code fires it once after each round of tool calls, Codex and Gemini CLI after each shell call. |
-| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header check judges the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence or a field the file's header carries or its kind allows, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
+| `session-start` | Prints the clock, the standing word, the current work and `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy, for an agent that does not expand imports. |
+| `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
+| `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Claude Code fires it once after each round of tool calls, Codex and Gemini CLI after each shell call. |
+| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header check judges the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence or a field the file's header carries or its kind allows, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
 | `post-write` | After a write inside `.agents/`, runs doctor and hands its findings back as context. |
 
 Context goes back as one JSON object naming the event, which all three

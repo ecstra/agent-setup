@@ -532,7 +532,9 @@ The brain is maintained in the same motion as the work, never as a separate chor
 
 ### 8.3 The Trackers
 
-Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each, filed through the tool so the id, the header block, and the index line are never typed by hand. The agent classifies on intake without asking (a bug has evidence of wrong behavior, a todo has a done-when) and uses todos extensively: multi step work gets filed, not carried in a session's head. Any todo the user writes anywhere, the agent picks up, cleans, and files with the user's wording preserved, and on completing one it tells the user which of their own notes to tick.
+Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each, filed through the tool so the id, the header block, and the index line are never typed by hand. The agent classifies on intake without asking (a bug has evidence of wrong behavior, a todo has a done-when) and uses todos extensively: multi step work gets filed, not carried in a session's head. Any todo the user writes anywhere, the agent picks up, cleans, and files with the user's wording preserved, and on completing one it tells the user which of their own notes to tick. Long horizon work is a plan in `.agents/plans/`, a goal with a steps table the tool keeps, each step pointing at a todo, a bug or a review where one exists, and the agent grows it as the work teaches it.
+
+Work that spans more than one step starts with `brain task on <entry>` before the first step and moves with `brain task step <n>`, so every hook line says what the agent is on. The current work is one chain at a time, a plan, a todo, a bug or a review at the root, a todo or a bug under the plan step that points at it, a review under the todo or the bug it reviews, and a link drops off with everything under it the moment its entry closes. A second root while one stands is refused until the chain is done or cleared with `brain task off`, and `--replace` sets it aside on the user's word only.
 
 ---
 
