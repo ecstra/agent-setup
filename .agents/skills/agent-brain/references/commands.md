@@ -168,7 +168,8 @@ as numbered lines under a Steps heading, and `brain new` turns them
 into the table, each line free to open with the id or the name of a
 todo, a bug or a review followed by a comma or a colon, which points
 the step at that entry, the id in any case and stored in upper case,
-`by` being the todo's own `by` and agent for a bug. A word shaped like
+`by` being the plan's or the todo's own `by` and agent for a bug. A
+word shaped like
 an id or a review's name that reaches nothing at all is refused, one
 that reaches a decision or another kind a step cannot point at reads
 as prose, and so does a plain date. A line under Steps that is not a
@@ -181,7 +182,7 @@ word. A pipe in a step is written into its cell as
 |---|---|
 | `brain new plan --title T --description D [--by owner\|agent] [--link P] [--category C]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. `by` is owner unless said otherwise, `--link` and `--category` work as for any kind, and a field flag a plan does not carry is refused. |
 | `brain steps <key>` | The entry in a few lines, its status and the count of settled steps, then one line per step with what it points at and its mark. |
-| `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers. A todo or a bug with no Steps section gets one where its spec puts it, and a numbered list written under Steps by hand becomes the table first, its rows set by the todo's own `by` and by agent on a bug. Refused on an entry that is not open, for a step that points at the entry itself, for one that points at an entry whose steps point back here at any remove, since the two would wait on each other for good, and on a plan whose steps sit under a heading that is not `## Steps`. |
+| `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers. A todo or a bug with no Steps section gets one where its spec puts it, and a numbered list written under Steps by hand becomes the table first, its rows set by the plan's or the todo's own `by` and by agent on a bug. Refused on an entry that is not open, for a step that points at the entry itself, for one that points at an entry whose steps point back here at any remove, since the two would wait on each other for good, and on a plan whose steps sit under a heading that is not `## Steps`. |
 | `brain steps <key> step <n> pending\|done\|skipped` | Marks a step that points at nothing, or one whose pointer reaches nothing the brain can read, a dead key or an id two files carry after a merge, which doctor reports. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped, and a step whose todo or bug was refiled follows it to the entry filed in its place. The tool refreshes it whenever the entry's status changes, a ledger close included, while the holder is open, and a retitle rewrites a cell naming the entry by hand as its id in every holder, so marking a pointed step by hand is refused. Refused on an entry that is not open, whose table is its record. |
 
 A plan goes done, a todo done and a bug fixed with `brain set` once
@@ -191,9 +192,11 @@ an empty table closing on its Done when alone. Doctor reports a Steps
 section with no table or one that does not read, a step line sitting
 outside the table, a step whose pointer reaches nothing, a pointed mark
 that drifted, a pointer left on a refiled entry or written by name, two
-open entries whose steps wait on each other, an entry done or fixed
-with a step still pending, since dropped, wontfix and refiled close as
-they are, and a plan with no Steps section at all. Four of
+open entries whose steps wait on each other, a `became` on an entry
+that is not refiled or naming nothing, two files or the wrong kind, an
+entry done or fixed with a step still pending, since dropped, wontfix
+and refiled close as they are, and a plan with no Steps section at all.
+Four of
 those it repairs under `--fix`: the drifted mark, the pointer, which it
 moves on to the entry filed in the refiled one's place or writes as the
 id, a numbered list under a plan's or a todo's Steps, which becomes
@@ -247,8 +250,9 @@ What `--fix` repairs: a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written
 as a name, a file linked more than once in one header, which keeps the
 first, a pointed step's mark that drifted from its entry or its pointer
-left behind by a refile, a numbered list under a plan's or a todo's
-Steps and a plan with no Steps section, which get the table, a stale
+left behind by a refile or written by name, a numbered list under a
+plan's or a todo's Steps and a plan with no Steps section, which get
+the table, a stale
 index, a stale chat style copy, a skill link when it is
 missing, dead, pointing elsewhere or a plain file, which the link
 replaces, and a real folder copy of a kit skill that fell behind the

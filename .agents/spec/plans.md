@@ -79,9 +79,13 @@ step` marks a plain step, and `brain steps` shows the table with its
 marks. The tool refreshes a pointed step's mark whenever the entry it
 points at changes status, while the plan is open, since a closed
 plan's table is its record and is marked no more. Doctor reports and
-repairs a mark that drifted, reports an id a step names that reaches
-nothing, and reports a done plan with a step still pending, a dropped
-one closing as it is. The same
+repairs a mark that drifted, a pointer left on a refiled entry or
+written by name, a list under Steps in the table's place and a plan
+with no Steps section, which get the table, and it reports an id a
+step names that reaches nothing, a became field naming nothing or the
+wrong thing, two open entries whose steps wait on each other, and a
+done plan with a step still pending, a dropped one closing as it is.
+The same
 table, the same commands and the same checks serve a todo or a bug
 whose work has steps, per [spec/todos.md](todos.md) and
 [spec/bugs.md](bugs.md).
