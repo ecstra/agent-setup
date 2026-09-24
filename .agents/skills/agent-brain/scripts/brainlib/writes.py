@@ -16,6 +16,22 @@ class WriteError(Exception):
     """The change was refused, with the reason in the message."""
 
 
+class Partial(WriteError):
+    """The entry was written, and a step elsewhere that points at it could not be, with the reason in the message, so a caller never takes the raise for nothing written."""
+
+
+def refresh_after(
+    brain: store.Brain,
+    entry: store.Entry,
+    stamp: str,
+) -> None:
+    """Refresh every step that points at the entry just written, and say so as a partial write when the brain's folder refuses the second write."""
+    try:
+        steps.refresh_pointing(brain=brain, key=entry.relative, stamp=stamp)
+    except OSError as error:
+        raise Partial(f"{entry.name} was written, and a step that points at it could not be refreshed, {store.explain(error)}, so brain doctor --fix repairs it once the folder can be written") from error
+
+
 def today() -> str:
     return date.today().isoformat()
 
@@ -78,7 +94,7 @@ def create(
     text = framed(body) if body else sections.skeleton(kind=kind, title=title)
     if kind.name in steps.STEPPED_KINDS:
         text = steps.tabled(brain=brain, body=text, by=fields.get("by") or "agent", kind=kind, own=in_place_of)
-    refuse_gaps(sections.lifecycle_gaps(kind=kind, fields=fields, body=text))
+    refuse_gaps(sections.lifecycle_gaps(kind=kind, fields=fields, body=text) + steps.closing_gaps(brain=brain, kind=kind, fields=fields, body=text))
 
     document = frontmatter.Document(
         lines=render_lines(kind=kind, fields=fields),
@@ -114,14 +130,19 @@ def update(
     fields = entry.document.fields()
     fields.update(changes)
 
+    # every change is judged against the lifecycle rules, not only one that
+    # moves the status, so a done todo cannot lose its date, and every rule
+    # the change falls short of is named at once
     check(kind=entry.kind, fields=fields)
-    check_rules(entry=entry, fields=fields)
+    gaps = sections.lifecycle_gaps(kind=entry.kind, fields=fields, body=entry.document.body)
     if "status" in changes:
-        refuse_gaps(steps.gaps(brain=brain, entry=entry, fields=fields))
-        refuse_gaps(steps.reopening_gaps(brain=brain, entry=entry, fields=fields))
+        gaps += steps.gaps(brain=brain, entry=entry, fields=fields)
+        gaps += steps.reopening_gaps(brain=brain, entry=entry, fields=fields)
 
     if "became" in changes:
-        refuse_gaps(steps.became_gaps(brain=brain, entry=entry, fields=fields))
+        gaps += steps.became_gaps(brain=brain, entry=entry, fields=fields)
+
+    refuse_gaps(gaps)
 
     was_refiled = entry.field("status") == "refiled"
     for name, value in changes.items():
@@ -137,7 +158,7 @@ def update(
 
     # a step that points at this entry takes its mark from it
     if "status" in changes and entry.kind.name in steps.POINTED_KINDS:
-        steps.refresh_pointing(brain=brain, key=entry.relative, stamp=stamp)
+        refresh_after(brain=brain, entry=entry, stamp=stamp)
 
     return brain.read(path=entry.path, kind=entry.kind)
 
@@ -333,6 +354,8 @@ def convert(
 
     try:
         update(brain=brain, key=key, changes=closing, stamp=stamp)
+    except Partial:
+        raise
     except (WriteError, OSError):
         created.path.unlink()
         brain.refresh()
@@ -502,19 +525,6 @@ def check_against(
 
         if item.is_date and not schema.is_date(value):
             raise WriteError(f"{item.name} reads YYYY-MM-DD, not '{value}'")
-
-
-def check_rules(
-    entry: store.Entry,
-    fields: dict[str, str],
-) -> None:
-    """The lifecycle rules the file must hold to as the change would leave it.
-
-    Every change is judged, not only one that moves the status, so a
-    done todo cannot lose its date and a refiled bug cannot lose its
-    link, and the writer never leaves a file that doctor would flag.
-    """
-    refuse_gaps(sections.lifecycle_gaps(kind=entry.kind, fields=fields, body=entry.document.body))
 
 
 def refuse_gaps(

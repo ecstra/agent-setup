@@ -10,7 +10,7 @@ import re
 from datetime import date
 from typing import Optional
 
-from . import autoack, frontmatter, schema, sections, steps, store, writes
+from . import autoack, frontmatter, schema, sections, store, writes
 
 FINDING = re.compile(r"^### (F-\d+): (.+?)[ \t]*$", re.MULTILINE)
 BULLET = re.compile(r"^- ([a-z-]+):[ \t]*(.*?)[ \t]*$", re.MULTILINE)
@@ -441,7 +441,7 @@ def close(
     save(brain=brain, entry=entry, stamp=stamp)
 
     # a step that points at this review takes its mark from it
-    steps.refresh_pointing(brain=brain, key=entry.relative, stamp=stamp)
+    writes.refresh_after(brain=brain, entry=entry, stamp=stamp)
 
 
 def report(
