@@ -234,9 +234,8 @@ def check_leftovers(
     every run are looked at, the whole brain with its skills, each
     agent's own folder down to its sub agent files, and the top of the
     project. The one time move from `.agent/` rewrites files anywhere
-    in the project,
-    cleans up after itself unless killed outright, and is not looked
-    for.
+    in the project, cleans up after itself unless killed outright, and
+    is not looked for.
     """
     found: list[Finding] = []
     project = style.project(brain=brain)
