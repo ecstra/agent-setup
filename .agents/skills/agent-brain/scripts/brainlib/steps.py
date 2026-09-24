@@ -288,11 +288,9 @@ def checked(
 
         fresh.append(Step(number=step.number, text=step.text, points_at=step.points_at, by=step.by, status=derived_status(brain=brain, step=step)))
 
-    header, row_matches = located(body)
     start, end = sections.span(body=body, title="Steps") or (0, 0)
-    after = row_matches[-1].end() if row_matches else header.end()
     spans = sections.code_spans(body)
-    for match in LISTED.finditer(string=body, pos=after, endpos=end):
+    for match in LISTED.finditer(string=body, pos=start, endpos=end):
         if not sections.in_code(spans=spans, position=match.start()):
             raise StepsError(f"step lines go in the table, and {match.group(0).strip()!r} sits outside it")
 
