@@ -2,7 +2,7 @@
 name: conventions
 kind: doc
 description: the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
-updated: 2026-09-23
+updated: 2026-09-24
 links: [README.md]
 ---
 
@@ -17,7 +17,7 @@ Every markdown file in .agents opens with:
 ```
 ---
 name: <unique-kebab-slug>
-kind: doc | memory | bug | todo | decision | review
+kind: doc | memory | bug | todo | decision | plan | review
 description: <one line, what this file holds>
 updated: <YYYY-MM-DD, the last content change>
 links: [<paths of related files, relative to .agents/>]

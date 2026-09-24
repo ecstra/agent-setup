@@ -213,6 +213,7 @@ def spine_body(
     lines.append(spine_line(brain=brain, kind_name="doc", label="the knowledge library", counter=count_docs))
 
     lines += ["", "## The trackers", ""]
+    lines.append(spine_line(brain=brain, kind_name="plan", label="the plans", counter=count_by_status))
     lines.append(spine_line(brain=brain, kind_name="todo", label="the work tracker", counter=count_by_status))
     lines.append(spine_line(brain=brain, kind_name="bug", label="the defect tracker", counter=count_bugs))
     lines.append(spine_line(brain=brain, kind_name="decision", label="the decision record", counter=count_by_status))
@@ -548,6 +549,35 @@ def decisions_body(
     return "\n".join(lines) + "\n"
 
 
+def plans_body(
+    entries: list[store.Entry],
+    filed: str,
+) -> str:
+    lines = header(
+        title="Plans Index",
+        intro="The plans, each a goal with its steps, open first.",
+        filed=filed,
+    )
+    if not entries:
+        lines.append("Nothing here yet.")
+        return "\n".join(lines) + "\n"
+
+    folder = entries[0].root / "plans"
+    for status in ("open", "done", "dropped", schema.UNKNOWN):
+        if status == schema.UNKNOWN:
+            group = [entry for entry in entries if entry.field("status") not in ("open", "done", "dropped")]
+        else:
+            group = [entry for entry in entries if entry.field("status") == status]
+        if not group:
+            continue
+
+        lines += [f"## {status.title()}", ""]
+        lines += [line_for(entry=entry, from_folder=folder) for entry in sorted(group, key=lambda e: e.name)]
+        lines.append("")
+
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
 def reviews_body(
     entries: list[store.Entry],
     filed: str,
@@ -586,6 +616,7 @@ RENDERERS: dict[str, Callable[..., str]] = {
     "todo": todos_body,
     "bug": bugs_body,
     "decision": decisions_body,
+    "plan": plans_body,
     "review": reviews_body,
 }
 

@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from . import frontmatter, links, schema, sections, store
+from . import frontmatter, links, schema, sections, steps, store
 
 
 class WriteError(Exception):
@@ -112,6 +112,7 @@ def update(
 
     check(kind=entry.kind, fields=fields)
     check_rules(entry=entry, fields=fields)
+    refuse_gaps(steps.plan_gaps(kind=entry.kind, fields=fields, body=entry.document.body))
 
     for name, value in changes.items():
         entry.document.set(key=name, value=value)
@@ -119,6 +120,10 @@ def update(
     entry.document.set(key="updated", value=stamp)
     frontmatter.write(path=str(entry.path), document=entry.document)
     brain.refresh()
+
+    # a plan's step that points at this entry takes its mark from it
+    if "status" in changes and entry.kind.name in steps.POINTED_KINDS:
+        steps.refresh_pointing(brain=brain, key=entry.relative, stamp=stamp)
 
     return brain.read(path=entry.path, kind=entry.kind)
 
@@ -410,6 +415,7 @@ def defaults(
         "bug": {"status": "open", "reported": stamp},
         "todo": {"status": "open", "born": stamp},
         "decision": {"status": "standing", "date": stamp},
+        "plan": {"status": "open", "born": stamp},
         "review": {"status": "open"},
     }
 

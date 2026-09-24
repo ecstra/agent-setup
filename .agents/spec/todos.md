@@ -2,7 +2,7 @@
 name: spec-todos
 kind: doc
 description: format and lifecycle for .agents/todos, the work tracker
-updated: 2026-09-17
+updated: 2026-09-24
 links: [spec/conventions.md, spec/bugs.md]
 ---
 
@@ -34,6 +34,10 @@ verbatim, cleaning touches structure only, never voice.
 
 ## Why
 One or two lines when the what does not carry it. Optional.
+
+## Steps
+A numbered list, one step per line, 1 onward in order. Optional, and
+the task chain reads it, so multi step work carries one.
 
 ## Done when
 The check that closes it. A closed item names the commit(s) here.

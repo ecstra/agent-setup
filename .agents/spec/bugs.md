@@ -2,7 +2,7 @@
 name: spec-bugs
 kind: doc
 description: format and lifecycle for .agents/bugs, the defect tracker
-updated: 2026-09-17
+updated: 2026-09-24
 links: [spec/conventions.md, spec/todos.md, spec/reviews.md]
 ---
 
@@ -46,6 +46,10 @@ What misbehaves, as observed. Repro steps if known.
 
 ## Evidence
 Logs, field notes, screenshots described.
+
+## Steps
+A numbered list, one step of the fix per line, 1 onward in order.
+Optional, and the task chain reads it.
 
 ## Fix
 Root cause, the commit hash, the date. Absent while open.
