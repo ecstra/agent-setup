@@ -13,7 +13,7 @@ import shutil
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 from . import autoack, frontmatter, index, links, schema, sections, steps, store, style, task, writes
 
@@ -598,7 +598,11 @@ def check_table(
         if entry.kind.name == "bug" and not steps.has_table(entry.document.body):
             message += ", a bug's Steps being the fix's steps and a reproduction going under Evidence, so move it there by hand, or on an open bug run brain steps <key> add to keep it as the fix's"
 
-        return [Finding(path=entry.relative, check="steps", message=message, repair=convert_steps(brain=brain, entry=entry))]
+        offered = convert_steps(brain=brain, entry=entry)
+        if isinstance(offered, str):
+            return [Finding(path=entry.relative, check="steps", message=f"{message}, and the list is refused as it stands, {offered}")]
+
+        return [Finding(path=entry.relative, check="steps", message=message, repair=offered)]
 
     found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.became_slips(brain=brain, entry=entry)]
 
@@ -648,8 +652,8 @@ def check_table(
 def convert_steps(
     brain: store.Brain,
     entry: store.Entry,
-) -> Optional[Callable[[], None]]:
-    """A repair that turns a list under Steps into the table, its rows marked by the entry's own status, or none when the section does not read as a list either.
+) -> Union[Callable[[], None], str, None]:
+    """A repair that turns a list under Steps into the table, its rows marked by the entry's own status, the reason when the tool refuses the list as it stands, so the finding says why no run of --fix clears it, or none when there is no list to turn.
 
     A bug gets no repair, since a list under its Steps from before the
     table may be the reproduction, which the spec puts under Evidence,
@@ -662,8 +666,8 @@ def convert_steps(
     own = {entry.identifier, entry.name} - {None}
     try:
         steps.converted(brain=brain, body=body, by=entry.field("by") or "agent", kind=entry.kind, status=steps.settled_as(entry), own=own)
-    except steps.StepsError:
-        return None
+    except steps.StepsError as refused:
+        return str(refused)
 
     def repair() -> None:
         fresh = brain.read(path=entry.path, kind=entry.kind)

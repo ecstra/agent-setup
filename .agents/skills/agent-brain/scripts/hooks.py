@@ -428,6 +428,10 @@ def table_change(
     if isinstance(write, str):
         return write
 
+    # a list's rows were held to what filing holds them to as they were turned, and only the loops a patch closes across files are left to judge
+    if write.listed:
+        return None
+
     why = changed_row(brain=brain, before=write.before, rows=write.rows, key=write.key, status=write.status, closed=write.closed) or added_row(
         brain=brain,
         before=write.before,
@@ -445,7 +449,7 @@ def table_change(
 
 @dataclass(frozen=True)
 class TableWrite:
-    """A write to a stepped file as the hook reads it: the file's key and keys, its state, the rows it holds and the rows it would hold."""
+    """A write to a stepped file as the hook reads it: the file's key and keys, its state, the rows it holds and the rows it would hold, which a list under a new Steps heading gives as the rows the tool would turn it into."""
 
     inside: str
     key: str
@@ -455,6 +459,7 @@ class TableWrite:
     closed: bool
     before: list[steps.Step]
     rows: list[steps.Step]
+    listed: bool
 
     @property
     def added(self) -> list[steps.Step]:
@@ -499,20 +504,8 @@ def table_write_of(
     key = Path(inside).stem
     status = str(current.get("status") or "")
     name = str(current.get("name") or key)
-    own = own_keys_of(inside=inside, name=name)
-
-    if not steps.has_table(body):
-        if before:
-            return f"{inside}: {TABLE_IS_THE_TOOLS}, its rows are never taken away, and the prose around it is yours to edit"
-
-        return listed_change(brain=brain, inside=inside, kind=kind, body=body, own=own)
-
-    try:
-        rows = steps.stored_rows_of(kind=kind, body=body)
-    except steps.StepsError as error:
-        return f"{inside}: after that write the steps table would not read, {error}"
-
-    return TableWrite(
+    own = own_keys_of(brain=brain, inside=inside, name=name)
+    write = TableWrite(
         inside=inside,
         key=key,
         own=own,
@@ -520,27 +513,40 @@ def table_write_of(
         status=status,
         closed=status not in steps.OPEN_STATUSES[kind],
         before=before,
-        rows=rows,
+        rows=[],
+        listed=False,
     )
+
+    if not steps.has_table(body):
+        if before:
+            return f"{inside}: {TABLE_IS_THE_TOOLS}, its rows are never taken away, and the prose around it is yours to edit"
+
+        return listed_change(brain=brain, write=write, kind=kind, body=body)
+
+    try:
+        rows = steps.stored_rows_of(kind=kind, body=body)
+    except steps.StepsError as error:
+        return f"{inside}: after that write the steps table would not read, {error}"
+
+    return replace(write, rows=rows)
 
 
 def listed_change(
     brain: store.Brain,
-    inside: str,
+    write: TableWrite,
     kind: str,
     body: str,
-    own: set[str],
-) -> Optional[str]:
-    """Why a numbered list written under a new Steps heading may not come in, held to what filing holds a list to, since the tool turns it into the table later and would refuse it then, or None when it may."""
+) -> Union[TableWrite, str, None]:
+    """A numbered list written under a new Steps heading, as the rows the tool would turn it into, held to what filing holds a list to since the tool would refuse it then, a refusal when it does not pass, or None when the section is empty."""
     if steps.blank(body):
         return None
 
     try:
-        steps.converted(brain=brain, body=body, by="agent", kind=schema.kind_named(kind), own=own)
+        turned = steps.converted(brain=brain, body=body, by="agent", kind=schema.kind_named(kind), own=write.own)
     except steps.StepsError as refused:
-        return f"{inside}: {TABLE_IS_THE_TOOLS}, {refused}, and the prose around it is yours to edit"
+        return f"{write.inside}: {TABLE_IS_THE_TOOLS}, {refused}, and the prose around it is yours to edit"
 
-    return None
+    return replace(write, rows=steps.table(turned), listed=True)
 
 
 def table_writes_of(
@@ -592,7 +598,7 @@ def loop_across(
 def pointer_graph(
     brain: store.Brain,
 ) -> dict[str, set[str]]:
-    """Every pointer the open steps tables hold, as edges from the holder's file to the file pointed at, a closed entry's steps waiting on nothing.
+    """Every pointer the open steps tables hold, a list not yet turned into one read by the keys its lines open with, as edges from the holder's file to the file pointed at, a closed entry's steps waiting on nothing.
 
     A file is its own node, the path folded in case, so two files that
     carry one id after a merge stay two nodes rather than one.
@@ -604,12 +610,12 @@ def pointer_graph(
                 continue
 
             try:
-                rows = steps.stored_rows(entry)
+                keys = steps.pointers_in(entry.document.body)
             except steps.StepsError:
                 continue
 
-            for step in rows:
-                target = resolved(brain=brain, key=step.points_at)
+            for key in keys:
+                target = resolved(brain=brain, key=key)
                 if target is not None:
                     edges.setdefault(entry.relative.casefold(), set()).add(target)
 
@@ -703,14 +709,18 @@ def marking_command(
 
 
 def own_keys_of(
+    brain: store.Brain,
     inside: str,
     name: str,
 ) -> set[str]:
-    """The keys a step would use to point at the file being written, its id from the filename and the name its header says, the way steps.own_keys reads them off an entry, the filename read in any case since a disk that ignores case takes the write however it is spelled."""
-    match = schema.FILENAME_WITH_ID.match(f"{Path(inside).stem.upper()}.md")
-    identifier = f"{match.group(1)}-{match.group(2)}" if match else None
+    """The keys a step would use to point at the file being written, as the store reads them off the file on disk, since a disk that ignores case takes the write however the path is spelled and a plan's slug carries no id however it starts, and the name the header says when the store holds no entry at that path."""
+    wanted = inside.casefold()
+    for kind_name in steps.STEPPED_KINDS:
+        for entry in brain.entries_of(schema.kind_named(kind_name)):
+            if entry.relative.casefold() == wanted:
+                return steps.own_keys(entry)
 
-    return {identifier, name} - {None}
+    return {name}
 
 
 def added_row(

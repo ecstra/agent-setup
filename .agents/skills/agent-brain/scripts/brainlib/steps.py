@@ -744,21 +744,35 @@ def points_back(
 
     seen = (seen or set()) | {key}
     try:
-        rows = table(entry.document.body) if entry.kind.name in STEPPED_KINDS and not blank(entry.document.body) else []
+        keys = pointers_in(entry.document.body) if entry.kind.name in STEPPED_KINDS else []
     except StepsError:
         return False
 
-    for step in rows:
-        if not step.points_at:
-            continue
-
-        if step.points_at in own or step.points_at.upper() in own:
+    for pointed_key in keys:
+        if pointed_key in own or pointed_key.upper() in own:
             return True
 
-        if step.points_at not in seen and points_back(brain=brain, key=step.points_at, own=own, seen=seen):
+        if pointed_key not in seen and points_back(brain=brain, key=pointed_key, own=own, seen=seen):
             return True
 
     return False
+
+
+def pointers_in(
+    body: str,
+) -> list[str]:
+    """The keys the Steps section points at, read off the table, or off a numbered list not yet turned into one, whose lines open with the key the way filing reads them, since the list is the table in waiting and a loop through it would stand once it is turned, refused when the table does not read, and none for a list that does not read as one, which doctor reports."""
+    if has_table(body):
+        return [step.points_at for step in table(body) if step.points_at]
+
+    try:
+        lines = listed(body)
+    except StepsError:
+        return []
+
+    opened = (POINTER.match(line.strip()) for line in lines)
+
+    return [match.group(1) for match in opened if match is not None]
 
 
 def refuse_cycles(
@@ -785,22 +799,22 @@ def unreadable_reached(
     key: str,
     seen: Optional[set[str]] = None,
 ) -> Optional[str]:
-    """The key, as a step wrote it, of the first open entry on the way from the one named whose Steps holds a table that does not read, or None when every table on the way reads, a list not yet turned into a table holding no pointer the tool reads."""
+    """The key, as a step wrote it, of the first open entry on the way from the one named whose Steps holds a table that does not read, or None when every table on the way reads, a list on the way walked by the keys its lines open with."""
     entry = pointed(brain=brain, key=key)
-    if entry is None or not is_open(entry) or entry.kind.name not in STEPPED_KINDS or not has_table(entry.document.body):
+    if entry is None or not is_open(entry) or entry.kind.name not in STEPPED_KINDS:
         return None
 
     try:
-        rows = table(entry.document.body)
+        keys = pointers_in(entry.document.body)
     except StepsError:
         return key
 
     seen = (seen or set()) | {key}
-    for step in rows:
-        if not step.points_at or step.points_at in seen:
+    for pointed_key in keys:
+        if pointed_key in seen:
             continue
 
-        broken = unreadable_reached(brain=brain, key=step.points_at, seen=seen)
+        broken = unreadable_reached(brain=brain, key=pointed_key, seen=seen)
         if broken is not None:
             return broken
 
