@@ -170,12 +170,11 @@ todo, a bug or a review followed by a comma or a colon, which points
 the step at that entry, the id in any case and stored in upper case,
 `by` being the plan's or the todo's own `by` and agent for a bug. A
 word shaped like an id or a review's name that reaches nothing at all
-is refused, one
-that reaches a decision or another kind a step cannot point at reads
-as prose, and so does a plain date. A line under Steps that is not a
-numbered step is refused too, a wrapped step's lines indented under it
-aside, since a line the table cannot carry is never dropped without a
-word. A pipe in a step is written into its cell as
+is refused, one that reaches a decision or another kind a step cannot
+point at reads as prose, and so does a plain date. A line under Steps
+that is not a numbered step is refused too, a wrapped step's lines
+indented under it aside, since a line the table cannot carry is never
+dropped without a word. A pipe in a step is written into its cell as
 `\|`, the way markdown reads it, and read back as a pipe.
 
 | Command | What it does |
@@ -197,13 +196,12 @@ that is not refiled or naming nothing, two files or the wrong kind, an
 entry done or fixed with a step still pending, since dropped, wontfix
 and refiled close as they are, and a plan with no Steps section at all.
 Four of those it repairs under `--fix`, the drifted mark, the pointer,
-which it
-moves on to the entry filed in the refiled one's place or writes as the
-id, a numbered list under a plan's or a todo's Steps, which becomes
-the table with its rows marked by the entry's own status, pending
-while it is open, done once it is done, skipped once it was dropped or
-refiled, and the plan with no Steps section, which gets an empty
-table. A list under a bug's Steps is only flagged, since
+which it moves on to the entry filed in the refiled one's place or
+writes as the id, a numbered list under a plan's or a todo's Steps,
+which becomes the table with its rows marked by the entry's own
+status, pending while it is open, done once it is done, skipped once
+it was dropped or refiled, and the plan with no Steps section, which
+gets an empty table. A list under a bug's Steps is only flagged, since
 it may be the reproduction, which goes under Evidence by hand, and on
 an open bug `brain steps <key> add` keeps it as the fix's steps when
 that is what it is.
