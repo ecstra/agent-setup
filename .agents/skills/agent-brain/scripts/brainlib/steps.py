@@ -214,7 +214,8 @@ def escaped(
 def unescaped(
     text: str,
 ) -> str:
-    return re.sub(r"\\(.)", r"\1", text)
+    """A cell's text with the two escapes the tool writes undone, and any other backslash kept, since a hand typed row keeps its own."""
+    return re.sub(r"\\([\\|])", r"\1", text)
 
 
 def rewrite(
