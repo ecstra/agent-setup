@@ -161,6 +161,12 @@ def retitle(
         raise WriteError(f"{stem} is already the name of {holder}, and a name is unique across the brain")
 
     stamp = stamp or today()
+
+    # a step cell that names the entry by hand is written as its id while the name still resolves
+    if entry.kind.name in steps.POINTED_KINDS:
+        steps.refresh_pointing(brain=brain, key=entry.relative, stamp=stamp)
+        entry = located(brain=brain, key=key)
+
     before = frontmatter.load(str(entry.path))
     moved = links.move_links(
         brain=brain,
