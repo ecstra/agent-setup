@@ -51,8 +51,9 @@ Fields by kind, all passed as flags to `new` or as `field=value` to `set`:
   `brain ledger open`, which writes the body shape too.
 - doc and handover: no extra fields.
 
-Required headings, which the body must carry: plan `Why`, `Steps` and
-`Done when`, bug `Problem` and `Evidence`, todo `What` and `Done when`,
+Required headings, which the body must carry: plan `Why` and
+`Done when`, its `Steps` added by the tool when the prose has none,
+bug `Problem` and `Evidence`, todo `What` and `Done when`,
 decision `Decision`, review `Summary`, `Batches` and `Findings`. An
 empty standard input writes the headings and nothing else, for filling
 in afterwards, a plan aside, which is filed from its prose or not at
