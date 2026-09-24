@@ -313,6 +313,9 @@ def row_from(
         raise StepsError(f"a step is set by {' or '.join(BY)}, not '{by}'")
 
     line = line.strip()
+    if "\n" in line or "\r" in line:
+        raise StepsError(f"step {number} is one line, and a line break would split its row")
+
     if "|" in line:
         raise StepsError(f"step {number} cannot hold a pipe, the table's columns are pipes")
 
