@@ -85,8 +85,10 @@ review it points at, into that table. `brain steps <key> add` appends
 steps as the work teaches them, `brain steps <key> step <n> done`
 marks a step that points at nothing, or one whose pointer reaches
 nothing the brain can read, a pointed step follows its entry on its
-own, and `brain steps <key>` shows the table with its marks. An
-entry with steps closes only once every step is done or skipped.
+own, and `brain steps <key>` shows the table with its marks. A plan or
+a todo goes done, and a bug fixed, only once every step is done or
+skipped, while dropped, wontfix and refiled close as they are, and a
+closed entry's table is its record, marked no more.
 
 ## Changing something
 

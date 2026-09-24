@@ -168,8 +168,8 @@ an empty table closing on its Done when alone. Doctor reports a Steps
 section with no table or one that does not read, a step line sitting
 outside the table, a step whose pointer reaches nothing, a pointed mark
 that drifted, a pointer left on a refiled entry or written by name, two
-open entries whose steps wait on each other, an entry still open with
-every step settled, and a plan with no Steps section at all. Four of
+open entries whose steps wait on each other, a closed entry with a step
+still pending, and a plan with no Steps section at all. Four of
 those it repairs under `--fix`: the drifted mark, the pointer, which it
 moves on to the entry filed in the refiled one's place or writes as the
 id, a numbered list under a plan's or a todo's Steps, which becomes
