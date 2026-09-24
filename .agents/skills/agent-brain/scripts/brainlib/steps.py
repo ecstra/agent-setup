@@ -70,7 +70,7 @@ KEY_START = re.compile(r"^([A-Za-z0-9-]+)")
 STEPS_LOOKALIKE = re.compile(r"^#{1,6}[ \t]+steps:?[ \t]*$", re.IGNORECASE | re.MULTILINE)
 
 # a date opening a step line is prose, though it is shaped like a review's name
-DATE_SHAPE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+DATE_SHAPE = re.compile(r"^\d{4}-\d{2}-\d{2}(?!-)")
 
 
 class StepsError(Exception):
@@ -439,11 +439,12 @@ def row_from(
             line = match.group(2).strip()
         elif looks_like_a_key(match.group(1)) and not known(brain=brain, key=match.group(1)):
             raise StepsError(f"step {number} points at '{match.group(1)}', which is not a todo, a bug or a review the brain knows")
-    else:
+
+    if not points_at:
         opening = KEY_START.match(line)
         word = opening.group(1) if opening is not None else ""
         if looks_like_a_key(word) and pointed(brain=brain, key=word) is not None:
-            raise StepsError(f"step {number} opens with {word} and no comma or colon after it, so it would point at nothing, and a step that points at it reads '{word}, what to do'")
+            raise StepsError(f"step {number} opens with {word} but not as '{word}, what to do', so it would point at nothing")
 
         if looks_like_a_key(word) and not known(brain=brain, key=word):
             raise StepsError(f"step {number} points at '{word}', which is not a todo, a bug or a review the brain knows")
