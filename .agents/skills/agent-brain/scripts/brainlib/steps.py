@@ -53,8 +53,10 @@ CLOSING: dict[str, str] = {
 
 TABLE_HEADER = "| # | Step | Points at | By | Status |\n|---|---|---|---|---|\n"
 HEADER_LINE = re.compile(r"^\|[ \t]*#[ \t]*\|[ \t]*Step[ \t]*\|[ \t]*Points at[ \t]*\|[ \t]*By[ \t]*\|[ \t]*Status[ \t]*\|[ \t]*\n\|[-| \t]+\|[ \t]*$", re.MULTILINE)
+# a cell runs to the next pipe, and a pipe written as \| is part of the cell
+CELL = r"((?:\\.|[^|\n])*?)"
 ROW = re.compile(
-    r"^\|[ \t]*(\d+)[ \t]*\|[ \t]*(.*?)[ \t]*\|[ \t]*(.*?)[ \t]*\|[ \t]*(.*?)[ \t]*\|[ \t]*(.*?)[ \t]*\|[ \t]*$",
+    rf"^\|[ \t]*(\d+)[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*$",
     re.MULTILINE,
 )
 LISTED = re.compile(r"^(\d+)\.[ \t]+(.+?)[ \t]*$", re.MULTILINE)
@@ -88,10 +90,10 @@ def table(
     rows = [
         Step(
             number=int(row.group(1)),
-            text=row.group(2),
-            points_at=row.group(3),
-            by=row.group(4),
-            status=row.group(5),
+            text=unescaped(row.group(2)),
+            points_at=unescaped(row.group(3)),
+            by=unescaped(row.group(4)),
+            status=unescaped(row.group(5)),
         )
         for row in located(body)[1]
     ]
@@ -196,10 +198,22 @@ def current_step(
 def render_row(
     step: Step,
 ) -> str:
-    """One row of the table, an empty cell written as one space."""
-    cells = [str(step.number), step.text, step.points_at, step.by, step.status]
+    """One row of the table, an empty cell written as one space and a pipe in a cell written as \\|, the way markdown reads it."""
+    cells = [str(step.number), escaped(step.text), escaped(step.points_at), step.by, step.status]
 
     return "|" + "|".join(f" {value} " if value else " " for value in cells) + "|"
+
+
+def escaped(
+    text: str,
+) -> str:
+    return text.replace("|", "\\|")
+
+
+def unescaped(
+    text: str,
+) -> str:
+    return text.replace("\\|", "|")
 
 
 def rewrite(
@@ -356,9 +370,6 @@ def row_from(
     line = line.strip()
     if "\n" in line or "\r" in line:
         raise StepsError(f"step {number} is one line, and a line break would split its row")
-
-    if "|" in line:
-        raise StepsError(f"step {number} cannot hold a pipe, the table's columns are pipes")
 
     points_at = ""
     match = POINTER.match(line)

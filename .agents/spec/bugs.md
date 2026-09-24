@@ -45,7 +45,8 @@ Body sections, in order:
 What misbehaves, as observed. Repro steps if known.
 
 ## Evidence
-Logs, field notes, screenshots described.
+Logs, field notes, screenshots described, and the steps that reproduce
+it, which are evidence and never the fix's steps below.
 
 ## Steps
 The same table a plan carries, per spec/plans.md, the tool's own, one

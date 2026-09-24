@@ -143,7 +143,10 @@ into the table, each line free to open with the id or the name of a
 todo, a bug or a review followed by a comma, which points the step at
 that entry, `by` being the todo's own `by` and agent for a bug. A
 pointer that reaches nothing of those kinds is refused, and so is a
-step with a pipe in it.
+line under Steps that is not a numbered step, a wrapped step's lines
+indented under it aside, since a line the table cannot carry is never
+dropped without a word. A pipe in a step is written into its cell as
+`\|`, the way markdown reads it, and read back as a pipe.
 
 | Command | What it does |
 |---|---|
