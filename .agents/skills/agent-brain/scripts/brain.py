@@ -495,8 +495,8 @@ def add_steps(
     adding.set_defaults(handler=run_steps_add)
 
     marking = actions.add_parser("step", help="mark a step that points at nothing, or one whose pointer reaches nothing the brain can read")
-    marking.add_argument("number", type=int)
-    marking.add_argument("status", choices=steps.STEP_STATUSES)
+    marking.add_argument("number", type=int, help="the step's number in the entry's table")
+    marking.add_argument("status", choices=steps.STEP_STATUSES, help="the mark to give it")
     marking.set_defaults(handler=run_steps_mark)
 
     command.set_defaults(handler=run_steps_show)

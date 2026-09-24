@@ -3,8 +3,8 @@
 One chain at a time, kept in a local file the tool writes and every
 hook prints, so the model always knows the task, the plan it serves,
 the step inside it and the review running on it. A plan, a todo, a bug
-or a review is the root. A todo or a bug pushes under the plan step
-that points at it, a review pushes under the todo or bug it reviews,
+or a review is the root. A todo or a bug pushes under the step that
+points at it, a review pushes under the todo or bug it reviews,
 and a link whose entry closes drops off with everything under it. The
 step a link stands on is never stored: it is the first pending row of
 the entry's steps table, so the marks in the file are the truth and
@@ -331,8 +331,11 @@ def turn_on(
     if chain and chain[-1] == item:
         return chain
 
+    if item in chain:
+        raise TaskError(f"{item.key} is on the chain already, above {chain[-1].key}, and brain task off drops back to it")
+
     if chain and not may_push(brain=brain, chain=chain, entry=entry):
-        raise TaskError(f"the work is on {describe_item(brain=brain, item=chain[-1])}, finish or clear it first, or say --replace")
+        raise TaskError(f"the work is on {describe_item(brain=brain, item=chain[-1])}, finish it or drop it with brain task off first")
 
     chain.append(item)
     write(brain=brain, chain=chain)
@@ -520,12 +523,14 @@ def step_text(
 def closing_command(
     entry: store.Entry,
 ) -> str:
-    """The set command that closes the entry, with the closing date a plan or a todo wants and the Fix section a bug wants named."""
+    """The set command that closes the entry, with the closing date a plan or a todo wants, and the section a bug or a todo wants filled named."""
     key = key_of(entry)
     if entry.kind.name == "bug":
         return f"brain set {key} status=fixed once Fix names the cause and the commit"
 
-    return f"brain set {key} status={steps.CLOSING[entry.kind.name]} done={clock.now().date().isoformat()}"
+    command = f"brain set {key} status={steps.CLOSING[entry.kind.name]} done={clock.now().date().isoformat()}"
+
+    return f"{command} once Done when names what closed it" if entry.kind.name == "todo" else command
 
 
 def batch_text(

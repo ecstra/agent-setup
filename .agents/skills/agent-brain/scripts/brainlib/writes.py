@@ -229,7 +229,7 @@ def retitle(
         try:
             task.renamed(brain=brain, kind="plan", old=old_stem, new=stem)
         except (OSError, task.TaskError) as error:
-            raise Partial(f"{stem} was written, and the chain could not follow the name, {store.explain(error)}, so it says plan {old_stem}, not in this checkout, until brain task off drops it or brain task on --replace sets it aside") from error
+            raise Partial(f"{stem} was written, and the chain could not follow the name, {store.explain(error)}, so it says plan {old_stem}, not in this checkout, until brain task off drops it") from error
 
     return brain.read(path=target, kind=entry.kind)
 

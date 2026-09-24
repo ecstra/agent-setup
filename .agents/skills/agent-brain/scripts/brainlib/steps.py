@@ -852,12 +852,24 @@ def mark(
 
     rows = rows_of(brain=brain, entry=entry)
     step = step_numbered(entry=entry, rows=rows, number=number)
-    if step.points_at and pointed(brain=brain, key=step.points_at) is not None:
-        raise StepsError(f"step {number} points at {step.points_at}, so its mark follows that entry, close or drop it instead")
+    target = pointed(brain=brain, key=step.points_at) if step.points_at else None
+    if target is not None:
+        raise StepsError(f"step {number} points at {step.points_at}, {follows_its_entry(target)}")
 
     rows[number - 1] = Step(number=number, text=step.text, points_at=step.points_at, by=step.by, status=status)
     entry.document.body = rewrite(body=entry.document.body, rows=rows)
     save(brain=brain, entry=entry)
+
+
+def follows_its_entry(
+    target: store.Entry,
+) -> str:
+    """Why a pointed step takes no mark by hand, and what moves it instead: working or closing an open entry, reopening a closed one."""
+    key = pointer_of(target)
+    if is_open(target):
+        return f"so its mark follows that entry, work it with brain task on {key} or close it"
+
+    return f"which is {target.field('status')}, so its mark follows that entry, and brain set {key} status=open reopens it"
 
 
 def step_numbered(
