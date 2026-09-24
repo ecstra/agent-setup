@@ -293,7 +293,7 @@ def refusal(
         return None
 
     if store.quietly(path.exists):
-        return header_change(touch=touch, inside=inside) or table_change(touch=touch, inside=inside)
+        return header_change(touch=touch, inside=inside) or table_change(brain=brain, touch=touch, inside=inside)
 
     if Path(inside).parts[0] == "spec":
         return f"{inside} would nest inside spec/, which holds its files directly"
@@ -388,58 +388,145 @@ def header_change(
     return None
 
 
+TABLE_IS_THE_TOOLS = "the steps table is the tool's"
+
+
 def table_change(
+    brain: store.Brain,
     touch: Touch,
     inside: str,
 ) -> Optional[str]:
     """Why this write may not touch the steps table of a plan, a todo or a bug, or None if it may.
 
     The rows the file holds are the tool's: a mark moves through the
-    task or the steps command, a step is never reworded, repointed or
-    deleted, and a table the write would leave unreadable is refused
-    too. Rows may follow the last one, the way a table typed by hand is
-    read, and a file whose table does not read now is doctor's, not the
-    hook's.
+    task or the steps command or follows the entry a step points at, a
+    step is never reworded, repointed or deleted, the table is never
+    taken away, and a table the write would leave unreadable is refused
+    too. A row may follow the last one, held to what add holds a step
+    to, pending, pointing at an entry the brain knows or at nothing,
+    and on an open entry. A numbered list under a new Steps heading is
+    a list the tool turns into the table, so it passes, and a file
+    whose table does not read now is doctor's, not the hook's. A hunk
+    that fits nowhere and carries a row is refused, since the hook
+    cannot tell where it would land.
     """
+    text = frontmatter.load(str(touch.path))
     try:
-        current = frontmatter.parse(frontmatter.load(str(touch.path)))
+        current = frontmatter.parse(text)
     except frontmatter.FrontmatterError:
         return None
 
-    if current.get("kind") not in steps.STEPPED_KINDS:
+    kind = str(current.get("kind") or "")
+    if kind not in steps.STEPPED_KINDS:
         return None
 
     try:
-        before = steps.stored_rows_of(kind=str(current.get("kind")), body=current.body)
+        before = steps.stored_rows_of(kind=kind, body=current.body)
     except steps.StepsError:
         return None
 
-    after, _ = outcome_of(touch=touch, text=frontmatter.load(str(touch.path)))
+    after, loose = outcome_of(touch=touch, text=text)
+    for hunk in loose:
+        line = row_line_in(hunk)
+        if line is not None:
+            return f"{inside}: a hunk the hook cannot place touches the steps table with '{line}', and {TABLE_IS_THE_TOOLS}"
+
     if after is None:
         return None
 
     try:
-        rows = steps.stored_rows_of(kind=str(current.get("kind")), body=frontmatter.parse(after).body)
-    except (frontmatter.FrontmatterError, steps.StepsError) as error:
+        body = frontmatter.parse(after).body
+    except frontmatter.FrontmatterError:
+        return None
+
+    if not steps.has_table(body):
+        return f"{inside}: {TABLE_IS_THE_TOOLS}, its rows are never taken away, and the prose around it is yours to edit" if before else None
+
+    try:
+        rows = steps.stored_rows_of(kind=kind, body=body)
+    except steps.StepsError as error:
         return f"{inside}: after that write the steps table would not read, {error}"
 
     key = Path(inside).stem
+    status = str(current.get("status") or "")
+    closed = status not in steps.OPEN_STATUSES[kind]
+    why = changed_row(before=before, rows=rows, key=key, status=status, closed=closed) or added_row(brain=brain, before=before, rows=rows, key=key, status=status, closed=closed)
+    if why is None:
+        return None
+
+    return f"{inside}: {TABLE_IS_THE_TOOLS}, {why}, and the prose around it is yours to edit"
+
+
+def changed_row(
+    before: list[steps.Step],
+    rows: list[steps.Step],
+    key: str,
+    status: str,
+    closed: bool,
+) -> Optional[str]:
+    """Why the first row that no longer reads as filed may not change that way, or None when every row the file had stands."""
     for step in before:
         fresh = rows[step.number - 1] if step.number <= len(rows) else None
-        why = None
         if fresh is None:
-            why = f"step {step.number} is never deleted, a step that turned out wrong is skipped"
-        elif fresh.status != step.status:
-            why = f"step {step.number} is marked with brain task done or brain steps {key} step {step.number}"
-        elif fresh.text != step.text:
-            why = f"step {step.number} is worded as it was filed"
-        elif fresh.points_at != step.points_at:
-            why = f"step {step.number} points where it was filed to point"
-        elif fresh.by != step.by:
-            why = f"step {step.number} is set by whom it was filed by"
+            return f"step {step.number} is never deleted, a step that turned out wrong is skipped"
 
-        if why is not None:
-            return f"{inside}: the steps table is the tool's, {why}, and the prose around it is yours to edit"
+        if fresh.status != step.status:
+            if step.points_at:
+                return f"step {step.number} points at {step.points_at} and takes its mark from that entry"
+
+            if closed:
+                return f"{key} is {status}, and a closed table is its record"
+
+            return f"step {step.number} is marked with brain task done or brain steps {key} step {step.number}"
+
+        if fresh.text != step.text:
+            return f"step {step.number} is worded as it was filed"
+
+        if fresh.points_at != step.points_at:
+            return f"step {step.number} points where it was filed to point"
+
+        if fresh.by != step.by:
+            return f"step {step.number} is set by whom it was filed by"
+
+    return None
+
+
+def added_row(
+    brain: store.Brain,
+    before: list[steps.Step],
+    rows: list[steps.Step],
+    key: str,
+    status: str,
+    closed: bool,
+) -> Optional[str]:
+    """Why the first row added after the last may not come in that way, held to what add holds a step to, or None when each may."""
+    added = rows[len(before):]
+    if added and closed:
+        return f"{key} is {status}, and a closed table is its record, so no step is added to it"
+
+    for step in added:
+        if step.status != "pending":
+            return f"step {step.number} is added pending, and marked with brain task done or brain steps {key} step {step.number} once it is done"
+
+        if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
+            return str(steps.unreachable(brain=brain, number=step.number, key=step.points_at))
+
+        if not step.points_at:
+            word = steps.opening_key(brain=brain, number=step.number, text=step.text)
+            if word:
+                return f"step {step.number} opens with {word} in its Step cell, and a row points through its Points at cell"
+
+    return None
+
+
+def row_line_in(
+    hunk: tuple[str, ...],
+) -> Optional[str]:
+    """The first line of a hunk, kept, removed or added, that is a row of a steps table."""
+    for line in hunk:
+        text = line[1:]
+        if steps.ROW.match(text):
+            return text
 
     return None
 
