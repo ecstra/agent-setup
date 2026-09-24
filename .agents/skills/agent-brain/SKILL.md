@@ -154,15 +154,15 @@ brain ack off
 Work of more than one step starts with `brain task on` before the
 first step, SYSTEM.md section 8.3 requires it, and every hook line then
 says what the agent is on. The work is one chain at a time, a plan, a
-todo, a bug or a review at the root, a todo or a bug under the plan
-step that points at it, a review under the todo or bug it reviews.
-The step the work stands on is the first pending row of the entry's
-steps table, `brain task done` marks it done and moves on, `brain task
-skip` marks it skipped, `brain task step <n>` reopens one, `brain task
-off` drops the innermost link, a link whose entry closes drops off on
-its own, and a second root is refused while one stands unless
-`--replace` sets the chain aside, which is the owner's call. The
-reference says what each line looks like and what each refuses.
+todo, a bug or a review at the root, a todo or a bug under the step
+that points at it, a review under the todo or bug it reviews. The step
+the work stands on is the first pending row of the entry's steps
+table, `brain task done` marks it done and moves on, `brain task skip`
+marks it skipped, `brain task step <n>` reopens one, `brain task off`
+drops the innermost link, a link whose entry closes drops off on its
+own, and a second root is refused while one stands unless `--replace`
+sets the chain aside, which is the owner's call. The reference says
+what each line looks like and what each refuses.
 
 ```bash
 brain task on kit-phase-7

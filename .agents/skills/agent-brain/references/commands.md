@@ -9,7 +9,7 @@ on standard error, 2 doctor still has findings.
 | Command | What it answers |
 |---|---|
 | `brain version` | The kit version this project carries, from `.agents/VERSION`. |
-| `brain status [--json]` | The clock and the standing word first, then version, doctor health, counts per tracker, open reviews, the latest handover, unreadable files. The JSON form carries all of that but the clock and the word. |
+| `brain status [--json]` | The clock, the standing word and the current work first, then version, doctor health, counts per tracker, open reviews, the latest handover, unreadable files. The JSON form carries all of that but the clock and the word, the chain under `task`, which is null when the file does not read as a chain. |
 | `brain ack` | The clock and where the owner's standing word to proceed stands, off, held, or on with what is left of it and what ends it. |
 | `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. Kinds: bug, decision, doc, handover, memory, review, todo. |
 | `brain show <key> [--meta]` | The whole file, or with `--meta` its frontmatter only. |
@@ -120,10 +120,10 @@ close it.
 | Command | What it does |
 |---|---|
 | `brain task` | The chain as it stands, or `task none`. |
-| `brain task on <key> [--replace]` | Starts work on an open plan, todo, bug or review, by id, name or path. With nothing on, it is the root. With a chain on, it goes under the innermost link only where the rules allow, which is a review under a todo or a bug, and under a plan the todo, the bug or the review its current step points at. Anything else is refused with the link that stands, and `--replace` sets the whole chain aside for it. Refused for a closed entry, a decision, a doc or a memory, an unknown key, or one several entries share. |
-| `brain task done`, `brain task skip` | Marks the step the innermost link stands on done or skipped in the entry's file, so the work moves to the next pending one. Refused on a review, whose step is its batch, on a step that points at an entry, which takes its mark from that entry, on an entry with no steps, and once every step is settled. |
-| `brain task step <n>` | Marks step `n` of the innermost link pending again, so the work stands on it, with the same refusals. |
-| `brain task off [--all]` | Drops the innermost link, or the whole chain, and takes the file away once it is empty. |
+| `brain task on <key> [--replace]` | Starts work on an open plan, todo, bug or review, by id, name or path. With nothing on, it is the root. With a chain on, it goes under the innermost link only where the rules allow, which is a review under a todo or a bug, and under a plan, a todo or a bug the entry its current step points at. The entry already innermost is left where it is. Anything else is refused with the link that stands, and `--replace` sets the whole chain aside for it. Refused for a closed entry, a decision, a doc or a memory, an unknown key, or one several entries share. |
+| `brain task done`, `brain task skip` | Marks the step the innermost link stands on done or skipped in the entry's file, so the work moves to the next pending one. Refused on a review, whose step is its batch, on a step that points at an entry, which takes its mark from that entry, on an entry with no steps, and once every step is settled. Once every step is settled the line gives the set command that closes the entry, with the closing date a plan or a todo wants and the Fix section a bug wants named. |
+| `brain task step <n>` | Marks step `n` of the innermost link pending again, and the work stands on the first pending step, which is `n` unless an earlier step is pending too. Refused on a review, on a step that points at an entry, on an entry with no steps or no step `n`, and on a step that is pending already. |
+| `brain task off [--all]` | Drops the innermost link, or with `--all` the whole chain, and takes the file away once it is empty. |
 
 The state is one dotted file at the root of the brain, `.agents/.task`,
 the tool's own, which git ignores like `.ack`. A link whose entry goes
