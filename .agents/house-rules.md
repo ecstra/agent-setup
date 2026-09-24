@@ -131,5 +131,6 @@ extensively (multi step work gets filed, not carried in a session's
 head). Owner written todos get picked up, cleaned, and filed with their
 wording preserved, and on completion the agent tells the owner which
 of their own notes to tick. Work of more than one step starts with
-`brain task on` and moves with `brain task done`, per SYSTEM.md 8.3,
-so every hook line says what the agent is on.
+`brain task on` and moves with `brain task done`, or of itself when
+the entry a step points at closes, per SYSTEM.md 8.3, so every hook
+line says what the agent is on.
