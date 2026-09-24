@@ -117,10 +117,10 @@ outermost first, `task none` when nothing is on. A plan prints as
 `task <id>, step <n> of <m>, <text>`, a bug as `bug <id>` the same
 way, a review as `review <name>, batch <n> of <m>, <status>`, the
 first batch not yet done. The step is the first pending row of the
-entry's steps table, read fresh each time, so the marks in the file
-are where the work stands, a todo or a bug with no table prints its id
-alone, and an entry whose every step is settled says so and how to
-close it.
+entry's steps table, read fresh each time with a pointed step's mark
+taken from its entry, so nothing is stored beside the table itself, a
+todo or a bug with no table prints its id alone, and an entry whose
+every step is settled says so and how to close it.
 
 | Command | What it does |
 |---|---|
@@ -230,7 +230,7 @@ complete, `updated` a real date, names matching filenames and unique,
 kind matching folder, fields and values against the spec, required
 headings, the lifecycle rules, filename patterns and duplicate ids,
 links that resolve, links written as paths with each file once, body
-links that resolve, the steps tables as the section above says,
+links that resolve, the steps tables as the steps section says,
 indexes current, no dashes or semicolons in prose,
 no machine paths, nothing shaped like a secret, the version stamp, the
 chat style copies for Codex and Gemini CLI matching the Claude Code

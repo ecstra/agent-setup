@@ -8,8 +8,9 @@ step that points at it, a review pushes under the todo or bug it
 reviews too,
 and a link whose entry closes drops off with everything under it. The
 step a link stands on is the first pending row of the entry's steps
-table, read each time, so the marks in the file are the truth and
-`brain task done` moves the work by marking. The rule in SYSTEM.md 8.3
+table, read each time with a pointed step's mark taken from its entry,
+so nothing is stored beside the table and `brain task done` moves the
+work by marking. The rule in SYSTEM.md 8.3
 is that multi step work starts with `brain task on`.
 """
 
