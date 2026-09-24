@@ -253,9 +253,11 @@ def refusal(
 ) -> Optional[str]:
     """Why this write may not touch the brain by hand, or None if it may.
 
-    A new brain file, an index, a dotted path, a rename and the header
-    block of an existing file are the tool's. The prose below a header
-    is the agent's to edit, and doctor reads it afterwards.
+    A new brain file, an index, a dotted path, the standing word, the
+    current work, a rename, the header block of an existing file and
+    the rows of its steps table are the tool's. The prose below a
+    header and around the table is the agent's to edit, and doctor
+    reads it afterwards.
     """
     if touch.moved_from is not None:
         source = entry_path(brain=brain, path=touch.moved_from)
@@ -451,7 +453,8 @@ def table_change(
     key = Path(inside).stem
     status = str(current.get("status") or "")
     closed = status not in steps.OPEN_STATUSES[kind]
-    why = changed_row(brain=brain, before=before, rows=rows, key=key, status=status, closed=closed) or added_row(brain=brain, before=before, rows=rows, key=key, status=status, closed=closed)
+    own = own_keys_of(inside=inside, name=str(current.get("name") or key))
+    why = changed_row(brain=brain, before=before, rows=rows, key=key, status=status, closed=closed) or added_row(brain=brain, before=before, rows=rows, key=key, status=status, closed=closed, own=own)
     if why is None:
         return None
 
@@ -509,6 +512,17 @@ def marking_command(
     return f"{by_task} or brain steps {key} step {number} {status}"
 
 
+def own_keys_of(
+    inside: str,
+    name: str,
+) -> set[str]:
+    """The keys a step would use to point at the file being written, its id from the filename and the name its header says, the way steps.own_keys reads them off an entry."""
+    match = schema.FILENAME_WITH_ID.match(Path(inside).name)
+    identifier = f"{match.group(1)}-{match.group(2)}" if match else None
+
+    return {identifier, name} - {None}
+
+
 def added_row(
     brain: store.Brain,
     before: list[steps.Step],
@@ -516,6 +530,7 @@ def added_row(
     key: str,
     status: str,
     closed: bool,
+    own: set[str],
 ) -> Optional[str]:
     """Why the first row added after the last may not come in that way, held to what add holds a step to, or None when each may."""
     added = rows[len(before):]
@@ -523,8 +538,12 @@ def added_row(
         return f"{key} is {status}, and a closed table is its record, so no step is added to it"
 
     for step in added:
-        if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
+        target = steps.pointed(brain=brain, key=step.points_at) if step.points_at else None
+        if step.points_at and target is None:
             return str(steps.unreachable(brain=brain, number=step.number, key=step.points_at))
+
+        if target is not None and steps.pointer_of(target) in own:
+            return f"step {step.number} points at {key} itself, and a step points at other work"
 
         if step.status != "pending" and step.points_at:
             return f"step {step.number} is added pending, and takes its mark from {step.points_at}"
@@ -540,6 +559,11 @@ def added_row(
 
             if word:
                 return f"step {step.number} opens with {word} in its Step cell, and a row points through its Points at cell"
+
+    try:
+        steps.refuse_cycles(brain=brain, rows=added, own=own)
+    except steps.StepsError as loop:
+        return str(loop)
 
     return None
 
