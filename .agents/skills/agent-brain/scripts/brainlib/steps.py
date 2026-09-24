@@ -296,7 +296,7 @@ def with_table(
     for title in titles[titles.index("Steps") + 1 :]:
         following = sections.span(body=body, title=title)
         if following is not None:
-            heading_start = body.rfind("## ", 0, following[0])
+            heading_start = body.rfind("\n", 0, following[0]) + 1
             return body[:heading_start] + "## Steps\n\n" + table_text + "\n" + body[heading_start:]
 
     return body.rstrip("\n") + "\n\n## Steps\n\n" + table_text
