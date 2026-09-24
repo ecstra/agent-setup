@@ -522,11 +522,14 @@ def added_row(
         return f"{key} is {status}, and a closed table is its record, so no step is added to it"
 
     for step in added:
-        if step.status != "pending":
-            return f"step {step.number} is added pending, and marked once it is {step.status} with {marking_command(key=key, number=step.number, status=step.status)}"
-
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
             return str(steps.unreachable(brain=brain, number=step.number, key=step.points_at))
+
+        if step.status != "pending" and step.points_at:
+            return f"step {step.number} is added pending, and takes its mark from {step.points_at}"
+
+        if step.status != "pending":
+            return f"step {step.number} is added pending, and marked once it is {step.status} with {marking_command(key=key, number=step.number, status=step.status)}"
 
         if not step.points_at:
             try:
