@@ -535,8 +535,8 @@ def refresh_pointing(
 def all_settled(
     rows: list[Step],
 ) -> bool:
-    """Whether every step is done or skipped, and there is at least one."""
-    return bool(rows) and all(step.status in ("done", "skipped") for step in rows)
+    """Whether every step is done or skipped, which holds of no steps at all, a goal alone closing on its Done when."""
+    return all(step.status in ("done", "skipped") for step in rows)
 
 
 def gaps(

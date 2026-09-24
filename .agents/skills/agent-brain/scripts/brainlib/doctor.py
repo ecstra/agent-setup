@@ -570,7 +570,7 @@ def check_table(
             )
 
     is_open = (entry.field("status") or "") in steps.OPEN_STATUSES[entry.kind.name]
-    if is_open and steps.all_settled(rows):
+    if is_open and rows and steps.all_settled(rows):
         closing = steps.CLOSING[entry.kind.name]
         found.append(Finding(path=entry.relative, check="steps", message=f"every step is settled, close the {entry.kind.name} with brain set status={closing}"))
 
