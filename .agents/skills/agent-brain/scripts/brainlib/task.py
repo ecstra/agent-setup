@@ -6,8 +6,10 @@ the step inside it and the review running on it. A plan, a todo, a bug
 or a review is the root. A todo or a bug pushes under the plan step
 that points at it, a review pushes under the todo or bug it reviews,
 and a link whose entry closes drops off with everything under it. The
-rule in SYSTEM.md 8.3 is that multi step work starts with `brain task
-on`, and the step moves as the work moves.
+step a link stands on is never stored: it is the first pending row of
+the entry's steps table, so the marks in the file are the truth and
+`brain task done` moves the work by marking. The rule in SYSTEM.md 8.3
+is that multi step work starts with `brain task on`.
 """
 
 import json
@@ -15,19 +17,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from . import clock, frontmatter, ledger, plans, schema, steps, store
+from . import clock, frontmatter, ledger, schema, steps, store
 
 FILE = ".task"
 NONE = "task none"
 BROKEN = f"{FILE} does not read as a chain and brain task off --all clears it"
-
-# the kinds a chain may hold, and the statuses that keep each one open
-OPEN_STATUSES: dict[str, tuple[str, ...]] = {
-    "plan": ("open",),
-    "todo": ("open",),
-    "bug": ("open", "branched"),
-    "review": ("open",),
-}
 
 # the word each kind is printed under
 WORDS: dict[str, str] = {
@@ -44,11 +38,10 @@ class TaskError(Exception):
 
 @dataclass(frozen=True)
 class Item:
-    """One link of the chain: what is being worked on and, where it has steps, which one."""
+    """One link of the chain, the entry being worked on."""
 
     kind: str
     key: str
-    step: Optional[int] = None
 
 
 def path_of(
@@ -67,20 +60,14 @@ def read(
 
     try:
         data: Any = json.loads(path.read_text(encoding="utf-8"))
-        items = [Item(kind=str(link["kind"]), key=str(link["key"]), step=link.get("step")) for link in data["chain"]]
+        items = [Item(kind=str(link["kind"]), key=str(link["key"])) for link in data["chain"]]
     except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError):
         return None
 
-    if not all(is_link(item) for item in items):
+    if not all(item.kind in steps.OPEN_STATUSES and item.key for item in items):
         return None
 
     return items
-
-
-def is_link(
-    item: Item,
-) -> bool:
-    return item.kind in OPEN_STATUSES and bool(item.key) and (item.step is None or (type(item.step) is int and item.step >= 1))
 
 
 def write(
@@ -165,7 +152,7 @@ def unreadable(
 def is_open(
     entry: store.Entry,
 ) -> bool:
-    return (entry.field("status") or "") in OPEN_STATUSES.get(entry.kind.name, ())
+    return (entry.field("status") or "") in steps.OPEN_STATUSES.get(entry.kind.name, ())
 
 
 def resolve(
@@ -181,7 +168,7 @@ def resolve(
     if entry is None:
         raise TaskError(f"nothing in the brain answers to '{key}'")
 
-    if entry.kind.name not in OPEN_STATUSES:
+    if entry.kind.name not in steps.OPEN_STATUSES:
         raise TaskError(f"the work is a plan, a todo, a bug or a review, and {entry.name} is a {entry.kind.name}")
 
     if not is_open(entry):
@@ -200,12 +187,11 @@ def key_of(
 def turn_on(
     brain: store.Brain,
     key: str,
-    step: Optional[int] = None,
     replace: bool = False,
 ) -> list[Item]:
     """Start work on the entry: as the root of a fresh chain, pushed under the innermost link where the rules allow, or in place of the chain when told to replace it."""
     entry = resolve(brain=brain, key=key)
-    item = Item(kind=entry.kind.name, key=key_of(entry), step=first_step(brain=brain, entry=entry, wanted=step))
+    item = Item(kind=entry.kind.name, key=key_of(entry))
 
     chain: list[Item] = []
     if not replace:
@@ -241,8 +227,8 @@ def may_push(
     if plan is None:
         return False
 
-    rows = plans.read_rows(plan)
-    step = plan_step(rows=rows, step=innermost.step)
+    rows = steps.rows_of(plan)
+    step = steps.current_step(rows)
     if step is None:
         return False
 
@@ -251,56 +237,37 @@ def may_push(
     return bool(pointer) and pointer in (entry.identifier, entry.name)
 
 
-def plan_step(
-    rows: list[steps.Step],
-    step: Optional[int],
-) -> Optional[int]:
-    """The step a plan link stands on: the one picked, or where the table stands when none was, as with a goal that got its steps after the work started."""
-    if step is not None and step <= len(rows):
-        return step
-
-    return plans.current_step(rows)
-
-
-def first_step(
+def mark(
     brain: store.Brain,
-    entry: store.Entry,
-    wanted: Optional[int],
-) -> Optional[int]:
-    """The step the work starts on: the one asked for, checked against the entry's steps, or the first one still to do."""
-    if entry.kind.name == "review":
-        if wanted is not None:
-            raise TaskError("a review's step is its batch, read off the ledger, so give none")
+    status: str,
+) -> list[Item]:
+    """Mark the step the innermost link stands on done or skipped, so the work moves to the next pending one."""
+    chain, entry = innermost(brain)
+    rows = steps.rows_of(entry)
+    step = steps.current_step(rows)
+    if step is None:
+        raise TaskError(f"{entry.name} has no step pending" if rows else f"{entry.name} has no steps, add some with brain steps {key_of(entry)} add")
 
-        return None
+    steps.mark(brain=brain, key=entry.relative, number=step, status=status)
 
-    count = step_count(entry)
-    if wanted is None:
-        if entry.kind.name == "plan":
-            return plans.current_step(plans.read_rows(entry))
-
-        return 1 if count else None
-
-    if wanted < 1 or wanted > count:
-        raise TaskError(f"{entry.name} has {count} steps, and there is no step {wanted}")
-
-    return wanted
+    return chain
 
 
-def step_count(
-    entry: store.Entry,
-) -> int:
-    if entry.kind.name == "plan":
-        return len(plans.read_rows(entry))
-
-    return len(steps.listed(entry.document.body))
-
-
-def set_step(
+def reopen(
     brain: store.Brain,
     number: int,
 ) -> list[Item]:
-    """Move the innermost link to another of its steps."""
+    """Mark a step of the innermost link pending again, so the work stands on it."""
+    chain, entry = innermost(brain)
+    steps.mark(brain=brain, key=entry.relative, number=number, status="pending")
+
+    return chain
+
+
+def innermost(
+    brain: store.Brain,
+) -> tuple[list[Item], store.Entry]:
+    """The chain and the entry of its innermost link, which must carry steps of its own."""
     written = read(brain)
     if written is None:
         raise TaskError(BROKEN)
@@ -309,15 +276,15 @@ def set_step(
     if not chain:
         raise TaskError("no work is on, start it with brain task on")
 
-    innermost = chain[-1]
-    entry = entry_of(brain=brain, item=innermost)
+    item = chain[-1]
+    if item.kind == "review":
+        raise TaskError("a review's step is its batch, read off the ledger, so it takes no mark here")
+
+    entry = entry_of(brain=brain, item=item)
     if entry is None:
-        raise TaskError(f"{innermost.key} cannot be read right now")
+        raise TaskError(f"{item.key} cannot be read right now")
 
-    chain[-1] = Item(kind=innermost.kind, key=innermost.key, step=first_step(brain=brain, entry=entry, wanted=number))
-    write(brain=brain, chain=chain)
-
-    return chain
+    return chain, entry
 
 
 def turn_off(
@@ -366,38 +333,28 @@ def describe_item(
     if item.kind == "review":
         return f"{item.key}, {batch_text(entry)}"
 
-    if item.kind == "plan":
-        return f"{item.key}, {plan_text(entry=entry, step=item.step)}"
+    where = step_text(entry)
 
-    listed = steps.listed(entry.document.body)
-    if not listed or item.step is None or item.step > len(listed):
-        return item.key
-
-    return f"{item.key}, step {item.step} of {len(listed)}, {listed[item.step - 1]}"
+    return f"{item.key}, {where}" if where else item.key
 
 
-def plan_text(
+def step_text(
     entry: store.Entry,
-    step: Optional[int],
 ) -> str:
+    """Where the work stands in the entry's steps, nothing for a todo or a bug with none."""
     try:
-        rows = plans.read_rows(entry)
-    except plans.PlanError:
+        rows = steps.rows_of(entry)
+    except steps.StepsError:
         return "the steps table cannot be read"
 
     if not rows:
-        return "no steps yet"
+        return "no steps yet" if entry.kind.name == "plan" else ""
 
-    step = plan_step(rows=rows, step=step)
+    step = steps.current_step(rows)
     if step is None:
-        return "every step settled"
+        return f"every step settled, close the {entry.kind.name} with brain set status={steps.CLOSING[entry.kind.name]}"
 
-    row = rows[step - 1]
-    text = f"step {step} of {len(rows)}, {row.text}"
-    if row.status != "pending":
-        text += f", {row.status}, move on with brain task step"
-
-    return text
+    return f"step {step} of {len(rows)}, {rows[step - 1].text}"
 
 
 def batch_text(
@@ -423,7 +380,7 @@ def push_review(
     """Put a review that just opened on the chain, and say why when the rules keep it off, since the ledger opened either way."""
     try:
         turn_on(brain=brain, key=name)
-    except (TaskError, plans.PlanError, OSError) as reason:
+    except (TaskError, steps.StepsError, OSError) as reason:
         return str(reason)
 
     return None

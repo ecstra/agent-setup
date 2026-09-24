@@ -78,7 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_refile(commands)
     add_index(commands)
     add_doctor(commands)
-    add_plan(commands)
+    add_steps(commands)
     add_ledger(commands)
     add_port(commands)
     add_upgrade(commands)
@@ -144,18 +144,23 @@ def run_ack(
 def add_task(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("task", help="the current work: on an entry, its step, off, or where it stands")
+    command = commands.add_parser("task", help="the current work: on an entry, its step done or skipped, off, or where it stands")
     actions = command.add_subparsers(dest="action")
 
     starting = actions.add_parser("on", help="start work on a plan, a todo, a bug or a review")
     starting.add_argument("key", help="the entry, by id, name or path")
-    starting.add_argument("--step", type=int, help="the step to start on, the first pending one unless given")
     starting.add_argument("--replace", action="store_true", help="in place of the chain that stands, which is otherwise kept")
     starting.set_defaults(handler=run_task_on)
 
-    stepping = actions.add_parser("step", help="move the innermost link to another of its steps")
-    stepping.add_argument("number", type=int)
-    stepping.set_defaults(handler=run_task_step)
+    finishing = actions.add_parser("done", help="mark the step the work stands on done, and stand on the next")
+    finishing.set_defaults(handler=run_task_mark, status="done")
+
+    skipping = actions.add_parser("skip", help="mark the step the work stands on skipped, and stand on the next")
+    skipping.set_defaults(handler=run_task_mark, status="skipped")
+
+    reopening = actions.add_parser("step", help="mark a step pending again, so the work stands on it")
+    reopening.add_argument("number", type=int)
+    reopening.set_defaults(handler=run_task_step)
 
     stopping = actions.add_parser("off", help="drop the innermost link, or the whole chain")
     stopping.add_argument("--all", dest="everything", action="store_true")
@@ -179,9 +184,18 @@ def run_task_on(
     task.turn_on(
         brain=brain,
         key=args.key,
-        step=args.step,
         replace=args.replace,
     )
+    print(task.describe(brain=brain))
+    return 0
+
+
+def run_task_mark(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    task.mark(brain=brain, status=args.status)
+    index.write(brain)
     print(task.describe(brain=brain))
     return 0
 
@@ -190,7 +204,8 @@ def run_task_step(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    task.set_step(brain=brain, number=args.number)
+    task.reopen(brain=brain, number=args.number)
+    index.write(brain)
     print(task.describe(brain=brain))
     return 0
 
@@ -459,35 +474,35 @@ def run_doctor(
     return FINDINGS_REMAIN if found else 0
 
 
-def add_plan(
+def add_steps(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("plan", help="a plan's steps: show them, add some, or mark a plain one")
-    command.add_argument("key", help="the plan, by name or path")
+    command = commands.add_parser("steps", help="the steps of a plan, a todo or a bug: show them, add some, or mark a plain one")
+    command.add_argument("key", help="the entry, by id, name or path")
     actions = command.add_subparsers(dest="action")
 
     adding = actions.add_parser("add", help="append steps, one per line of standard input, or the one given")
     adding.add_argument("step", nargs="?", help="one step, or - to read one per line from standard input")
     adding.add_argument("--by", default="agent", choices=steps.BY, help="who set the steps, agent unless said otherwise")
-    adding.set_defaults(handler=run_plan_add)
+    adding.set_defaults(handler=run_steps_add)
 
     marking = actions.add_parser("step", help="mark a step that points at nothing")
     marking.add_argument("number", type=int)
     marking.add_argument("status", choices=steps.STEP_STATUSES)
-    marking.set_defaults(handler=run_plan_step)
+    marking.set_defaults(handler=run_steps_mark)
 
-    command.set_defaults(handler=run_plan_show)
+    command.set_defaults(handler=run_steps_show)
 
 
-def run_plan_show(
+def run_steps_show(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    print(plans.view(brain=brain, key=args.key))
+    print(steps.view(brain=brain, key=args.key))
     return 0
 
 
-def run_plan_add(
+def run_steps_add(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
@@ -496,17 +511,18 @@ def run_plan_add(
         print("no steps given, one per line on standard input, or one after add", file=sys.stderr)
         return REFUSED
 
-    numbers = plans.add(brain=brain, key=args.key, lines=lines, by=args.by)
+    numbers = steps.add(brain=brain, key=args.key, lines=lines, by=args.by)
     index.write(brain)
     print("\n".join(str(number) for number in numbers))
     return 0
 
 
-def run_plan_step(
+def run_steps_mark(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    plans.set_step(brain=brain, key=args.key, number=args.number, status=args.status)
+    steps.mark(brain=brain, key=args.key, number=args.number, status=args.status)
+    index.write(brain)
     return 0
 
 

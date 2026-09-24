@@ -530,44 +530,49 @@ def check_sections(
 def check_steps(
     brain: store.Brain,
 ) -> list[Finding]:
-    """The steps a plan's table and a todo's list carry, per spec/plans.md and spec/todos.md.
+    """The steps table a plan, a todo or a bug carries, per spec/plans.md.
 
-    A plan's table must read as one, every step that points at an entry
-    must reach one, a pointed step's mark must be the one its entry
-    gives, which is repaired, and a plan still open once every step is
-    settled is told to close. A todo's or a bug's list must be numbered
-    1 onward with nothing else in the section.
+    The table must read as one, every step that points at an entry must
+    reach one, a pointed step's mark must be the one its entry gives,
+    which is repaired, and an entry still open once every step is
+    settled is told to close.
     """
     found: list[Finding] = []
 
-    for entry in brain.entries():
-        if entry.kind.name in steps.POINTED_KINDS or entry.kind.name == "bug":
-            found += [Finding(path=entry.relative, check="steps", message=slip) for slip in steps.list_slips(entry.document.body)]
+    for kind_name in steps.STEPPED_KINDS:
+        for entry in brain.entries_of(schema.kind_named(kind_name)):
+            found += check_table(brain=brain, entry=entry)
 
-        if entry.kind.name != "plan":
-            continue
+    return found
 
-        try:
-            rows = steps.table(entry.document.body)
-        except steps.StepsError as broken:
-            found.append(Finding(path=entry.relative, check="steps", message=str(broken)))
-            continue
 
-        for step in rows:
-            if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
-                found.append(Finding(path=entry.relative, check="steps", message=f"step {step.number} points at '{step.points_at}', which reaches no todo, bug or review"))
-            elif step.points_at and steps.derived_status(brain=brain, step=step) != step.status:
-                found.append(
-                    Finding(
-                        path=entry.relative,
-                        check="steps",
-                        message=f"step {step.number} is marked {step.status} while {step.points_at} says {steps.derived_status(brain=brain, step=step)}",
-                        repair=refresh_steps(brain=brain, entry=entry),
-                    )
+def check_table(
+    brain: store.Brain,
+    entry: store.Entry,
+) -> list[Finding]:
+    found: list[Finding] = []
+    try:
+        rows = steps.rows_of(entry)
+    except steps.StepsError as broken:
+        return [Finding(path=entry.relative, check="steps", message=str(broken).split(": ", 1)[1])]
+
+    for step in rows:
+        if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
+            found.append(Finding(path=entry.relative, check="steps", message=f"step {step.number} points at '{step.points_at}', which reaches no todo, bug or review"))
+        elif step.points_at and steps.derived_status(brain=brain, step=step) != step.status:
+            found.append(
+                Finding(
+                    path=entry.relative,
+                    check="steps",
+                    message=f"step {step.number} is marked {step.status} while {step.points_at} says {steps.derived_status(brain=brain, step=step)}",
+                    repair=refresh_steps(brain=brain, entry=entry),
                 )
+            )
 
-        if entry.field("status") == "open" and steps.all_settled(rows):
-            found.append(Finding(path=entry.relative, check="steps", message="every step is settled, close the plan with brain set status=done"))
+    is_open = (entry.field("status") or "") in steps.OPEN_STATUSES[entry.kind.name]
+    if is_open and steps.all_settled(rows):
+        closing = steps.CLOSING[entry.kind.name]
+        found.append(Finding(path=entry.relative, check="steps", message=f"every step is settled, close the {entry.kind.name} with brain set status={closing}"))
 
     return found
 
@@ -576,7 +581,7 @@ def refresh_steps(
     brain: store.Brain,
     entry: store.Entry,
 ) -> Callable[[], None]:
-    """A repair that brings a plan's pointed marks in line with their entries, stamping the file."""
+    """A repair that brings an entry's pointed marks in line with what they point at, stamping the file."""
 
     def repair() -> None:
         steps.refresh(brain=brain, entry=brain.read(path=entry.path, kind=entry.kind))

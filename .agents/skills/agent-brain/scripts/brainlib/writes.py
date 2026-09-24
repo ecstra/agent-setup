@@ -74,6 +74,8 @@ def create(
 
     check(kind=kind, fields=fields)
     text = framed(body) if body else sections.skeleton(kind=kind, title=title)
+    if kind.name in steps.STEPPED_KINDS:
+        text = steps.tabled(brain=brain, body=text, by=fields.get("by") or "agent", kind=kind)
     refuse_gaps(sections.lifecycle_gaps(kind=kind, fields=fields, body=text))
 
     document = frontmatter.Document(
@@ -112,7 +114,7 @@ def update(
 
     check(kind=entry.kind, fields=fields)
     check_rules(entry=entry, fields=fields)
-    refuse_gaps(steps.plan_gaps(kind=entry.kind, fields=fields, body=entry.document.body))
+    refuse_gaps(steps.gaps(kind=entry.kind, fields=fields, body=entry.document.body))
 
     for name, value in changes.items():
         entry.document.set(key=name, value=value)
@@ -121,7 +123,7 @@ def update(
     frontmatter.write(path=str(entry.path), document=entry.document)
     brain.refresh()
 
-    # a plan's step that points at this entry takes its mark from it
+    # a step that points at this entry takes its mark from it
     if "status" in changes and entry.kind.name in steps.POINTED_KINDS:
         steps.refresh_pointing(brain=brain, key=entry.relative, stamp=stamp)
 

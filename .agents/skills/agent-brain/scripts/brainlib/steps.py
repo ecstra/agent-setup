@@ -1,10 +1,14 @@
-"""The steps a piece of work is made of: a plan's table and a todo's list.
+"""The steps a piece of work is made of, a table the tool keeps on a plan, a todo or a bug.
 
-A plan's Steps section holds a table the tool keeps, one row per step,
-numbered from 1 and never renumbered, each pointing at a todo, a bug or
-a review or standing on its own. A todo's or a bug's Steps section holds
-a plain numbered list the agent writes by hand. This module reads both
-and rewrites the table, and nothing else touches the table's shape.
+The Steps section holds a table, one row per step, numbered from 1 and
+never renumbered, each pointing at a todo, a bug or a review or standing
+on its own. A plan always carries the table, a todo or a bug carries
+one when its work has steps. Whoever files the entry lists the steps as
+numbered lines, and the tool turns them into the table. Rows are added
+and marked through here, never deleted, a step that turned out wrong is
+skipped, so the file reads as the record of how the work went. A step
+that points at an entry takes its mark from that entry, and only a step
+that points at nothing is marked by hand.
 """
 
 import re
@@ -16,6 +20,9 @@ from . import frontmatter, schema, sections, store
 
 STEP_STATUSES: tuple[str, ...] = ("pending", "done", "skipped")
 BY: tuple[str, ...] = ("owner", "agent")
+
+# the kinds that carry a steps table
+STEPPED_KINDS: tuple[str, ...] = ("plan", "todo", "bug")
 
 # the kinds a step may point at, and what counts as done for each
 POINTED_KINDS: dict[str, tuple[str, ...]] = {
@@ -29,6 +36,21 @@ POINTED_GONE: dict[str, tuple[str, ...]] = {
     "review": (),
 }
 
+# the statuses that keep work open, for the chain and for adding steps
+OPEN_STATUSES: dict[str, tuple[str, ...]] = {
+    "plan": ("open",),
+    "todo": ("open",),
+    "bug": ("open", "branched"),
+    "review": ("open",),
+}
+
+# the status that closes each stepped kind once every step is settled
+CLOSING: dict[str, str] = {
+    "plan": "done",
+    "todo": "done",
+    "bug": "fixed",
+}
+
 TABLE_HEADER = "| # | Step | Points at | By | Status |\n|---|---|---|---|---|\n"
 HEADER_LINE = re.compile(r"^\|[ \t]*#[ \t]*\|[ \t]*Step[ \t]*\|[ \t]*Points at[ \t]*\|[ \t]*By[ \t]*\|[ \t]*Status[ \t]*\|[ \t]*\n\|[-| \t]+\|[ \t]*$", re.MULTILINE)
 ROW = re.compile(
@@ -37,14 +59,17 @@ ROW = re.compile(
 )
 LISTED = re.compile(r"^(\d+)\.[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 
+# a step line may open with the key of the entry it points at
+POINTER = re.compile(r"^([A-Za-z0-9][\w.-]*)[,:][ \t]+(.+)$")
+
 
 class StepsError(Exception):
-    """A steps table or list that does not read as one, with the line and the fix in the message."""
+    """A steps table that does not read as one, or a step that cannot be added or marked as asked, with the reason in the message."""
 
 
 @dataclass(frozen=True)
 class Step:
-    """One row of a plan's table."""
+    """One row of the table."""
 
     number: int
     text: str
@@ -56,10 +81,10 @@ class Step:
 def table(
     body: str,
 ) -> list[Step]:
-    """Every row of the plan's steps table, in order, refused when the section or the table is not there or a row is broken."""
+    """Every row of the steps table, in order, refused when the section or the table is not there or a row is broken."""
     found = sections.span(body=body, title="Steps")
     if found is None:
-        raise StepsError("the plan has no Steps section")
+        raise StepsError("there is no Steps section")
 
     start, end = found
     spans = sections.code_spans(body)
@@ -70,7 +95,7 @@ def table(
             break
 
     if header is None:
-        raise StepsError("the plan has no steps table, its header is | # | Step | Points at | By | Status |")
+        raise StepsError("the Steps section has no table, its header is | # | Step | Points at | By | Status |, and brain steps <key> add fills one")
 
     rows: list[Step] = []
     position = header.end()
@@ -112,6 +137,43 @@ def table(
     return rows
 
 
+def rows_of(
+    entry: store.Entry,
+) -> list[Step]:
+    """The entry's steps, none for a todo or a bug without a Steps section, refused with the path named when the table does not read."""
+    if entry.kind.name != "plan" and sections.span(body=entry.document.body, title="Steps") is None:
+        return []
+
+    try:
+        return table(entry.document.body)
+    except StepsError as broken:
+        raise StepsError(f"{entry.relative}: {broken}") from broken
+
+
+def has_table(
+    body: str,
+) -> bool:
+    """Whether the Steps section already holds the table's header, outside code."""
+    found = sections.span(body=body, title="Steps")
+    if found is None:
+        return False
+
+    spans = sections.code_spans(body)
+
+    return any(not sections.in_code(spans=spans, position=match.start()) for match in HEADER_LINE.finditer(string=body, pos=found[0], endpos=found[1]))
+
+
+def current_step(
+    rows: list[Step],
+) -> Optional[int]:
+    """The first step not yet done or skipped, or None when every step is settled or there are none."""
+    for step in rows:
+        if step.status == "pending":
+            return step.number
+
+    return None
+
+
 def render_row(
     step: Step,
 ) -> str:
@@ -128,7 +190,7 @@ def rewrite(
     """The body with its steps table replaced by these rows, the prose around it untouched."""
     start, end = sections.span(body=body, title="Steps") or (None, None)
     if start is None:
-        raise StepsError("the plan has no Steps section")
+        raise StepsError("there is no Steps section")
 
     header = next(match for match in HEADER_LINE.finditer(string=body, pos=start, endpos=end))
     old_rows = list(ROW.finditer(string=body, pos=header.end(), endpos=end))
@@ -141,7 +203,7 @@ def rewrite(
 def listed(
     body: str,
 ) -> list[str]:
-    """The numbered lines of a todo's or a bug's Steps section, in order, or none where there is no such section."""
+    """The numbered lines of a Steps section as someone filed it, in order, or none where there is no such section."""
     text = sections.block(body=body, title="Steps")
     if text is None:
         return []
@@ -149,24 +211,78 @@ def listed(
     return [match.group(2) for match in LISTED.finditer(text)]
 
 
-def list_slips(
+def tabled(
+    brain: store.Brain,
     body: str,
-) -> list[str]:
-    """What is wrong with a todo's or a bug's Steps list, in words, or nothing when it reads as one."""
-    text = sections.block(body=body, title="Steps")
-    if text is None:
-        return []
+    by: str,
+    kind: schema.Kind,
+) -> str:
+    """The body with the numbered lines under Steps turned into the table, or as it was when it has no Steps section or already holds the table."""
+    if sections.span(body=body, title="Steps") is None or has_table(body):
+        return body
 
-    numbers = [int(match.group(1)) for match in LISTED.finditer(text)]
-    loose = [line for line in text.strip().split("\n") if line.strip() and LISTED.match(line) is None]
-    slips: list[str] = []
-    if loose:
-        slips.append("the Steps section holds only numbered lines, one step each")
+    rows = [row_from(brain=brain, number=number, line=line, by=by) for number, line in enumerate(listed(body), 1)]
 
-    if numbers != list(range(1, len(numbers) + 1)):
-        slips.append("the steps are numbered 1 onward in order")
+    return with_table(body=body, rows=rows, kind=kind)
 
-    return slips
+
+def with_table(
+    body: str,
+    rows: list[Step],
+    kind: schema.Kind,
+) -> str:
+    """The body with its Steps section holding the table and nothing else, added where the kind's sections put it when the prose had none."""
+    found = sections.span(body=body, title="Steps")
+    table_text = TABLE_HEADER.rstrip("\n") + "".join("\n" + render_row(step) for step in rows) + "\n"
+    if found is not None:
+        start, end = found
+        return body[:start] + "\n\n" + table_text + "\n" + body[end:]
+
+    titles = [section.title for section in kind.sections]
+    for title in titles[titles.index("Steps") + 1 :]:
+        following = sections.span(body=body, title=title)
+        if following is not None:
+            heading_start = body.rfind("## ", 0, following[0])
+            return body[:heading_start] + "## Steps\n\n" + table_text + "\n" + body[heading_start:]
+
+    return body.rstrip("\n") + "\n\n## Steps\n\n" + table_text
+
+
+def row_from(
+    brain: store.Brain,
+    number: int,
+    line: str,
+    by: str,
+) -> Step:
+    """One step from one line, which may open with the key of the entry it points at, refused when that key reaches nothing of the right kind."""
+    if by not in BY:
+        raise StepsError(f"a step is set by {' or '.join(BY)}, not '{by}'")
+
+    line = line.strip()
+    if "|" in line:
+        raise StepsError(f"step {number} cannot hold a pipe, the table's columns are pipes")
+
+    points_at = ""
+    match = POINTER.match(line)
+    if match is not None and pointed(brain=brain, key=match.group(1)) is not None:
+        points_at = match.group(1)
+        line = match.group(2).strip()
+    elif match is not None and looks_like_a_key(match.group(1)):
+        raise StepsError(f"step {number} points at '{match.group(1)}', which is not a todo, a bug or a review the brain knows")
+
+    if not line:
+        raise StepsError(f"step {number} has no text")
+
+    step = Step(number=number, text=line, points_at=points_at, by=by, status="pending")
+
+    return Step(number=number, text=line, points_at=points_at, by=by, status=derived_status(brain=brain, step=step))
+
+
+def looks_like_a_key(
+    word: str,
+) -> bool:
+    """Whether a word opening a step line is meant as an id or a review's name rather than a word of prose."""
+    return schema.FILENAME_WITH_ID.match(f"{word}-x.md") is not None or schema.is_review_folder(word)
 
 
 def pointed(
@@ -207,13 +323,118 @@ def derived_status(
     return "pending"
 
 
+def add(
+    brain: store.Brain,
+    key: str,
+    lines: list[str],
+    by: str = "agent",
+) -> list[int]:
+    """Append steps to the entry, numbered after the last, and hand back their numbers."""
+    entry = stepped_entry(brain=brain, key=key)
+    status = entry.field("status") or ""
+    if status not in OPEN_STATUSES[entry.kind.name]:
+        raise StepsError(f"{entry.name} is {status}, a step is added while it is open")
+
+    rows = rows_of(entry)
+    added = [row_from(brain=brain, number=len(rows) + offset, line=line, by=by) for offset, line in enumerate(lines, 1)]
+    if not added:
+        raise StepsError("no steps given, one per line")
+
+    own = {entry.identifier, entry.name}
+    for step in added:
+        if step.points_at in own:
+            raise StepsError(f"step {step.number} points at {entry.name} itself, and a step points at other work")
+
+    body = entry.document.body
+    if sections.span(body=body, title="Steps") is None:
+        body = with_table(body=body, rows=[], kind=entry.kind)
+
+    entry.document.body = rewrite(body=body, rows=rows + added)
+    save(brain=brain, entry=entry)
+
+    return [step.number for step in added]
+
+
+def mark(
+    brain: store.Brain,
+    key: str,
+    number: int,
+    status: str,
+) -> None:
+    """Mark a step that points at nothing done, skipped or pending again, since a pointed step takes its mark from what it points at."""
+    if status not in STEP_STATUSES:
+        raise StepsError(f"a step is {' or '.join(STEP_STATUSES)}, not '{status}'")
+
+    entry = stepped_entry(brain=brain, key=key)
+    rows = rows_of(entry)
+    step = step_numbered(entry=entry, rows=rows, number=number)
+    if step.points_at:
+        raise StepsError(f"step {number} points at {step.points_at}, so its mark follows that entry, close or drop it instead")
+
+    rows[number - 1] = Step(number=number, text=step.text, points_at="", by=step.by, status=status)
+    entry.document.body = rewrite(body=entry.document.body, rows=rows)
+    save(brain=brain, entry=entry)
+
+
+def step_numbered(
+    entry: store.Entry,
+    rows: list[Step],
+    number: int,
+) -> Step:
+    if number < 1 or number > len(rows):
+        raise StepsError(f"{entry.name} has {len(rows)} steps, and there is no step {number}")
+
+    return rows[number - 1]
+
+
+def view(
+    brain: store.Brain,
+    key: str,
+) -> str:
+    """The entry's steps in a few lines: its state, then one line per step with its mark."""
+    entry = stepped_entry(brain=brain, key=key)
+    rows = rows_of(entry)
+    settled = sum(1 for step in rows if step.status in ("done", "skipped"))
+    lines = [f"{entry.name}, {entry.field('status')}, {settled} of {len(rows)} steps settled"]
+    for step in rows:
+        pointer = f", {step.points_at}" if step.points_at else ""
+        lines.append(f"{step.number}. {step.text}{pointer}, {step.status}")
+
+    return "\n".join(lines)
+
+
+def stepped_entry(
+    brain: store.Brain,
+    key: str,
+) -> store.Entry:
+    try:
+        entry = brain.find(key)
+    except store.Ambiguous as clash:
+        raise StepsError(str(clash)) from clash
+
+    if entry is None or entry.kind.name not in STEPPED_KINDS:
+        raise StepsError(f"no plan, todo or bug answers to '{key}'")
+
+    return entry
+
+
+def save(
+    brain: store.Brain,
+    entry: store.Entry,
+    stamp: str = "",
+) -> None:
+    entry.document.set(key="updated", value=stamp or date.today().isoformat())
+    frontmatter.write(path=str(entry.path), document=entry.document)
+    brain.refresh()
+
+
 def refresh(
     brain: store.Brain,
     entry: store.Entry,
     stamp: str = "",
 ) -> bool:
-    """Bring every pointed step's mark of the plan in line with the entry it points at, and say whether anything changed."""
-    rows = table(entry.document.body)
+    """Bring every pointed step's mark in line with the entry it points at, and say whether anything changed."""
+    rows = rows_of(entry)
     fresh = [
         Step(number=step.number, text=step.text, points_at=step.points_at, by=step.by, status=derived_status(brain=brain, step=step))
         for step in rows
@@ -222,9 +443,7 @@ def refresh(
         return False
 
     entry.document.body = rewrite(body=entry.document.body, rows=fresh)
-    entry.document.set(key="updated", value=stamp or date.today().isoformat())
-    frontmatter.write(path=str(entry.path), document=entry.document)
-    brain.refresh()
+    save(brain=brain, entry=entry, stamp=stamp)
 
     return True
 
@@ -234,21 +453,22 @@ def refresh_pointing(
     key: str,
     stamp: str = "",
 ) -> list[str]:
-    """Refresh every plan with a step that points at the entry, and name the plans that changed."""
+    """Refresh every plan, todo and bug with a step that points at the entry, and name the ones that changed."""
     entry = pointed(brain=brain, key=key)
     if entry is None:
         return []
 
     keys = {entry.identifier, entry.name} - {None}
     changed: list[str] = []
-    for plan in brain.entries_of(schema.kind_named("plan")):
-        try:
-            rows = table(plan.document.body)
-        except StepsError:
-            continue
+    for kind_name in STEPPED_KINDS:
+        for holder in brain.entries_of(schema.kind_named(kind_name)):
+            try:
+                rows = rows_of(holder)
+            except StepsError:
+                continue
 
-        if any(step.points_at in keys for step in rows) and refresh(brain=brain, entry=plan, stamp=stamp):
-            changed.append(plan.name)
+            if any(step.points_at in keys for step in rows) and refresh(brain=brain, entry=holder, stamp=stamp):
+                changed.append(holder.name)
 
     return changed
 
@@ -260,13 +480,17 @@ def all_settled(
     return bool(rows) and all(step.status in ("done", "skipped") for step in rows)
 
 
-def plan_gaps(
+def gaps(
     kind: schema.Kind,
     fields: dict[str, str],
     body: str,
 ) -> list[str]:
-    """What a plan in its status falls short of, the one rule its table sets: done means every step is done or skipped."""
-    if kind.name != "plan" or fields.get("status", "") != "done":
+    """What an entry closing falls short of, the one rule its table sets: closed means every step is done or skipped."""
+    status = fields.get("status", "")
+    if kind.name not in CLOSING or status != CLOSING[kind.name]:
+        return []
+
+    if kind.name != "plan" and sections.span(body=body, title="Steps") is None:
         return []
 
     try:
@@ -275,6 +499,6 @@ def plan_gaps(
         return [str(broken)]
 
     if not all_settled(rows):
-        return ["a plan goes done once every step is done or skipped, and one of its steps still stands"]
+        return [f"a {kind.name} goes {status} once every step is done or skipped, and one of its steps still stands"]
 
     return []
