@@ -446,14 +446,24 @@ def set_name(
     actual: str,
     expected: str,
 ) -> Callable[[], None]:
-    """A repair that sets the name the file says, and moves the chain's link with it, since a plan is on the chain by its name."""
+    """A repair that sets the name the file says, and moves a plan's link on the chain with it, since a plan is on the chain by its name.
+
+    The chain moves first: the new name resolves by the file's stem
+    whether or not the field follows, and a chain that cannot be
+    written leaves the field as it was, so the finding stays to report
+    the failure. A link stays where it is when another file answers to
+    the old name, a copy that kept it, since the link means that file.
+    """
     set_the_field = set_field(path=entry.path, key="name", value=expected)
+    follows = entry.kind.name == "plan" and not any(
+        other.path != entry.path and actual in (other.name, other.path.stem) for other in brain.entries()
+    )
 
     def repair() -> None:
-        set_the_field()
-
-        if entry.kind.name == "plan":
+        if follows:
             task.renamed(brain=brain, kind="plan", old=actual, new=expected)
+
+        set_the_field()
 
     return repair
 
