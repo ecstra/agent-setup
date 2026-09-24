@@ -77,6 +77,15 @@ a memory (`--type project|feedback|reference`), a doc (`--category`), a
 handover, or a review. Each kind's required headings are in its spec
 under `.agents/spec/`, and the tool names the one that is missing.
 
+A plan is a goal with the steps that reach it, and the steps are a
+table the tool keeps. `brain new plan` takes the Why and the Done when
+on standard input and turns a numbered Steps list, each line free to
+open with the id or the name of the todo, bug or review it points at,
+into that table. `brain plan <plan> add` appends steps as the work
+teaches them, `brain plan <plan> step <n> done` marks a step that
+points at nothing, a pointed step follows its entry on its own, and
+`brain plan <plan>` shows the table with its marks.
+
 ## Changing something
 
 ```bash

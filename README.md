@@ -208,7 +208,7 @@ prompt below if the agent did not run the port itself.
 | Your own `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` | Carried into `## 0. Project Rules` by the port, then read against the new rulebook. Anything the general rules already cover is dropped, only the truly project specific parts stay. |
 | A `docs/` folder, wiki pages, architecture or design notes | `.agents/docs/`, sorted into a category folder (`foundation/`, `systems/`, `ops/`, `research/`), one line each in `.agents/docs/INDEX.md`. What a person wrote by hand stays where it is, and a `docs/` folder you keep links into the brain rather than repeating it. |
 | ADRs or a decisions log | `.agents/decisions/`, one file per decision. |
-| A TODO list, roadmap, or backlog | `.agents/todos/`, one file per item, your wording kept as is. |
+| A TODO list, roadmap, or backlog | `.agents/todos/`, one file per item, your wording kept as is, and a roadmap with its steps as `.agents/plans/`, one file per goal. |
 | Known bugs, issue notes | `.agents/bugs/`, one file per bug. |
 | Gotchas, tribal knowledge, "remember that" notes | `.agents/memory/`, one fact per file. |
 | Your `CONTRIBUTING.md` | Replaced by the kit's, the old one kept by git. Extra rules of yours go into `## 0. Project Rules`. |
@@ -341,10 +341,12 @@ Here is how it ships, empty and ready.
 │   ├── bugs.md
 │   ├── todos.md
 │   ├── decisions.md
+│   ├── plans.md
 │   ├── reviews.md
 │   └── handover.md
 ├── docs/INDEX.md         the knowledge library
 ├── memory/INDEX.md       facts learned along the way
+├── plans/INDEX.md        the plans, each a goal with its steps
 ├── todos/INDEX.md        the work tracker
 ├── bugs/INDEX.md         the defect tracker
 ├── decisions/INDEX.md    decisions taken and why
@@ -374,6 +376,9 @@ land.
 ├── memory/
 │   ├── INDEX.md
 │   └── stripe-webhooks-retry-twice.md
+├── plans/
+│   ├── INDEX.md
+│   └── billing-launch.md
 ├── todos/
 │   ├── INDEX.md
 │   ├── TODO-001-export-to-csv.md

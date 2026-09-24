@@ -99,6 +99,25 @@ and still carries a stamp from an earlier word takes the standing word
 again when it starts, so a start that gives no ack is refused while
 the word is off, and the report says it waits for the owner's word.
 
+## The plans
+
+A plan is a goal with the steps that reach it, per
+[spec/plans.md](../../../spec/plans.md), the prose the owner's and the
+agent's and the steps table the tool's.
+
+| Command | What it does |
+|---|---|
+| `brain new plan --title T --description D [--by owner\|agent]` | Files a plan from its prose on standard input, the Why and the Done when at least. Steps listed under a Steps heading, one numbered line each, become the table's rows, a line that opens with the id or the name of a todo, a bug or a review followed by a comma pointing at that entry, and a plan with no steps is filed with an empty table, a goal to find out. A pointer that reaches nothing of those kinds is refused. `by` is owner unless said otherwise. |
+| `brain plan <plan>` | The plan in a few lines, its status and the count of settled steps, then one line per step with what it points at and its mark. |
+| `brain plan <plan> add "step"`, `brain plan <plan> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers. A step is one line with no pipe, and it may open with a pointer the way a listed step does. Refused on a plan that is not open. |
+| `brain plan <plan> step <n> pending\|done\|skipped` | Marks a step that points at nothing. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped or refiled, and the tool refreshes it whenever the entry's status changes, so marking one by hand is refused. |
+
+A plan goes done with `brain set <plan> status=done done=<date>` once
+every step is done or skipped, and the tool refuses it before then.
+Doctor reports a table that does not read as one, a step whose pointer
+reaches nothing, a pointed mark that drifted, which it repairs, and a
+plan still open with every step settled.
+
 ## The review ledger
 
 | Command | What it does |
