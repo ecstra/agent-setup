@@ -626,7 +626,12 @@ def check_table(
         elif fresh.points_at != step.points_at:
             target = steps.pointed(brain=brain, key=step.points_at)
             moved = target is not None and target.field("status") == "refiled"
-            why = f"which was refiled as {fresh.points_at}" if moved else f"and the tool keeps the id {fresh.points_at}, which a retitle never moves"
+            if moved:
+                why = f"which was refiled as {fresh.points_at}"
+            elif target is not None and target.kind.name == "review":
+                why = f"and the tool keeps the name {fresh.points_at}, which a review keeps as its branch's"
+            else:
+                why = f"and the tool keeps the id {fresh.points_at}, which a retitle never moves"
             found.append(
                 Finding(
                     path=entry.relative,
