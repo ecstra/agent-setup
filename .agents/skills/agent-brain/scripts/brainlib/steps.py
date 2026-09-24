@@ -64,6 +64,7 @@ LISTED = re.compile(r"^(\d+)\.[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 
 # a step line may open with the key of the entry it points at
 POINTER = re.compile(r"^([A-Za-z0-9][\w.-]*)[,:][ \t]+(.+)$")
+KEY_START = re.compile(r"^([A-Za-z0-9][\w.-]*)")
 
 # a heading meant as the Steps section that the readers would never find
 STEPS_LOOKALIKE = re.compile(r"^#{1,6}[ \t]+steps:?[ \t]*$", re.IGNORECASE | re.MULTILINE)
@@ -439,7 +440,8 @@ def row_from(
         elif looks_like_a_key(match.group(1)) and not known(brain=brain, key=match.group(1)):
             raise StepsError(f"step {number} points at '{match.group(1)}', which is not a todo, a bug or a review the brain knows")
     else:
-        word = line.split(None, 1)[0].rstrip(".,:;") if line else ""
+        opening = KEY_START.match(line)
+        word = opening.group(1) if opening is not None else ""
         if looks_like_a_key(word) and pointed(brain=brain, key=word) is not None:
             raise StepsError(f"step {number} opens with {word} and no comma or colon after it, so it would point at nothing, and a step that points at it reads '{word}, what to do'")
 
@@ -545,11 +547,14 @@ def refiled_to(
     brain: store.Brain,
     entry: store.Entry,
 ) -> Optional[store.Entry]:
-    """The entry a refiled todo or bug was filed as, a todo becoming a bug and a bug a todo, the last of its links that reaches one of that kind, or None."""
+    """The entry a refiled todo or bug was filed as, a todo becoming a bug and a bug a todo, the last of its links that reaches one of that kind whose own links name it back, which a refile writes and a related link never does, or None."""
     wanted = "bug" if entry.kind.name == "todo" else "todo"
     for link in reversed(entry.document.get_list("links")):
         target = found(brain=brain, key=link)
-        if target is not None and target.kind.name == wanted:
+        if target is None or target.kind.name != wanted:
+            continue
+
+        if any(found(brain=brain, key=back) is entry for back in target.document.get_list("links")):
             return target
 
     return None
