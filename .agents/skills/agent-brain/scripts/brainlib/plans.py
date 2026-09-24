@@ -34,6 +34,7 @@ def create(
 
     kind = schema.kind_named("plan")
     if sections.span(body=text, title="Steps") is None:
+        steps.refuse_lookalike(text)
         text = steps.with_table(body=text, rows=[], kind=kind)
 
     return writes.create(

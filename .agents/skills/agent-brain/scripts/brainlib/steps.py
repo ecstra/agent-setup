@@ -62,6 +62,9 @@ LISTED = re.compile(r"^(\d+)\.[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 # a step line may open with the key of the entry it points at
 POINTER = re.compile(r"^([A-Za-z0-9][\w.-]*)[,:][ \t]+(.+)$")
 
+# a heading meant as the Steps section that the readers would never find
+STEPS_LOOKALIKE = re.compile(r"^#{1,6}[ \t]+steps:?[ \t]*$", re.IGNORECASE | re.MULTILINE)
+
 
 class StepsError(Exception):
     """A steps table that does not read as one, or a step that cannot be added or marked as asked, with the reason in the message."""
@@ -248,10 +251,24 @@ def tabled(
     kind: schema.Kind,
 ) -> str:
     """The body with the numbered lines under Steps turned into the table, or as it was when it has no Steps section or already holds the table."""
-    if sections.span(body=body, title="Steps") is None or has_table(body):
+    if sections.span(body=body, title="Steps") is None:
+        refuse_lookalike(body)
+        return body
+
+    if has_table(body):
         return body
 
     return converted(brain=brain, body=body, by=by, kind=kind)
+
+
+def refuse_lookalike(
+    body: str,
+) -> None:
+    """Refuse a heading meant as the Steps section that no reader would find, so its steps are never left behind as prose."""
+    spans = sections.code_spans(body)
+    for match in STEPS_LOOKALIKE.finditer(body):
+        if not sections.in_code(spans=spans, position=match.start()):
+            raise StepsError(f"the steps go under a level two heading, ## Steps, and {match.group(0).strip()!r} is not one")
 
 
 def converted(
