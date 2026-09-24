@@ -554,7 +554,7 @@ def check_table(
     try:
         rows = steps.rows_of(entry)
     except steps.StepsError as broken:
-        return [Finding(path=entry.relative, check="steps", message=str(broken).split(": ", 1)[1])]
+        return [Finding(path=entry.relative, check="steps", message=str(broken).split(": ", 1)[1], repair=convert_steps(brain=brain, entry=entry))]
 
     for step in rows:
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
@@ -575,6 +575,28 @@ def check_table(
         found.append(Finding(path=entry.relative, check="steps", message=f"every step is settled, close the {entry.kind.name} with brain set status={closing}"))
 
     return found
+
+
+def convert_steps(
+    brain: store.Brain,
+    entry: store.Entry,
+) -> Optional[Callable[[], None]]:
+    """A repair that turns a list under Steps into the table, its rows marked by the entry's own status, or none when the section does not read as a list either."""
+    body = entry.document.body
+    if steps.has_table(body):
+        return None
+
+    try:
+        steps.converted(brain=brain, body=body, by=entry.field("by") or "agent", kind=entry.kind, status=steps.settled_as(entry))
+    except steps.StepsError:
+        return None
+
+    def repair() -> None:
+        fresh = brain.read(path=entry.path, kind=entry.kind)
+        fresh.document.body = steps.converted(brain=brain, body=fresh.document.body, by=fresh.field("by") or "agent", kind=fresh.kind, status=steps.settled_as(fresh))
+        steps.save(brain=brain, entry=fresh)
+
+    return repair
 
 
 def refresh_steps(

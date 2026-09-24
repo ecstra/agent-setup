@@ -251,9 +251,33 @@ def tabled(
     if sections.span(body=body, title="Steps") is None or has_table(body):
         return body
 
+    return converted(brain=brain, body=body, by=by, kind=kind)
+
+
+def converted(
+    brain: store.Brain,
+    body: str,
+    by: str,
+    kind: schema.Kind,
+    status: str = "pending",
+) -> str:
+    """The body with the list under Steps turned into the table, each row marked as given unless it points at an entry, which gives the mark."""
     rows = [row_from(brain=brain, number=number, line=line, by=by) for number, line in enumerate(listed(body), 1)]
+    if status != "pending":
+        rows = [step if step.points_at else Step(number=step.number, text=step.text, points_at="", by=step.by, status=status) for step in rows]
 
     return with_table(body=body, rows=rows, kind=kind)
+
+
+def settled_as(
+    entry: store.Entry,
+) -> str:
+    """The mark a step of a closed entry takes when its list becomes the table: done for an entry done or fixed, skipped for one dropped, refiled or wontfix, pending while it is open."""
+    status = entry.field("status") or ""
+    if status in OPEN_STATUSES[entry.kind.name]:
+        return "pending"
+
+    return "done" if status in ("done", "fixed") else "skipped"
 
 
 def with_table(
@@ -365,7 +389,13 @@ def add(
     if status not in OPEN_STATUSES[entry.kind.name]:
         raise StepsError(f"{entry.name} is {status}, a step is added while it is open")
 
-    rows = rows_of(entry)
+    body = entry.document.body
+    if sections.span(body=body, title="Steps") is None:
+        body = with_table(body=body, rows=[], kind=entry.kind)
+    elif not has_table(body):
+        body = converted(brain=brain, body=body, by=entry.field("by") or "agent", kind=entry.kind)
+
+    rows = table(body)
     added = [row_from(brain=brain, number=len(rows) + offset, line=line, by=by) for offset, line in enumerate(lines, 1)]
     if not added:
         raise StepsError("no steps given, one per line")
@@ -374,10 +404,6 @@ def add(
     for step in added:
         if step.points_at in own:
             raise StepsError(f"step {step.number} points at {entry.name} itself, and a step points at other work")
-
-    body = entry.document.body
-    if sections.span(body=body, title="Steps") is None:
-        body = with_table(body=body, rows=[], kind=entry.kind)
 
     entry.document.body = rewrite(body=body, rows=rows + added)
     save(brain=brain, entry=entry)
