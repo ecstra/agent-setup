@@ -199,10 +199,10 @@ move it under another heading by hand, and doctor names the line
 meanwhile. Reopening a closed entry with `brain set` is refused while
 its steps and another open entry's would point at each other, and
 while its own table, or the steps of an entry it points at, does not
-read, since the tool cannot tell. Doctor reports a Steps
-section with no table or one that does not read, a step line sitting
-outside the table, a step whose pointer reaches nothing, a pointed mark
-that drifted, a pointer left on a refiled entry or written by name, two
+read, since the tool cannot tell. Doctor reports a Steps section with
+no table or one that does not read, a step line sitting outside the
+table, a step whose pointer reaches nothing, a pointed mark that
+drifted, a pointer left on a refiled entry or written by name, two
 open entries whose steps wait on each other, a `became` on an entry
 that is not refiled or naming nothing, two files or the wrong kind, an
 entry done or fixed with a step still pending, since dropped, wontfix
@@ -281,8 +281,9 @@ any link standing there. No other file is removed.
 ## Port and upgrade
 
 Both run from a checkout of the kit, since a project without the tool
-has nothing to run: `python3 <kit>/.agents/skills/agent-brain/scripts/brain.py port`
-from the project's root. A project that already carries the tool can
+has nothing to run, so the port is
+`python3 <kit>/.agents/skills/agent-brain/scripts/brain.py port` from
+the project's root. A project that already carries the tool can
 run its own copy with `--kit` pointing at the newer checkout. Without
 `--project`, a port works on the top of the git repository around the
 current folder and an upgrade on the nearest folder at or above the
@@ -292,32 +293,32 @@ and `--project` has to name a folder that is there.
 
 | Command | What it does |
 |---|---|
-| `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain: the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, the review's sub agent definitions, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`: the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
+| `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain, which means the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, the review's sub agent definitions, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`, the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
 | `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Refuses without a brain, refuses while a file it would replace holds uncommitted work, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills`, in `.claude/skills` where the link goes, or a sub agent definition of its own under a name the skill brings, until the folder or file is moved aside. A folder the kit itself wrote is known by its bytes and passes. |
 
-What is the project's stays the project's: everything under `.agents/`
-that is not the kit's, section 0, `README.md`, `CODEOWNERS`, and any
-hook or setting of its own in the agent folders. Section 0 ends at the
-comment line in `AGENTS.md` that says where the kit's words start, so
-it is found the same way whatever a release says after that line. In a
-file the first release wrote, before that line existed, it ends where
-that release's opening paragraph stood, and that paragraph is history,
-so it never moves. The kit's earlier hook groups are replaced under
-every event, told apart by a command that is nothing but a call of the
-tool's own script, so a group of the project's own that calls the
-script bare counts as the kit's and goes with them, while a group that
-wraps that call, or calls a copy kept elsewhere, is the project's and
-stays, and an event left with no group stays as an empty list. A rename
-goes through git where git tracks the file, so the move shows as one,
-and a root file the kit replaces is named in the report along with
-where git keeps the old one. The exit code is doctor's, 0 clean and 2
-while findings remain, and those are the project's own prose to put
-right. A finding in the kit's own files, under `skills/agent-brain/`
-or `skills/branch-review/`, is the kit's to fix, printed apart and
-never counted, since the install replaces those files every time. The
-tool ships without its own tests, and the chat style copies in
-`.codex/` and `.gemini/` are the doctor's to make from the source in
-`.claude/output-styles/`.
+What is the project's stays the project's, which is everything under
+`.agents/` that is not the kit's, section 0, `README.md`, `CODEOWNERS`,
+and any hook or setting of its own in the agent folders. Section 0
+ends at the comment line in `AGENTS.md` that says where the kit's
+words start, so it is found the same way whatever a release says after
+that line. In a file the first release wrote, before that line
+existed, it ends where that release's opening paragraph stood, and
+that paragraph is history, so it never moves. The kit's earlier hook
+groups are replaced under every event, told apart by a command that is
+nothing but a call of the tool's own script, so a group of the
+project's own that calls the script bare counts as the kit's and goes
+with them, while a group that wraps that call, or calls a copy kept
+elsewhere, is the project's and stays, and an event left with no group
+stays as an empty list. A rename goes through git where git tracks the
+file, so the move shows as one, and a root file the kit replaces is
+named in the report along with where git keeps the old one. The exit
+code is doctor's, 0 clean and 2 while findings remain, and those are
+the project's own prose to put right. A finding in the kit's own
+files, under `skills/agent-brain/` or `skills/branch-review/`, is the
+kit's to fix, printed apart and never counted, since the install
+replaces those files every time. The tool ships without its own tests,
+and the chat style copies in `.codex/` and `.gemini/` are the doctor's
+to make from the source in `.claude/output-styles/`.
 
 ## Hooks
 
@@ -337,8 +338,9 @@ agents read on every event. Codex also takes plain text at the start of
 a session and on a prompt, and gets it there. On its tool events plain
 text is dropped, so those get the JSON object too.
 
-The config files that wire them up ship with the kit: `.claude/settings.json`,
-`.codex/hooks.json` and `.gemini/settings.json`. Every command in them
+The config files that wire them up ship with the kit, as
+`.claude/settings.json`, `.codex/hooks.json` and
+`.gemini/settings.json`. Every command in them
 is the same one line of Python, which finds the script from the
 project folder the agent names in `CLAUDE_PROJECT_DIR` or
 `GEMINI_PROJECT_DIR`, or by walking up from the session's own folder
