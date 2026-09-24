@@ -663,10 +663,12 @@ def convert_steps(
 
     A bug gets no repair, since a list under its Steps from before the
     table may be the reproduction, which the spec puts under Evidence,
-    and only whoever filed it can say which it is.
+    and only whoever filed it can say which it is, though the reason
+    the section would not turn is named for it too, so the line to
+    move by hand is known.
     """
     body = entry.document.body
-    if entry.kind.name == "bug" or steps.has_table(body):
+    if steps.has_table(body):
         return None
 
     own = {entry.identifier, entry.name} - {None}
@@ -674,6 +676,9 @@ def convert_steps(
         steps.converted(brain=brain, body=body, by=entry.field("by") or "agent", kind=entry.kind, status=steps.settled_as(entry), own=own)
     except steps.StepsError as refused:
         return str(refused)
+
+    if entry.kind.name == "bug":
+        return None
 
     def repair() -> None:
         fresh = brain.read(path=entry.path, kind=entry.kind)
