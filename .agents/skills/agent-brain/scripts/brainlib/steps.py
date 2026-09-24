@@ -350,6 +350,9 @@ def checked(
     rows = table(body)
     fresh: list[Step] = []
     for step in rows:
+        if not step.text.strip():
+            raise StepsError(f"step {step.number} has no text")
+
         target = pointed(brain=brain, key=step.points_at) if step.points_at else None
         if step.points_at and target is None:
             raise unreachable(brain=brain, number=step.number, key=step.points_at)
@@ -393,7 +396,7 @@ def converted(
     own: Optional[set[str]] = None,
 ) -> str:
     """The body with the list under Steps turned into the table, each row marked as given unless it points at an entry, which gives the mark, and a row pointing at the entry's own keys refused."""
-    rows = [row_from(brain=brain, number=number, line=line, by=by) for number, line in enumerate(listed(body), 1)]
+    rows = [row_from(brain=brain, number=number, line=line, by=by, own=own) for number, line in enumerate(listed(body), 1)]
     for step in rows:
         if own and step.points_at in own:
             raise StepsError(f"step {step.number} points at {step.points_at} itself, and a step points at other work")
@@ -449,8 +452,9 @@ def row_from(
     number: int,
     line: str,
     by: str,
+    own: Optional[set[str]] = None,
 ) -> Step:
-    """One step from one line, which may open with the key of the entry it points at, refused when that key reaches nothing of the right kind."""
+    """One step from one line, which may open with the key of the entry it points at, refused when that key reaches nothing of the right kind, its mark derived with the holder's own keys so a refile is followed only where the successor does not point back."""
     if by not in BY:
         raise StepsError(f"a step is set by {' or '.join(BY)}, not '{by}'")
 
@@ -478,7 +482,7 @@ def row_from(
     if not line:
         raise StepsError(f"step {number} has no text")
 
-    return derived_row(brain=brain, step=Step(number=number, text=line, points_at=points_at, by=by, status="pending"))
+    return derived_row(brain=brain, step=Step(number=number, text=line, points_at=points_at, by=by, status="pending"), own=own)
 
 
 def opening_key(
@@ -762,9 +766,45 @@ def refuse_cycles(
     rows: list[Step],
     own: set[str],
 ) -> None:
+    """Refuse a row whose entry's steps lead back to the holder, or whose entry's steps cannot be read on the way, since a guess either way could leave the two waiting on each other for good."""
     for step in rows:
-        if step.points_at and points_back(brain=brain, key=step.points_at, own=own):
+        if not step.points_at:
+            continue
+
+        broken = unreadable_reached(brain=brain, key=step.points_at)
+        if broken is not None:
+            where = step.points_at if broken == step.points_at else f"{step.points_at}, whose steps lead to {broken}"
+            raise StepsError(f"step {step.number} points at {where}, whose steps do not read, so the tool cannot tell whether they point back here, and brain doctor names what is wrong with them")
+
+        if points_back(brain=brain, key=step.points_at, own=own):
             raise StepsError(f"step {step.number} points at {step.points_at}, whose steps point back here, and the two would wait on each other for good")
+
+
+def unreadable_reached(
+    brain: store.Brain,
+    key: str,
+    seen: Optional[set[str]] = None,
+) -> Optional[str]:
+    """The key, as a step wrote it, of the first open entry on the way from the one named whose Steps holds a table that does not read, or None when every table on the way reads, a list not yet turned into a table holding no pointer the tool reads."""
+    entry = pointed(brain=brain, key=key)
+    if entry is None or not is_open(entry) or entry.kind.name not in STEPPED_KINDS or not has_table(entry.document.body):
+        return None
+
+    try:
+        rows = table(entry.document.body)
+    except StepsError:
+        return key
+
+    seen = (seen or set()) | {key}
+    for step in rows:
+        if not step.points_at or step.points_at in seen:
+            continue
+
+        broken = unreadable_reached(brain=brain, key=step.points_at, seen=seen)
+        if broken is not None:
+            return broken
+
+    return None
 
 
 def reopening_gaps(
@@ -829,7 +869,7 @@ def add(
         body = converted(brain=brain, body=body, by=entry.field("by") or "agent", kind=entry.kind, own=own)
 
     rows = table(body)
-    added = [row_from(brain=brain, number=len(rows) + offset, line=line, by=by) for offset, line in enumerate(lines, 1)]
+    added = [row_from(brain=brain, number=len(rows) + offset, line=line, by=by, own=own) for offset, line in enumerate(lines, 1)]
     if not added:
         raise StepsError("no steps given, one per line")
 
@@ -987,32 +1027,6 @@ def refresh(
     save(brain=brain, entry=entry, stamp=stamp)
 
     return True
-
-
-def rename_pointing(
-    brain: store.Brain,
-    key: str,
-    stamp: str = "",
-    doubled_as: str = "",
-) -> list[str]:
-    """Write every cell that names the entry by hand as its id, in closed holders as much as open ones, since a key move is no mark and a retitle would strand the name, and name the holders that changed.
-
-    While two files carry the id, only the cells that name this file
-    move, to the name given in its place, the one the retitle is about
-    to give the file, and a cell holding the doubled id stays as it is,
-    since it could mean either file.
-    """
-    entry = found(brain=brain, key=key)
-    if entry is None or entry.kind.name not in POINTED_KINDS:
-        return []
-
-    pointer = pointer_of(entry)
-    if doubled_as and doubled(brain=brain, key=pointer):
-        return repoint(brain=brain, keys={entry.name}, to=doubled_as, stamp=stamp)
-
-    keys = {key for key in {entry.identifier, entry.name} - {None}}
-
-    return repoint(brain=brain, keys=keys, to=pointer, stamp=stamp)
 
 
 def repoint(

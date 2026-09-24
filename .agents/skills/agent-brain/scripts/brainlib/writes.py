@@ -199,11 +199,9 @@ def retitle(
         raise WriteError(f"{stem} is already the name of {holder}, and a name is unique across the brain")
 
     stamp = stamp or today()
-
-    # a step cell that names the entry by hand is written as its id while the name still resolves, or as the new name while the id is doubled
-    if entry.kind.name in steps.POINTED_KINDS:
-        steps.rename_pointing(brain=brain, key=entry.relative, stamp=stamp, doubled_as=stem)
-        entry = located(brain=brain, key=key)
+    old_name = entry.name
+    old_keys = steps.own_keys(entry)
+    pointer = steps.pointer_of(entry)
 
     before = frontmatter.load(str(entry.path))
     moved = links.move_links(
@@ -223,6 +221,14 @@ def retitle(
         raise
     finally:
         brain.refresh()
+
+    # a step cell that named the entry by hand follows it once the rename is done, written as the id, since a key move is no mark and the old name would strand, and a rename that fails leaves every cell as it was, while two files carry the id, only the cells that name this file move, to its new name, and a cell holding the doubled id stays, since it could mean either file
+    if entry.kind.name in steps.POINTED_KINDS:
+        two_files = steps.doubled(brain=brain, key=pointer)
+        try:
+            steps.repoint(brain=brain, keys={old_name} if two_files else old_keys, to=stem if two_files else pointer, stamp=stamp)
+        except OSError as error:
+            raise Partial(f"{stem} was written, and a step that named it could not follow, {store.explain(error)}, which brain doctor reports until the folder can be written") from error
 
     # the chain stores a plan by its file, so the stem it holds follows
     if entry.kind.name == "plan":
