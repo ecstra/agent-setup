@@ -108,14 +108,18 @@ outermost first, `task none` when nothing is on. A plan prints as
 `plan <name>, step <n> of <m>, <text>`, a todo as
 `task <id>, step <n> of <m>, <text>`, a bug as `bug <id>` the same
 way, a review as `review <name>, batch <n> of <m>, <status>`, the
-first batch not yet done, and a plan step that is already done or
-skipped says so and to move on.
+first batch not yet done. The step is never stored, it is the first
+pending row of the entry's steps table, so the marks in the file are
+where the work stands, a todo or a bug with no table prints its id
+alone, and an entry whose every step is settled says so and how to
+close it.
 
 | Command | What it does |
 |---|---|
 | `brain task` | The chain as it stands, or `task none`. |
-| `brain task on <key> [--step <n>] [--replace]` | Starts work on an open plan, todo, bug or review, by id, name or path. With nothing on, it is the root. With a chain on, it goes under the innermost link only where the rules allow, which is a review under a todo or a bug, and under a plan the todo, the bug or the review its current step points at. Anything else is refused with the link that stands, and `--replace` sets the whole chain aside for it. A plan starts on its first pending step, a todo or a bug on step 1 of its Steps list where it has one, and `--step` picks another, refused past the list or the table and refused on a review, whose step is its batch. Refused for a closed entry, a decision, a doc or a memory, an unknown key, or one several entries share. |
-| `brain task step <n>` | Moves the innermost link to another of its steps, with the same checks. |
+| `brain task on <key> [--replace]` | Starts work on an open plan, todo, bug or review, by id, name or path. With nothing on, it is the root. With a chain on, it goes under the innermost link only where the rules allow, which is a review under a todo or a bug, and under a plan the todo, the bug or the review its current step points at. Anything else is refused with the link that stands, and `--replace` sets the whole chain aside for it. Refused for a closed entry, a decision, a doc or a memory, an unknown key, or one several entries share. |
+| `brain task done`, `brain task skip` | Marks the step the innermost link stands on done or skipped in the entry's file, so the work moves to the next pending one. Refused on a review, whose step is its batch, on a step that points at an entry, which takes its mark from that entry, on an entry with no steps, and once every step is settled. |
+| `brain task step <n>` | Marks step `n` of the innermost link pending again, so the work stands on it, with the same refusals. |
 | `brain task off [--all]` | Drops the innermost link, or the whole chain, and takes the file away once it is empty. |
 
 The state is one dotted file at the root of the brain, `.agents/.task`,
@@ -123,29 +127,37 @@ the tool's own, which git ignores like `.ack`. A link whose entry goes
 done, dropped, fixed, wontfix, refiled or closed drops off on the next
 read with everything under it, and a link whose entry the brain cannot
 read right now stays and says so. A file that does not read as a chain
-counts as none, the line says so, `brain task on` and `brain task step`
-refuse until `brain task off --all` clears it, and `--replace` writes
-over it. `brain ledger open` puts the new review on the chain where
-the rules allow, and says on standard error when they keep it off.
+counts as none, the line says so, `brain task on`, `brain task done`,
+`brain task skip` and `brain task step` refuse until
+`brain task off --all` clears it, and `--replace` writes over it.
+`brain ledger open` puts the new review on the chain where the rules
+allow, and says on standard error when they keep it off.
 
-## The plans
+## The steps
 
-A plan is a goal with the steps that reach it, per
-[spec/plans.md](../../../spec/plans.md), the prose the owner's and the
-agent's and the steps table the tool's.
+A plan, a todo or a bug carries its steps as a table the tool keeps,
+per [spec/plans.md](../../../spec/plans.md), a plan always, a todo or
+a bug when its work has steps. Whoever files the entry lists the steps
+as numbered lines under a Steps heading, and `brain new` turns them
+into the table, each line free to open with the id or the name of a
+todo, a bug or a review followed by a comma, which points the step at
+that entry, `by` being the todo's own `by` and agent for a bug. A
+pointer that reaches nothing of those kinds is refused, and so is a
+step with a pipe in it.
 
 | Command | What it does |
 |---|---|
-| `brain new plan --title T --description D [--by owner\|agent]` | Files a plan from its prose on standard input, the Why and the Done when at least. Steps listed under a Steps heading, one numbered line each, become the table's rows, a line that opens with the id or the name of a todo, a bug or a review followed by a comma pointing at that entry, and a plan with no steps is filed with an empty table, a goal to find out. A pointer that reaches nothing of those kinds is refused. `by` is owner unless said otherwise. |
-| `brain plan <plan>` | The plan in a few lines, its status and the count of settled steps, then one line per step with what it points at and its mark. |
-| `brain plan <plan> add "step"`, `brain plan <plan> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers. A step is one line with no pipe, and it may open with a pointer the way a listed step does. Refused on a plan that is not open. |
-| `brain plan <plan> step <n> pending\|done\|skipped` | Marks a step that points at nothing. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped or refiled, and the tool refreshes it whenever the entry's status changes, so marking one by hand is refused. |
+| `brain new plan --title T --description D [--by owner\|agent]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. `by` is owner unless said otherwise. |
+| `brain steps <key>` | The entry in a few lines, its status and the count of settled steps, then one line per step with what it points at and its mark. |
+| `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers. A todo or a bug with no Steps section gets one where its spec puts it. Refused on an entry that is not open, and for a step that points at the entry itself. |
+| `brain steps <key> step <n> pending\|done\|skipped` | Marks a step that points at nothing. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped or refiled, and the tool refreshes it whenever the entry's status changes, so marking one by hand is refused. |
 
-A plan goes done with `brain set <plan> status=done done=<date>` once
-every step is done or skipped, and the tool refuses it before then.
-Doctor reports a table that does not read as one, a step whose pointer
-reaches nothing, a pointed mark that drifted, which it repairs, and a
-plan still open with every step settled.
+A plan goes done, a todo done and a bug fixed with `brain set` once
+every step is done or skipped, and the tool refuses it before then,
+a todo or a bug with no table closing freely. Doctor reports a Steps
+section with no table or one that does not read, a step whose pointer
+reaches nothing, a pointed mark that drifted, which it repairs, and an
+entry still open with every step settled.
 
 ## The review ledger
 

@@ -48,8 +48,10 @@ What misbehaves, as observed. Repro steps if known.
 Logs, field notes, screenshots described.
 
 ## Steps
-A numbered list, one step of the fix per line, 1 onward in order.
-Optional, and the task chain reads it.
+The same table a plan carries, per spec/plans.md, the tool's own, one
+step of the fix per row. Optional, and the task chain reads it. Listed
+as numbered lines on filing, they become the table, and a bug with
+steps goes fixed once every one is done or skipped.
 
 ## Fix
 Root cause, the commit hash, the date. Absent while open.

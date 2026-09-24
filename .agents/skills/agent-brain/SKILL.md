@@ -78,13 +78,14 @@ handover, or a review. Each kind's required headings are in its spec
 under `.agents/spec/`, and the tool names the one that is missing.
 
 A plan is a goal with the steps that reach it, and the steps are a
-table the tool keeps. `brain new plan` takes the Why and the Done when
-on standard input and turns a numbered Steps list, each line free to
-open with the id or the name of the todo, bug or review it points at,
-into that table. `brain plan <plan> add` appends steps as the work
-teaches them, `brain plan <plan> step <n> done` marks a step that
-points at nothing, a pointed step follows its entry on its own, and
-`brain plan <plan>` shows the table with its marks.
+table the tool keeps, on a plan always and on a todo or a bug whose
+work has steps. `brain new` turns a numbered Steps list in the prose,
+each line free to open with the id or the name of the todo, bug or
+review it points at, into that table. `brain steps <key> add` appends
+steps as the work teaches them, `brain steps <key> step <n> done`
+marks a step that points at nothing, a pointed step follows its entry
+on its own, and `brain steps <key>` shows the table with its marks. An
+entry with steps closes only once every step is done or skipped.
 
 ## Changing something
 
@@ -147,16 +148,18 @@ first step, SYSTEM.md section 8.3 requires it, and every hook line then
 says what the agent is on. The work is one chain at a time, a plan, a
 todo, a bug or a review at the root, a todo or a bug under the plan
 step that points at it, a review under the todo or bug it reviews.
-`brain task step` moves the innermost link, `brain task off` drops it,
-a link whose entry closes drops off on its own, and a second root is
-refused while one stands unless `--replace` sets the chain aside, which
-is the owner's call. The reference says what each line looks like and
-what each refuses.
+The step the work stands on is the first pending row of the entry's
+steps table, `brain task done` marks it done and moves on, `brain task
+skip` marks it skipped, `brain task step <n>` reopens one, `brain task
+off` drops the innermost link, a link whose entry closes drops off on
+its own, and a second root is refused while one stands unless
+`--replace` sets the chain aside, which is the owner's call. The
+reference says what each line looks like and what each refuses.
 
 ```bash
 brain task on kit-phase-7
 brain task on TODO-015
-brain task step 3
+brain task done
 brain task off
 ```
 

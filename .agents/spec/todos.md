@@ -36,8 +36,10 @@ verbatim, cleaning touches structure only, never voice.
 One or two lines when the what does not carry it. Optional.
 
 ## Steps
-A numbered list, one step per line, 1 onward in order. Optional, and
-the task chain reads it, so multi step work carries one.
+The same table a plan carries, per spec/plans.md, the tool's own.
+Optional, and the task chain reads it, so multi step work carries one.
+Listed as numbered lines on filing, they become the table, and a todo
+with steps goes done once every one is done or skipped.
 
 ## Done when
 The check that closes it. A closed item names the commit(s) here.

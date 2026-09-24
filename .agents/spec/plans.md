@@ -64,12 +64,14 @@ turned out wrong is skipped rather than removed.
 
 `brain new plan` files one from its prose, the steps it lists under
 Steps turned into rows, or an empty table when it lists none.
-`brain plan add` appends steps, numbered after the last, `brain plan
-step` marks a plain step, and `brain plan` shows the table with its
+`brain steps add` appends steps, numbered after the last, `brain steps
+step` marks a plain step, and `brain steps` shows the table with its
 marks. The tool refreshes a pointed step's mark whenever the entry it
 points at changes status, and doctor reports and repairs a mark that
 drifted, an id a step names that reaches nothing, and a plan still open
-with every step settled.
+with every step settled. The same table, the same commands and the
+same checks serve a todo or a bug whose work has steps, per
+[spec/todos.md](todos.md) and [spec/bugs.md](bugs.md).
 
 ## Lifecycle
 
