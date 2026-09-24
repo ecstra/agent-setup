@@ -256,9 +256,33 @@ def tabled(
         return body
 
     if has_table(body):
-        return body
+        return checked(brain=brain, body=body)
 
     return converted(brain=brain, body=body, by=by, kind=kind)
+
+
+def checked(
+    brain: store.Brain,
+    body: str,
+) -> str:
+    """The body with a table someone typed by hand read, its pointers resolved, its marks derived and a step line left outside it refused, so a filed table passes every check a listed step does."""
+    rows = table(body)
+    fresh: list[Step] = []
+    for step in rows:
+        if step.points_at and pointed(brain=brain, key=step.points_at) is None:
+            raise StepsError(f"step {step.number} points at '{step.points_at}', which is not a todo, a bug or a review the brain knows")
+
+        fresh.append(Step(number=step.number, text=step.text, points_at=step.points_at, by=step.by, status=derived_status(brain=brain, step=step)))
+
+    header, row_matches = located(body)
+    start, end = sections.span(body=body, title="Steps") or (0, 0)
+    after = row_matches[-1].end() if row_matches else header.end()
+    spans = sections.code_spans(body)
+    for match in LISTED.finditer(string=body, pos=after, endpos=end):
+        if not sections.in_code(spans=spans, position=match.start()):
+            raise StepsError(f"step lines go in the table, and {match.group(0).strip()!r} sits outside it")
+
+    return rewrite(body=body, rows=fresh)
 
 
 def refuse_lookalike(
