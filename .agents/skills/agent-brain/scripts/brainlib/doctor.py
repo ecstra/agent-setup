@@ -554,7 +554,11 @@ def check_table(
     try:
         rows = steps.rows_of(entry)
     except steps.StepsError as broken:
-        return [Finding(path=entry.relative, check="steps", message=str(broken).split(": ", 1)[1], repair=convert_steps(brain=brain, entry=entry))]
+        message = str(broken).split(": ", 1)[1]
+        if entry.kind.name == "bug" and not steps.has_table(entry.document.body):
+            message += ", a bug's Steps being the fix's steps and a reproduction going under Evidence, so move it or run brain steps <key> add to keep it as the fix's"
+
+        return [Finding(path=entry.relative, check="steps", message=message, repair=convert_steps(brain=brain, entry=entry))]
 
     for step in rows:
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
@@ -581,19 +585,25 @@ def convert_steps(
     brain: store.Brain,
     entry: store.Entry,
 ) -> Optional[Callable[[], None]]:
-    """A repair that turns a list under Steps into the table, its rows marked by the entry's own status, or none when the section does not read as a list either."""
+    """A repair that turns a list under Steps into the table, its rows marked by the entry's own status, or none when the section does not read as a list either.
+
+    A bug gets no repair, since a list under its Steps from before the
+    table may be the reproduction, which the spec puts under Evidence,
+    and only whoever filed it can say which it is.
+    """
     body = entry.document.body
-    if steps.has_table(body):
+    if entry.kind.name == "bug" or steps.has_table(body):
         return None
 
+    own = {entry.identifier, entry.name} - {None}
     try:
-        steps.converted(brain=brain, body=body, by=entry.field("by") or "agent", kind=entry.kind, status=steps.settled_as(entry))
+        steps.converted(brain=brain, body=body, by=entry.field("by") or "agent", kind=entry.kind, status=steps.settled_as(entry), own=own)
     except steps.StepsError:
         return None
 
     def repair() -> None:
         fresh = brain.read(path=entry.path, kind=entry.kind)
-        fresh.document.body = steps.converted(brain=brain, body=fresh.document.body, by=fresh.field("by") or "agent", kind=fresh.kind, status=steps.settled_as(fresh))
+        fresh.document.body = steps.converted(brain=brain, body=fresh.document.body, by=fresh.field("by") or "agent", kind=fresh.kind, status=steps.settled_as(fresh), own=own)
         steps.save(brain=brain, entry=fresh)
 
     return repair
