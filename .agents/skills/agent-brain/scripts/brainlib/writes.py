@@ -115,7 +115,7 @@ def update(
     check(kind=entry.kind, fields=fields)
     check_rules(entry=entry, fields=fields)
     if "status" in changes:
-        refuse_gaps(steps.gaps(brain=brain, kind=entry.kind, fields=fields, body=entry.document.body))
+        refuse_gaps(steps.gaps(brain=brain, entry=entry, fields=fields))
 
     for name, value in changes.items():
         entry.document.set(key=name, value=value)

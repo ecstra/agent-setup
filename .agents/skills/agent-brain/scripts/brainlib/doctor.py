@@ -561,17 +561,21 @@ def check_table(
         return [Finding(path=entry.relative, check="steps", message=message, repair=convert_steps(brain=brain, entry=entry))]
 
     derived: list[steps.Step] = []
+    own = steps.own_keys(entry)
     for step in rows:
-        fresh = steps.derived_row(brain=brain, step=step)
+        fresh = steps.derived_row(brain=brain, step=step, own=own)
         derived.append(fresh)
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
             found.append(Finding(path=entry.relative, check="steps", message=f"step {step.number} points at '{step.points_at}', which reaches no todo, bug or review"))
         elif fresh.points_at != step.points_at:
+            target = steps.pointed(brain=brain, key=step.points_at)
+            moved = target is not None and target.field("status") == "refiled"
+            why = f"which was refiled as {fresh.points_at}" if moved else f"and the tool keeps the id {fresh.points_at}, which a retitle never moves"
             found.append(
                 Finding(
                     path=entry.relative,
                     check="steps",
-                    message=f"step {step.number} points at {step.points_at}, which was refiled as {fresh.points_at}",
+                    message=f"step {step.number} points at {step.points_at}, {why}",
                     repair=refresh_steps(brain=brain, entry=entry),
                 )
             )

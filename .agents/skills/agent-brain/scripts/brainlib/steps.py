@@ -191,7 +191,16 @@ def rows_of(
     entry: store.Entry,
 ) -> list[Step]:
     """The entry's steps as they stand, each pointed one read off the entry it points at rather than off the file, so a mark that went stale in the file never misleads a reader, none for a todo or a bug without a Steps section or with an empty one, and refused with the path named when the table does not read."""
-    return [derived_row(brain=brain, step=step) for step in stored_rows(entry)]
+    own = own_keys(entry)
+
+    return [derived_row(brain=brain, step=step, own=own) for step in stored_rows(entry)]
+
+
+def own_keys(
+    entry: store.Entry,
+) -> set[str]:
+    """The keys a step elsewhere would use to point at the entry."""
+    return {entry.identifier, entry.name} - {None}
 
 
 def stored_rows(
@@ -435,7 +444,7 @@ def looks_like_a_key(
     if DATE_SHAPE.match(word):
         return False
 
-    return schema.FILENAME_WITH_ID.match(f"{word.upper()}-x.md") is not None or schema.is_review_folder(word)
+    return schema.FILENAME_WITH_ID.match(f"{word.upper()}-x.md") is not None or schema.is_review_folder(word.lower())
 
 
 def known(
@@ -450,8 +459,8 @@ def found(
     brain: store.Brain,
     key: str,
 ) -> Optional[store.Entry]:
-    """The entry the key names, an id answering in any case, or None when it names nothing or more than one file."""
-    for candidate in (key, key.upper()):
+    """The entry the key names, an id or a review's name answering in any case, or None when it names nothing or more than one file."""
+    for candidate in (key, key.upper(), key.lower()):
         try:
             entry = brain.find(candidate)
         except store.Ambiguous:
@@ -472,7 +481,7 @@ def pointed(
     if entry is None or entry.kind.name not in POINTED_KINDS:
         return None
 
-    if key not in (entry.identifier, entry.name) and key.upper() != entry.identifier:
+    if key not in (entry.identifier, entry.name) and key.upper() != entry.identifier and key.lower() != entry.name:
         return None
 
     return entry
@@ -488,9 +497,10 @@ def pointer_of(
 def derived_row(
     brain: store.Brain,
     step: Step,
+    own: Optional[set[str]] = None,
     seen: Optional[set[str]] = None,
 ) -> Step:
-    """The row a pointed step should carry, its mark read off the entry it points at, and its pointer moved on to the entry a refile filed in its place, or the row as it is when it points at nothing the brain can read."""
+    """The row a pointed step should carry, its mark read off the entry it points at, and its pointer moved on to the entry a refile filed in its place, unless that entry's steps point back at the holder named by its own keys, or the row as it is when it points at nothing the brain can read."""
     if not step.points_at:
         return step
 
@@ -502,9 +512,9 @@ def derived_row(
     if status == "refiled":
         seen = (seen or set()) | {step.points_at}
         successor = refiled_to(brain=brain, entry=entry)
-        if successor is not None and pointer_of(successor) not in seen:
+        if successor is not None and pointer_of(successor) not in seen and not (own and points_back(brain=brain, key=pointer_of(successor), own=own)):
             moved = Step(number=step.number, text=step.text, points_at=pointer_of(successor), by=step.by, status=step.status)
-            return derived_row(brain=brain, step=moved, seen=seen)
+            return derived_row(brain=brain, step=moved, own=own, seen=seen)
 
     if status in POINTED_KINDS[entry.kind.name]:
         mark = "done"
@@ -513,7 +523,7 @@ def derived_row(
     else:
         mark = "pending"
 
-    return Step(number=step.number, text=step.text, points_at=step.points_at, by=step.by, status=mark)
+    return Step(number=step.number, text=step.text, points_at=pointer_of(entry), by=step.by, status=mark)
 
 
 def refiled_to(
@@ -543,9 +553,9 @@ def points_back(
     own: set[str],
     seen: Optional[set[str]] = None,
 ) -> bool:
-    """Whether the entry the key names has a step that points, at any remove, at one of the own keys, which would leave the two waiting on each other for good."""
+    """Whether the entry the key names, while it is open, has a step that points, at any remove, at one of the own keys, which would leave the two waiting on each other for good, a closed entry's steps waiting on nothing."""
     entry = pointed(brain=brain, key=key)
-    if entry is None:
+    if entry is None or (entry.field("status") or "") not in OPEN_STATUSES.get(entry.kind.name, ()):
         return False
 
     seen = (seen or set()) | {key}
@@ -693,7 +703,8 @@ def refresh(
 ) -> bool:
     """Bring every pointed step's row in line with the entry it points at, and say whether anything changed."""
     rows = stored_rows(entry)
-    fresh = [derived_row(brain=brain, step=step) for step in rows]
+    own = own_keys(entry)
+    fresh = [derived_row(brain=brain, step=step, own=own) for step in rows]
     if fresh == rows:
         return False
 
@@ -737,20 +748,21 @@ def all_settled(
 
 def gaps(
     brain: store.Brain,
-    kind: schema.Kind,
+    entry: store.Entry,
     fields: dict[str, str],
-    body: str,
 ) -> list[str]:
     """What an entry closing falls short of, the one rule its table sets: closed means every step is done or skipped, each pointed step read off its entry."""
+    kind = entry.kind
     status = fields.get("status", "")
     if kind.name not in CLOSING or status != CLOSING[kind.name]:
         return []
 
+    body = entry.document.body
     if kind.name != "plan" and blank(body):
         return []
 
     try:
-        rows = [derived_row(brain=brain, step=step) for step in table(body)]
+        rows = [derived_row(brain=brain, step=step, own=own_keys(entry)) for step in table(body)]
     except StepsError as broken:
         return [str(broken)]
 
