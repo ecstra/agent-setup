@@ -450,7 +450,7 @@ def table_change(
     key = Path(inside).stem
     status = str(current.get("status") or "")
     closed = status not in steps.OPEN_STATUSES[kind]
-    why = changed_row(before=before, rows=rows, key=key, status=status, closed=closed) or added_row(brain=brain, before=before, rows=rows, key=key, status=status, closed=closed)
+    why = changed_row(brain=brain, before=before, rows=rows, key=key, status=status, closed=closed) or added_row(brain=brain, before=before, rows=rows, key=key, status=status, closed=closed)
     if why is None:
         return None
 
@@ -458,26 +458,32 @@ def table_change(
 
 
 def changed_row(
+    brain: store.Brain,
     before: list[steps.Step],
     rows: list[steps.Step],
     key: str,
     status: str,
     closed: bool,
 ) -> Optional[str]:
-    """Why the first row that no longer reads as filed may not change that way, or None when every row the file had stands."""
+    """Why the first row that no longer reads as filed may not change that way, or None when every row the file had stands.
+
+    A closed table is its record before anything else, a step whose
+    pointer reaches an entry takes its mark from there, and one whose
+    pointer reaches nothing is marked by hand like a plain one.
+    """
     for step in before:
         fresh = rows[step.number - 1] if step.number <= len(rows) else None
         if fresh is None:
             return f"step {step.number} is never deleted, a step that turned out wrong is skipped"
 
         if fresh.status != step.status:
-            if step.points_at:
-                return f"step {step.number} points at {step.points_at} and takes its mark from that entry"
-
             if closed:
                 return f"{key} is {status}, and a closed table is its record"
 
-            return f"step {step.number} is marked with brain task done or brain steps {key} step {step.number}"
+            if step.points_at and steps.pointed(brain=brain, key=step.points_at) is not None:
+                return f"step {step.number} points at {step.points_at} and takes its mark from that entry"
+
+            return f"step {step.number} is marked with brain task done or skip, or brain steps {key} step {step.number} done or skipped"
 
         if fresh.text != step.text:
             return f"step {step.number} is worded as it was filed"
@@ -506,13 +512,17 @@ def added_row(
 
     for step in added:
         if step.status != "pending":
-            return f"step {step.number} is added pending, and marked with brain task done or brain steps {key} step {step.number} once it is done"
+            return f"step {step.number} is added pending, and marked once it is done with brain task done or brain steps {key} step {step.number} done"
 
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
             return str(steps.unreachable(brain=brain, number=step.number, key=step.points_at))
 
         if not step.points_at:
-            word = steps.opening_key(brain=brain, number=step.number, text=step.text)
+            try:
+                word = steps.opening_key(brain=brain, number=step.number, text=step.text)
+            except steps.StepsError as refused:
+                return str(refused)
+
             if word:
                 return f"step {step.number} opens with {word} in its Step cell, and a row points through its Points at cell"
 
@@ -522,10 +532,10 @@ def added_row(
 def row_line_in(
     hunk: tuple[str, ...],
 ) -> Optional[str]:
-    """The first line of a hunk, kept, removed or added, that is a row of a steps table."""
+    """The first line of a hunk, kept, removed or added, that is a row of a steps table, blank space around it aside, since a patch tool may place it with that trimmed."""
     for line in hunk:
         text = line[1:]
-        if steps.ROW.match(text):
+        if steps.ROW.match(text.strip()):
             return text
 
     return None
