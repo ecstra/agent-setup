@@ -266,7 +266,6 @@ def tabled(
 ) -> str:
     """The body with the numbered lines under Steps turned into the table, or as it was when it has no Steps section or already holds the table."""
     if sections.span(body=body, title="Steps") is None:
-        refuse_lookalike(body)
         return body
 
     if has_table(body):
@@ -300,7 +299,7 @@ def checked(
 def refuse_lookalike(
     body: str,
 ) -> None:
-    """Refuse a heading meant as the Steps section that no reader would find, so its steps are never left behind as prose."""
+    """Refuse a heading meant as a plan's Steps section that no reader would find, so its steps are never left behind as prose, a plan being the one kind whose Steps section is required, where a todo or a bug may hold such a heading as prose."""
     spans = sections.code_spans(body)
     for match in STEPS_LOOKALIKE.finditer(body):
         if not sections.in_code(spans=spans, position=match.start()):
