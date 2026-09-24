@@ -207,13 +207,14 @@ def render_row(
 def escaped(
     text: str,
 ) -> str:
-    return text.replace("|", "\\|")
+    """A cell's text with its backslashes and pipes escaped, so a step ending in a backslash never swallows the pipe after it."""
+    return text.replace("\\", "\\\\").replace("|", "\\|")
 
 
 def unescaped(
     text: str,
 ) -> str:
-    return text.replace("\\|", "|")
+    return re.sub(r"\\(.)", r"\1", text)
 
 
 def rewrite(
