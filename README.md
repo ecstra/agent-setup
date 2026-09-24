@@ -25,11 +25,11 @@ written record of what the project knows.
 | `AGENTS.md` | The front door every agent reads. It points at the rulebook, and it holds your project's own rules when you have some. |
 | `CLAUDE.md` and `GEMINI.md` | A line or two each, pulling in `AGENTS.md` and, for Gemini, its chat style, because Claude Code and Gemini CLI look for their own filename. |
 | `.agents/SYSTEM.md` | The rulebook. How to write code, how to talk to you, where docs go, how a branch gets reviewed, how git is used. |
-| `.agents/` | The project's memory. Docs, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
+| `.agents/` | The project's memory. Docs, plans, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
 | `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
 | `.agents/skills/branch-review/` | The code review, run on your word. Finder sub agents in parallel, one per angle, verifiers a few findings each grouped by file, the findings filed in a ledger, then fixes batch by batch with a hunter and verifiers until clean, and a report that says where things stand first. |
 | `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
-| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking and the clock and your standing word stay in front of the agent, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
+| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking and the clock, your standing word and the work the agent is on stay in front of it, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
 | `.gitignore` | Keeps your `.env`, your local Claude Code settings and Python's cache out of git, along with what the brain's conventions list as never entering the repo. |

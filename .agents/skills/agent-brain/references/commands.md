@@ -230,7 +230,8 @@ complete, `updated` a real date, names matching filenames and unique,
 kind matching folder, fields and values against the spec, required
 headings, the lifecycle rules, filename patterns and duplicate ids,
 links that resolve, links written as paths with each file once, body
-links that resolve, indexes current, no dashes or semicolons in prose,
+links that resolve, the steps tables as the section above says,
+indexes current, no dashes or semicolons in prose,
 no machine paths, nothing shaped like a secret, the version stamp, the
 chat style copies for Codex and Gemini CLI matching the Claude Code
 one where the project keeps those agents' folders, the skill links
@@ -244,7 +245,10 @@ version stamp that is not a version.
 What `--fix` repairs: a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written
 as a name, a file linked more than once in one header, which keeps the
-first, a stale index, a stale chat style copy, a skill link when it is
+first, a pointed step's mark that drifted from its entry or its pointer
+left behind by a refile, a numbered list under a plan's or a todo's
+Steps and a plan with no Steps section, which get the table, a stale
+index, a stale chat style copy, a skill link when it is
 missing, dead, pointing elsewhere or a plain file, which the link
 replaces, and a real folder copy of a kit skill that fell behind the
 brain's, which is refreshed from it. Each repaired file gets today's
