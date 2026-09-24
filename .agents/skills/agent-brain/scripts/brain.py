@@ -152,7 +152,7 @@ def run_ack(
 def add_task(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("task", help="the current work: on an entry, its step done or skipped, off, or where it stands")
+    command = commands.add_parser("task", help="the current work: on an entry, its step done, skipped or pending again, off, or where it stands")
     actions = command.add_subparsers(dest="action")
 
     starting = actions.add_parser("on", help="start work on a plan, a todo, a bug or a review")
@@ -166,12 +166,12 @@ def add_task(
     skipping = actions.add_parser("skip", help="mark the step the work stands on skipped, and stand on the next")
     skipping.set_defaults(handler=run_task_mark, status="skipped")
 
-    reopening = actions.add_parser("step", help="mark a step pending again, so the work stands on it")
-    reopening.add_argument("number", type=int)
+    reopening = actions.add_parser("step", help="mark a step pending again, and stand on the first pending step")
+    reopening.add_argument("number", type=int, help="the step's number in the entry's table")
     reopening.set_defaults(handler=run_task_step)
 
     stopping = actions.add_parser("off", help="drop the innermost link, or the whole chain")
-    stopping.add_argument("--all", dest="everything", action="store_true")
+    stopping.add_argument("--all", dest="everything", action="store_true", help="the whole chain, and the file with it")
     stopping.set_defaults(handler=run_task_off)
 
     command.set_defaults(handler=run_task_show)

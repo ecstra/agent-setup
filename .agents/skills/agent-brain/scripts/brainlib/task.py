@@ -320,13 +320,16 @@ def turn_on(
     key: str,
     replace: bool = False,
 ) -> list[Item]:
-    """Start work on the entry: as the root of a fresh chain, pushed under the innermost link where the rules allow, or in place of the chain when told to replace it."""
+    """Start work on the entry: as the root of a fresh chain, pushed under the innermost link where the rules allow, or in place of the chain when told to replace it. The entry already innermost is left where it is."""
     entry = resolve(brain=brain, key=key)
     item = Item(kind=entry.kind.name, key=key_of(entry))
 
     chain: list[Item] = []
     if not replace:
         chain = current(brain=brain, chain=written(brain))
+
+    if chain and chain[-1] == item:
+        return chain
 
     if chain and not may_push(brain=brain, chain=chain, entry=entry):
         raise TaskError(f"the work is on {describe_item(brain=brain, item=chain[-1])}, finish or clear it first, or say --replace")
@@ -342,19 +345,19 @@ def may_push(
     chain: list[Item],
     entry: store.Entry,
 ) -> bool:
-    """Whether the entry may go under the innermost link: a review under a todo or a bug, or the entry the plan's current step points at under that plan."""
+    """Whether the entry may go under the innermost link: a review under a todo or a bug, or the entry the innermost link's current step points at under that link."""
     innermost = chain[-1]
-    if innermost.kind in ("todo", "bug"):
-        return entry.kind.name == "review"
+    if innermost.kind in ("todo", "bug") and entry.kind.name == "review":
+        return True
 
-    if innermost.kind != "plan":
+    if innermost.kind not in steps.STEPPED_KINDS:
         return False
 
-    plan = entry_of(brain=brain, item=innermost)
-    if plan is None:
+    holder = entry_of(brain=brain, item=innermost)
+    if holder is None:
         return False
 
-    rows = steps.rows_of(brain=brain, entry=plan)
+    rows = steps.rows_of(brain=brain, entry=holder)
     step = steps.current_step(rows)
     if step is None:
         return False
@@ -384,8 +387,18 @@ def reopen(
     brain: store.Brain,
     number: int,
 ) -> list[Item]:
-    """Mark a step of the innermost link pending again, so the work stands on it."""
+    """Mark a step of the innermost link pending again, so the work stands on it, or on an earlier step still pending."""
     chain, entry = innermost(brain)
+    rows = steps.rows_of(brain=brain, entry=entry)
+    if not rows:
+        raise TaskError(f"{entry.name} has no steps, add some with brain steps {key_of(entry)} add")
+
+    step = steps.step_numbered(entry=entry, rows=rows, number=number)
+    if step.status == "pending":
+        current_step = steps.current_step(rows)
+        where = "it" if current_step == number else f"step {current_step}"
+        raise TaskError(f"step {number} is pending already, and the work stands on {where}")
+
     steps.mark(brain=brain, key=entry.relative, number=number, status="pending")
 
     return chain
@@ -499,9 +512,20 @@ def step_text(
 
     step = steps.current_step(rows)
     if step is None:
-        return f"every step settled, close the {entry.kind.name} with brain set status={steps.CLOSING[entry.kind.name]}"
+        return f"every step settled, close it with {closing_command(entry)}"
 
     return f"step {step} of {len(rows)}, {rows[step - 1].text}"
+
+
+def closing_command(
+    entry: store.Entry,
+) -> str:
+    """The set command that closes the entry, with the closing date a plan or a todo wants and the Fix section a bug wants named."""
+    key = key_of(entry)
+    if entry.kind.name == "bug":
+        return f"brain set {key} status=fixed once Fix names the cause and the commit"
+
+    return f"brain set {key} status={steps.CLOSING[entry.kind.name]} done={clock.now().date().isoformat()}"
 
 
 def batch_text(
