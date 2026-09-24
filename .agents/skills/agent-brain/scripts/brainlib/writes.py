@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from . import frontmatter, links, schema, sections, steps, store
+from . import frontmatter, links, schema, sections, steps, store, task
 
 
 class WriteError(Exception):
@@ -174,8 +174,9 @@ def retitle(
     title: str,
     stamp: str = "",
 ) -> store.Entry:
-    """Rename a file for a new title. The id stays, every link follows."""
+    """Rename a file for a new title. The id stays, every link follows, and so does the chain where it holds the name."""
     entry = located(brain=brain, key=key)
+    old_name = entry.name
 
     if entry.kind.name == "review":
         raise WriteError("a review keeps the name of its branch")
@@ -222,6 +223,10 @@ def retitle(
         raise
     finally:
         brain.refresh()
+
+    # the chain stores a plan by its name, so the name it holds follows
+    if entry.kind.name == "plan":
+        task.renamed(brain=brain, kind="plan", old=old_name, new=stem)
 
     return brain.read(path=target, kind=entry.kind)
 

@@ -17,11 +17,15 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from . import clock, frontmatter, ledger, schema, steps, store
+from . import clock, frontmatter, schema, steps, store
 
 FILE = ".task"
 NONE = "task none"
 BROKEN = f"{FILE} does not read as a chain and brain task off --all clears it"
+FOLDER = f"{FILE} is a folder the tool never made, move it away by hand"
+
+# what a link's entry is this time, and only a closed one drops the link
+OPEN, CLOSED, AWAY, DOUBLED, UNREADABLE = "open", "closed", "away", "doubled", "unreadable"
 
 # the word each kind is printed under
 WORDS: dict[str, str] = {
@@ -53,7 +57,7 @@ def path_of(
 def read(
     brain: store.Brain,
 ) -> Optional[list[Item]]:
-    """The chain as written, an empty list when there is no file, or None when the file does not read as a chain."""
+    """The chain as written, an empty list when there is no file, or None when the file does not read as a chain, a folder in its place included."""
     path = path_of(brain)
     if not store.readable_file(path):
         return [] if not store.quietly(path.exists) and not store.quietly(path.is_symlink) else None
@@ -74,51 +78,85 @@ def write(
     brain: store.Brain,
     chain: list[Item],
 ) -> None:
-    """Record the chain, whole or not at all, or take the file away when the chain is empty."""
+    """Record the chain, whole or not at all, or take the file away when the chain is empty, and refuse a folder standing in the file's place."""
     path = path_of(brain)
+    if folder_in_the_way(brain):
+        raise TaskError(FOLDER)
+
     if not chain:
-        if store.quietly(path.exists) or store.quietly(path.is_symlink):
+        try:
             path.unlink()
+        except FileNotFoundError:
+            pass
         return
 
     text = json.dumps({"chain": [asdict(item) for item in chain], "since": clock.now().isoformat()}) + "\n"
     frontmatter.write_text(path=str(path), text=text)
 
 
+def folder_in_the_way(
+    brain: store.Brain,
+) -> bool:
+    return store.quietly(path_of(brain).is_dir)
+
+
 def current(
     brain: store.Brain,
     chain: Optional[list[Item]] = None,
 ) -> list[Item]:
-    """The chain as it stands, with a link whose entry has closed or gone dropped along with everything under it.
+    """The chain as it stands, with a link whose entry has closed dropped along with everything under it.
 
-    A link whose entry cannot be read this time stays, since a folder
-    the process could not list is not a closed todo. What was dropped
-    is written back, and a folder that cannot be written this time is
-    left as it was, since the same reading gives the same chain next
+    Only an entry found and closed drops its link. One the brain cannot
+    read this time, one two files carry the id of, and one that is not
+    in this checkout all stay, since none of those is a closed todo, and
+    the line says which it is. What was dropped is written back when
+    the file still holds what was read, so a chain set meanwhile is
+    never written over, and a folder that cannot be written this time
+    is left as it was, since the same reading gives the same chain next
     time.
     """
     if chain is None:
         chain = read(brain) or []
 
+    kept = pruned(brain=brain, chain=chain)
+    if kept != chain and read(brain) == chain:
+        try:
+            write(brain=brain, chain=kept)
+        except (OSError, TaskError):
+            pass
+
+    return kept
+
+
+def pruned(
+    brain: store.Brain,
+    chain: list[Item],
+) -> list[Item]:
+    """The chain cut at the first link whose entry is found closed."""
     kept: list[Item] = []
     for item in chain:
-        entry = entry_of(brain=brain, item=item)
-        if entry is None and unreadable(brain=brain, item=item):
-            kept.append(item)
-            continue
-
-        if entry is None or not is_open(entry):
+        if state_of(brain=brain, item=item) == CLOSED:
             break
 
         kept.append(item)
 
-    if kept != chain:
-        try:
-            write(brain=brain, chain=kept)
-        except OSError:
-            pass
-
     return kept
+
+
+def state_of(
+    brain: store.Brain,
+    item: Item,
+) -> str:
+    """What the link's entry is this time: open, closed, unreadable in a file or folder the brain could not read, doubled by a merge, or away in another checkout."""
+    try:
+        entry = brain.find(item.key)
+    except store.Ambiguous:
+        return DOUBLED
+
+    if entry is None or entry.kind.name != item.kind:
+        return UNREADABLE if unreadable(brain=brain, item=item) else AWAY
+
+    return OPEN if is_open(entry) else CLOSED
 
 
 def entry_of(
@@ -137,13 +175,16 @@ def unreadable(
     brain: store.Brain,
     item: Item,
 ) -> bool:
-    """Whether the link's entry may be there unread, in a file or a folder the brain could not read this time."""
+    """Whether the link's entry may be there unread, in a file of its own folder or in that folder itself, which the brain could not read this time."""
     folder = brain.folder(schema.kind_named(item.kind))
     for path, trouble in brain.unreadable.items():
-        if path.stem == item.key or path.stem.startswith(f"{item.key}-") or path.parent.name == item.key:
+        if trouble == store.UNLISTED and (path == folder or folder in path.parents):
             return True
 
-        if trouble == store.UNLISTED and (path == folder or folder in path.parents):
+        if item.kind == "review":
+            if path.parent.parent == folder and path.parent.name == item.key:
+                return True
+        elif path.parent == folder and (path.stem == item.key or path.stem.startswith(f"{item.key}-")):
             return True
 
     return False
@@ -291,7 +332,10 @@ def turn_off(
     brain: store.Brain,
     everything: bool = False,
 ) -> list[Item]:
-    """Drop the innermost link, or the whole chain, and hand back what remains."""
+    """Drop the innermost link as written, or the whole chain, and hand back what remains, a link whose entry closed meanwhile going with it."""
+    if folder_in_the_way(brain):
+        raise TaskError(FOLDER)
+
     written = read(brain)
     if written is None:
         if not everything:
@@ -300,16 +344,35 @@ def turn_off(
         path_of(brain).unlink()
         return []
 
-    chain = [] if everything else current(brain=brain, chain=written)[:-1]
+    chain = [] if everything else pruned(brain=brain, chain=written[:-1])
     write(brain=brain, chain=chain)
 
     return chain
+
+
+def renamed(
+    brain: store.Brain,
+    kind: str,
+    old: str,
+    new: str,
+) -> None:
+    """Follow a retitle in the chain, where a plan is stored by its name, and leave a file that does not read alone."""
+    written = read(brain)
+    if not written:
+        return
+
+    chain = [Item(kind=item.kind, key=new) if item.kind == kind and item.key == old else item for item in written]
+    if chain != written:
+        write(brain=brain, chain=chain)
 
 
 def describe(
     brain: store.Brain,
 ) -> str:
     """The chain as lines, one per link, outermost first, or the one line that says no work is on."""
+    if folder_in_the_way(brain):
+        return f"{NONE}, {FOLDER}"
+
     written = read(brain)
     if written is None:
         return f"{NONE}, {BROKEN}"
@@ -328,6 +391,13 @@ def describe_item(
     """One link in words: the key, then where it stands, the step and its text, the batch and its status, or what is missing."""
     entry = entry_of(brain=brain, item=item)
     if entry is None:
+        state = state_of(brain=brain, item=item)
+        if state == DOUBLED:
+            return f"{item.key}, two files carry the id"
+
+        if state == AWAY:
+            return f"{item.key}, not in this checkout"
+
         return f"{item.key}, cannot be read right now"
 
     if item.kind == "review":
@@ -362,6 +432,8 @@ def batch_text(
     entry: store.Entry,
 ) -> str:
     """Where a review stands, the first batch not yet done with its status, read off the ledger."""
+    from . import ledger  # here and not above, since the ledger reaches the writer and the writer reaches the chain
+
     try:
         rows = ledger.batches(entry)
     except ledger.LedgerError:
