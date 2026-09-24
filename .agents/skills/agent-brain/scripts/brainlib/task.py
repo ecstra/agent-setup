@@ -100,6 +100,20 @@ def folder_in_the_way(
     return store.quietly(path_of(brain).is_dir)
 
 
+def written(
+    brain: store.Brain,
+) -> list[Item]:
+    """The chain as written, refused by name when a folder stands in the file's place or the file does not read as a chain."""
+    if folder_in_the_way(brain):
+        raise TaskError(FOLDER)
+
+    chain = read(brain)
+    if chain is None:
+        raise TaskError(BROKEN)
+
+    return chain
+
+
 def current(
     brain: store.Brain,
     chain: Optional[list[Item]] = None,
@@ -236,11 +250,7 @@ def turn_on(
 
     chain: list[Item] = []
     if not replace:
-        written = read(brain)
-        if written is None:
-            raise TaskError(BROKEN)
-
-        chain = current(brain=brain, chain=written)
+        chain = current(brain=brain, chain=written(brain))
 
     if chain and not may_push(brain=brain, chain=chain, entry=entry):
         raise TaskError(f"the work is on {describe_item(brain=brain, item=chain[-1])}, finish or clear it first, or say --replace")
@@ -309,11 +319,7 @@ def innermost(
     brain: store.Brain,
 ) -> tuple[list[Item], store.Entry]:
     """The chain and the entry of its innermost link, which must carry steps of its own."""
-    written = read(brain)
-    if written is None:
-        raise TaskError(BROKEN)
-
-    chain = current(brain=brain, chain=written)
+    chain = current(brain=brain, chain=written(brain))
     if not chain:
         raise TaskError("no work is on, start it with brain task on")
 
@@ -333,18 +339,11 @@ def turn_off(
     everything: bool = False,
 ) -> list[Item]:
     """Drop the innermost link as written, or the whole chain, and hand back what remains, a link whose entry closed meanwhile going with it."""
-    if folder_in_the_way(brain):
-        raise TaskError(FOLDER)
-
-    written = read(brain)
-    if written is None:
-        if not everything:
-            raise TaskError(BROKEN)
-
-        path_of(brain).unlink()
+    if everything:
+        write(brain=brain, chain=[])
         return []
 
-    chain = [] if everything else pruned(brain=brain, chain=written[:-1])
+    chain = pruned(brain=brain, chain=written(brain)[:-1])
     write(brain=brain, chain=chain)
 
     return chain
@@ -357,12 +356,12 @@ def renamed(
     new: str,
 ) -> None:
     """Follow a retitle in the chain, where a plan is stored by its name, and leave a file that does not read alone."""
-    written = read(brain)
-    if not written:
+    stored = read(brain)
+    if not stored:
         return
 
-    chain = [Item(kind=item.kind, key=new) if item.kind == kind and item.key == old else item for item in written]
-    if chain != written:
+    chain = [Item(kind=item.kind, key=new) if item.kind == kind and item.key == old else item for item in stored]
+    if chain != stored:
         write(brain=brain, chain=chain)
 
 
@@ -373,11 +372,11 @@ def describe(
     if folder_in_the_way(brain):
         return f"{NONE}, {FOLDER}"
 
-    written = read(brain)
-    if written is None:
+    stored = read(brain)
+    if stored is None:
         return f"{NONE}, {BROKEN}"
 
-    chain = current(brain=brain, chain=written)
+    chain = current(brain=brain, chain=stored)
     if not chain:
         return NONE
 
