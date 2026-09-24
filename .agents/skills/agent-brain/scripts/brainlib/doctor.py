@@ -457,7 +457,7 @@ def set_name(
     """
     set_the_field = set_field(path=entry.path, key="name", value=expected)
     follows = entry.kind.name in ("plan", "review") and not any(
-        other.path != entry.path and actual in (other.name, other.path.stem) for other in brain.entries()
+        other.path != entry.path and actual in (other.name, task.file_key(other)) for other in brain.entries()
     )
 
     def repair() -> None:
@@ -608,8 +608,7 @@ def check_table(
         fresh = steps.derived_row(brain=brain, step=step, own=own)
         derived.append(fresh)
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
-            doubled_key = "name" if schema.is_review_folder(step.points_at.lower()) else "id"
-            why = f"which two files carry, so it reaches nothing while the {doubled_key} is doubled" if steps.doubled(brain=brain, key=step.points_at) else "which reaches no todo, bug or review"
+            why = f"which two files carry, so it reaches nothing while the {steps.doubled_word(step.points_at)} is doubled" if steps.doubled(brain=brain, key=step.points_at) else "which reaches no todo, bug or review"
             found.append(Finding(path=entry.relative, check="steps", message=f"step {step.number} points at '{step.points_at}', {why}, and brain steps <key> step {step.number} marks it by hand meanwhile"))
         elif fresh.points_at != step.points_at:
             target = steps.pointed(brain=brain, key=step.points_at)
