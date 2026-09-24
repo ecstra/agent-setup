@@ -152,7 +152,7 @@ dropped without a word. A pipe in a step is written into its cell as
 |---|---|
 | `brain new plan --title T --description D [--by owner\|agent]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. `by` is owner unless said otherwise. |
 | `brain steps <key>` | The entry in a few lines, its status and the count of settled steps, then one line per step with what it points at and its mark. |
-| `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers. A todo or a bug with no Steps section gets one where its spec puts it, and a numbered list written under Steps by hand becomes the table first, its rows set by the entry's own `by`. Refused on an entry that is not open, for a step that points at the entry itself, and on a plan whose steps sit under a heading that is not `## Steps`. |
+| `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers. A todo or a bug with no Steps section gets one where its spec puts it, and a numbered list written under Steps by hand becomes the table first, its rows set by the todo's own `by` and by agent on a bug. Refused on an entry that is not open, for a step that points at the entry itself, and on a plan whose steps sit under a heading that is not `## Steps`. |
 | `brain steps <key> step <n> pending\|done\|skipped` | Marks a step that points at nothing. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped or refiled, and the tool refreshes it whenever the entry's status changes, so marking one by hand is refused. |
 
 A plan goes done, a todo done and a bug fixed with `brain set` once
@@ -161,14 +161,16 @@ a todo or a bug with no Steps section closing freely and an entry with
 an empty table closing on its Done when alone. Doctor reports a Steps
 section with no table or one that does not read, a step line sitting
 outside the table, a step whose pointer reaches nothing, a pointed mark
-that drifted, and an entry still open with every step settled. Two of
-those it repairs under `--fix`: the drifted mark, and a numbered list
-under a plan's or a todo's Steps, which becomes the table with its
-rows marked by the entry's own status, pending while it is open, done
-once it is done, skipped once it was dropped or refiled. A list under
-a bug's Steps is only flagged, since it may be the reproduction, which
-goes under Evidence, and `brain steps <key> add` keeps it as the fix's
-steps when that is what it is.
+that drifted, an entry still open with every step settled, and a plan
+with no Steps section at all. Three of those it repairs under `--fix`:
+the drifted mark, a numbered list under a plan's or a todo's Steps,
+which becomes the table with its rows marked by the entry's own
+status, pending while it is open, done once it is done, skipped once
+it was dropped or refiled, and the plan with no Steps section, which
+gets an empty table. A list under a bug's Steps is only flagged, since
+it may be the reproduction, which goes under Evidence by hand, and on
+an open bug `brain steps <key> add` keeps it as the fix's steps when
+that is what it is.
 
 ## The review ledger
 

@@ -556,7 +556,7 @@ def check_table(
     except steps.StepsError as broken:
         message = str(broken).split(": ", 1)[1]
         if entry.kind.name == "bug" and not steps.has_table(entry.document.body):
-            message += ", a bug's Steps being the fix's steps and a reproduction going under Evidence, so move it or run brain steps <key> add to keep it as the fix's"
+            message += ", a bug's Steps being the fix's steps and a reproduction going under Evidence, so move it there by hand, or on an open bug run brain steps <key> add to keep it as the fix's"
 
         return [Finding(path=entry.relative, check="steps", message=message, repair=convert_steps(brain=brain, entry=entry))]
 
