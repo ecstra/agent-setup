@@ -566,7 +566,8 @@ def check_table(
         fresh = steps.derived_row(brain=brain, step=step, own=own)
         derived.append(fresh)
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
-            found.append(Finding(path=entry.relative, check="steps", message=f"step {step.number} points at '{step.points_at}', which reaches no todo, bug or review"))
+            why = "which two files carry, so it reaches nothing until one is refiled" if steps.doubled(brain=brain, key=step.points_at) else "which reaches no todo, bug or review"
+            found.append(Finding(path=entry.relative, check="steps", message=f"step {step.number} points at '{step.points_at}', {why}, and brain steps <key> step {step.number} marks it by hand meanwhile"))
         elif fresh.points_at != step.points_at:
             target = steps.pointed(brain=brain, key=step.points_at)
             moved = target is not None and target.field("status") == "refiled"
@@ -590,6 +591,7 @@ def check_table(
             )
 
     found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.looping(brain=brain, entry=entry, rows=derived)]
+    found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.became_slips(brain=brain, entry=entry)]
 
     is_open = (entry.field("status") or "") in steps.OPEN_STATUSES[entry.kind.name]
     if is_open and derived and steps.all_settled(derived):

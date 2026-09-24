@@ -120,6 +120,9 @@ def update(
         refuse_gaps(steps.gaps(brain=brain, entry=entry, fields=fields))
         refuse_gaps(steps.reopening_gaps(brain=brain, entry=entry, fields=fields))
 
+    if "became" in changes:
+        refuse_gaps(steps.became_gaps(brain=brain, entry=entry, fields=fields))
+
     for name, value in changes.items():
         entry.document.set(key=name, value=value)
 

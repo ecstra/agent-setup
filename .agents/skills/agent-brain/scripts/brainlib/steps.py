@@ -339,6 +339,11 @@ def checked(
         if own and pointer in own:
             raise StepsError(f"step {step.number} points at {pointer} itself, and a step points at other work")
 
+        if not pointer:
+            word = opening_key(brain=brain, number=step.number, text=step.text)
+            if word:
+                raise StepsError(f"step {step.number} opens with {word} in its Step cell, and a row points through its Points at cell")
+
         fresh.append(derived_row(brain=brain, step=Step(number=step.number, text=step.text, points_at=pointer, by=step.by, status=step.status), own=own))
 
     if own:
@@ -371,7 +376,7 @@ def converted(
         if own and step.points_at in own:
             raise StepsError(f"step {step.number} points at {step.points_at} itself, and a step points at other work")
 
-    if own:
+    if own and status == "pending":
         refuse_cycles(brain=brain, rows=rows, own=own)
 
     if status != "pending":
@@ -441,18 +446,34 @@ def row_from(
             raise StepsError(f"step {number} points at '{match.group(1)}', which is not a todo, a bug or a review the brain knows")
 
     if not points_at:
-        opening = KEY_START.match(line)
-        word = opening.group(1) if opening is not None else ""
-        if looks_like_a_key(word) and pointed(brain=brain, key=word) is not None:
+        word = opening_key(brain=brain, number=number, text=line)
+        if word:
             raise StepsError(f"step {number} opens with {word} but not as '{word}, what to do', so it would point at nothing")
-
-        if looks_like_a_key(word) and not known(brain=brain, key=word):
-            raise StepsError(f"step {number} points at '{word}', which is not a todo, a bug or a review the brain knows")
 
     if not line:
         raise StepsError(f"step {number} has no text")
 
     return derived_row(brain=brain, step=Step(number=number, text=line, points_at=points_at, by=by, status="pending"))
+
+
+def opening_key(
+    brain: store.Brain,
+    number: int,
+    text: str,
+) -> str:
+    """The key a plain step's text opens with when that key names an entry a step could point at, so the caller can refuse a pointer that was meant and not made, and refused outright when it is shaped like a key the brain does not know."""
+    opening = KEY_START.match(text)
+    word = opening.group(1) if opening is not None else ""
+    if not looks_like_a_key(word):
+        return ""
+
+    if pointed(brain=brain, key=word) is not None:
+        return word
+
+    if not known(brain=brain, key=word):
+        raise StepsError(f"step {number} points at '{word}', which is not a todo, a bug or a review the brain knows")
+
+    return ""
 
 
 def looks_like_a_key(
@@ -488,6 +509,20 @@ def found(
             return entry
 
     return None
+
+
+def doubled(
+    brain: store.Brain,
+    key: str,
+) -> bool:
+    """Whether the key names more than one file, the doubled id a merge leaves."""
+    try:
+        brain.find(key)
+        brain.find(key.upper())
+    except store.Ambiguous:
+        return True
+
+    return False
 
 
 def pointed(
@@ -564,6 +599,56 @@ def refiled_to(
             return target
 
     return None
+
+
+def became_slips(
+    brain: store.Brain,
+    entry: store.Entry,
+) -> list[str]:
+    """What is wrong with the entry's became field, in words: set while the entry is not refiled, naming nothing, naming two files, or naming an entry of the wrong kind."""
+    named = entry.field("became")
+    if not named:
+        return []
+
+    if entry.field("status") != "refiled":
+        return [f"became names {named} while the entry is not refiled"]
+
+    wanted = "bug" if entry.kind.name == "todo" else "todo"
+    if doubled(brain=brain, key=named):
+        return [f"became names {named}, which two files carry, so the steps that point here follow nothing until one is refiled"]
+
+    target = found(brain=brain, key=named)
+    if target is None:
+        return [f"became names {named}, which reaches nothing, so the steps that point here follow nothing"]
+
+    if target.kind.name != wanted:
+        return [f"became names {named}, which is a {target.kind.name} where a refiled {entry.kind.name} becomes a {wanted}"]
+
+    return []
+
+
+def became_gaps(
+    brain: store.Brain,
+    entry: store.Entry,
+    fields: dict[str, str],
+) -> list[str]:
+    """What a became value falls short of when it is set through brain set: it names one entry of the other kind, and the entry is refiled."""
+    named = fields.get("became", "")
+    if not named:
+        return []
+
+    wanted = "bug" if entry.kind.name == "todo" else "todo"
+    if fields.get("status") != "refiled":
+        return ["became goes with status refiled, since it names what the entry was refiled as"]
+
+    if doubled(brain=brain, key=named):
+        return [f"became names {named}, which two files carry"]
+
+    target = found(brain=brain, key=named)
+    if target is None or target.kind.name != wanted:
+        return [f"became names {named}, which is not a {wanted} the brain knows"]
+
+    return []
 
 
 def derived_status(
@@ -698,17 +783,17 @@ def mark(
     number: int,
     status: str,
 ) -> None:
-    """Mark a step that points at nothing done, skipped or pending again, since a pointed step takes its mark from what it points at."""
+    """Mark a step done, skipped or pending again, one that points at nothing, or one whose pointer reaches nothing the brain can read, a doubled id or a dead key, since a step that reaches its entry takes its mark from there."""
     if status not in STEP_STATUSES:
         raise StepsError(f"a step is {' or '.join(STEP_STATUSES)}, not '{status}'")
 
     entry = stepped_entry(brain=brain, key=key)
     rows = rows_of(brain=brain, entry=entry)
     step = step_numbered(entry=entry, rows=rows, number=number)
-    if step.points_at:
+    if step.points_at and pointed(brain=brain, key=step.points_at) is not None:
         raise StepsError(f"step {number} points at {step.points_at}, so its mark follows that entry, close or drop it instead")
 
-    rows[number - 1] = Step(number=number, text=step.text, points_at="", by=step.by, status=status)
+    rows[number - 1] = Step(number=number, text=step.text, points_at=step.points_at, by=step.by, status=status)
     entry.document.body = rewrite(body=entry.document.body, rows=rows)
     save(brain=brain, entry=entry)
 
