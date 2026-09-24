@@ -4,10 +4,10 @@ All of them run as `python3 .agents/skills/agent-brain/scripts/brain.py`,
 shortened here to `brain`. A command exits 0 when done, 1 when refused,
 with the reason on standard error, and 2 when doctor still has findings.
 A write that landed its entry and then lost a second write, a step
-cell, a step's pointer, the chain or a refile's other half, exits 0
-with that failure on standard error, since the command did its work
-and doctor reports what is left, while an index rebuild that fails
-exits 1 like any refusal, the entry written all the same.
+cell, a step's pointer or the chain, exits 0 with that failure on
+standard error, since the command did its work and doctor reports what
+is left, while an index rebuild that fails exits 1 like any refusal,
+the entry written all the same.
 
 ## Reading
 
