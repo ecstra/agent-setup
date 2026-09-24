@@ -191,10 +191,20 @@ def rows_of(
     brain: store.Brain,
     entry: store.Entry,
 ) -> list[Step]:
-    """The entry's steps as they stand, each pointed one read off the entry it points at rather than off the file, so a mark that went stale in the file never misleads a reader, none for a todo or a bug without a Steps section or with an empty one, and refused with the path named when the table does not read."""
+    """The entry's steps as they stand, each pointed one read off the entry it points at rather than off the file while the entry is open, so a mark that went stale in the file never misleads a reader, and as the file holds them once the entry is closed, since a closed entry's table is its record, none for a todo or a bug without a Steps section or with an empty one, and refused with the path named when the table does not read."""
+    rows = stored_rows(entry)
+    if not is_open(entry):
+        return rows
+
     own = own_keys(entry)
 
-    return [derived_row(brain=brain, step=step, own=own) for step in stored_rows(entry)]
+    return [derived_row(brain=brain, step=step, own=own) for step in rows]
+
+
+def is_open(
+    entry: store.Entry,
+) -> bool:
+    return (entry.field("status") or "") in OPEN_STATUSES.get(entry.kind.name, ())
 
 
 def own_keys(
@@ -788,6 +798,9 @@ def mark(
         raise StepsError(f"a step is {' or '.join(STEP_STATUSES)}, not '{status}'")
 
     entry = stepped_entry(brain=brain, key=key)
+    if not is_open(entry):
+        raise StepsError(f"{entry.name} is {entry.field('status')}, a step is marked while it is open")
+
     rows = rows_of(brain=brain, entry=entry)
     step = step_numbered(entry=entry, rows=rows, number=number)
     if step.points_at and pointed(brain=brain, key=step.points_at) is not None:
@@ -855,7 +868,10 @@ def refresh(
     entry: store.Entry,
     stamp: str = "",
 ) -> bool:
-    """Bring every pointed step's row in line with the entry it points at, and say whether anything changed."""
+    """Bring every pointed step's row of an open entry in line with the entry it points at, and say whether anything changed, a closed entry's table being its record and left as it is."""
+    if not is_open(entry):
+        return False
+
     rows = stored_rows(entry)
     own = own_keys(entry)
     fresh = [derived_row(brain=brain, step=step, own=own) for step in rows]
@@ -906,17 +922,26 @@ def gaps(
     fields: dict[str, str],
 ) -> list[str]:
     """What an entry closing falls short of, the one rule its table sets: closed means every step is done or skipped, each pointed step read off its entry."""
-    kind = entry.kind
+    return closing_gaps(brain=brain, kind=entry.kind, fields=fields, body=entry.document.body, own=own_keys(entry))
+
+
+def closing_gaps(
+    brain: store.Brain,
+    kind: schema.Kind,
+    fields: dict[str, str],
+    body: str,
+    own: Optional[set[str]] = None,
+) -> list[str]:
+    """The closing rule on a body and its fields, for an entry being filed as much as one being changed."""
     status = fields.get("status", "")
     if kind.name not in CLOSING or status != CLOSING[kind.name]:
         return []
 
-    body = entry.document.body
     if kind.name != "plan" and blank(body):
         return []
 
     try:
-        rows = [derived_row(brain=brain, step=step, own=own_keys(entry)) for step in table(body)]
+        rows = [derived_row(brain=brain, step=step, own=own) for step in table(body)]
     except StepsError as broken:
         return [str(broken)]
 

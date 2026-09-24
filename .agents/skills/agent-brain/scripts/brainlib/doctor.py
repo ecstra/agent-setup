@@ -560,6 +560,16 @@ def check_table(
 
         return [Finding(path=entry.relative, check="steps", message=message, repair=convert_steps(brain=brain, entry=entry))]
 
+    found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.became_slips(brain=brain, entry=entry)]
+
+    if not steps.is_open(entry):
+        pending = [step.number for step in rows if step.status == "pending"]
+        if pending:
+            numbers = ", ".join(str(number) for number in pending)
+            found.append(Finding(path=entry.relative, check="steps", message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it or mark the step by hand"))
+
+        return found
+
     derived: list[steps.Step] = []
     own = steps.own_keys(entry)
     for step in rows:
@@ -591,12 +601,6 @@ def check_table(
             )
 
     found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.looping(brain=brain, entry=entry, rows=derived)]
-    found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.became_slips(brain=brain, entry=entry)]
-
-    is_open = (entry.field("status") or "") in steps.OPEN_STATUSES[entry.kind.name]
-    if is_open and derived and steps.all_settled(derived):
-        closing = steps.CLOSING[entry.kind.name]
-        found.append(Finding(path=entry.relative, check="steps", message=f"every step is settled, close the {entry.kind.name} with brain set status={closing}"))
 
     return found
 
