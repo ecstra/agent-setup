@@ -82,6 +82,40 @@ def table(
     body: str,
 ) -> list[Step]:
     """Every row of the steps table, in order, refused when the section or the table is not there or a row is broken."""
+    rows = [
+        Step(
+            number=int(row.group(1)),
+            text=row.group(2),
+            points_at=row.group(3),
+            by=row.group(4),
+            status=row.group(5),
+        )
+        for row in located(body)[1]
+    ]
+
+    for expected, step in enumerate(rows, 1):
+        if step.number != expected:
+            raise StepsError(f"the steps are numbered 1 onward in order, and row {step.number} sits where {expected} should")
+
+        if step.status not in STEP_STATUSES:
+            raise StepsError(f"step {step.number} is {' or '.join(STEP_STATUSES)}, not '{step.status}'")
+
+        if step.by not in BY:
+            raise StepsError(f"step {step.number} is set by {' or '.join(BY)}, not '{step.by}'")
+
+    return rows
+
+
+def located(
+    body: str,
+) -> tuple[re.Match, list[re.Match]]:
+    """The table's header and its rows, the lines right under the header outside code, the one reading every reader and every writer of the table shares.
+
+    A row shaped line anywhere else in the section, outside code, is
+    refused rather than read or ignored, since a table a hand edit
+    pulled apart would otherwise be written back without the lines
+    between.
+    """
     found = sections.span(body=body, title="Steps")
     if found is None:
         raise StepsError("there is no Steps section")
@@ -97,7 +131,7 @@ def table(
     if header is None:
         raise StepsError("the Steps section has no table, its header is | # | Step | Points at | By | Status |, and brain steps <key> add fills one")
 
-    rows: list[Step] = []
+    rows: list[re.Match] = []
     position = header.end()
     while position < end and body[position] == "\n":
         line_start = position + 1
@@ -108,33 +142,15 @@ def table(
 
             break
 
-        rows.append(
-            Step(
-                number=int(row.group(1)),
-                text=row.group(2),
-                points_at=row.group(3),
-                by=row.group(4),
-                status=row.group(5),
-            )
-        )
+        rows.append(row)
         position = row.end()
 
-    read = {row.number for row in rows}
+    read = {row.start() for row in rows}
     for match in ROW.finditer(string=body, pos=start, endpos=end):
-        if int(match.group(1)) not in read and not sections.in_code(spans=spans, position=match.start()):
+        if match.start() not in read and not sections.in_code(spans=spans, position=match.start()):
             raise StepsError("a step row sits apart from the table, put it directly under the header")
 
-    for expected, step in enumerate(rows, 1):
-        if step.number != expected:
-            raise StepsError(f"the steps are numbered 1 onward in order, and row {step.number} sits where {expected} should")
-
-        if step.status not in STEP_STATUSES:
-            raise StepsError(f"step {step.number} is {' or '.join(STEP_STATUSES)}, not '{step.status}'")
-
-        if step.by not in BY:
-            raise StepsError(f"step {step.number} is set by {' or '.join(BY)}, not '{step.by}'")
-
-    return rows
+    return header, rows
 
 
 def rows_of(
@@ -187,13 +203,8 @@ def rewrite(
     body: str,
     rows: list[Step],
 ) -> str:
-    """The body with its steps table replaced by these rows, the prose around it untouched."""
-    start, end = sections.span(body=body, title="Steps") or (None, None)
-    if start is None:
-        raise StepsError("there is no Steps section")
-
-    header = next(match for match in HEADER_LINE.finditer(string=body, pos=start, endpos=end))
-    old_rows = list(ROW.finditer(string=body, pos=header.end(), endpos=end))
+    """The body with its steps table replaced by these rows, the prose and the code around it untouched."""
+    header, old_rows = located(body)
     table_end = old_rows[-1].end() if old_rows else header.end()
     text = "".join("\n" + render_row(step) for step in rows)
 
