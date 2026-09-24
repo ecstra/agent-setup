@@ -40,8 +40,11 @@ def main(
         brain = store.find_brain(Path.cwd())
         return args.handler(brain=brain, args=args)
     except writes.Partial as partial:
-        # the entry was written, so the indexes follow it, and the second write that failed is named
-        index.write(brain)
+        # the entry was written, so the indexes follow it where they can, and the second write that failed is named
+        try:
+            index.write(brain)
+        except OSError as error:
+            print(store.explain(error), file=sys.stderr)
         print(store.explain(partial), file=sys.stderr)
         return REFUSED
     except (

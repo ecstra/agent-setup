@@ -29,7 +29,7 @@ def refresh_after(
     try:
         steps.refresh_pointing(brain=brain, key=entry.relative, stamp=stamp)
     except OSError as error:
-        raise Partial(f"{entry.name} was written, and a step that points at it could not be refreshed, {store.explain(error)}, so brain doctor --fix repairs it once the folder can be written") from error
+        raise Partial(f"{entry.name} was written, and a step that points at it could not be refreshed, {store.explain(error)}, which brain doctor reports until the folder can be written") from error
 
 
 def today() -> str:
@@ -135,7 +135,8 @@ def update(
     # the change falls short of is named at once
     check(kind=entry.kind, fields=fields)
     gaps = sections.lifecycle_gaps(kind=entry.kind, fields=fields, body=entry.document.body)
-    if "status" in changes:
+    moving = changes.get("status", entry.field("status")) != entry.field("status")
+    if moving:
         gaps += steps.gaps(brain=brain, entry=entry, fields=fields)
         gaps += steps.reopening_gaps(brain=brain, entry=entry, fields=fields)
 
@@ -143,6 +144,10 @@ def update(
         gaps += steps.became_gaps(brain=brain, entry=entry, fields=fields)
 
     refuse_gaps(gaps)
+
+    # a table closes as its readers saw it, so the file settles before the close is written
+    if moving and entry.kind.name in steps.STEPPED_KINDS and steps.is_open(entry):
+        steps.settle(brain=brain, entry=entry)
 
     was_refiled = entry.field("status") == "refiled"
     for name, value in changes.items():

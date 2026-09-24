@@ -534,8 +534,8 @@ def check_steps(
 
     The table must read as one, every step that points at an entry must
     reach one, a pointed step's mark must be the one its entry gives,
-    which is repaired, and an entry still open once every step is
-    settled is told to close.
+    which is repaired, and an entry done or fixed with a step still
+    pending is reported, since a closed table is its record.
     """
     found: list[Finding] = []
 
@@ -564,7 +564,7 @@ def check_table(
 
     if not steps.is_open(entry):
         pending = [step.number for step in rows if step.status == "pending"]
-        if pending:
+        if pending and entry.field("status") == steps.CLOSING[entry.kind.name]:
             numbers = ", ".join(str(number) for number in pending)
             found.append(Finding(path=entry.relative, check="steps", message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it or mark the step by hand"))
 

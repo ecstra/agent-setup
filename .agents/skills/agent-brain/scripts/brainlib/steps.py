@@ -863,6 +863,21 @@ def save(
     brain.refresh()
 
 
+def settle(
+    brain: store.Brain,
+    entry: store.Entry,
+) -> None:
+    """Write the rows an open entry's readers derive into its document, without saving, so a close leaves the file as the readers saw it."""
+    try:
+        rows = stored_rows(entry)
+    except StepsError:
+        return
+
+    fresh = [derived_row(brain=brain, step=step, own=own_keys(entry)) for step in rows]
+    if fresh != rows:
+        entry.document.body = rewrite(body=entry.document.body, rows=fresh)
+
+
 def refresh(
     brain: store.Brain,
     entry: store.Entry,
@@ -921,7 +936,7 @@ def gaps(
     entry: store.Entry,
     fields: dict[str, str],
 ) -> list[str]:
-    """What an entry closing falls short of, the one rule its table sets: closed means every step is done or skipped, each pointed step read off its entry."""
+    """What an entry closing falls short of, the one rule its table sets: done, or fixed for a bug, means every step is done or skipped, each pointed step read off its entry, while dropped, wontfix and refiled close as they are."""
     return closing_gaps(brain=brain, kind=entry.kind, fields=fields, body=entry.document.body, own=own_keys(entry))
 
 
