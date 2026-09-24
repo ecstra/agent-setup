@@ -132,11 +132,13 @@ read with everything under it, and only such a link drops: one whose
 entry the brain cannot read right now, one two files carry the id of
 or answer to the name of after a merge, one whose entry is not in this
 checkout, filed on another branch, and one whose status is none the
-tool knows, all stay, and the line says which. A retitled plan keeps
-its place, since the chain follows the name through `brain refile` and
-through the doctor's name repair, and a name changed on another branch
-leaves the link saying not in this checkout until the work is started
-again. A reading never writes the file, so the hook line cannot write
+tool knows, all stay, and the line says which. A plan is on the chain
+by its file and a review by its name, and a retitled plan keeps its
+place, since the chain follows through `brain refile` and through the
+doctor's name repair, a review's link and the steps that point at it
+too. A name changed on another branch leaves the link saying not in
+this checkout until `brain task off` drops it or `--replace` sets it
+aside. A reading never writes the file, so the hook line cannot write
 over a chain set meanwhile, and a closed link stays in the file until
 the next command that moves the chain. `brain task off`,
 `brain task done`, `brain task skip` and `brain task step` take the
