@@ -343,9 +343,12 @@ def checked(
     for step in rows:
         target = pointed(brain=brain, key=step.points_at) if step.points_at else None
         if step.points_at and target is None:
-            raise StepsError(f"step {step.number} points at '{step.points_at}', which is not a todo, a bug or a review the brain knows")
+            raise unreachable(brain=brain, number=step.number, key=step.points_at)
 
         pointer = pointer_of(target) if target is not None else ""
+        if pointer and doubled(brain=brain, key=pointer):
+            raise doubled_pointer(number=step.number, key=step.points_at, pointer=pointer)
+
         if own and pointer in own:
             raise StepsError(f"step {step.number} points at {pointer} itself, and a step points at other work")
 
@@ -453,8 +456,10 @@ def row_from(
         if target is not None:
             points_at = pointer_of(target)
             line = match.group(2).strip()
+            if doubled(brain=brain, key=points_at):
+                raise doubled_pointer(number=number, key=match.group(1), pointer=points_at)
         elif looks_like_a_key(match.group(1)) and not known(brain=brain, key=match.group(1)):
-            raise StepsError(f"step {number} points at '{match.group(1)}', which is not a todo, a bug or a review the brain knows")
+            raise unreachable(brain=brain, number=number, key=match.group(1))
 
     if not points_at:
         word = opening_key(brain=brain, number=number, text=line)
@@ -482,9 +487,37 @@ def opening_key(
         return word
 
     if not known(brain=brain, key=word):
-        raise StepsError(f"step {number} points at '{word}', which is not a todo, a bug or a review the brain knows")
+        raise unreachable(brain=brain, number=number, key=word)
 
     return ""
+
+
+def unreachable(
+    brain: store.Brain,
+    number: int,
+    key: str,
+) -> StepsError:
+    """The refusal for a pointer that reaches nothing, doubled when two files carry the key and unknown otherwise."""
+    if doubled(brain=brain, key=key):
+        return StepsError(f"step {number} points at '{key}', which two files carry, so it reaches nothing while the {doubled_word(key)} is doubled")
+
+    return StepsError(f"step {number} points at '{key}', which is not a todo, a bug or a review the brain knows")
+
+
+def doubled_pointer(
+    number: int,
+    key: str,
+    pointer: str,
+) -> StepsError:
+    """The refusal for a key that reaches one file whose own pointer, the id or the name the cell would store, two files carry."""
+    return StepsError(f"step {number} points at '{key}', and its {doubled_word(pointer)} {pointer} two files carry, so it would reach nothing")
+
+
+def doubled_word(
+    key: str,
+) -> str:
+    """What a doubled key is called: a review's name, or an id."""
+    return "name" if schema.is_review_folder(key.lower()) else "id"
 
 
 def looks_like_a_key(
