@@ -568,10 +568,14 @@ def check_steps(
 ) -> list[Finding]:
     """The steps table a plan, a todo or a bug carries, per spec/plans.md.
 
-    The table must read as one, every step that points at an entry must
-    reach one, a pointed step's mark must be the one its entry gives,
-    which is repaired, and an entry done or fixed with a step still
-    pending is reported, since a closed table is its record.
+    The table must read as one, a list in its place turned into one on
+    a plan or a todo and a plan's missing section given an empty table,
+    every step that points at an entry must reach one, a pointed step's
+    mark must be the one its entry gives and its pointer the entry's
+    id, moved on from a refiled one, both repaired, a became field must
+    name what took the entry's place, two entries must not wait on each
+    other, and an entry done or fixed with a step still pending is
+    reported, since a closed table is its record.
     """
     found: list[Finding] = []
 
