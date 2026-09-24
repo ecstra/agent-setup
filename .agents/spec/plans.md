@@ -9,8 +9,9 @@ links: [spec/conventions.md, spec/todos.md, spec/bugs.md, spec/reviews.md]
 # Spec: plans/
 
 Long horizon work. One file per plan, named for the goal, a goal the
-owner and the agent agreed on with the steps that reach it. A todo has
-one done when, a plan has many, so a plan is never a todo made of todos.
+owner and the agent agreed on with the steps that reach it. A plan's
+steps each carry work of their own, a todo, a bug or a review where one
+exists, and the plan's own Done when is the check beyond all of them.
 The steps are a table the tool keeps and the agent grows as the work
 teaches it what comes next, so a plan that starts as a goal alone is
 legal and means "find out".
