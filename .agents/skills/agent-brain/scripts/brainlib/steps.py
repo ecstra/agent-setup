@@ -956,19 +956,22 @@ def rename_pointing(
 ) -> list[str]:
     """Write every cell that names the entry by hand as its id, in closed holders as much as open ones, since a key move is no mark and a retitle would strand the name, and name the holders that changed.
 
-    While two files carry the id, the cells take the name given in its
-    place, the one the retitle is about to give the file, so they keep
-    reaching the file they mean.
+    While two files carry the id, only the cells that name this file
+    move, to the name given in its place, the one the retitle is about
+    to give the file, and a cell holding the doubled id stays as it is,
+    since it could mean either file.
     """
     entry = found(brain=brain, key=key)
     if entry is None or entry.kind.name not in POINTED_KINDS:
         return []
 
-    keys = {key for key in {entry.identifier, entry.name} - {None}}
     pointer = pointer_of(entry)
-    to = doubled_as if doubled_as and doubled(brain=brain, key=pointer) else pointer
+    if doubled_as and doubled(brain=brain, key=pointer):
+        return repoint(brain=brain, keys={entry.name}, to=doubled_as, stamp=stamp)
 
-    return repoint(brain=brain, keys=keys, to=to, stamp=stamp)
+    keys = {key for key in {entry.identifier, entry.name} - {None}}
+
+    return repoint(brain=brain, keys=keys, to=pointer, stamp=stamp)
 
 
 def repoint(
