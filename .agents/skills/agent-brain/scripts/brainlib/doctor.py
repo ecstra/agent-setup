@@ -98,7 +98,7 @@ def run(
             attempted.add(key_of(finding))
             try:
                 finding.repair()
-            except (OSError, frontmatter.FrontmatterError) as error:
+            except (OSError, frontmatter.FrontmatterError, task.TaskError) as error:
                 failed[key_of(finding)] = store.explain(error)
 
         brain.refresh()
@@ -423,7 +423,7 @@ def check_names(
                     path=entry.relative,
                     check="name",
                     message=f"name is '{actual}', the file says '{expected}'",
-                    repair=set_field(path=entry.path, key="name", value=expected),
+                    repair=set_name(brain=brain, entry=entry, actual=actual, expected=expected),
                 )
             )
 
@@ -438,6 +438,24 @@ def check_names(
         seen[actual] = entry.relative
 
     return found
+
+
+def set_name(
+    brain: store.Brain,
+    entry: store.Entry,
+    actual: str,
+    expected: str,
+) -> Callable[[], None]:
+    """A repair that sets the name the file says, and moves the chain's link with it, since a plan is on the chain by its name."""
+    set_the_field = set_field(path=entry.path, key="name", value=expected)
+
+    def repair() -> None:
+        set_the_field()
+
+        if entry.kind.name == "plan":
+            task.renamed(brain=brain, kind="plan", old=actual, new=expected)
+
+    return repair
 
 
 def set_field(
