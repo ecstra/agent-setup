@@ -10,8 +10,8 @@ and a link whose entry closes drops off with everything under it. The
 step a link stands on is the first pending row of the entry's steps
 table, read each time with a pointed step's mark taken from its entry,
 so nothing is stored beside the table and `brain task done` moves the
-work by marking. The rule in SYSTEM.md 8.3
-is that multi step work starts with `brain task on`.
+work by marking. The rule in SYSTEM.md 8.3 is that multi step work
+starts with `brain task on`.
 """
 
 import json
