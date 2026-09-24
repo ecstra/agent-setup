@@ -3,8 +3,9 @@
 One chain at a time, kept in a local file the tool writes and every
 hook prints, so the model always knows the task, the plan it serves,
 the step inside it and the review running on it. A plan, a todo, a bug
-or a review is the root. A todo or a bug pushes under the step that
-points at it, a review pushes under the todo or bug it reviews,
+or a review is the root. A todo, a bug or a review pushes under the
+step that points at it, a review pushes under the todo or bug it
+reviews too,
 and a link whose entry closes drops off with everything under it. The
 step a link stands on is never stored: it is the first pending row of
 the entry's steps table, so the marks in the file are the truth and

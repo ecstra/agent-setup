@@ -7,8 +7,9 @@ one when its work has steps. Whoever files the entry lists the steps as
 numbered lines, and the tool turns them into the table. Rows are added
 and marked through here, never deleted, a step that turned out wrong is
 skipped, so the file reads as the record of how the work went. A step
-that points at an entry takes its mark from that entry, and only a step
-that points at nothing is marked by hand.
+that points at an entry takes its mark from that entry, and a step is
+marked by hand only when it points at nothing, or at nothing the brain
+can read, a dead key or an id two files carry.
 """
 
 import re
@@ -139,7 +140,7 @@ def located(
             break
 
     if header is None:
-        raise StepsError("the Steps section has no table, its header is | # | Step | Points at | By | Status |, and a numbered list there becomes one through brain steps <key> add, or through brain doctor --fix on a plan or a todo")
+        raise StepsError("the Steps section has no table, its header is | # | Step | Points at | By | Status |, and a numbered list there becomes one through brain steps <key> add with a step to add, or through brain doctor --fix on a plan or a todo, and doctor says what to do on a bug")
 
     rows: list[re.Match] = []
     position = header.end()
@@ -854,7 +855,7 @@ def mark(
     step = step_numbered(entry=entry, rows=rows, number=number)
     target = pointed(brain=brain, key=step.points_at) if step.points_at else None
     if target is not None:
-        raise StepsError(f"step {number} points at {step.points_at}, {follows_its_entry(target)}")
+        raise StepsError(f"step {number} points at {step.points_at}, {follows_its_entry(target=target, key=step.points_at, asked=status)}")
 
     rows[number - 1] = Step(number=number, text=step.text, points_at=step.points_at, by=step.by, status=status)
     entry.document.body = rewrite(body=entry.document.body, rows=rows)
@@ -863,13 +864,33 @@ def mark(
 
 def follows_its_entry(
     target: store.Entry,
+    key: str,
+    asked: str,
 ) -> str:
-    """Why a pointed step takes no mark by hand, and what moves it instead: working or closing an open entry, reopening a closed one."""
-    key = pointer_of(target)
-    if is_open(target):
-        return f"so its mark follows that entry, work it with brain task on {key} or close it"
+    """Why a pointed step takes no mark by hand, and what gives it the mark asked for instead, the entry named as the cell names it, since that key is the one that resolves."""
+    kind = target.kind.name
+    status = target.field("status") or ""
+    if status in OPEN_STATUSES[kind]:
+        if asked == "pending":
+            return f"so its mark follows that entry, and is pending while {key} is open"
 
-    return f"which is {target.field('status')}, so its mark follows that entry, and brain set {key} status=open reopens it"
+        settles = POINTED_KINDS[kind] if asked == "done" else POINTED_GONE[kind]
+        if not settles:
+            return f"so its mark follows that entry, and a step at a {kind} is never {asked}"
+
+        return f"so its mark follows that entry, and goes {asked} once {key} is {' or '.join(settles)}"
+
+    if status in POINTED_KINDS[kind] or status in POINTED_GONE[kind]:
+        mark = "done" if status in POINTED_KINDS[kind] else "skipped"
+        if asked == "pending":
+            return f"which is {status}, so its mark follows that entry, and brain set {key} status=open reopens it"
+
+        if asked == mark:
+            return f"which is {status}, so its mark follows that entry and is {mark} already"
+
+        return f"which is {status}, so its mark follows that entry and stands {mark}, not {asked}"
+
+    return "whose status is not one the tool knows, which brain doctor reports, and its mark follows that entry"
 
 
 def step_numbered(
