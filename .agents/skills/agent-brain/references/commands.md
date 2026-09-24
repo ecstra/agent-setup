@@ -27,17 +27,20 @@ A `<key>` is an id such as `BUG-004`, a name such as
 | `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry. Prose on standard input. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`. |
 | `brain set <key> field=value ...` | Changes fields, checks values and dates, applies the lifecycle rules, stamps `updated`. |
 | `brain refile <key> --title T` | Renames for a new title. The id stays, every link follows. |
-| `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input. Both files stay, linked both ways, the old one marked `refiled`. |
+| `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input. Both files stay, linked both ways, the old one marked `refiled` with the new one's id in `became`, which every step that pointed at the old one follows. Refused when a step of the new body points at the old entry, or at an entry whose steps point back at it, since the new entry takes the old one's pointers over. |
 | `brain index` | Rebuilds every `INDEX.md` and prints the ones that changed. |
 
 Fields by kind, all passed as flags to `new` or as `field=value` to `set`:
 
 - bug: `--severity breaks|bug|debt|nit` and `--area` required. `status`
   is open, branched, fixed, wontfix or refiled, `reported` defaults to
-  today, `parent` optional.
+  today, `parent` optional, `became` the id of the todo a refiled bug
+  was filed as, which the refile writes and `set` takes only on a
+  refiled entry when it names one todo the brain knows.
 - todo: `--by owner|agent` and `--area` required. `status` is open,
   done, dropped or refiled, `born` defaults to today, `done` is the
-  closing date.
+  closing date, `became` the id of the bug a refiled todo was filed
+  as, held to the same rule.
 - decision: `--area` required. `status` is standing or superseded,
   `date` defaults to today, `superseded-by` names the successor.
 - memory: `--type project|feedback|reference` required.
