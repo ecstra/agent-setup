@@ -783,14 +783,7 @@ def pointers_in(
     if has_table(body):
         return [step.points_at for step in table(body) if step.points_at]
 
-    try:
-        lines = listed(body)
-    except StepsError:
-        return []
-
-    opened = (POINTER.match(line.strip()) for line in lines)
-
-    return [match.group(1) for match in opened if match is not None]
+    return [step.points_at for step in listed_rows(body) if step.points_at]
 
 
 def refuse_cycles(
@@ -851,23 +844,64 @@ def reopening_gaps(
         return []
 
     body = entry.document.body
-    own = own_keys(entry)
-    if not has_table(body):
-        back = [key for key in pointers_in(body) if points_back(brain=brain, key=key, own=own)]
+    unreadable = f"reopening {entry.name} waits on its steps table, which does not read"
+    if has_table(body):
+        try:
+            rows = table(body)
+        except StepsError as broken:
+            return [f"{unreadable}, {broken}, so the tool cannot tell whether it and another entry would wait on each other, and brain doctor names what is wrong with it"]
+    elif table_shaped(body):
+        return [f"{unreadable}, the Steps section holds table lines without the header the tool reads, | # | Step | Points at | By | Status |, so the tool cannot tell whether it and another entry would wait on each other, and brain doctor names what is wrong with it"]
+    else:
+        rows = listed_rows(body)
 
-        return [f"reopening {entry.name} would leave it and another entry waiting on each other, its steps point at {back[0]}, whose steps point back here, and the two would wait on each other for good"] if back else []
+    for step in rows:
+        broken_key = unreadable_reached(brain=brain, key=step.points_at) if step.points_at else None
+        if broken_key is not None:
+            return [f"reopening {entry.name} waits on the steps of {broken_key}, which do not read, so the tool cannot tell whether it and {entry.name} would wait on each other, and brain doctor names what is wrong with them"]
 
     try:
-        rows = table(body)
-    except StepsError as broken:
-        return [f"reopening {entry.name} waits on its steps table, which does not read, {broken}, so the tool cannot tell whether it and another entry would wait on each other, and brain doctor names what is wrong with it"]
-
-    try:
-        refuse_cycles(brain=brain, rows=rows, own=own)
+        refuse_cycles(brain=brain, rows=rows, own=own_keys(entry))
     except StepsError as loop:
         return [f"reopening {entry.name} would leave it and another entry waiting on each other, {loop}"]
 
     return []
+
+
+def table_shaped(
+    body: str,
+) -> bool:
+    """Whether the Steps section holds a line shaped like a table's, outside code, while no header the tool reads sits there, a table typed with another header or a separator the tool does not read."""
+    where = span(body)
+    if where is None:
+        return False
+
+    spans = sections.code_spans(body)
+    position = where[0]
+    for line in body[where[0] : where[1]].split("\n"):
+        if line.lstrip().startswith("|") and not sections.in_code(spans=spans, position=position):
+            return True
+
+        position += len(line) + 1
+
+    return False
+
+
+def listed_rows(
+    body: str,
+) -> list[Step]:
+    """The steps a list under Steps holds, as rows to judge, numbered as listed, each pointing at the key its line opens with as written, and none when the list does not read as one, which doctor reports."""
+    try:
+        lines = listed(body)
+    except StepsError:
+        return []
+
+    rows: list[Step] = []
+    for number, line in enumerate(lines, 1):
+        opened = POINTER.match(line.strip())
+        rows.append(Step(number=number, text=line, points_at=opened.group(1) if opened is not None else "", by="agent", status="pending"))
+
+    return rows
 
 
 def looping(
