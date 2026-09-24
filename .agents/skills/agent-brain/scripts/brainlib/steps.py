@@ -512,7 +512,7 @@ def derived_row(
     if status == "refiled":
         seen = (seen or set()) | {step.points_at}
         successor = refiled_to(brain=brain, entry=entry)
-        if successor is not None and pointer_of(successor) not in seen and not (own and points_back(brain=brain, key=pointer_of(successor), own=own)):
+        if successor is not None and pointer_of(successor) not in seen and not (own and (pointer_of(successor) in own or points_back(brain=brain, key=pointer_of(successor), own=own))):
             moved = Step(number=step.number, text=step.text, points_at=pointer_of(successor), by=step.by, status=step.status)
             return derived_row(brain=brain, step=moved, own=own, seen=seen)
 
@@ -585,6 +585,48 @@ def refuse_cycles(
     for step in rows:
         if step.points_at and points_back(brain=brain, key=step.points_at, own=own):
             raise StepsError(f"step {step.number} points at {step.points_at}, whose steps point back here, and the two would wait on each other for good")
+
+
+def reopening_gaps(
+    brain: store.Brain,
+    entry: store.Entry,
+    fields: dict[str, str],
+) -> list[str]:
+    """What reopening a closed entry falls short of: its steps and another open entry's would point at each other, which a close let stand and a reopening would set waiting for good."""
+    status = fields.get("status", "")
+    was_open = (entry.field("status") or "") in OPEN_STATUSES.get(entry.kind.name, ())
+    if entry.kind.name not in STEPPED_KINDS or was_open or status not in OPEN_STATUSES[entry.kind.name]:
+        return []
+
+    try:
+        rows = stored_rows(entry)
+    except StepsError:
+        return []
+
+    try:
+        refuse_cycles(brain=brain, rows=rows, own=own_keys(entry))
+    except StepsError as loop:
+        return [f"reopening {entry.name} would leave it waiting on itself, {loop}"]
+
+    return []
+
+
+def looping(
+    brain: store.Brain,
+    entry: store.Entry,
+    rows: list[Step],
+) -> list[str]:
+    """The steps of an open entry that point at an open entry whose steps point back, one line each, which doctor reports since no write should have let them stand."""
+    if (entry.field("status") or "") not in OPEN_STATUSES.get(entry.kind.name, ()):
+        return []
+
+    own = own_keys(entry)
+
+    return [
+        f"step {step.number} points at {step.points_at}, whose steps point back here, and the two wait on each other for good"
+        for step in rows
+        if step.points_at and points_back(brain=brain, key=step.points_at, own=own)
+    ]
 
 
 def add(

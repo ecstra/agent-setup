@@ -589,6 +589,8 @@ def check_table(
                 )
             )
 
+    found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.looping(brain=brain, entry=entry, rows=derived)]
+
     is_open = (entry.field("status") or "") in steps.OPEN_STATUSES[entry.kind.name]
     if is_open and derived and steps.all_settled(derived):
         closing = steps.CLOSING[entry.kind.name]
