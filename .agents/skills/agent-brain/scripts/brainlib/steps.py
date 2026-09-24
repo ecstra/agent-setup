@@ -135,7 +135,7 @@ def located(
             break
 
     if header is None:
-        raise StepsError("the Steps section has no table, its header is | # | Step | Points at | By | Status |, and brain doctor --fix turns a numbered list there into one")
+        raise StepsError("the Steps section has no table, its header is | # | Step | Points at | By | Status |, and a numbered list there becomes one through brain steps <key> add, or through brain doctor --fix on a plan or a todo")
 
     rows: list[re.Match] = []
     position = header.end()
