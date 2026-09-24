@@ -123,23 +123,16 @@ def current(
     Only an entry found and closed drops its link. One the brain cannot
     read this time, one two files carry the id of, and one that is not
     in this checkout all stay, since none of those is a closed todo, and
-    the line says which it is. What was dropped is written back when
-    the file still holds what was read, so a chain set meanwhile is
-    never written over, and a folder that cannot be written this time
-    is left as it was, since the same reading gives the same chain next
-    time.
+    the line says which it is. A reading never writes the file, so the
+    hook that reads after every tool call cannot write over a chain set
+    meanwhile, and the file keeps a closed link until the next command
+    that moves the chain, which is why off takes the innermost link as
+    written and never one more.
     """
     if chain is None:
         chain = read(brain) or []
 
-    kept = pruned(brain=brain, chain=chain)
-    if kept != chain and read(brain) == chain:
-        try:
-            write(brain=brain, chain=kept)
-        except (OSError, TaskError):
-            pass
-
-    return kept
+    return pruned(brain=brain, chain=chain)
 
 
 def pruned(
@@ -189,7 +182,11 @@ def unreadable(
     brain: store.Brain,
     item: Item,
 ) -> bool:
-    """Whether the link's entry may be there unread, in a file of its own folder or in that folder itself, which the brain could not read this time."""
+    """Whether the link's entry may be there unread, in a file of its own folder or in that folder itself, which the brain could not read this time.
+
+    A plan is its name, so only the file of that name counts, while an
+    id heads a file name and is followed by the title.
+    """
     folder = brain.folder(schema.kind_named(item.kind))
     for path, trouble in brain.unreadable.items():
         if trouble == store.UNLISTED and (path == folder or folder in path.parents):
@@ -198,7 +195,12 @@ def unreadable(
         if item.kind == "review":
             if path.parent.parent == folder and path.parent.name == item.key:
                 return True
-        elif path.parent == folder and (path.stem == item.key or path.stem.startswith(f"{item.key}-")):
+            continue
+
+        if path.parent != folder:
+            continue
+
+        if path.stem == item.key or (item.kind != "plan" and path.stem.startswith(f"{item.key}-")):
             return True
 
     return False

@@ -132,15 +132,17 @@ read with everything under it, and only such a link drops: one whose
 entry the brain cannot read right now, one two files carry the id of
 after a merge, and one whose entry is not in this checkout, filed on
 another branch, all stay, and the line says which. A retitled plan
-keeps its place, since the chain follows the name. `brain task off`
-drops the innermost link as written, so a link whose entry closed just
-before goes and the one above it stays. A reading never writes over a
-chain set meanwhile. A file that does not read as a chain counts as
-none, the line says so, `brain task on`, `brain task done`,
-`brain task skip` and `brain task step` refuse until
-`brain task off --all` clears it, and `--replace` writes over it. A
-folder standing in the file's place, which the tool never made, is
-named by every line and moved away by hand.
+keeps its place, since the chain follows the name. A reading never
+writes the file, so the hook line cannot write over a chain set
+meanwhile, and a closed link stays in the file until the next command
+that moves the chain. `brain task off` drops the innermost link as
+written, so a link whose entry closed just before goes and the one
+above it stays. A file that does not read as a chain counts as none,
+the line says so, `brain task on`, `brain task done`, `brain task skip`
+and `brain task step` refuse until `brain task off --all` clears it,
+and `--replace` writes over it. A folder standing in the file's place,
+which the tool never made, is named by every line and moved away by
+hand.
 `brain ledger open` puts the new review on the chain where the rules
 allow, and says on standard error when they keep it off.
 
