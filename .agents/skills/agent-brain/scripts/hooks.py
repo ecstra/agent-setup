@@ -514,10 +514,8 @@ def table_write_of(
     if after is None:
         return None
 
-    try:
-        body = frontmatter.parse(after).body
-    except frontmatter.FrontmatterError:
-        return None
+    # the header check ran first on the same outcome and refused a write whose header would not read, so this parse holds
+    body = frontmatter.parse(after).body
 
     own = steps.own_keys(entry) if entry is not None else {str(current.get("name") or key)}
     write = TableWrite(
