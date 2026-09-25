@@ -55,13 +55,15 @@ CLOSING: dict[str, str] = {
 TABLE_HEADER = "| # | Step | Points at | By | Status |\n|---|---|---|---|---|\n"
 HEADER_LINE = re.compile(r"^\|[ \t]*#[ \t]*\|[ \t]*Step[ \t]*\|[ \t]*Points at[ \t]*\|[ \t]*By[ \t]*\|[ \t]*Status[ \t]*\|[ \t]*\n\|[-| \t]+\|[ \t]*$", re.MULTILINE)
 # a cell runs to the next pipe, and a pipe written as \| is part of the cell,
-# the one escape there is, so every other backslash is the cell's own, and
-# a cell neither starts nor ends with blank space, so the padding around it
-# has one reading and a row that does not match fails at once rather than
-# through every split of its padding
-CELL = r"((?:(?:\\\||[^|\n \t])(?:\\\||[^|\n])*?(?<![ \t]))?)"
+# the one escape there is, so every other backslash is the cell's own and a
+# backslash never ends a cell before a pipe, and a cell neither starts nor
+# ends with blank space, the blank space after it being read only when it
+# holds something, so the padding around it and every escape in it have one
+# reading and a row that does not match fails at once rather than through
+# every split of them, an empty cell leaving its group unmatched
+CELL = r"[ \t]*(?:((?:\\\||[^|\n \t\\]|\\(?!\|))(?:\\\||[^|\n\\]|\\(?!\|))*?(?<![ \t]))[ \t]*)?\|"
 ROW = re.compile(
-    rf"^\|[ \t]*(\d+)[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*$",
+    rf"^\|[ \t]*(\d+)[ \t]*\|{CELL}{CELL}{CELL}{CELL}[ \t]*$",
     re.MULTILINE,
 )
 LISTED = re.compile(r"^(\d+)\.[ \t]+(.+?)[ \t]*$", re.MULTILINE)
@@ -99,10 +101,10 @@ def table(
     rows = [
         Step(
             number=int(row.group(1)),
-            text=unescaped(row.group(2)),
-            points_at=unescaped(row.group(3)),
-            by=unescaped(row.group(4)),
-            status=unescaped(row.group(5)),
+            text=unescaped(row.group(2) or ""),
+            points_at=unescaped(row.group(3) or ""),
+            by=unescaped(row.group(4) or ""),
+            status=unescaped(row.group(5) or ""),
         )
         for row in located(body)[1]
     ]
@@ -218,10 +220,21 @@ def own_keys(
     return {entry.identifier, entry.name} - {None}
 
 
+def answers_of(
+    entry: store.Entry,
+) -> set[str]:
+    """The keys a step's cell may hold for the entry and reach it by, its own keys and, for a review, its folder's name, which answers as its name does."""
+    answers = own_keys(entry)
+    if entry.kind.name == "review":
+        answers.add(entry.path.parent.name)
+
+    return answers
+
+
 def stored_rows(
     entry: store.Entry,
 ) -> list[Step]:
-    """The entry's steps as the file holds them, which doctor reads to see what drifted."""
+    """The entry's steps as the file holds them, the path named when they do not read, for the writers that rewrite the table in place."""
     try:
         return stored_rows_of(kind=entry.kind.name, body=entry.document.body)
     except StepsError as broken:
@@ -607,11 +620,7 @@ def pointed(
     if entry is None or entry.kind.name not in POINTED_KINDS:
         return None
 
-    answers = own_keys(entry)
-    if entry.kind.name == "review":
-        answers.add(entry.path.parent.name)
-
-    if not {key, key.upper(), key.lower()} & answers:
+    if not {key, key.upper(), key.lower()} & answers_of(entry):
         return None
 
     return entry
@@ -974,9 +983,8 @@ def add(
 ) -> list[int]:
     """Append steps to the entry, numbered after the last, and hand back their numbers."""
     entry = stepped_entry(brain=brain, key=key)
-    status = entry.field("status") or ""
-    if status not in OPEN_STATUSES[entry.kind.name]:
-        raise StepsError(f"{entry.name} is {status}, a step is added while it is open")
+    if not is_open(entry):
+        raise StepsError(f"{entry.name} is {entry.field('status') or ''}, a step is added while it is open")
 
     own = own_keys(entry)
     body = entry.document.body
@@ -1040,9 +1048,19 @@ def follows_its_entry(
     if status == "refiled" and asked == "pending":
         successor = refiled_to(brain=brain, entry=target)
         if successor is None:
+            became = target.field("became") or ""
+            if became and doubled(brain=brain, key=became):
+                return f"which was refiled as {became}, which two files carry, so its mark stands skipped while the {doubled_word(became)} is doubled, and follows {became} then"
+
             return "which was refiled as nothing the brain knows, so its mark stands skipped"
 
         handed = pointer_of(successor)
+        if successor.field("status") == "refiled":
+            return f"which sits in a loop of refiles through {key} and {handed}, so its mark stands skipped until the loop is undone"
+
+        if doubled(brain=brain, key=handed):
+            return f"which was refiled as {handed}, which two files carry, so its mark stands skipped while the {doubled_word(handed)} is doubled, and follows {handed} then"
+
         broken = unreadable_reached(brain=brain, key=handed)
         if broken is not None:
             where = handed if broken == handed else f"{handed}, whose steps lead to {broken}"
@@ -1256,7 +1274,7 @@ def refresh_pointing(
     if entry is None or entry.kind.name not in POINTED_KINDS:
         return []
 
-    wanted = {answer.lower() for answer in own_keys(entry)}
+    wanted = {answer.lower() for answer in answers_of(entry)}
     changed: list[str] = []
     # a holder that cannot be written is passed over for the ones after it, and its failure is raised once every holder has had its turn
     first_failure: Optional[OSError] = None
