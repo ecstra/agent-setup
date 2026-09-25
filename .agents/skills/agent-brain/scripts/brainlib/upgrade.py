@@ -525,7 +525,6 @@ def prepare(
     if KIT_MARK not in front_doors["AGENTS.md"]:
         raise UpgradeError("the kit's AGENTS.md has no line saying where its words start, so section 0 has no place to end")
 
-    front_doors["AGENTS.md"] = kit_words_of(front_doors["AGENTS.md"])
     merged: list[Path] = []
 
     for relative in kit.agent_files():
@@ -558,7 +557,7 @@ def install(
     """
     stamp = prepared.stamp
     front_doors = dict(prepared.front_doors)
-    zero = section_zero_of(project=project, layout=prepared.layout, kits_own=section_zero_in(kit.text(Path("AGENTS.md"))))
+    zero = section_zero_of(project=project, layout=prepared.layout)
     if zero is not None:
         front_doors["AGENTS.md"] = with_section_zero(text=front_doors["AGENTS.md"], zero=zero.text)
         report.done(zero.says)
@@ -934,7 +933,6 @@ class Zero:
 def section_zero_of(
     project: Project,
     layout: str,
-    kits_own: Optional[str] = None,
 ) -> Optional[Zero]:
     """The project's own rules, from the first front door that carries a `## 0.` section with words in it.
 
@@ -945,10 +943,7 @@ def section_zero_of(
     front door that says something of its own goes whole under the
     heading, for the agent to read against the rulebook, because the
     kit's copy is about to replace it. Never on an upgrade, where a front
-    door without a section is the kit's own earlier text. `kits_own` is
-    the kit checkout's own section 0, which a front door copied from the
-    checkout carries word for word, and that one is nobody's rules here,
-    so it is read past.
+    door without a section is the kit's own earlier text.
     """
     texts: dict[str, str] = {}
     for name in OLD_LAYOUT_DOORS if layout == "old" else FRONT_DOORS:
@@ -960,10 +955,6 @@ def section_zero_of(
             texts[path.name] = path.read_text(encoding="utf-8-sig")
         except (OSError, UnicodeDecodeError):
             continue
-
-    for name, text in list(texts.items()):
-        if kits_own is not None and KIT_MARK in text and section_zero_in(text) == kits_own:
-            texts[name] = kit_words_of(text)
 
     for name, text in texts.items():
         zero = section_zero_in(text)
@@ -1107,21 +1098,9 @@ def with_section_zero(
     zero: str,
 ) -> str:
     """The kit's AGENTS.md with the project's section 0 between the title and the kit's marker line."""
-    title, rest = kit_words_of(text).split(KIT_MARK, 1)
+    title, rest = text.split(KIT_MARK, 1)
 
     return f"{title.rstrip()}\n\n{zero.rstrip()}\n\n{KIT_MARK}{rest}"
-
-
-def kit_words_of(
-    text: str,
-) -> str:
-    """The kit's AGENTS.md without a section 0 of its own, which is the kit checkout's rules for working on the tool and never ships."""
-    title, rest = text.split(KIT_MARK, 1)
-    own = next((match for match in sections.heading_matches(title) if match.group(1).startswith("0.")), None)
-    if own is not None:
-        title = title[: own.start()]
-
-    return f"{title.rstrip()}\n\n{KIT_MARK}{rest}"
 
 
 def merged_config(
@@ -1464,9 +1443,6 @@ def same_as_kit(
     source = kit_source(relative)
     if source is None:
         return False
-
-    if relative == "AGENTS.md":
-        return holds(path=project.root / relative, data=kit_words_of(kit.text(source)).encode("utf-8"))
 
     return store.same_bytes(
         one=project.root / relative,
