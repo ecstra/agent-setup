@@ -1168,6 +1168,8 @@ def repoint(
     """Write every cell that points at one of the keys, in any case, as the pointer given, in closed holders as much as open ones, a list not yet turned into a table having its opening keys written the same way since it is the table in waiting, and name the holders that changed."""
     wanted = {key.lower() for key in keys}
     changed: list[str] = []
+    # a holder that cannot be written is passed over for the ones after it, whose folders may well be writable, and its failure is raised once every holder has had its turn
+    first_failure: Optional[OSError] = None
     for kind_name in STEPPED_KINDS:
         for holder in brain.entries_of(schema.kind_named(kind_name)):
             try:
@@ -1176,7 +1178,12 @@ def repoint(
                 relisted = repointed_list(body=holder.document.body, wanted=wanted, to=to)
                 if relisted != holder.document.body:
                     holder.document.body = relisted
-                    save(brain=brain, entry=holder, stamp=stamp)
+                    try:
+                        save(brain=brain, entry=holder, stamp=stamp)
+                    except OSError as error:
+                        first_failure = first_failure or error
+                        continue
+
                     changed.append(holder.name)
 
                 continue
@@ -1189,8 +1196,16 @@ def repoint(
             ]
             if fresh != rows:
                 holder.document.body = rewrite(body=holder.document.body, rows=fresh)
-                save(brain=brain, entry=holder, stamp=stamp)
+                try:
+                    save(brain=brain, entry=holder, stamp=stamp)
+                except OSError as error:
+                    first_failure = first_failure or error
+                    continue
+
                 changed.append(holder.name)
+
+    if first_failure is not None:
+        raise first_failure
 
     return changed
 
@@ -1229,6 +1244,8 @@ def refresh_pointing(
 
     keys = {entry.identifier, entry.name} - {None}
     changed: list[str] = []
+    # a holder that cannot be written is passed over for the ones after it, and its failure is raised once every holder has had its turn
+    first_failure: Optional[OSError] = None
     for kind_name in STEPPED_KINDS:
         for holder in brain.entries_of(schema.kind_named(kind_name)):
             try:
@@ -1236,8 +1253,17 @@ def refresh_pointing(
             except StepsError:
                 continue
 
-            if any(step.points_at.lower() in {key.lower() for key in keys} for step in rows) and refresh(brain=brain, entry=holder, stamp=stamp):
-                changed.append(holder.name)
+            if not any(step.points_at.lower() in {key.lower() for key in keys} for step in rows):
+                continue
+
+            try:
+                if refresh(brain=brain, entry=holder, stamp=stamp):
+                    changed.append(holder.name)
+            except OSError as error:
+                first_failure = first_failure or error
+
+    if first_failure is not None:
+        raise first_failure
 
     return changed
 

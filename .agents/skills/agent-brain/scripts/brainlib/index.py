@@ -133,7 +133,19 @@ def write(
     """
     wanted = build(brain)
 
-    return [write_one(path=path, text=wanted[path], stamp=stamp) for path in stale_among(wanted)]
+    # an index that cannot be written is passed over for the ones after it, whose folders may well be writable, and its failure is raised once every stale index has had its turn
+    written: list[Path] = []
+    first_failure: Optional[OSError] = None
+    for path in stale_among(wanted):
+        try:
+            written.append(write_one(path=path, text=wanted[path], stamp=stamp))
+        except OSError as error:
+            first_failure = first_failure or error
+
+    if first_failure is not None:
+        raise first_failure
+
+    return written
 
 
 def write_one(

@@ -224,8 +224,9 @@ def retitle(
     finally:
         brain.refresh()
 
-    # the writes that follow the rename go to other files, so each runs whatever the one before it did, and the failures are said together at the end
+    # the writes that follow the rename go to other files, so each runs whatever the one before it did, and the failures are said together at the end, the first one chained on
     failures: list[str] = []
+    first_failure: Optional[Exception] = None
 
     # a step cell that named the entry by hand follows it once the rename is done, written as the id, since a key move is no mark and the old name would strand, and a rename that fails leaves every cell as it was, while two files carry the id, only the cells that name this file move, to its new name, and a cell holding the doubled id stays, since it could mean either file, and a file with no id, which doctor reports, is pointed at by its name, so the cells follow it to the new one, unless two files carry that name too, when every cell could mean either and stays
     if entry.kind.name in steps.POINTED_KINDS and not (two_files and entry.identifier is None):
@@ -233,6 +234,7 @@ def retitle(
         try:
             steps.repoint(brain=brain, keys={old_name} if two_files else old_keys, to=stem if by_name else pointer, stamp=stamp)
         except OSError as error:
+            first_failure = first_failure or error
             failures.append(f"a step that named it could not follow, {store.explain(error)}, which brain doctor reports until the folder can be written")
 
     # a became field written by hand may name the file by its name or its path rather than its id, so it follows the rename too, written as the id, or as the new name while two files carry the id or the file has none, and when two files with no id share the name only a field naming this file by its path moves, since the name could mean either
@@ -241,6 +243,7 @@ def retitle(
         try:
             move_became(brain=brain, old=naming, to=stem if two_files or entry.identifier is None else entry.identifier, stamp=stamp)
         except OSError as error:
+            first_failure = first_failure or error
             failures.append(f"a became field that named it could not follow, {store.explain(error)}, which brain doctor reports until the folder can be written")
 
     # the chain stores a plan by its file, and a todo or a bug with no id too, so the stem it holds follows
@@ -248,10 +251,11 @@ def retitle(
         try:
             task.renamed(brain=brain, kind=entry.kind.name, old=old_stem, new=stem)
         except (OSError, task.TaskError) as error:
+            first_failure = first_failure or error
             failures.append(f"the chain could not follow the name, {store.explain(error)}, so it says {task.WORDS[entry.kind.name]} {old_stem}, not in this checkout, until {task.FILE} can be written again and brain task off drops it, link by link, for brain task on {stem} to start it")
 
     if failures:
-        raise Partial(f"{stem} was written, and {', and '.join(failures)}")
+        raise Partial(f"{stem} was written, and {', and '.join(failures)}") from first_failure
 
     return brain.read(path=target, kind=entry.kind)
 
@@ -263,6 +267,7 @@ def move_became(
     stamp: str,
 ) -> None:
     """Write every became field that names the entry by one of its old keys as the key given, in the refiled todos and bugs that carry one."""
+    first_failure: Optional[OSError] = None
     for kind_name in ("todo", "bug"):
         for holder in brain.entries_of(schema.kind_named(kind_name)):
             became = holder.field("became") or ""
@@ -270,7 +275,13 @@ def move_became(
                 continue
 
             holder.document.set(key="became", value=to)
-            steps.save(brain=brain, entry=holder, stamp=stamp)
+            try:
+                steps.save(brain=brain, entry=holder, stamp=stamp)
+            except OSError as error:
+                first_failure = first_failure or error
+
+    if first_failure is not None:
+        raise first_failure
 
 
 def undo_retitle(
