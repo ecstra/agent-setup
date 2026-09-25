@@ -187,18 +187,20 @@ dropped without a word. A pipe in a step is written into its cell as
 | `brain new plan --title T --description D [--by owner\|agent] [--link P] [--category C]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. The steps go under a heading that reads `## Steps` and nothing more, and a Steps heading at another level or with a colon after it is refused, since the readers would never find it. `by` is owner unless said otherwise, `--link` and `--category` work as for any kind, and a field flag a plan does not carry is refused. |
 | `brain steps <key>` | The entry in a few lines, its status and the count of settled steps, then one line per step with what it points at and its mark. |
 | `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers. A todo or a bug with no Steps section gets one where its spec puts it, and a numbered list written under Steps by hand becomes the table first, its rows set by the plan's or the todo's own `by` and by agent on a bug. Refused on an entry that is not open, for a step that points at the entry itself, for one that points at an entry whose steps point back here at any remove, since the two would wait on each other for good, and on a plan whose steps sit under a heading that is not `## Steps`. |
-| `brain steps <key> step <n> pending\|done\|skipped` | Marks a step that points at nothing, or one whose pointer reaches nothing the brain can read, a dead key or an id two files carry after a merge, which doctor reports. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped, and a step whose todo or bug was refiled follows it to the entry filed in its place. The tool refreshes it whenever the entry's status changes, a ledger close included, while the holder is open, and a retitle rewrites a cell naming the entry by hand as its id in every holder, so marking a pointed step by hand is refused. Refused on an entry that is not open, whose table is its record. |
+| `brain steps <key> step <n> pending\|done\|skipped` | Marks a step that points at nothing, or one whose pointer reaches nothing the brain can read, a dead key or an id two files carry after a merge, which doctor reports. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped, and a step whose todo or bug was refiled follows it to the entry filed in its place. The tool refreshes it whenever the entry's status changes, a ledger close included, while the holder is open, and a retitle rewrites a cell naming the entry by hand as its id in every holder, or as the new name for a file with no id, which doctor reports, so marking a pointed step by hand is refused. Refused on an entry that is not open, whose table is its record. |
 
 A plan goes done, a todo done and a bug fixed with `brain set` once
 every step is done or skipped, and the tool refuses it before then,
 a todo or a bug with no Steps section closing freely and an entry with
 an empty table closing on its Done when alone. A todo or a bug whose
-Steps holds prose or bullets from before the table, neither the table
-nor a numbered list, is refused its close too, since the tool cannot
-read what it holds, and neither `--fix` nor `brain steps add` turns
-that into the table. Make it a numbered list, which add then turns, or
-move it under another heading by hand, and doctor names the line
-meanwhile. Reopening a closed entry with `brain set` is refused while
+Steps holds anything but the table is refused its close too, a
+numbered list not yet turned into it as much as prose or bullets from
+before the table, since the tool reads only the table there. On an
+open entry `brain steps add` turns a numbered list into the table, and
+so does `--fix` on a todo, never on a bug, while prose or bullets
+neither turns, so make them a numbered list first or move them under
+another heading by hand, and doctor names the line meanwhile.
+Reopening a closed entry with `brain set` is refused while
 its steps and another open entry's would point at each other, and
 while its own table, or the steps of an entry it points at, does not
 read, since the tool cannot tell. Doctor reports a Steps section with
