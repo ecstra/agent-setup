@@ -826,16 +826,16 @@ def added_row(
 def row_line_in(
     hunk: tuple[str, ...],
 ) -> Optional[str]:
-    """The first line of a hunk, kept, removed or added, that is a line of a steps table, a row, its header or the separator under it, blank space around it aside, since a patch tool may place it with that trimmed, and the steps table is the one table a stepped file holds."""
+    """The first line of a hunk, kept, removed or added, that is a line of the steps table, a row, its header or the five celled separator under it, blank space around it aside, since a patch tool may place it with that trimmed, a table of another shape in the prose being left alone."""
     for line in hunk:
-        text = line[1:]
-        if TABLE_LINE.match(text.strip()):
-            return text
+        text = line[1:].strip()
+        if steps.ROW.match(text) or TABLE_LINE.match(text):
+            return line[1:]
 
     return None
 
 
-TABLE_LINE = re.compile(r"^\|.*\|$")
+TABLE_LINE = re.compile(r"^\|[ \t]*#[ \t]*\|.*\|$|^\|(?:[ \t]*:?-+:?[ \t]*\|){5}$")
 
 
 def step_line_in(
