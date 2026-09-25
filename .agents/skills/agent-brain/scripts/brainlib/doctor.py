@@ -614,8 +614,18 @@ def check_table(
         if pending and entry.field("status") == steps.CLOSING[entry.kind.name]:
             numbers = ", ".join(str(number) for number in pending)
             # nothing points at a plan, so only a todo or a bug can have its reopen refused for a loop, while steps on the way that do not read refuse it for any kind
-            way_round = ", and when the set to open is refused for steps that do not read, mend them first" if entry.kind.name == "plan" else ", and when the set to open is refused, mend the steps it says do not read, or close the entry whose steps point back here first"
-            found.append(Finding(path=entry.relative, check="steps", message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it and close it again once the step is settled{way_round}"))
+            if entry.kind.name == "plan":
+                way_round = ", and when the set to open is refused for steps that do not read, mend them first"
+            else:
+                way_round = ", and when the set to open is refused, mend the steps it says do not read, or close the entry whose steps point back here first"
+
+            found.append(
+                Finding(
+                    path=entry.relative,
+                    check="steps",
+                    message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it and close it again once the step is settled{way_round}",
+                )
+            )
 
         return found
 
