@@ -18,7 +18,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from . import clock, frontmatter, schema, steps, store
+from . import clock, frontmatter, ledger, schema, steps, store
 
 FILE = ".task"
 NONE = "task none"
@@ -284,7 +284,7 @@ def unreadable(
 def is_open(
     entry: store.Entry,
 ) -> bool:
-    return (entry.field("status") or "") in steps.OPEN_STATUSES.get(entry.kind.name, ())
+    return steps.is_open(entry)
 
 
 def resolve(
@@ -553,8 +553,6 @@ def batch_text(
     entry: store.Entry,
 ) -> str:
     """Where a review stands, the first batch not yet done with its status, read off the ledger."""
-    from . import ledger  # here and not above, since the ledger reaches the writer and the writer reaches the chain
-
     try:
         rows = ledger.batches(entry)
     except ledger.LedgerError:
@@ -575,6 +573,6 @@ def push_review(
     try:
         turn_on(brain=brain, key=name)
     except (TaskError, steps.StepsError, OSError) as reason:
-        return str(reason)
+        return store.explain(reason)
 
     return None
