@@ -18,7 +18,7 @@ the entry written all the same.
 | `brain ack` | The clock and where the owner's standing word to proceed stands, off, held, or on with what is left of it and what ends it. |
 | `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. The kinds are bug, decision, doc, handover, memory, plan, review and todo. |
 | `brain show <key> [--meta]` | The whole file, or with `--meta` its frontmatter only. |
-| `brain path <key>` | The absolute path behind an id, a name or a brain relative path. |
+| `brain path <key>` | The absolute path behind an id, a name or a path, from the brain or from the repo root, which is what a key is everywhere the tool takes one. |
 | `brain links <key> [--json]` | What the entry links to, and every entry that links to it. |
 
 A `<key>` is an id such as `BUG-004`, a name such as

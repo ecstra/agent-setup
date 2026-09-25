@@ -242,7 +242,7 @@ class Brain:
         self,
         key: str,
     ) -> Optional[Entry]:
-        """Resolve an id, a name, or a path inside the brain to one entry.
+        """Resolve an id, a name, or a path from the brain or the repo root to one entry.
 
         A key that fits more than one file, a stem two kinds share or
         the ledger.md every review is, is refused with the paths named,
@@ -264,7 +264,8 @@ class Brain:
         if self.keyed is None:
             keyed: dict[str, list[Entry]] = {}
             for entry in self.entries():
-                keys = {entry.identifier, entry.name, entry.relative, entry.path.stem} - {None}
+                # the path from the repo root is the one a person copies from a terminal or a diff
+                keys = {entry.identifier, entry.name, entry.relative, f"{self.root.name}/{entry.relative}", entry.path.stem} - {None}
                 # a review's file is its folder's ledger, so the folder's name answers for it as a plan's stem does
                 if entry.kind.name == "review":
                     keys.add(entry.path.parent.name)
