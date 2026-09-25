@@ -234,7 +234,7 @@ def answers_of(
 def stored_rows(
     entry: store.Entry,
 ) -> list[Step]:
-    """The entry's steps as the file holds them, the path named when they do not read, for the writers that rewrite the table in place."""
+    """The entry's steps as the file holds them, the path named when they do not read, which a closed entry is read by, its table being its record, and which the writers rewrite in place."""
     try:
         return stored_rows_of(kind=entry.kind.name, body=entry.document.body)
     except StepsError as broken:
