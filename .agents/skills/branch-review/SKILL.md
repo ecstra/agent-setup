@@ -94,9 +94,9 @@ every sub agent prompt. In a project the kit's own files, under
 off the list, since the upgrade writes them whole and the project's
 rule refuses reading them, while in the kit's own checkout they are the
 work and stay. Uncommitted work is in scope too. The third
-command lists it file by file, tracked and untracked alike, and a
-prompt names an untracked file as one to read whole, since no diff
-shows it.
+command lists it file by file, tracked and untracked alike, the kit's
+own files left out the same way, and a prompt names an untracked file
+as one to read whole, since no diff shows it.
 
 ## The finding pass
 
