@@ -33,10 +33,9 @@ The examples below shorten that to `brain`. Every flag is listed in
   without a search. `brain refile` carries every link along.
 - `brain doctor` is a gate. It exits 0 only when the brain is clean, so
   it runs green before any review.
-- The tool's code is never read by hand. This sheet and the reference
-  say what every command does, and a project carries a Claude Code rule
-  that refuses the read, which the kit's own checkout alone goes
-  without.
+- The tool's code is never read by hand, save in the kit's own checkout
+  where it is the work. SYSTEM.md section 8 carries the rule, and this
+  sheet with the reference is what to read instead.
 
 ## When a session starts
 
