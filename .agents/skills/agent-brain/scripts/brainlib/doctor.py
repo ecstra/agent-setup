@@ -666,14 +666,18 @@ def refiled_word(
     target: store.Entry,
     kept: str,
 ) -> str:
-    """Why a cell at a refiled entry reads as the tool would write it: handed on to the entry filed in its place, or kept as the refiled one's own key while that entry's steps lead back here, or while nothing was filed in its place."""
-    successor = steps.refiled_to(brain=brain, entry=target)
+    """Why a cell at a refiled entry reads as the tool would write it, handed on to the entry filed in its place, at whatever remove, or kept at a refiled one, whose successor's steps lead back here or do not read, or which has no successor the brain knows."""
+    landed = steps.pointed(brain=brain, key=kept)
+    if landed is None or landed.field("status") != "refiled":
+        return f"which was refiled as {kept}"
+
+    successor = steps.refiled_to(brain=brain, entry=landed)
     if successor is None:
         return f"which was refiled as nothing the brain knows, so the tool keeps the key {kept} and the step stands skipped"
 
     handed_on = steps.pointer_of(successor)
-    if handed_on == kept:
-        return f"which was refiled as {kept}"
+    if steps.unreadable_reached(brain=brain, key=handed_on) is not None:
+        return f"which was refiled as {handed_on}, whose steps do not read, so the tool keeps the key {kept} and the step stands skipped until they are put right"
 
     return f"which was refiled as {handed_on}, whose steps lead back here, so the tool keeps the key {kept} and the step stands skipped"
 
