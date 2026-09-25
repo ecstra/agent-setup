@@ -978,24 +978,68 @@ def same_repository(
     kit: Kit,
     project: Project,
 ) -> bool:
-    """Whether the project shares the kit's git repository, as a worktree, or was cloned from the checkout or from its origin."""
-    mine = git(project=project, arguments=["rev-parse", "--git-common-dir"])
-    kits = git(project=Project(root=kit.root), arguments=["rev-parse", "--git-common-dir"])
-    if answered(mine) and answered(kits):
-        if store.quietly(lambda: (project.root / mine.stdout.strip()).samefile(kit.root / kits.stdout.strip())):
-            return True
+    """Whether the project shares the kit's git repository, as a worktree, or was cloned from the checkout or from its origin, under any spelling of the URL.
+
+    The repository is shared only when each folder is the top of its
+    own repository, since a kit vendored as plain files inside a
+    project's repository, or a project folder inside the kit's, shares a
+    `.git` without being a checkout of the kit.
+    """
+    if is_a_top(kit.root) and is_a_top(project.root):
+        mine = git(project=project, arguments=["rev-parse", "--git-common-dir"])
+        kits = git(project=Project(root=kit.root), arguments=["rev-parse", "--git-common-dir"])
+        if answered(mine) and answered(kits):
+            if store.quietly(lambda: (project.root / mine.stdout.strip()).samefile(kit.root / kits.stdout.strip())):
+                return True
 
     origin = git(project=project, arguments=["remote", "get-url", "origin"])
     if not answered(origin):
         return False
 
     url = origin.stdout.strip()
-    if store.quietly(lambda: Path(url).samefile(kit.root)):
+    if store.quietly(lambda: local_checkout(url).samefile(kit.root)):
         return True
 
     kits_origin = git(project=Project(root=kit.root), arguments=["remote", "get-url", "origin"])
 
-    return answered(kits_origin) and kits_origin.stdout.strip() == url
+    return answered(kits_origin) and repository_named(kits_origin.stdout.strip()) == repository_named(url)
+
+
+def is_a_top(
+    folder: Path,
+) -> bool:
+    """Whether the folder is the top of a git repository of its own."""
+    top = git(project=Project(root=folder), arguments=["rev-parse", "--show-toplevel"])
+
+    return answered(top) and store.quietly(lambda: Path(top.stdout.strip()).samefile(folder))
+
+
+def local_checkout(
+    url: str,
+) -> Path:
+    """The folder a local origin names, a file URL or a plain path, its `.git` taken off."""
+    path = Path(url[len("file://") :] if url.startswith("file://") else url)
+
+    return path.parent if path.name == ".git" else path
+
+
+def repository_named(
+    url: str,
+) -> str:
+    """A git URL as host and path, lowercased, without the scheme, the user, the port, a trailing slash or `.git`, so two spellings of one origin read the same."""
+    rest = url.strip()
+    if "://" in rest:
+        rest = rest.split("://", 1)[1]
+    elif ":" in rest and not rest.startswith("/"):
+        rest = rest.replace(":", "/", 1)
+
+    host, _, path = rest.partition("/")
+    host = host.rsplit("@", 1)[-1].split(":", 1)[0]
+    path = path.rstrip("/")
+    if path.endswith(".git"):
+        path = path[: -len(".git")]
+
+    return f"{host}/{path}".lower()
 
 
 def answered(
