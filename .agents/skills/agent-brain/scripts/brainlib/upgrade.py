@@ -656,7 +656,10 @@ def kits_own(
     path: str,
     names: list[str],
 ) -> bool:
-    """Whether a doctor finding sits in one of the named skill folders, its path spelled from the brain or from the project root."""
+    """Whether a doctor finding sits in a file the install writes whole, one of the named skill folders, its path spelled from the brain or from the project root, or a front door other than AGENTS.md, which carries the project's section 0."""
+    if path in FRONT_DOORS and path != "AGENTS.md":
+        return True
+
     parts = Path(path).parts
     if parts and parts[0] in (FOLDER, OLD_FOLDER):
         parts = parts[1:]
