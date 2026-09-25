@@ -222,11 +222,12 @@ def retitle(
     finally:
         brain.refresh()
 
-    # a step cell that named the entry by hand follows it once the rename is done, written as the id, since a key move is no mark and the old name would strand, and a rename that fails leaves every cell as it was, while two files carry the id, only the cells that name this file move, to its new name, and a cell holding the doubled id stays, since it could mean either file
+    # a step cell that named the entry by hand follows it once the rename is done, written as the id, since a key move is no mark and the old name would strand, and a rename that fails leaves every cell as it was, while two files carry the id, only the cells that name this file move, to its new name, and a cell holding the doubled id stays, since it could mean either file, and a file with no id, which doctor reports, is pointed at by its name, so the cells follow it to the new one
     if entry.kind.name in steps.POINTED_KINDS:
         two_files = steps.doubled(brain=brain, key=pointer)
+        by_name = two_files or entry.identifier is None
         try:
-            steps.repoint(brain=brain, keys={old_name} if two_files else old_keys, to=stem if two_files else pointer, stamp=stamp)
+            steps.repoint(brain=brain, keys={old_name} if two_files else old_keys, to=stem if by_name else pointer, stamp=stamp)
         except OSError as error:
             raise Partial(f"{stem} was written, and a step that named it could not follow, {store.explain(error)}, which brain doctor reports until the folder can be written") from error
 
