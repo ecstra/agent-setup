@@ -232,12 +232,12 @@ def retitle(
         except OSError as error:
             raise Partial(f"{stem} was written, and a step that named it could not follow, {store.explain(error)}, which brain doctor reports until the folder can be written") from error
 
-    # the chain stores a plan by its file, so the stem it holds follows
-    if entry.kind.name == "plan":
+    # the chain stores a plan by its file, and a todo or a bug with no id too, so the stem it holds follows
+    if entry.kind.name == "plan" or entry.identifier is None:
         try:
-            task.renamed(brain=brain, kind="plan", old=old_stem, new=stem)
+            task.renamed(brain=brain, kind=entry.kind.name, old=old_stem, new=stem)
         except (OSError, task.TaskError) as error:
-            raise Partial(f"{stem} was written, and the chain could not follow the name, {store.explain(error)}, so it says plan {old_stem}, not in this checkout, until {task.FILE} can be written again and brain task off drops it, link by link, for brain task on {stem} to start it") from error
+            raise Partial(f"{stem} was written, and the chain could not follow the name, {store.explain(error)}, so it says {entry.kind.name} {old_stem}, not in this checkout, until {task.FILE} can be written again and brain task off drops it, link by link, for brain task on {stem} to start it") from error
 
     return brain.read(path=target, kind=entry.kind)
 

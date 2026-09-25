@@ -617,7 +617,7 @@ def pointed(
 def pointer_of(
     entry: store.Entry,
 ) -> str:
-    """The key a step stores for the entry, the id for a todo or a bug, which a retitle never moves, and the name for a review."""
+    """The key a step stores for the entry, the id for a todo or a bug, which a retitle never moves, and the name for a review, or for a todo or a bug with no id, a file the tool never wrote, whose cells a retitle moves with the name."""
     return entry.identifier or entry.name
 
 
@@ -1006,7 +1006,7 @@ def mark(
     step = step_numbered(entry=entry, rows=rows, number=number)
     target = pointed(brain=brain, key=step.points_at) if step.points_at else None
     if target is not None:
-        raise StepsError(f"step {number} points at {step.points_at}, {follows_its_entry(target=target, key=step.points_at, asked=status)}")
+        raise StepsError(f"step {number} points at {step.points_at}, {follows_its_entry(brain=brain, target=target, key=step.points_at, asked=status)}")
 
     rows[number - 1] = Step(number=number, text=step.text, points_at=step.points_at, by=step.by, status=status)
     entry.document.body = rewrite(body=entry.document.body, rows=rows)
@@ -1014,6 +1014,7 @@ def mark(
 
 
 def follows_its_entry(
+    brain: store.Brain,
     target: store.Entry,
     key: str,
     asked: str,
@@ -1021,6 +1022,16 @@ def follows_its_entry(
     """Why a pointed step takes no mark by hand, and what gives it the mark asked for instead, the entry named as the cell names it, since that key is the one that resolves."""
     kind = target.kind.name
     status = target.field("status") or ""
+    # a step still at a refiled entry is one whose hand off is held, since the entry filed in its place leads back here, or one that has no successor, and a set to open would undo the refile
+    if status == "refiled" and asked == "pending":
+        successor = refiled_to(brain=brain, entry=target)
+        if successor is None:
+            return "which was refiled as nothing the brain knows, so its mark stands skipped"
+
+        handed = pointer_of(successor)
+
+        return f"which was refiled as {handed}, whose steps lead back here, so its mark stands skipped until {handed} closes or its steps no longer lead back, and follows {handed} then"
+
     if status in OPEN_STATUSES[kind]:
         if asked == "pending":
             return f"so its mark follows that entry, and is pending while {key} is open"
