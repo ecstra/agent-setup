@@ -1424,25 +1424,37 @@ def check_front_doors(
         except (OSError, UnicodeDecodeError):
             continue
 
-        prose = HTML_COMMENT.sub(" ", sections.CODE.sub(" ", text))
-        for match in IMPORT.finditer(prose):
-            token = match.group(1)
-            if token[-1] in GLUED:
-                found.append(
-                    Finding(
-                        path=name,
-                        check="import",
-                        message=f"imports @{token} with the punctuation glued on, so the parser looks for that name and the file never loads, end the path with a space or a line break",
-                    )
+        found += import_slips(name=name, text=text, project=project)
+
+    return found
+
+
+def import_slips(
+    name: str,
+    text: str,
+    project: Path,
+) -> list[Finding]:
+    """The import findings of one front door's text, read against the project's files, so the upgrade can ask the same of the kit's own text."""
+    found: list[Finding] = []
+    prose = HTML_COMMENT.sub(" ", sections.CODE.sub(" ", text))
+    for match in IMPORT.finditer(prose):
+        token = match.group(1)
+        if token[-1] in GLUED:
+            found.append(
+                Finding(
+                    path=name,
+                    check="import",
+                    message=f"imports @{token} with the punctuation glued on, so the parser looks for that name and the file never loads, end the path with a space or a line break",
                 )
-                continue
+            )
+            continue
 
-            target = Path(os.path.expanduser(token.replace("\\ ", " ")))
-            if not store.readable_file(target if target.is_absolute() else project / target):
-                found.append(Finding(path=name, check="import", message=f"imports @{token}, which is not there"))
+        target = Path(os.path.expanduser(token.replace("\\ ", " ")))
+        if not store.readable_file(target if target.is_absolute() else project / target):
+            found.append(Finding(path=name, check="import", message=f"imports @{token}, which is not there"))
 
-        if name != "AGENTS.md" and not any(line.strip() == RULES_IMPORT for line in prose.splitlines()):
-            found.append(Finding(path=name, check="import", message="does not import AGENTS.md on a line of its own, so the rules never load"))
+    if name != "AGENTS.md" and not any(line.strip() == RULES_IMPORT for line in prose.splitlines()):
+        found.append(Finding(path=name, check="import", message="does not import AGENTS.md on a line of its own, so the rules never load"))
 
     return found
 

@@ -653,20 +653,38 @@ def check(
     """
     found = doctor.run(brain=store.Brain(root=project.brain), fix=True)
     names = store.skill_folders(kit.brain)
-    kits = [finding for finding in found if kits_own(path=finding.path, names=names)]
+    in_kits_words = {
+        finding.message
+        for finding in doctor.import_slips(
+            name="AGENTS.md",
+            text=kit.text(Path("AGENTS.md")),
+            project=project.root,
+        )
+    }
+    kits = [finding for finding in found if kits_own(finding=finding, names=names, in_kits_words=in_kits_words)]
 
     return [finding for finding in found if finding not in kits], kits
 
 
 def kits_own(
-    path: str,
+    finding: doctor.Finding,
     names: list[str],
+    in_kits_words: set[str],
 ) -> bool:
-    """Whether a doctor finding sits in a file the install writes whole, one of the named skill folders, its path spelled from the brain or from the project root, or a front door other than AGENTS.md, which carries the project's section 0."""
-    if path in FRONT_DOORS and path != "AGENTS.md":
-        return True
+    """Whether a doctor finding sits in what the install writes whole.
 
-    parts = Path(path).parts
+    That is one of the named skill folders, its path spelled from the
+    brain or from the project root, an import slip in CLAUDE.md or
+    GEMINI.md, which the install writes as the kit's text, or an import
+    slip in AGENTS.md that the kit's own words below the marker carry
+    too, since the part above them is the project's section 0. An
+    import slip is known by its check, so a project file of the same
+    name inside the brain is never taken for a front door.
+    """
+    if finding.check == "import":
+        return finding.path != "AGENTS.md" or finding.message in in_kits_words
+
+    parts = Path(finding.path).parts
     if parts and parts[0] in (FOLDER, OLD_FOLDER):
         parts = parts[1:]
 
