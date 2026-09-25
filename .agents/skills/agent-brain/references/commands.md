@@ -184,7 +184,7 @@ dropped without a word. A pipe in a step is written into its cell as
 
 | Command | What it does |
 |---|---|
-| `brain new plan --title T --description D [--by owner\|agent] [--link P] [--category C]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. The steps go under a level two heading, `## Steps`, and a Steps heading at another level is refused, since the readers would never find it. `by` is owner unless said otherwise, `--link` and `--category` work as for any kind, and a field flag a plan does not carry is refused. |
+| `brain new plan --title T --description D [--by owner\|agent] [--link P] [--category C]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. The steps go under a heading that reads `## Steps` and nothing more, and a Steps heading at another level or with a colon after it is refused, since the readers would never find it. `by` is owner unless said otherwise, `--link` and `--category` work as for any kind, and a field flag a plan does not carry is refused. |
 | `brain steps <key>` | The entry in a few lines, its status and the count of settled steps, then one line per step with what it points at and its mark. |
 | `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers. A todo or a bug with no Steps section gets one where its spec puts it, and a numbered list written under Steps by hand becomes the table first, its rows set by the plan's or the todo's own `by` and by agent on a bug. Refused on an entry that is not open, for a step that points at the entry itself, for one that points at an entry whose steps point back here at any remove, since the two would wait on each other for good, and on a plan whose steps sit under a heading that is not `## Steps`. |
 | `brain steps <key> step <n> pending\|done\|skipped` | Marks a step that points at nothing, or one whose pointer reaches nothing the brain can read, a dead key or an id two files carry after a merge, which doctor reports. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped, and a step whose todo or bug was refiled follows it to the entry filed in its place. The tool refreshes it whenever the entry's status changes, a ledger close included, while the holder is open, and a retitle rewrites a cell naming the entry by hand as its id in every holder, so marking a pointed step by hand is refused. Refused on an entry that is not open, whose table is its record. |
@@ -245,18 +245,18 @@ that there are no stray files, meaning every markdown file under
 frontmatter present and complete, `updated` a real date, names
 matching filenames and unique, kind matching folder, fields and values
 against the spec, required headings, the lifecycle rules, filename
-patterns and duplicate ids, links that resolve, links written as paths
-with each file once, body links that resolve, the steps tables as the
-steps section says, indexes current, no dashes or semicolons in prose,
-no machine paths, nothing shaped like a secret, the version stamp, the
-chat style copies for Codex and Gemini CLI matching the Claude Code
-one where the project keeps those agents' folders, the skill links
-Claude Code needs, one per skill the kit ships and one per skill folder
-the project keeps, each of which must reach its skill rather than point
-at nothing or be a plain file, a real folder copy of a kit skill that
-fell behind the brain's, a dangling link doctor once made for a project
-skill since gone from the brain, a skills folder it cannot list, and a
-version stamp that is not a version.
+patterns kept and no id carried twice, links that resolve, links
+written as paths with each file once, body links that resolve, the
+steps tables as the steps section says, indexes current, no dashes or
+semicolons in prose, no machine paths, nothing shaped like a secret,
+the version stamp a version, the chat style copies for Codex and
+Gemini CLI matching the Claude Code one where the project keeps those
+agents' folders, and the skill links Claude Code needs, one per skill
+the kit ships and one per skill folder the project keeps, each of
+which must reach its skill rather than point at nothing or be a plain
+file. It reports too a real folder copy of a kit skill that fell
+behind the brain's, a dangling link doctor once made for a project
+skill since gone from the brain, and a skills folder it cannot list.
 
 `--fix` repairs a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written
