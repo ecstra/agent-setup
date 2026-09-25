@@ -367,8 +367,9 @@ def upgrade(
     if state == "none":
         raise UpgradeError(f"{project.root} carries no brain, run brain port instead")
 
-    if kit.root.resolve() == project.root.resolve():
-        raise UpgradeError("the kit is the project, there is nothing to install")
+    reason = is_the_kit(kit=kit, project=project)
+    if reason is not None:
+        raise UpgradeError(reason)
 
     prepared = prepare(kit=kit, project=project)
     report = Report(out=out)
@@ -904,6 +905,57 @@ def move(
         old = passing
 
     old.rename(new)
+
+
+def is_the_kit(
+    kit: Kit,
+    project: Project,
+) -> Optional[str]:
+    """Why the project gets nothing installed, being the kit's own checkout, or None when it is not.
+
+    The same folder under any spelling, a worktree of the same
+    repository, or a clone of the checkout or of its origin. The kit is
+    where the tool's code is the work, so it never gets the read guard
+    and never has its own files written over.
+    """
+    if store.quietly(lambda: kit.root.samefile(project.root)):
+        return "the kit is the project, there is nothing to install"
+
+    if same_repository(kit=kit, project=project):
+        return "the project is a worktree or a clone of the kit, there is nothing to install"
+
+    return None
+
+
+def same_repository(
+    kit: Kit,
+    project: Project,
+) -> bool:
+    """Whether the project shares the kit's git repository, as a worktree, or was cloned from the checkout or from its origin."""
+    mine = git(project=project, arguments=["rev-parse", "--git-common-dir"])
+    kits = git(project=Project(root=kit.root), arguments=["rev-parse", "--git-common-dir"])
+    if answered(mine) and answered(kits):
+        if store.quietly(lambda: (project.root / mine.stdout.strip()).samefile(kit.root / kits.stdout.strip())):
+            return True
+
+    origin = git(project=project, arguments=["remote", "get-url", "origin"])
+    if not answered(origin):
+        return False
+
+    url = origin.stdout.strip()
+    if store.quietly(lambda: Path(url).samefile(kit.root)):
+        return True
+
+    kits_origin = git(project=Project(root=kit.root), arguments=["remote", "get-url", "origin"])
+
+    return answered(kits_origin) and kits_origin.stdout.strip() == url
+
+
+def answered(
+    result: Optional["subprocess.CompletedProcess[str]"],
+) -> bool:
+    """Whether git ran and succeeded."""
+    return result is not None and result.returncode == 0
 
 
 def git(

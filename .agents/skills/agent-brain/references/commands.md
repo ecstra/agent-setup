@@ -311,7 +311,9 @@ What is the project's stays the project's, which is everything under
 and any hook or setting of its own in the agent folders. Section 0
 ends at the comment line in `AGENTS.md` that says where the kit's
 words start, so it is found the same way whatever a release says after
-that line. The run refuses to install the kit onto itself. In a file the first release wrote, before that line
+that line. The run refuses to install the kit onto itself, or onto a
+worktree or a clone of it, since that is where the tool's code is the
+work. In a file the first release wrote, before that line
 existed, it ends where that release's opening paragraph stood, and
 that paragraph is history, so it never moves. The kit's earlier hook
 groups are replaced under every event, told apart by a command that is
