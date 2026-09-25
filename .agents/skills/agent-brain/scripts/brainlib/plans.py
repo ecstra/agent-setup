@@ -6,7 +6,6 @@ one, empty when the plan is a goal alone and the steps are still to
 find out.
 """
 
-from datetime import date
 from typing import Optional
 
 from . import schema, steps, store, writes
@@ -32,7 +31,6 @@ def create(
     if fields["by"] not in steps.BY:
         raise PlanError(f"a plan is set by {' or '.join(steps.BY)}, not '{fields['by']}'")
 
-    stamp = stamp or date.today().isoformat()
     text = body if body.strip() else ""
     if not text:
         raise PlanError("a plan needs its prose on standard input, the Why and the Done when at least")

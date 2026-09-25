@@ -154,7 +154,7 @@ def located(
         row = ROW.match(string=body, pos=line_start, endpos=end)
         if row is None:
             if body[line_start:end].split("\n", 1)[0].lstrip().startswith("|"):
-                raise StepsError("a line of the steps table is not a whole row, a row is | number | step | points at | by | status |")
+                raise StepsError("a line of the steps table is not a whole row, a row is | number | step | points at | by | status |, a pipe inside a cell is written \\|, and a backslash never ends a cell before its pipe")
 
             break
 
@@ -431,11 +431,10 @@ def settled_as(
     entry: store.Entry,
 ) -> str:
     """The mark a step of a closed entry takes when its list becomes the table: done for an entry done or fixed, skipped for one dropped, refiled or wontfix, pending while it is open."""
-    status = entry.field("status") or ""
-    if status in OPEN_STATUSES[entry.kind.name]:
+    if is_open(entry):
         return "pending"
 
-    return "done" if status in ("done", "fixed") else "skipped"
+    return "done" if (entry.field("status") or "") in ("done", "fixed") else "skipped"
 
 
 def with_table(
@@ -1069,7 +1068,7 @@ def follows_its_entry(
 
         return f"which was refiled as {handed}, whose steps lead back here, so its mark stands skipped until {handed} closes or its steps no longer lead back, and follows {handed} then"
 
-    if status in OPEN_STATUSES[kind]:
+    if is_open(target):
         if asked == "pending":
             return f"so its mark follows that entry, and is pending while {key} is open"
 
@@ -1165,7 +1164,8 @@ def settle(
     except StepsError:
         return
 
-    fresh = [derived_row(brain=brain, step=step, own=own_keys(entry)) for step in rows]
+    own = own_keys(entry)
+    fresh = [derived_row(brain=brain, step=step, own=own) for step in rows]
     if fresh != rows:
         entry.document.body = rewrite(body=entry.document.body, rows=fresh)
 

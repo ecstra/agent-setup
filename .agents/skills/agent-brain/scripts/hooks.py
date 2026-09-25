@@ -452,9 +452,11 @@ class TableWrite:
     """A write to a stepped file as the hook reads it.
 
     The key is the name a command names the file by, own the keys a
-    step would point at it with, its id and its name, and node the
-    file's own place in the pointer graph, its path folded in case, so
-    two files that carry one id stay two nodes. The rows are the ones
+    step would point at it with, its id and its name as the store reads
+    them, or the header's name alone when the store holds no entry at
+    the path, and node the file's own place in the pointer graph, its
+    path folded in case, so two files that carry one id stay two
+    nodes. The rows are the ones
     the file holds and the ones the write would leave, which a list
     under Steps gives as the rows the tool would turn it into.
     """
