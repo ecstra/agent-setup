@@ -2,7 +2,7 @@
 name: spec-bugs
 kind: doc
 description: format and lifecycle for .agents/bugs, the defect tracker
-updated: 2026-09-17
+updated: 2026-09-24
 links: [spec/conventions.md, spec/todos.md, spec/reviews.md]
 ---
 
@@ -30,22 +30,30 @@ status: open | branched | fixed | wontfix | refiled
 severity: breaks | bug | debt | nit
 area: <the project's own area vocabulary, kept consistent>
 reported: <YYYY-MM-DD>
+became: <the id of the todo it was refiled as, written by the refile>
 parent: <name of the bug or finding that spawned this one, if any>
 ```
 
 `branched` means a branch is carrying the fix right now (name it in the
 body). `wontfix` requires the reason written in the body. `refiled`
-means the file turned out to be a todo, which the tool filed and linked
-here, so a refiled bug always links to a todo.
+means the file turned out to be a todo, which the tool filed, named in
+`became` and linked here, so a refiled bug always links to a todo.
 
 Body sections, in order:
 
 ```
 ## Problem
-What misbehaves, as observed. Repro steps if known.
+What misbehaves, as observed.
 
 ## Evidence
-Logs, field notes, screenshots described.
+Logs, field notes, screenshots described, and the steps that reproduce
+it, which are evidence and never the fix's steps below.
+
+## Steps
+The same table a plan carries, per spec/plans.md, the tool's own, one
+step of the fix per row. Optional, and the task chain reads it. Listed
+as numbered lines on filing, they become the table, and a bug with
+steps goes fixed once every one is done or skipped.
 
 ## Fix
 Root cause, the commit hash, the date. Absent while open.

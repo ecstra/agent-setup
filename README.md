@@ -25,11 +25,11 @@ written record of what the project knows.
 | `AGENTS.md` | The front door every agent reads. It points at the rulebook, and it holds your project's own rules when you have some. |
 | `CLAUDE.md` and `GEMINI.md` | A line or two each, pulling in `AGENTS.md` and, for Gemini, its chat style, because Claude Code and Gemini CLI look for their own filename. |
 | `.agents/SYSTEM.md` | The rulebook. How to write code, how to talk to you, where docs go, how a branch gets reviewed, how git is used. |
-| `.agents/` | The project's memory. Docs, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
+| `.agents/` | The project's memory. Docs, plans, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
 | `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
 | `.agents/skills/branch-review/` | The code review, run on your word. Finder sub agents in parallel, one per angle, verifiers a few findings each grouped by file, the findings filed in a ledger, then fixes batch by batch with a hunter and verifiers until clean, and a report that says where things stand first. |
 | `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
-| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking and the clock and your standing word stay in front of the agent, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
+| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking and the clock, your standing word and the work the agent is on stay in front of it, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
 | `.gitignore` | Keeps your `.env`, your local Claude Code settings and Python's cache out of git, along with what the brain's conventions list as never entering the repo. |
@@ -208,7 +208,7 @@ prompt below if the agent did not run the port itself.
 | Your own `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` | Carried into `## 0. Project Rules` by the port, then read against the new rulebook. Anything the general rules already cover is dropped, only the truly project specific parts stay. |
 | A `docs/` folder, wiki pages, architecture or design notes | `.agents/docs/`, sorted into a category folder (`foundation/`, `systems/`, `ops/`, `research/`), one line each in `.agents/docs/INDEX.md`. What a person wrote by hand stays where it is, and a `docs/` folder you keep links into the brain rather than repeating it. |
 | ADRs or a decisions log | `.agents/decisions/`, one file per decision. |
-| A TODO list, roadmap, or backlog | `.agents/todos/`, one file per item, your wording kept as is. |
+| A TODO list, roadmap, or backlog | `.agents/todos/`, one file per item, your wording kept as is, and a roadmap with its steps as `.agents/plans/`, one file per goal. |
 | Known bugs, issue notes | `.agents/bugs/`, one file per bug. |
 | Gotchas, tribal knowledge, "remember that" notes | `.agents/memory/`, one fact per file. |
 | Your `CONTRIBUTING.md` | Replaced by the kit's, the old one kept by git. Extra rules of yours go into `## 0. Project Rules`. |
@@ -309,9 +309,10 @@ need to, but the commands are short enough to know.
 
 | Command | What it does |
 |---|---|
-| `brain status` | The clock, where your standing word stands, on, held or off, then the brain in numbers, what each tracker holds and whether doctor is clean. The session start hook prints this into the agent's context, and two more hooks keep the clock in front of the agent on every prompt and after tool calls, since a model does not know the time on its own. |
+| `brain status` | The clock, where your standing word stands, on, held or off, the work the agent is on, then the brain in numbers, what each tracker holds and whether doctor is clean. The session start hook prints this into the agent's context, and two more hooks keep the clock and the work in front of the agent on every prompt and after tool calls, since a model does not know the time on its own and forgets what it was doing. |
+| `brain task on <entry>` | The work the agent is on, one chain at a time from a plan down to the step, which the agent sets before multi step work and moves with `brain task done`, a mark in the entry's own steps table, or which moves of itself when the entry a step points at closes, a refiled one handing the step on to the entry filed in its place. The agent cannot start a second piece of work while one stands, short of `--replace` on your word, and a link falls off the chain when its entry closes. |
 | `brain doctor` and `brain doctor --fix` | Checks every file against its spec, and `--fix` repairs the mechanical slips, a stale index, a link written as a name, a chat style copy that drifted. |
-| `brain new`, `brain set`, `brain refile` | Files a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
+| `brain new`, `brain set`, `brain refile` | Files a plan, a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
 | `brain ledger` | Opens, fills and closes a code review ledger, batch by batch, and `brain ledger report` says where a review stands, counted from the file. |
 | `brain ack on --for 8h` | Your standing word to proceed, for a time or until a task is done, so the agent passes the review's gates that normally wait for you, the house rules name them, and each report says which ack the step ran on. It never starts a review, and the PR and the merge still wait for your ask. `brain ack off` takes it back. |
 | `brain port` and `brain upgrade` | The two commands above, run from a kit checkout against your project. |
@@ -341,10 +342,12 @@ Here is how it ships, empty and ready.
 │   ├── bugs.md
 │   ├── todos.md
 │   ├── decisions.md
+│   ├── plans.md
 │   ├── reviews.md
 │   └── handover.md
 ├── docs/INDEX.md         the knowledge library
 ├── memory/INDEX.md       facts learned along the way
+├── plans/INDEX.md        the plans, each a goal with its steps
 ├── todos/INDEX.md        the work tracker
 ├── bugs/INDEX.md         the defect tracker
 ├── decisions/INDEX.md    decisions taken and why
@@ -374,6 +377,9 @@ land.
 ├── memory/
 │   ├── INDEX.md
 │   └── stripe-webhooks-retry-twice.md
+├── plans/
+│   ├── INDEX.md
+│   └── billing-launch.md
 ├── todos/
 │   ├── INDEX.md
 │   ├── TODO-001-export-to-csv.md

@@ -2,7 +2,7 @@
 name: spec-todos
 kind: doc
 description: format and lifecycle for .agents/todos, the work tracker
-updated: 2026-09-17
+updated: 2026-09-24
 links: [spec/conventions.md, spec/bugs.md]
 ---
 
@@ -23,6 +23,7 @@ by: owner | agent
 area: <the project's own area vocabulary, kept consistent>
 born: <YYYY-MM-DD>
 done: <YYYY-MM-DD, when closed>
+became: <the id of the bug it was refiled as, written by the refile>
 ```
 
 Body sections:
@@ -34,6 +35,12 @@ verbatim, cleaning touches structure only, never voice.
 
 ## Why
 One or two lines when the what does not carry it. Optional.
+
+## Steps
+The same table a plan carries, per spec/plans.md, the tool's own.
+Optional, and the task chain reads it, so multi step work carries one.
+Listed as numbered lines on filing, they become the table, and a todo
+with steps goes done once every one is done or skipped.
 
 ## Done when
 The check that closes it. A closed item names the commit(s) here.
@@ -56,5 +63,6 @@ with counts (each closed file carries its own description, the id finds
 it).
 A todo that turns out to describe a defect is refiled as a bug through
 the tool, `brain refile --kind bug`. The todo stays, marked `refiled`
-with its closing date, and the two link to each other, so the id trail
-holds and no id is ever reused. A refiled todo always links to a bug.
+with its closing date, names the bug in `became`, and the two link to
+each other, so the id trail holds and no id is ever reused. A refiled
+todo always links to a bug.

@@ -2,7 +2,7 @@
 name: agent-readme
 kind: doc
 description: what the .agents directory is and how a cold agent boots from it
-updated: 2026-09-23
+updated: 2026-09-24
 links: [INDEX.md, spec/conventions.md, house-rules.md]
 ---
 
@@ -35,6 +35,8 @@ the repo root when the project keeps one, agents read this.
 - `memory/`: project facts learned along the way, one per file.
 - `bugs/`: defects, one per file.
 - `todos/`: work to do, one per file. The project's tracker.
+- `plans/`: long horizon work, a goal with the steps that reach it, one
+  per file, the steps a table the tool keeps.
 - `decisions/`: decisions taken and why, one per file.
 - `reviews/`: one folder per code review, the ledger inside.
 - `handover/`: session handoffs, born with its first file.
@@ -48,6 +50,9 @@ the repo root when the project keeps one, agents read this.
 - `.ack`: the owner's standing word to proceed and its end, the tool's
   own, which git ignores since it lives on one machine, and the
   conventions say the rest.
+- `.task`: the current work, the chain from the plan down to the step
+  the agent is on, which every hook prints, the tool's own and ignored
+  the same way.
 
 ## Two absolutes
 

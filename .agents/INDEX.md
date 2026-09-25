@@ -2,7 +2,7 @@
 name: agent-index
 kind: doc
 description: the spine of the agent directory, what exists and where
-updated: 2026-09-23
+updated: 2026-09-24
 links: [README.md, spec/conventions.md, house-rules.md]
 ---
 
@@ -23,6 +23,7 @@ rather than this one.
 - [spec/bugs.md](spec/bugs.md), format and lifecycle for .agents/bugs, the defect tracker
 - [spec/todos.md](spec/todos.md), format and lifecycle for .agents/todos, the work tracker
 - [spec/decisions.md](spec/decisions.md), format for .agents/decisions, one decision per file
+- [spec/plans.md](spec/plans.md), format and lifecycle for .agents/plans, a goal with the steps that reach it
 - [spec/reviews.md](spec/reviews.md), format and lifecycle for .agents/reviews, the code review ledgers
 - [spec/handover.md](spec/handover.md), format for .agents/handover, session handoffs
 - [skills/agent-brain/SKILL.md](skills/agent-brain/SKILL.md), the brain tool, the one way anything here is filed, changed or checked
@@ -35,6 +36,7 @@ rather than this one.
 
 ## The trackers
 
+- [plans/INDEX.md](plans/INDEX.md), the plans: empty
 - [todos/INDEX.md](todos/INDEX.md), the work tracker: empty
 - [bugs/INDEX.md](bugs/INDEX.md), the defect tracker: empty
 - [decisions/INDEX.md](decisions/INDEX.md), the decision record: empty

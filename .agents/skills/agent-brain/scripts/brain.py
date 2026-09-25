@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import autoack, clock, doctor, frontmatter, index, ledger, reads, schema, store, upgrade, writes
+from brainlib import autoack, clock, doctor, frontmatter, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
 
 REFUSED = 1
 FINDINGS_REMAIN = 2
@@ -33,16 +33,41 @@ def main(
         parser.print_help()
         return REFUSED
 
+    # a step's text is read as UTF-8 whatever the locale says, so a character the output codec lacks is written as its escape rather than ending the command in a traceback
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
+
+    # an argument the shell handed over in bytes that are not UTF-8 carries escapes no file takes, so it is refused up front the way standard input is
+    for word in sys.argv[1:] if argv is None else argv:
+        try:
+            word.encode("utf-8")
+        except UnicodeEncodeError:
+            print(f"an argument is not UTF-8, '{word.encode('utf-8', 'backslashreplace').decode('ascii')}'", file=sys.stderr)
+            return REFUSED
+
     try:
-        if not args.needs_brain:
+        # port and upgrade run before a brain exists, and the flag is theirs alone, since a default a parent parser sets too would win over theirs on Python 3.9.8 and 3.10.0
+        if not getattr(args, "needs_brain", True):
             return args.handler(brain=None, args=args)
 
         brain = store.find_brain(Path.cwd())
         return args.handler(brain=brain, args=args)
+    except writes.Partial as partial:
+        # the entry was written, so the command did its work and exits as done, the indexes follow it where they can, and the second write that failed is named on standard error
+        try:
+            index.write(brain)
+        except OSError as error:
+            print(store.explain(error), file=sys.stderr)
+        print(store.explain(partial), file=sys.stderr)
+        return 0
     except (
         store.StoreError,
         writes.WriteError,
         ledger.LedgerError,
+        plans.PlanError,
+        steps.StepsError,
+        task.TaskError,
         upgrade.UpgradeError,
         autoack.AckError,
         frontmatter.FrontmatterError,
@@ -60,11 +85,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="file, change, count and check what is in .agents/",
     )
     commands = parser.add_subparsers(dest="command")
-    parser.set_defaults(needs_brain=True)
 
     add_version(commands)
     add_status(commands)
     add_ack(commands)
+    add_task(commands)
     add_list(commands)
     add_show(commands)
     add_path(commands)
@@ -74,6 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_refile(commands)
     add_index(commands)
     add_doctor(commands)
+    add_steps(commands)
     add_ledger(commands)
     add_port(commands)
     add_upgrade(commands)
@@ -136,6 +162,98 @@ def run_ack(
     return 0
 
 
+def add_task(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser("task", help="the current work: on an entry, its step done, skipped or pending again, off, or where it stands")
+    actions = command.add_subparsers(dest="action")
+
+    starting = actions.add_parser("on", help="start work on a plan, a todo, a bug or a review")
+    starting.add_argument("key", help="the entry, by id, name or path")
+    starting.add_argument("--replace", action="store_true", help="in place of the chain that stands, which is otherwise kept")
+
+    finishing = actions.add_parser("done", help="mark the step the work stands on done, and stand on the next")
+    finishing.set_defaults(status="done")
+
+    skipping = actions.add_parser("skip", help="mark the step the work stands on skipped, and stand on the next")
+    skipping.set_defaults(status="skipped")
+
+    reopening = actions.add_parser("step", help="mark a step pending again, and stand on the first pending step")
+    reopening.add_argument("number", type=int, help="the step's number in the entry's table")
+
+    stopping = actions.add_parser("off", help="drop the innermost link, or the whole chain")
+    stopping.add_argument("--all", dest="everything", action="store_true", help="the whole chain, and the file with it")
+
+    # the one handler picks the action itself, since a default the sub actions set too would lose to it on Python 3.9.8 and 3.10.0
+    command.set_defaults(handler=run_task)
+
+
+def run_task(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    handlers = {
+        None: run_task_show,
+        "on": run_task_on,
+        "done": run_task_mark,
+        "skip": run_task_mark,
+        "step": run_task_step,
+        "off": run_task_off,
+    }
+
+    return handlers[args.action](brain=brain, args=args)
+
+
+def run_task_show(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    print(task.describe(brain=brain))
+    return 0
+
+
+def run_task_on(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    task.turn_on(
+        brain=brain,
+        key=args.key,
+        replace=args.replace,
+    )
+    print(task.describe(brain=brain))
+    return 0
+
+
+def run_task_mark(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    task.mark(brain=brain, status=args.status)
+    index.write(brain)
+    print(task.describe(brain=brain))
+    return 0
+
+
+def run_task_step(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    task.reopen(brain=brain, number=args.number)
+    index.write(brain)
+    print(task.describe(brain=brain))
+    return 0
+
+
+def run_task_off(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    task.turn_off(brain=brain, everything=args.everything)
+    print(task.describe(brain=brain))
+    return 0
+
+
 def add_status(
     commands: argparse._SubParsersAction,
 ) -> None:
@@ -155,6 +273,7 @@ def run_status(
 
     print(clock.line())
     print(autoack.describe(brain=brain))
+    print(task.describe(brain=brain))
     print(reads.render_status(data))
     return 0
 
@@ -262,6 +381,20 @@ def run_new(
     args: argparse.Namespace,
 ) -> int:
     kind = schema.kind_named(args.kind)
+    if kind.name == "plan":
+        entry = plans.create(
+            brain=brain,
+            title=args.title,
+            description=args.description,
+            body=stdin_text(),
+            values=field_values(args),
+            category=args.category,
+            links=args.link,
+        )
+        index.write(brain)
+        print(entry.relative)
+        return 0
+
     entry = writes.create(
         brain=brain,
         kind=kind,
@@ -378,6 +511,70 @@ def run_doctor(
     return FINDINGS_REMAIN if found else 0
 
 
+def add_steps(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser("steps", help="the steps of a plan, a todo or a bug: show them, add some, or mark a plain one")
+    command.add_argument("key", help="the entry, by id, name or path")
+    actions = command.add_subparsers(dest="action")
+
+    adding = actions.add_parser("add", help="append steps, one per line of standard input, or the one given")
+    adding.add_argument("step", nargs="?", help="one step, or - to read one per line from standard input")
+    adding.add_argument("--by", default="agent", choices=steps.BY, help="who set the steps, agent unless said otherwise")
+
+    marking = actions.add_parser("step", help="mark a step that points at nothing, or one whose pointer reaches nothing the brain can read")
+    marking.add_argument("number", type=int, help="the step's number in the entry's table")
+    marking.add_argument("status", choices=steps.STEP_STATUSES, help="the mark to give it")
+
+    # the one handler picks the action itself, for the same reason as the task command's
+    command.set_defaults(handler=run_steps)
+
+
+def run_steps(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    handlers = {
+        None: run_steps_show,
+        "add": run_steps_add,
+        "step": run_steps_mark,
+    }
+
+    return handlers[args.action](brain=brain, args=args)
+
+
+def run_steps_show(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    print(steps.view(brain=brain, key=args.key))
+    return 0
+
+
+def run_steps_add(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    lines = [args.step] if args.step and args.step != "-" else [line.strip() for line in stdin_text().split("\n") if line.strip()]
+    if not lines:
+        print("no steps given, one per line on standard input, or one after add", file=sys.stderr)
+        return REFUSED
+
+    numbers = steps.add(brain=brain, key=args.key, lines=lines, by=args.by)
+    index.write(brain)
+    print("\n".join(str(number) for number in numbers))
+    return 0
+
+
+def run_steps_mark(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    steps.mark(brain=brain, key=args.key, number=args.number, status=args.status)
+    index.write(brain)
+    return 0
+
+
 def add_ledger(
     commands: argparse._SubParsersAction,
 ) -> None:
@@ -438,6 +635,11 @@ def run_ledger_open(
     )
     index.write(brain)
     print(entry.relative)
+
+    kept_off = task.push_review(brain=brain, name=entry.name)
+    if kept_off is not None:
+        print(f"the review is not the current work, {kept_off}", file=sys.stderr)
+
     return 0
 
 

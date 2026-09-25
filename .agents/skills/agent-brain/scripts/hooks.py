@@ -6,8 +6,9 @@ events matter, the start of a session, each prompt the owner sends, a
 tick after the agent's tool calls, a write that is about to create a
 file inside .agents/, and a write that just landed there. The session
 start, the prompt and the tick carry the clock, since a model does not
-know the time and forgets what it was told, and where the owner's
-standing word to proceed stands, on, held or off.
+know the time and forgets what it was told, where the owner's standing
+word to proceed stands, on, held or off, and the work the agent is on,
+the chain from the plan down to the step.
 
     python3 .agents/skills/agent-brain/scripts/hooks.py session-start --agent claude
     python3 .agents/skills/agent-brain/scripts/hooks.py prompt --agent claude
@@ -26,9 +27,9 @@ import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import BinaryIO, NoReturn, Optional
+from typing import BinaryIO, NoReturn, Optional, Union
 
-from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, store
+from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, steps, store, task
 
 BLOCK = 2
 FAILED = 1
@@ -198,7 +199,7 @@ def prompt(
     brain: store.Brain,
     agent: str,
 ) -> int:
-    """On each prompt the owner sends, the clock and the standing word, so both are in front of the model when it reads the prompt."""
+    """On each prompt the owner sends, the clock, the standing word and the current work, so all three are in front of the model when it reads the prompt."""
     emit_context(agent=agent, text=the_moment(brain=brain), event_name=PROMPT.get(agent, "UserPromptSubmit"))
     return 0
 
@@ -207,7 +208,7 @@ def tick(
     brain: store.Brain,
     agent: str,
 ) -> int:
-    """After the agent's tool calls, the clock and the standing word again, off included, so a long stretch of work never loses either and sees the word end."""
+    """After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end."""
     emit_context(agent=agent, text=the_moment(brain=brain), event_name=TICK.get(agent, "PostToolUse"))
     return 0
 
@@ -215,8 +216,8 @@ def tick(
 def the_moment(
     brain: store.Brain,
 ) -> str:
-    """The clock and the standing word, the two lines the session start, the prompt hook and the tick carry."""
-    return clock.line() + "\n" + autoack.describe(brain=brain)
+    """The clock, the standing word and the current work, the lines the session start, the prompt hook and the tick carry."""
+    return clock.line() + "\n" + autoack.describe(brain=brain) + "\n" + task.describe(brain=brain)
 
 
 def text_of(
@@ -234,13 +235,21 @@ def pre_write(
     event: dict,
     agent: str,
 ) -> int:
-    for touch in touches(event=event, agent=agent):
+    touched = touches(event=event, agent=agent)
+    for touch in touched:
         verdict = refusal(brain=brain, touch=touch)
         if verdict is None:
             continue
 
         print(verdict, file=sys.stderr)
         return BLOCK
+
+    # a patch that reaches several brain files is judged across them too, since each alone reads as fine against the disk
+    if len(touched) > 1:
+        verdict = loop_across(brain=brain, writes=table_writes_of(brain=brain, touched=touched))
+        if verdict is not None:
+            print(verdict, file=sys.stderr)
+            return BLOCK
 
     emit_nothing(agent)
     return 0
@@ -252,9 +261,11 @@ def refusal(
 ) -> Optional[str]:
     """Why this write may not touch the brain by hand, or None if it may.
 
-    A new brain file, an index, a dotted path, a rename and the header
-    block of an existing file are the tool's. The prose below a header
-    is the agent's to edit, and doctor reads it afterwards.
+    A new brain file, an index, a dotted path, the standing word, the
+    current work, a rename, the header block of an existing file and
+    the rows of its steps table are the tool's. The prose below a
+    header and around the table is the agent's to edit, and doctor
+    reads it afterwards.
     """
     if touch.moved_from is not None:
         source = entry_path(brain=brain, path=touch.moved_from)
@@ -270,6 +281,9 @@ def refusal(
     # .ACK for the file itself, and the suffix as the store reads it
     if inside.casefold() == autoack.FILE and not touch.deleted:
         return f"{autoack.FILE} is the owner's standing word, set with brain ack on and never written by hand"
+
+    if inside.casefold() == task.FILE and not touch.deleted:
+        return f"{task.FILE} is the current work, set with brain task on and never written by hand"
 
     if not markdown_named(path):
         return None
@@ -290,7 +304,7 @@ def refusal(
         return None
 
     if store.quietly(path.exists):
-        return header_change(touch=touch, inside=inside)
+        return header_change(touch=touch, inside=inside) or table_change(brain=brain, touch=touch, inside=inside)
 
     if Path(inside).parts[0] == "spec":
         return f"{inside} would nest inside spec/, which holds its files directly"
@@ -383,6 +397,479 @@ def header_change(
         return f"{inside}: {HEADER_IS_THE_TOOLS}"
 
     return None
+
+
+TABLE_IS_THE_TOOLS = "the steps table is the tool's"
+
+
+def table_change(
+    brain: store.Brain,
+    touch: Touch,
+    inside: str,
+) -> Optional[str]:
+    """Why this write may not touch the steps table of a plan, a todo or a bug, or None if it may.
+
+    The rows the file holds are the tool's: a mark moves through the
+    task or the steps command or follows the entry a step points at, a
+    step is never reworded, repointed or deleted, the table is never
+    taken away, and a table the write would leave unreadable is refused
+    too. A row may follow the last one, held to what add holds a step
+    to, pending, pointing at an entry the brain knows or at nothing,
+    and on an open entry. A numbered list under Steps, new or written
+    to, is the table in waiting, held to what filing holds it to, and a
+    file whose table does not read now is doctor's, not the hook's. A
+    hunk that fits nowhere and carries a row is refused, since the hook
+    cannot tell where it would land.
+    """
+    write = table_write_of(brain=brain, touch=touch, inside=inside)
+    if write is None:
+        return None
+
+    if isinstance(write, str):
+        return write
+
+    # a list's rows were held to what filing holds them to as they were turned, and only the loops a patch closes across files are left to judge
+    if write.listed:
+        return None
+
+    why = changed_row(brain=brain, before=write.before, rows=write.rows, key=write.key, status=write.status, closed=write.closed) or added_row(
+        brain=brain,
+        before=write.before,
+        rows=write.rows,
+        key=write.key,
+        status=write.status,
+        closed=write.closed,
+        own=write.own,
+    )
+    if why is None:
+        return None
+
+    return f"{inside}: {TABLE_IS_THE_TOOLS}, {why}, and the prose around it is yours to edit"
+
+
+@dataclass(frozen=True)
+class TableWrite:
+    """A write to a stepped file as the hook reads it.
+
+    The key is the name a command names the file by, own the keys a
+    step would point at it with, its id and its name as the store reads
+    them, or the header's name alone when the store holds no entry at
+    the path, and node the file's own place in the pointer graph, its
+    path folded in case, so two files that carry one id stay two
+    nodes. The rows are the ones
+    the file holds and the ones the write would leave, which a list
+    under Steps gives as the rows the tool would turn it into.
+    """
+
+    inside: str
+    key: str
+    own: set[str]
+    node: str
+    status: str
+    closed: bool
+    before: list[steps.Step]
+    rows: list[steps.Step]
+    listed: bool
+
+    @property
+    def added(self) -> list[steps.Step]:
+        return self.rows[len(self.before):]
+
+
+def table_write_of(
+    brain: store.Brain,
+    touch: Touch,
+    inside: str,
+) -> Union[TableWrite, str, None]:
+    """The steps table a write reaches, as it is and as the write would leave it, a refusal when the write cannot be judged as a table, or None when there is no table to judge, a file the hook cannot read being taken as its repair the way the header check takes it."""
+    try:
+        text = frontmatter.load(str(touch.path))
+        current = frontmatter.parse(text)
+    except frontmatter.FrontmatterError:
+        return None
+
+    kind = str(current.get("kind") or "")
+    if kind not in steps.STEPPED_KINDS:
+        return None
+
+    status = str(current.get("status") or "")
+    closed = status not in steps.OPEN_STATUSES[kind]
+    entry = entry_at(brain=brain, inside=inside)
+    key = entry.name if entry is not None else Path(inside).stem
+
+    # a table that does not read now is doctor's, and a list on disk is the table in waiting, judged whole as the write leaves it
+    try:
+        before = steps.stored_rows_of(kind=kind, body=current.body)
+    except steps.StepsError:
+        if steps.has_table(current.body):
+            return None
+
+        before = []
+
+    after, loose = outcome_of(touch=touch, text=text)
+    for hunk in loose:
+        line = row_line_in(hunk)
+        if line is not None:
+            return f"{inside}: a hunk the hook cannot place touches the steps table with '{line}', and {TABLE_IS_THE_TOOLS}"
+
+        line = step_line_in(hunk)
+        if line is not None:
+            return f"{inside}: a hunk the hook cannot place carries '{line}', which reads as a step or the Steps heading and could land in the list the tool turns into the table, and {TABLE_IS_THE_TOOLS}"
+
+        # on a closed entry any numbered line could land under Steps as a step the record never had, and a table row would be refused there
+        line = numbered_line_in(hunk) if closed else None
+        if line is not None:
+            return f"{inside}: a hunk the hook cannot place carries '{line}', which reads as a step, and {key} is {status}, a closed table being its record, so no step is added to it"
+
+    if after is None:
+        return None
+
+    # the header check ran first on the same outcome and refused a write whose header would not read, so this parse holds
+    body = frontmatter.parse(after).body
+
+    own = steps.own_keys(entry) if entry is not None else {str(current.get("name") or key)}
+    write = TableWrite(
+        inside=inside,
+        key=key,
+        own=own,
+        node=inside.casefold(),
+        status=status,
+        closed=closed,
+        before=before,
+        rows=[],
+        listed=False,
+    )
+
+    if not steps.has_table(body):
+        if before:
+            return f"{inside}: {TABLE_IS_THE_TOOLS}, its rows are never taken away, and the prose around it is yours to edit"
+
+        # a plan's table stands even empty, and its Steps section with it, since a plan with no table is doctor's finding
+        if kind == "plan" and steps.has_table(current.body):
+            return f"{inside}: {TABLE_IS_THE_TOOLS}, and a plan's table is never taken away, empty or not, and the prose around it is yours to edit"
+
+        return listed_change(brain=brain, write=write, kind=kind, was=current.body, body=body)
+
+    try:
+        rows = steps.stored_rows_of(kind=kind, body=body)
+    except steps.StepsError as error:
+        return f"{inside}: after that write the steps table would not read, {error}"
+
+    return replace(write, rows=rows)
+
+
+def listed_change(
+    brain: store.Brain,
+    write: TableWrite,
+    kind: str,
+    was: str,
+    body: str,
+) -> Union[TableWrite, str, None]:
+    """A numbered list under Steps, new or written to, as the rows the tool would turn it into, held to what filing holds a list to since the tool would refuse it then, a refusal when it does not pass or the entry is closed, or None when the section is empty or the write leaves it as it was."""
+    if steps.blank(body) or steps_text(was) == steps_text(body):
+        return None
+
+    if write.closed:
+        return f"{write.inside}: {TABLE_IS_THE_TOOLS}, {write.key} is {write.status}, and a closed table is its record, so no step is added to it, and the prose around it is yours to edit"
+
+    try:
+        turned = steps.converted(brain=brain, body=body, by="agent", kind=schema.kind_named(kind), own=write.own)
+    except steps.StepsError as refused:
+        return f"{write.inside}: {TABLE_IS_THE_TOOLS}, {refused}, and the prose around it is yours to edit"
+
+    return replace(write, rows=steps.table(turned), listed=True)
+
+
+def steps_text(
+    body: str,
+) -> str:
+    """What the Steps section holds, as written, so a write elsewhere in the file leaves a list on disk unjudged."""
+    where = steps.span(body)
+
+    return body[where[0] : where[1]].strip() if where is not None else ""
+
+
+def table_writes_of(
+    brain: store.Brain,
+    touched: list[Touch],
+) -> list[TableWrite]:
+    """The steps tables a patch reaches, one per brain file it touches that reads as a table, the refusals having been judged touch by touch already."""
+    writes: list[TableWrite] = []
+    for touch in touched:
+        inside = entry_path(brain=brain, path=touch.path)
+        if inside is None:
+            continue
+
+        write = table_write_of(brain=brain, touch=touch, inside=inside)
+        if isinstance(write, TableWrite):
+            writes.append(write)
+
+    return writes
+
+
+def loop_across(
+    brain: store.Brain,
+    writes: list[TableWrite],
+) -> Optional[str]:
+    """Why a row a patch adds may not close a loop, or None when none does.
+
+    Each file alone reads as fine against the disk, since the other
+    rows of the patch are not written yet, so the pointers of the brain
+    as it stands and the rows the patch adds are walked together, and a
+    row whose entry leads back to its own file is refused, whether the
+    way back is another row of the patch or one already on disk.
+    """
+    edges = pointer_graph(brain)
+    for write in writes:
+        for step in write.added:
+            target = resolved(brain=brain, key=step.points_at)
+            if target is not None:
+                edges.setdefault(write.node, set()).add(target)
+
+    for write in writes:
+        for step in write.added:
+            target = resolved(brain=brain, key=step.points_at)
+            if target is not None and leads_to(edges=edges, start=target, goal=write.node):
+                return f"{write.inside}: {TABLE_IS_THE_TOOLS}, step {step.number} points at {step.points_at}, whose steps lead back here once the patch lands, and the entries would wait on each other for good, and the prose around it is yours to edit"
+
+    return None
+
+
+def pointer_graph(
+    brain: store.Brain,
+) -> dict[str, set[str]]:
+    """Every pointer the open steps tables hold, a list not yet turned into one read by the keys its lines open with, as edges from the holder's file to the file pointed at, a closed entry's steps waiting on nothing.
+
+    A file is its own node, the path folded in case, so two files that
+    carry one id after a merge stay two nodes rather than one.
+    """
+    edges: dict[str, set[str]] = {}
+    for kind_name in steps.STEPPED_KINDS:
+        for entry in brain.entries_of(schema.kind_named(kind_name)):
+            if not steps.is_open(entry):
+                continue
+
+            try:
+                keys = steps.pointers_in(entry.document.body)
+            except steps.StepsError:
+                continue
+
+            for key in keys:
+                target = resolved(brain=brain, key=key)
+                if target is not None:
+                    edges.setdefault(entry.relative.casefold(), set()).add(target)
+
+    return edges
+
+
+def resolved(
+    brain: store.Brain,
+    key: str,
+) -> Optional[str]:
+    """The node of the entry a row's pointer reaches, its path folded in case, or None when it reaches nothing."""
+    if not key:
+        return None
+
+    target = steps.pointed(brain=brain, key=key)
+
+    return target.relative.casefold() if target is not None else None
+
+
+def leads_to(
+    edges: dict[str, set[str]],
+    start: str,
+    goal: str,
+) -> bool:
+    """Whether the pointers lead from one entry to another, at any remove."""
+    seen: set[str] = set()
+    ahead = [start]
+    while ahead:
+        node = ahead.pop()
+        if node == goal:
+            return True
+
+        if node in seen:
+            continue
+
+        seen.add(node)
+        ahead.extend(edges.get(node, ()))
+
+    return False
+
+
+def changed_row(
+    brain: store.Brain,
+    before: list[steps.Step],
+    rows: list[steps.Step],
+    key: str,
+    status: str,
+    closed: bool,
+) -> Optional[str]:
+    """Why the first row that no longer reads as filed may not change that way, or None when every row the file had stands.
+
+    A closed table is its record before anything else, a step whose
+    pointer reaches an entry takes its mark from there, and one whose
+    pointer reaches nothing is marked by hand like a plain one.
+    """
+    for step in before:
+        fresh = rows[step.number - 1] if step.number <= len(rows) else None
+        if fresh is None:
+            return f"step {step.number} is never deleted, a step that turned out wrong is skipped"
+
+        if fresh.status != step.status:
+            if closed:
+                return f"{key} is {status}, and a closed table is its record"
+
+            if step.points_at and steps.pointed(brain=brain, key=step.points_at) is not None:
+                return f"step {step.number} points at {step.points_at} and takes its mark from that entry"
+
+            return f"step {step.number} is marked {fresh.status} with {marking_command(key=key, number=step.number, status=fresh.status)}"
+
+        # a cell left empty by a write from before the tool refused one is filled in by hand, since no command rewords a step, and held to what a new row's text is held to
+        if fresh.text != step.text:
+            if step.text.strip():
+                return f"step {step.number} is worded as it was filed"
+
+            why = opens_with_a_key(brain=brain, step=fresh) if not fresh.points_at else None
+            if why is not None:
+                return why
+
+        if fresh.points_at != step.points_at:
+            return f"step {step.number} points where it was filed to point"
+
+        if fresh.by != step.by:
+            return f"step {step.number} is set by whom it was filed by"
+
+    return None
+
+
+def opens_with_a_key(
+    brain: store.Brain,
+    step: steps.Step,
+) -> Optional[str]:
+    """Why a row's text may not open with a key, since a row points through its Points at cell, or None when it does not."""
+    try:
+        word = steps.opening_key(brain=brain, number=step.number, text=step.text)
+    except steps.StepsError as refused:
+        return str(refused)
+
+    if word:
+        return f"step {step.number} opens with {word} in its Step cell, and a row points through its Points at cell"
+
+    return None
+
+
+def marking_command(
+    key: str,
+    number: int,
+    status: str,
+) -> str:
+    """The commands that give a step the mark asked for: the task command when the work stands on the entry, the steps command in any case."""
+    by_task = {"done": "brain task done", "skipped": "brain task skip", "pending": f"brain task step {number}"}[status]
+
+    return f"{by_task} or brain steps {key} step {number} {status}"
+
+
+def entry_at(
+    brain: store.Brain,
+    inside: str,
+) -> Optional[store.Entry]:
+    """The stepped entry the store holds at the path being written, matched in any case since a disk that ignores case takes the write however the path is spelled, so the keys a step would use to point at it and the key a command names it by are the store's, a plan's slug carrying no id however it starts, or None when the store holds no entry there."""
+    wanted = inside.casefold()
+    for kind_name in steps.STEPPED_KINDS:
+        for entry in brain.entries_of(schema.kind_named(kind_name)):
+            if entry.relative.casefold() == wanted:
+                return entry
+
+    return None
+
+
+def added_row(
+    brain: store.Brain,
+    before: list[steps.Step],
+    rows: list[steps.Step],
+    key: str,
+    status: str,
+    closed: bool,
+    own: set[str],
+) -> Optional[str]:
+    """Why the first row added after the last may not come in that way, held to what add holds a step to, or None when each may."""
+    added = rows[len(before):]
+    if added and closed:
+        return f"{key} is {status}, and a closed table is its record, so no step is added to it"
+
+    for step in added:
+        if not step.text.strip():
+            return f"step {step.number} has no text"
+
+        target = steps.pointed(brain=brain, key=step.points_at) if step.points_at else None
+        if step.points_at and target is None:
+            return str(steps.unreachable(brain=brain, number=step.number, key=step.points_at))
+
+        if target is not None and steps.doubled(brain=brain, key=steps.pointer_of(target)):
+            return str(steps.doubled_pointer(number=step.number, key=step.points_at, pointer=steps.pointer_of(target)))
+
+        if target is not None and steps.pointer_of(target) in own:
+            return f"step {step.number} points at {key} itself, and a step points at other work"
+
+        if step.status != "pending" and step.points_at:
+            return f"step {step.number} is added pending, and takes its mark from {step.points_at}"
+
+        if step.status != "pending":
+            return f"step {step.number} is added pending, and marked once it is {step.status} with {marking_command(key=key, number=step.number, status=step.status)}"
+
+        if not step.points_at:
+            why = opens_with_a_key(brain=brain, step=step)
+            if why is not None:
+                return why
+
+    try:
+        steps.refuse_cycles(brain=brain, rows=added, own=own)
+    except steps.StepsError as loop:
+        return str(loop)
+
+    return None
+
+
+def row_line_in(
+    hunk: tuple[str, ...],
+) -> Optional[str]:
+    """The first line of a hunk, kept, removed or added, that is a line of the steps table, a row, its header or the five celled separator under it, blank space around it aside, since a patch tool may place it with that trimmed, a table of another shape in the prose being left alone."""
+    for line in hunk:
+        text = line[1:].strip()
+        if steps.ROW.match(text) or TABLE_LINE.match(text):
+            return line[1:]
+
+    return None
+
+
+TABLE_LINE = re.compile(r"^\|[ \t]*#[ \t]*\|[ \t]*Step[ \t]*\|[ \t]*Points at[ \t]*\|[ \t]*By[ \t]*\|[ \t]*Status[ \t]*\|$|^\|(?:[ \t]*:?-+:?[ \t]*\|){5}$")
+
+
+def step_line_in(
+    hunk: tuple[str, ...],
+) -> Optional[str]:
+    """The first line of a hunk, kept, removed or added, that is a numbered step opening with a key or a Steps heading, blank space around it aside, since a list the hook cannot place could be the one under Steps, which the tool turns into the table."""
+    for line in hunk:
+        text = line[1:].strip()
+        if steps.opens_with_a_key(text) or STEPS_HEADING.match(text):
+            return line[1:]
+
+    return None
+
+
+def numbered_line_in(
+    hunk: tuple[str, ...],
+) -> Optional[str]:
+    """The first added line of a hunk that is a numbered line, blank space around it aside."""
+    for line in hunk:
+        if line.startswith("+") and steps.LISTED.match(line[1:].strip()):
+            return line[1:]
+
+    return None
+
+
+STEPS_HEADING = re.compile(r"^#{1,6}[ \t]+steps[ \t]*$", re.IGNORECASE)
 
 
 def outcome_of(

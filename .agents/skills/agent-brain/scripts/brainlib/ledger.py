@@ -440,6 +440,8 @@ def close(
     entry.document.set(key="status", value="closed")
     save(brain=brain, entry=entry, stamp=stamp)
 
+    writes.refresh_after(brain=brain, entry=entry, stamp=stamp)
+
 
 def report(
     brain: store.Brain,

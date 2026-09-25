@@ -5,10 +5,11 @@ text for a person or as JSON for a hook. Counting happens here, on the
 files as they are right now.
 """
 
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
-from . import doctor, frontmatter, links, schema, store
+from . import doctor, frontmatter, links, schema, store, task
 
 
 def version(
@@ -40,8 +41,20 @@ def status(
         "counts": counts,
         "open_reviews": [entry.name for entry in reviews],
         "latest_handover": handovers[-1].relative if handovers else None,
+        "task": chain_or_none(brain),
         "unreadable": [str(path.relative_to(brain.root)) for path in brain.unreadable],
     }
+
+
+def chain_or_none(
+    brain: store.Brain,
+) -> Optional[list[dict]]:
+    """The chain as it stands, or None when the file does not read as one, which the text form says in words."""
+    written = task.read(brain)
+    if written is None:
+        return None
+
+    return [asdict(item) for item in task.current(brain=brain, chain=written)]
 
 
 def counted(
@@ -74,7 +87,7 @@ def render_status(
     health = "doctor clean" if data["findings"] == 0 else f"doctor {data['findings']} findings, {data['fixable']} fixable"
     lines = [f"kit {data['version']}    {health}"]
 
-    for kind_name in ("todo", "bug", "decision", "review", "doc", "memory", "handover"):
+    for kind_name in ("plan", "todo", "bug", "decision", "review", "doc", "memory", "handover"):
         counts = data["counts"].get(kind_name, {})
         total = sum(counts.values())
         if kind_name in ("doc", "memory", "handover"):

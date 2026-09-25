@@ -2,7 +2,7 @@
 name: conventions
 kind: doc
 description: the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
-updated: 2026-09-23
+updated: 2026-09-24
 links: [README.md]
 ---
 
@@ -17,7 +17,7 @@ Every markdown file in .agents opens with:
 ```
 ---
 name: <unique-kebab-slug>
-kind: doc | memory | bug | todo | decision | review
+kind: doc | memory | bug | todo | decision | plan | review
 description: <one line, what this file holds>
 updated: <YYYY-MM-DD, the last content change>
 links: [<paths of related files, relative to .agents/>]
@@ -89,9 +89,10 @@ doctor rebuilds.
 A brain written before the tool existed reads these rules as its
 target. `brain upgrade` brings it to the current layout first. Then
 doctor names every way it falls short, `--fix` repairs the mechanical
-part (indexes, names, links, dates, the style copies and the skill
-link), and what is left is fixed by hand through the tool, one finding
-at a time.
+part (indexes, names, links, dates, a pointed step's drifted mark or
+moved pointer, a Steps list turned into its table on a plan or a todo,
+a plan's missing table, the style copies and the skill link), and what
+is left is fixed by hand through the tool, one finding at a time.
 
 ## Prose
 
@@ -107,8 +108,11 @@ all.
   ignores there.
 - No machine paths, no user personal facts. Project truth only.
 - What git ignores here is the one exception, since it never enters
-  the repo. That is the tool's own local state, `.ack`, which holds
-  the owner's standing word to proceed with its end and is never
-  listed, indexed, checked or written by hand, the write in flight the
-  tool makes it through beside it, Python's cache beside the tool, and
-  the worktree home the rules allow.
+  the repo. That is the tool's own local state, two dotted files at
+  the root of the brain that are never listed, indexed, checked or
+  written by hand. `.ack` holds the owner's standing word to proceed
+  with its end, and `.task` holds the current work as a chain from the
+  plan down to the step the agent is on, one chain at a time, set with
+  `brain task on`. Beside them sit the write in flight the tool makes
+  each through, Python's cache beside the tool, and the worktree home
+  the rules allow.

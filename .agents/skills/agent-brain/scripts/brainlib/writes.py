@@ -2,18 +2,35 @@
 
 Every field a kind carries is checked here before anything reaches disk,
 so a file cannot arrive in the brain already breaking its spec. The
-prose comes from the caller and is written through untouched.
+prose comes from the caller and is written through as it came, the
+Steps section aside, whose numbered list becomes the table.
 """
 
 from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from . import frontmatter, links, schema, sections, store
+from . import frontmatter, links, schema, sections, steps, store, task
 
 
 class WriteError(Exception):
     """The change was refused, with the reason in the message."""
+
+
+class Partial(WriteError):
+    """The entry was written, and a step elsewhere that points at it could not be, with the reason in the message, so a caller never takes the raise for nothing written."""
+
+
+def refresh_after(
+    brain: store.Brain,
+    entry: store.Entry,
+    stamp: str,
+) -> None:
+    """Refresh every step that points at the entry just written, and say so as a partial write when the brain's folder refuses the second write."""
+    try:
+        steps.refresh_pointing(brain=brain, key=entry.relative, stamp=stamp)
+    except OSError as error:
+        raise Partial(f"{entry.name} was written, and a step that points at it could not be refreshed, {store.explain(error)}, which brain doctor reports until the folder can be written") from error
 
 
 def today() -> str:
@@ -30,7 +47,9 @@ def create(
     category: str = "",
     links: Optional[list[str]] = None,
     stamp: str = "",
+    in_place_of: Optional[set[str]] = None,
 ) -> store.Entry:
+    """File a new entry, its steps checked against the keys of the entry it is filed in place of, since a refile hands that entry's pointers on to it."""
     stamp = stamp or today()
 
     slug = schema.slugify(title)
@@ -74,7 +93,9 @@ def create(
 
     check(kind=kind, fields=fields)
     text = framed(body) if body else sections.skeleton(kind=kind, title=title)
-    refuse_gaps(sections.lifecycle_gaps(kind=kind, fields=fields, body=text))
+    if kind.name in steps.STEPPED_KINDS:
+        text = steps.tabled(brain=brain, body=text, by=fields.get("by") or "agent", kind=kind, own=in_place_of)
+    refuse_gaps(sections.lifecycle_gaps(kind=kind, fields=fields, body=text) + steps.closing_gaps(brain=brain, kind=kind, fields=fields, body=text))
 
     document = frontmatter.Document(
         lines=render_lines(kind=kind, fields=fields),
@@ -110,15 +131,39 @@ def update(
     fields = entry.document.fields()
     fields.update(changes)
 
+    # every change is judged against the lifecycle rules, not only one that
+    # moves the status, so a done todo cannot lose its date, and every rule
+    # the change falls short of is named at once
     check(kind=entry.kind, fields=fields)
-    check_rules(entry=entry, fields=fields)
+    gaps = sections.lifecycle_gaps(kind=entry.kind, fields=fields, body=entry.document.body)
+    moving = changes.get("status", entry.field("status")) != entry.field("status")
+    if moving:
+        gaps += steps.gaps(brain=brain, entry=entry, fields=fields)
+        gaps += steps.reopening_gaps(brain=brain, entry=entry, fields=fields)
 
+    if "became" in changes:
+        gaps += steps.became_gaps(brain=brain, entry=entry, fields=fields)
+
+    refuse_gaps(gaps)
+
+    # a table moves as its readers would see it, so the file settles before any status move is written, a close from dropped as much as from open
+    if moving and entry.kind.name in steps.STEPPED_KINDS:
+        steps.settle(brain=brain, entry=entry)
+
+    was_refiled = entry.field("status") == "refiled"
     for name, value in changes.items():
         entry.document.set(key=name, value=value)
+
+    # an entry that leaves refiled behind was refiled as nothing any more
+    if was_refiled and changes.get("status", "refiled") != "refiled" and "became" not in changes:
+        entry.document.drop("became")
 
     entry.document.set(key="updated", value=stamp)
     frontmatter.write(path=str(entry.path), document=entry.document)
     brain.refresh()
+
+    if "status" in changes and entry.kind.name in steps.POINTED_KINDS:
+        refresh_after(brain=brain, entry=entry, stamp=stamp)
 
     return brain.read(path=entry.path, kind=entry.kind)
 
@@ -129,8 +174,9 @@ def retitle(
     title: str,
     stamp: str = "",
 ) -> store.Entry:
-    """Rename a file for a new title. The id stays, every link follows."""
+    """Rename a file for a new title. The id stays, every link follows, and so does the chain where it holds the name."""
     entry = located(brain=brain, key=key)
+    old_stem = entry.path.stem
 
     if entry.kind.name == "review":
         raise WriteError("a review keeps the name of its branch")
@@ -153,6 +199,12 @@ def retitle(
         raise WriteError(f"{stem} is already the name of {holder}, and a name is unique across the brain")
 
     stamp = stamp or today()
+    old_name = entry.name
+    old_keys = steps.own_keys(entry)
+    pointer = steps.pointer_of(entry)
+    # read before the rename, since a file with no id is pointed at by its name, which the rename takes off it
+    two_files = entry.kind.name in steps.POINTED_KINDS and steps.doubled(brain=brain, key=pointer)
+
     before = frontmatter.load(str(entry.path))
     moved = links.move_links(
         brain=brain,
@@ -172,7 +224,64 @@ def retitle(
     finally:
         brain.refresh()
 
+    # the writes that follow the rename go to other files, so each runs whatever the one before it did, and the failures are said together at the end, the first one chained on
+    failures: list[str] = []
+    first_failure: Optional[Exception] = None
+
+    # a step cell that named the entry by hand follows it once the rename is done, written as the id, since a key move is no mark and the old name would strand, and a rename that fails leaves every cell as it was, while two files carry the id, only the cells that name this file move, to its new name, and a cell holding the doubled id stays, since it could mean either file, and a file with no id, which doctor reports, is pointed at by its name, so the cells follow it to the new one, unless two files carry that name too, when every cell could mean either and stays
+    if entry.kind.name in steps.POINTED_KINDS and not (two_files and entry.identifier is None):
+        by_name = two_files or entry.identifier is None
+        try:
+            steps.repoint(brain=brain, keys={old_name} if two_files else old_keys, to=stem if by_name else pointer, stamp=stamp)
+        except OSError as error:
+            first_failure = first_failure or error
+            failures.append(f"a step that named it could not follow, {store.explain(error)}, which brain doctor reports until the folder can be written")
+
+    # a became field written by hand may name the file by its name or its path rather than its id, so it follows the rename too, written as the id, or as the new name while two files carry the id or the file has none, and when two files with no id share the name only a field naming this file by its path moves, since the name could mean either
+    if entry.kind.name in ("todo", "bug"):
+        naming = {entry.relative} if two_files and entry.identifier is None else {old_name, old_stem, entry.relative}
+        try:
+            move_became(brain=brain, old=naming, to=stem if two_files or entry.identifier is None else entry.identifier, stamp=stamp)
+        except OSError as error:
+            first_failure = first_failure or error
+            failures.append(f"a became field that named it could not follow, {store.explain(error)}, which brain doctor reports until the folder can be written")
+
+    # the chain stores a plan by its file, and a todo or a bug with no id too, so the stem it holds follows
+    if entry.kind.name == "plan" or entry.identifier is None:
+        try:
+            task.renamed(brain=brain, kind=entry.kind.name, old=old_stem, new=stem)
+        except (OSError, task.TaskError) as error:
+            first_failure = first_failure or error
+            failures.append(f"the chain could not follow the name, {store.explain(error)}, so it says {task.WORDS[entry.kind.name]} {old_stem}, not in this checkout, until {task.FILE} can be written again and brain task off drops it, link by link, for brain task on {stem} to start it")
+
+    if failures:
+        raise Partial(f"{stem} was written, and {', and '.join(failures)}") from first_failure
+
     return brain.read(path=target, kind=entry.kind)
+
+
+def move_became(
+    brain: store.Brain,
+    old: set[str],
+    to: str,
+    stamp: str,
+) -> None:
+    """Write every became field that names the entry by one of its old keys as the key given, in the refiled todos and bugs that carry one."""
+    first_failure: Optional[OSError] = None
+    for kind_name in ("todo", "bug"):
+        for holder in brain.entries_of(schema.kind_named(kind_name)):
+            became = holder.field("became") or ""
+            if became not in old or became == to:
+                continue
+
+            holder.document.set(key="became", value=to)
+            try:
+                steps.save(brain=brain, entry=holder, stamp=stamp)
+            except OSError as error:
+                first_failure = first_failure or error
+
+    if first_failure is not None:
+        raise first_failure
 
 
 def undo_retitle(
@@ -296,17 +405,20 @@ def convert(
         body=body,
         links=[source.relative],
         stamp=stamp,
+        in_place_of=steps.own_keys(source),
     )
 
     source = located(brain=brain, key=key)
 
     trail = [link for link in source.document.get_list("links") if link != created.relative]
-    closing = {"status": "refiled", "links": frontmatter.render_list([*trail, created.relative])}
+    closing = {"status": "refiled", "links": frontmatter.render_list([*trail, created.relative]), "became": created.identifier or created.relative}
     if source.kind.name == "todo":
         closing["done"] = stamp
 
     try:
         update(brain=brain, key=key, changes=closing, stamp=stamp)
+    except Partial as partial:
+        raise Partial(f"{created.relative} was filed and {partial}") from partial
     except (WriteError, OSError):
         created.path.unlink()
         brain.refresh()
@@ -410,6 +522,7 @@ def defaults(
         "bug": {"status": "open", "reported": stamp},
         "todo": {"status": "open", "born": stamp},
         "decision": {"status": "standing", "date": stamp},
+        "plan": {"status": "open", "born": stamp},
         "review": {"status": "open"},
     }
 
@@ -475,19 +588,6 @@ def check_against(
 
         if item.is_date and not schema.is_date(value):
             raise WriteError(f"{item.name} reads YYYY-MM-DD, not '{value}'")
-
-
-def check_rules(
-    entry: store.Entry,
-    fields: dict[str, str],
-) -> None:
-    """The lifecycle rules the file must hold to as the change would leave it.
-
-    Every change is judged, not only one that moves the status, so a
-    done todo cannot lose its date and a refiled bug cannot lose its
-    link, and the writer never leaves a file that doctor would flag.
-    """
-    refuse_gaps(sections.lifecycle_gaps(kind=entry.kind, fields=fields, body=entry.document.body))
 
 
 def refuse_gaps(

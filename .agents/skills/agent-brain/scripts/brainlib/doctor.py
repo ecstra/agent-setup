@@ -13,9 +13,9 @@ import shutil
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
-from . import autoack, frontmatter, index, links, schema, sections, store, style, writes
+from . import autoack, frontmatter, index, links, schema, sections, steps, store, style, task, writes
 
 SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, ".worktrees"})
 
@@ -98,7 +98,7 @@ def run(
             attempted.add(key_of(finding))
             try:
                 finding.repair()
-            except (OSError, frontmatter.FrontmatterError) as error:
+            except (OSError, frontmatter.FrontmatterError, task.TaskError, steps.StepsError) as error:
                 failed[key_of(finding)] = store.explain(error)
 
         brain.refresh()
@@ -228,14 +228,14 @@ def check_leftovers(
     way a put back scratch is named. A person's own dotfile is nobody's
     to delete, and a suffix of eight letters looks like the tail the
     writer draws, so a temp file counts only when its target is one the
-    tool would write, a markdown or JSON file, VERSION, the word, a
-    file that exists beside it, or one of the kit's own files at the
-    top of the project. The places the tool writes to in every run are
-    looked at, the whole brain with its skills, each agent's own folder
-    down to its sub agent files, and the top of the project. The one
-    time move from `.agent/` rewrites files anywhere in the project,
-    cleans up after itself unless killed outright, and is not looked
-    for.
+    tool would write, a markdown or JSON file, VERSION, the word, the
+    current work, a file that exists beside it, or one of the kit's own
+    files at the top of the project. The places the tool writes to in
+    every run are looked at, the whole brain with its skills, each
+    agent's own folder down to its sub agent files, and the top of the
+    project. The one time move from `.agent/` rewrites files anywhere
+    in the project, cleans up after itself unless killed outright, and
+    is not looked for.
     """
     found: list[Finding] = []
     project = style.project(brain=brain)
@@ -278,7 +278,7 @@ def tools_own_write(
     if path.parent == project:
         return target in (*schema.ROOT_FILES, schema.IGNORE_FILE)
 
-    if target.endswith((".md", ".json")) or target in (schema.VERSION_FILE, autoack.FILE):
+    if target.endswith((".md", ".json")) or target in (schema.VERSION_FILE, autoack.FILE, task.FILE):
         return True
 
     return store.quietly((path.parent / target).exists)
@@ -423,7 +423,7 @@ def check_names(
                     path=entry.relative,
                     check="name",
                     message=f"name is '{actual}', the file says '{expected}'",
-                    repair=set_field(path=entry.path, key="name", value=expected),
+                    repair=set_name(brain=brain, entry=entry, actual=actual, expected=expected),
                 )
             )
 
@@ -438,6 +438,40 @@ def check_names(
         seen[actual] = entry.relative
 
     return found
+
+
+def set_name(
+    brain: store.Brain,
+    entry: store.Entry,
+    actual: str,
+    expected: str,
+) -> Callable[[], None]:
+    """A repair that sets the name the file says, and moves the links that hold the old name with it: a plan's or a review's link on the chain, and the step cells that point at a review.
+
+    The chain and the cells move first: the new name resolves by the
+    file whether or not the field follows, and a chain that cannot be
+    written leaves the field as it was, so the finding stays to report
+    the failure. The links stay where they are when another file
+    answers to the old name, a copy that kept it, since they mean that
+    file.
+    """
+    set_the_field = set_field(path=entry.path, key="name", value=expected)
+    # a review is pointed at by its name, and so is a todo or a bug with no id, a file the tool never wrote, so their cells follow the name too
+    pointed_by_name = entry.kind.name == "review" or (entry.kind.name in ("todo", "bug") and entry.identifier is None)
+    follows = (entry.kind.name == "plan" or pointed_by_name) and not any(
+        other.path != entry.path and actual in (other.name, task.file_key(other)) for other in brain.entries()
+    )
+
+    def repair() -> None:
+        if follows and entry.kind.name in ("plan", "review"):
+            task.renamed(brain=brain, kind=entry.kind.name, old=actual, new=expected)
+
+        if follows and pointed_by_name:
+            steps.repoint(brain=brain, keys={actual}, to=expected)
+
+        set_the_field()
+
+    return repair
 
 
 def set_field(
@@ -517,6 +551,10 @@ def check_sections(
     for entry in brain.entries():
         body = entry.document.body
         for title in sections.missing(body=body, kind=entry.kind):
+            # a plan's missing Steps section is the steps check's finding, which carries the repair that adds the empty table
+            if entry.kind.name == "plan" and title == "Steps":
+                continue
+
             found.append(
                 Finding(path=entry.relative, check="sections", message=f"no {title} heading")
             )
@@ -525,6 +563,201 @@ def check_sections(
             found.append(Finding(path=entry.relative, check="lifecycle", message=message))
 
     return found
+
+
+def check_steps(
+    brain: store.Brain,
+) -> list[Finding]:
+    """The steps table a plan, a todo or a bug carries, per spec/plans.md.
+
+    The table must read as one, a list in its place turned into one on
+    a plan or a todo and a plan's missing section given an empty table,
+    every step that points at an entry must reach one, a pointed step's
+    mark must be the one its entry gives and its pointer the entry's
+    id, moved on from a refiled one, both repaired, a became field must
+    name what took the entry's place, two entries must not wait on each
+    other, and an entry done or fixed with a step still pending is
+    reported, since a closed table is its record.
+    """
+    found: list[Finding] = []
+
+    for kind_name in steps.STEPPED_KINDS:
+        for entry in brain.entries_of(schema.kind_named(kind_name)):
+            found += check_table(brain=brain, entry=entry)
+
+    return found
+
+
+def check_table(
+    brain: store.Brain,
+    entry: store.Entry,
+) -> list[Finding]:
+    found: list[Finding] = []
+    try:
+        rows = steps.stored_rows_of(kind=entry.kind.name, body=entry.document.body)
+    except steps.StepsError as broken:
+        message = str(broken)
+        if entry.kind.name == "bug" and not steps.has_table(entry.document.body):
+            message += ", a bug's Steps being the fix's steps and a reproduction going under Evidence, so move it there by hand, or make it a numbered list and on an open bug run brain steps <key> add to keep it as the fix's"
+
+        offered = convert_steps(brain=brain, entry=entry)
+        if isinstance(offered, str):
+            return [Finding(path=entry.relative, check="steps", message=f"{message}, and the list is refused as it stands, {offered}")]
+
+        return [Finding(path=entry.relative, check="steps", message=message, repair=offered)]
+
+    found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.became_slips(brain=brain, entry=entry)]
+    found += [Finding(path=entry.relative, check="steps", message=f"step {step.number} has no text, which no write should have let stand, so fill it in by hand") for step in rows if not step.text.strip()]
+
+    if not steps.is_open(entry):
+        pending = [step.number for step in rows if step.status == "pending"]
+        if pending and entry.field("status") == steps.CLOSING[entry.kind.name]:
+            numbers = ", ".join(str(number) for number in pending)
+            # nothing points at a plan, so only a todo or a bug can have its reopen refused for a loop, while steps on the way that do not read refuse it for any kind
+            if entry.kind.name == "plan":
+                way_round = ", and when the set to open is refused for steps that do not read, mend them first"
+            else:
+                way_round = ", and when the set to open is refused, mend the steps it says do not read, or close the entry whose steps point back here first"
+
+            found.append(
+                Finding(
+                    path=entry.relative,
+                    check="steps",
+                    message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it and close it again once the step is settled{way_round}",
+                )
+            )
+
+        return found
+
+    derived: list[steps.Step] = []
+    own = steps.own_keys(entry)
+    for step in rows:
+        fresh = steps.derived_row(brain=brain, step=step, own=own)
+        derived.append(fresh)
+        if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
+            if steps.doubled(brain=brain, key=step.points_at):
+                why = f"which two files carry, so it reaches nothing while the {steps.doubled_word(step.points_at)} is doubled"
+            else:
+                why = "which reaches no todo, bug or review"
+
+            found.append(
+                Finding(
+                    path=entry.relative,
+                    check="steps",
+                    message=f"step {step.number} points at '{step.points_at}', {why}, and brain steps <key> step {step.number} done or skipped marks it by hand meanwhile",
+                )
+            )
+        elif fresh.points_at != step.points_at:
+            target = steps.pointed(brain=brain, key=step.points_at)
+            moved = target is not None and target.field("status") == "refiled"
+            if moved:
+                why = refiled_word(brain=brain, target=target, kept=fresh.points_at)
+            elif target is not None and target.kind.name == "review":
+                why = f"and the tool keeps the name {fresh.points_at}, which a review keeps as its branch's"
+            elif target is not None and target.identifier is None:
+                why = f"and the tool keeps the name {fresh.points_at}, the file carrying no id, which doctor reports"
+            else:
+                why = f"and the tool keeps the id {fresh.points_at}, which a retitle never moves"
+            found.append(
+                Finding(
+                    path=entry.relative,
+                    check="steps",
+                    message=f"step {step.number} points at {step.points_at}, {why}",
+                    repair=refresh_steps(brain=brain, entry=entry),
+                )
+            )
+        elif fresh.status != step.status:
+            found.append(
+                Finding(
+                    path=entry.relative,
+                    check="steps",
+                    message=f"step {step.number} is marked {step.status} while {step.points_at} says {fresh.status}",
+                    repair=refresh_steps(brain=brain, entry=entry),
+                )
+            )
+
+    found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.looping(brain=brain, entry=entry, rows=derived)]
+
+    return found
+
+
+def refiled_word(
+    brain: store.Brain,
+    target: store.Entry,
+    kept: str,
+) -> str:
+    """Why a cell at a refiled entry reads as the tool would write it, handed on to the entry filed in its place, at whatever remove, or kept at a refiled one, whose successor's steps lead back here or do not read, or which has no successor the brain knows."""
+    landed = steps.pointed(brain=brain, key=kept)
+    if landed is None or landed.field("status") != "refiled":
+        return f"which was refiled as {kept}"
+
+    successor = steps.refiled_to(brain=brain, entry=landed)
+    if successor is None:
+        became = landed.field("became") or ""
+        if became and steps.doubled(brain=brain, key=became):
+            return f"which was refiled as {became}, which two files carry, so the tool keeps the key {kept} and the step stands skipped while the {steps.doubled_word(became)} is doubled"
+
+        return f"which was refiled as nothing the brain knows, so the tool keeps the key {kept} and the step stands skipped"
+
+    handed_on = steps.pointer_of(successor)
+    if successor.field("status") == "refiled":
+        return f"which sits in a loop of refiles through {kept} and {handed_on}, so the tool keeps the key {kept} and the step stands skipped until the loop is undone"
+
+    if steps.doubled(brain=brain, key=handed_on):
+        return f"which was refiled as {handed_on}, which two files carry, so the tool keeps the key {kept} and the step stands skipped while the {steps.doubled_word(handed_on)} is doubled"
+
+    broken = steps.unreadable_reached(brain=brain, key=handed_on)
+    if broken is not None:
+        where = handed_on if broken == handed_on else f"{handed_on}, whose steps lead to {broken}"
+
+        return f"which was refiled as {where}, whose steps do not read, so the tool keeps the key {kept} and the step stands skipped until they are put right"
+
+    return f"which was refiled as {handed_on}, whose steps lead back here, so the tool keeps the key {kept} and the step stands skipped"
+
+
+def convert_steps(
+    brain: store.Brain,
+    entry: store.Entry,
+) -> Union[Callable[[], None], str, None]:
+    """A repair that turns a list under Steps into the table, its rows marked by the entry's own status, the reason when the tool refuses the list as it stands, so the finding says why no run of --fix clears it, or none when there is no list to turn.
+
+    A bug gets no repair, since a list under its Steps from before the
+    table may be the reproduction, which the spec puts under Evidence,
+    and only whoever filed it can say which it is, though the reason
+    the section would not turn is named for it too, so the line to
+    move by hand is known.
+    """
+    body = entry.document.body
+    if steps.has_table(body):
+        return None
+
+    own = steps.own_keys(entry)
+    try:
+        steps.converted(brain=brain, body=body, by=entry.field("by") or "agent", kind=entry.kind, status=steps.settled_as(entry), own=own)
+    except steps.StepsError as refused:
+        return str(refused)
+
+    if entry.kind.name == "bug":
+        return None
+
+    def repair() -> None:
+        fresh = brain.read(path=entry.path, kind=entry.kind)
+        fresh.document.body = steps.converted(brain=brain, body=fresh.document.body, by=fresh.field("by") or "agent", kind=fresh.kind, status=steps.settled_as(fresh), own=own)
+        steps.save(brain=brain, entry=fresh)
+
+    return repair
+
+
+def refresh_steps(
+    brain: store.Brain,
+    entry: store.Entry,
+) -> Callable[[], None]:
+    """A repair that brings an entry's pointed marks in line with what they point at, stamping the file."""
+
+    def repair() -> None:
+        steps.refresh(brain=brain, entry=brain.read(path=entry.path, kind=entry.kind))
+
+    return repair
 
 
 def check_filenames(
@@ -1169,6 +1402,7 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_kinds,
     check_fields,
     check_sections,
+    check_steps,
     check_filenames,
     check_links,
     check_indexes,

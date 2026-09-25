@@ -135,11 +135,13 @@ KINDS: dict[str, Kind] = {
             ),
             Field(name="area"),
             Field(name="reported", is_date=True),
+            Field(name="became", required=False),
             Field(name="parent", required=False),
         ),
         sections=(
             Section(title="Problem"),
             Section(title="Evidence"),
+            Section(title="Steps", required=False),
             Section(title="Fix", required=False),
             Section(title="Verification", required=False),
         ),
@@ -179,10 +181,12 @@ KINDS: dict[str, Kind] = {
             Field(name="area"),
             Field(name="born", is_date=True),
             Field(name="done", required=False, is_date=True),
+            Field(name="became", required=False),
         ),
         sections=(
             Section(title="What"),
             Section(title="Why", required=False),
+            Section(title="Steps", required=False),
             Section(title="Done when"),
         ),
         rules=(
@@ -238,6 +242,41 @@ KINDS: dict[str, Kind] = {
                 status="superseded",
                 says="a superseded decision names the one that replaced it",
                 field="superseded-by",
+            ),
+        ),
+    ),
+    "plan": Kind(
+        name="plan",
+        folder="plans",
+        columns=("status", "by"),
+        index_description="index of the plans, each a goal with its steps, open first",
+        fields=(
+            Field(
+                name="status",
+                values=("open", "done", "dropped"),
+            ),
+            Field(
+                name="by",
+                values=("owner", "agent"),
+            ),
+            Field(name="born", is_date=True),
+            Field(name="done", required=False, is_date=True),
+        ),
+        sections=(
+            Section(title="Why"),
+            Section(title="Steps"),
+            Section(title="Done when"),
+        ),
+        rules=(
+            Rule(
+                status="done",
+                says="a plan goes done with its closing date, done=YYYY-MM-DD",
+                field="done",
+            ),
+            Rule(
+                status="dropped",
+                says="a plan goes dropped with its closing date, done=YYYY-MM-DD",
+                field="done",
             ),
         ),
     ),
