@@ -202,6 +202,8 @@ def retitle(
     old_name = entry.name
     old_keys = steps.own_keys(entry)
     pointer = steps.pointer_of(entry)
+    # read before the rename, since a file with no id is pointed at by its name, which the rename takes off it
+    two_files = entry.kind.name in steps.POINTED_KINDS and steps.doubled(brain=brain, key=pointer)
 
     before = frontmatter.load(str(entry.path))
     moved = links.move_links(
@@ -222,9 +224,8 @@ def retitle(
     finally:
         brain.refresh()
 
-    # a step cell that named the entry by hand follows it once the rename is done, written as the id, since a key move is no mark and the old name would strand, and a rename that fails leaves every cell as it was, while two files carry the id, only the cells that name this file move, to its new name, and a cell holding the doubled id stays, since it could mean either file, and a file with no id, which doctor reports, is pointed at by its name, so the cells follow it to the new one
-    if entry.kind.name in steps.POINTED_KINDS:
-        two_files = steps.doubled(brain=brain, key=pointer)
+    # a step cell that named the entry by hand follows it once the rename is done, written as the id, since a key move is no mark and the old name would strand, and a rename that fails leaves every cell as it was, while two files carry the id, only the cells that name this file move, to its new name, and a cell holding the doubled id stays, since it could mean either file, and a file with no id, which doctor reports, is pointed at by its name, so the cells follow it to the new one, unless two files carry that name too, when every cell could mean either and stays
+    if entry.kind.name in steps.POINTED_KINDS and not (two_files and entry.identifier is None):
         by_name = two_files or entry.identifier is None
         try:
             steps.repoint(brain=brain, keys={old_name} if two_files else old_keys, to=stem if by_name else pointer, stamp=stamp)
