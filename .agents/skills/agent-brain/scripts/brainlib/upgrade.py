@@ -1557,10 +1557,32 @@ def same_as_kit(
     if source is None:
         return False
 
+    if relative in ROOT_FILES:
+        return same_text(
+            one=project.root / relative,
+            other=kit.root / source,
+        )
+
     return store.same_bytes(
         one=project.root / relative,
         other=kit.root / source,
     )
+
+
+def same_text(
+    one: Path,
+    other: Path,
+) -> bool:
+    """Whether two text files say the same, their line ends aside, false when either cannot be read.
+
+    The root files are written in text mode, so on Windows the port
+    leaves them with CRLF while the kit's checkout may hold either, and
+    bytes would tell the port's own copy apart from the kit's.
+    """
+    try:
+        return one.read_text(encoding="utf-8") == other.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
 
 
 def kit_source(
