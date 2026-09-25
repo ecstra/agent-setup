@@ -456,15 +456,17 @@ def set_name(
     file.
     """
     set_the_field = set_field(path=entry.path, key="name", value=expected)
-    follows = entry.kind.name in ("plan", "review") and not any(
+    # a review is pointed at by its name, and so is a todo or a bug with no id, a file the tool never wrote, so their cells follow the name too
+    pointed_by_name = entry.kind.name == "review" or (entry.kind.name in ("todo", "bug") and entry.identifier is None)
+    follows = (entry.kind.name == "plan" or pointed_by_name) and not any(
         other.path != entry.path and actual in (other.name, task.file_key(other)) for other in brain.entries()
     )
 
     def repair() -> None:
-        if follows:
+        if follows and entry.kind.name in ("plan", "review"):
             task.renamed(brain=brain, kind=entry.kind.name, old=actual, new=expected)
 
-        if follows and entry.kind.name == "review":
+        if follows and pointed_by_name:
             steps.repoint(brain=brain, keys={actual}, to=expected)
 
         set_the_field()
@@ -611,8 +613,8 @@ def check_table(
         pending = [step.number for step in rows if step.status == "pending"]
         if pending and entry.field("status") == steps.CLOSING[entry.kind.name]:
             numbers = ", ".join(str(number) for number in pending)
-            # nothing points at a plan, so only a todo or a bug can have its reopen refused for a loop
-            way_round = "" if entry.kind.name == "plan" else ", and when the set to open is refused for a loop, close the entry whose steps point back here first"
+            # nothing points at a plan, so only a todo or a bug can have its reopen refused for a loop, while steps on the way that do not read refuse it for any kind
+            way_round = ", and when the set to open is refused for steps that do not read, mend them first" if entry.kind.name == "plan" else ", and when the set to open is refused, mend the steps it says do not read, or close the entry whose steps point back here first"
             found.append(Finding(path=entry.relative, check="steps", message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it and close it again once the step is settled{way_round}"))
 
         return found
@@ -629,7 +631,7 @@ def check_table(
             target = steps.pointed(brain=brain, key=step.points_at)
             moved = target is not None and target.field("status") == "refiled"
             if moved:
-                why = f"which was refiled as {fresh.points_at}"
+                why = refiled_word(brain=brain, target=target, kept=fresh.points_at)
             elif target is not None and target.kind.name == "review":
                 why = f"and the tool keeps the name {fresh.points_at}, which a review keeps as its branch's"
             elif target is not None and target.identifier is None:
@@ -657,6 +659,23 @@ def check_table(
     found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.looping(brain=brain, entry=entry, rows=derived)]
 
     return found
+
+
+def refiled_word(
+    brain: store.Brain,
+    target: store.Entry,
+    kept: str,
+) -> str:
+    """Why a cell at a refiled entry reads as the tool would write it: handed on to the entry filed in its place, or kept as the refiled one's own key while that entry's steps lead back here, or while nothing was filed in its place."""
+    successor = steps.refiled_to(brain=brain, entry=target)
+    if successor is None:
+        return f"which was refiled as nothing the brain knows, so the tool keeps the key {kept} and the step stands skipped"
+
+    handed_on = steps.pointer_of(successor)
+    if handed_on == kept:
+        return f"which was refiled as {kept}"
+
+    return f"which was refiled as {handed_on}, whose steps lead back here, so the tool keeps the key {kept} and the step stands skipped"
 
 
 def convert_steps(
