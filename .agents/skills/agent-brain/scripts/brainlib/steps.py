@@ -1033,6 +1033,9 @@ def follows_its_entry(
 
     if status in POINTED_KINDS[kind] or status in POINTED_GONE[kind]:
         mark = "done" if status in POINTED_KINDS[kind] else "skipped"
+        if asked == "pending" and kind == "review":
+            return f"which is {status}, so its mark follows that entry, and brain set {key} status=open reopens it"
+
         if asked == "pending":
             return f"which is {status}, so its mark follows that entry, and brain set {key} status=open reopens it, unless its steps and another open entry's would wait on each other, or its table or one they lead to does not read, which the set refuses"
 

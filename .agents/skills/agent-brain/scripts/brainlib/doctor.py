@@ -611,7 +611,7 @@ def check_table(
         pending = [step.number for step in rows if step.status == "pending"]
         if pending and entry.field("status") == steps.CLOSING[entry.kind.name]:
             numbers = ", ".join(str(number) for number in pending)
-            found.append(Finding(path=entry.relative, check="steps", message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it and close it again once the step is settled"))
+            found.append(Finding(path=entry.relative, check="steps", message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it and close it again once the step is settled, and when the set to open is refused for a loop, close the entry whose steps point back here first"))
 
         return found
 
@@ -630,6 +630,8 @@ def check_table(
                 why = f"which was refiled as {fresh.points_at}"
             elif target is not None and target.kind.name == "review":
                 why = f"and the tool keeps the name {fresh.points_at}, which a review keeps as its branch's"
+            elif target is not None and target.identifier is None:
+                why = f"and the tool keeps the name {fresh.points_at}, the file carrying no id, which doctor reports"
             else:
                 why = f"and the tool keeps the id {fresh.points_at}, which a retitle never moves"
             found.append(
