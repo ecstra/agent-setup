@@ -1296,9 +1296,12 @@ def merged_config(
         if key == "hooks":
             continue
 
-        if isinstance(value, dict) and isinstance(have.get(key), dict):
+        if isinstance(value, dict):
+            if key in have and not isinstance(have[key], dict):
+                raise UpgradeError(f"{key} in {where} is not a JSON object")
+
             for inner, inner_value in value.items():
-                have[key].setdefault(inner, inner_value)
+                have.setdefault(key, {}).setdefault(inner, inner_value)
             continue
 
         have.setdefault(key, value)
