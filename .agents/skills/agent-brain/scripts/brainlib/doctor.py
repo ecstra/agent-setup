@@ -1394,6 +1394,59 @@ def skill_target(
     return os.path.relpath(str(project / SKILL_HOMES / name), str(link.parent.resolve()))
 
 
+# The import parsers of Claude Code and Gemini CLI: an `@` at the start
+# of the text or after whitespace opens a path that runs to the next
+# whitespace, so a full stop or a comma glued to the path becomes part
+# of it and the file silently never loads. Both step over code and
+# HTML comments.
+IMPORT = re.compile(r"(?<!\S)@((?:[^\s\\]|\\ )+)")
+HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+GLUED = ".,;:!?)"
+RULES_IMPORT = "@AGENTS.md"
+
+
+def check_front_doors(
+    brain: store.Brain,
+) -> list[Finding]:
+    """The imports in the root files Claude Code and Gemini CLI read, each reaching a file, none glued to punctuation, and the rules imported on a line of their own.
+
+    A slip here unloads the rulebook in two of the three agents with
+    nothing said, which is what bit the kit once, so doctor reads the
+    front doors the way the parsers do. A front door that is not there
+    or cannot be read is passed over, since the port writes it.
+    """
+    found: list[Finding] = []
+    project = brain.root.parent
+
+    for name in schema.FRONT_DOORS:
+        try:
+            text = (project / name).read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        prose = HTML_COMMENT.sub(" ", sections.CODE.sub(" ", text))
+        for match in IMPORT.finditer(prose):
+            token = match.group(1)
+            if token[-1] in GLUED:
+                found.append(
+                    Finding(
+                        path=name,
+                        check="import",
+                        message=f"imports @{token} with the punctuation glued on, so the parser looks for that name and the file never loads, end the path with a space or a line break",
+                    )
+                )
+                continue
+
+            target = Path(os.path.expanduser(token.replace("\\ ", " ")))
+            if not store.readable_file(target if target.is_absolute() else project / target):
+                found.append(Finding(path=name, check="import", message=f"imports @{token}, which is not there"))
+
+        if name != "AGENTS.md" and not any(line.strip() == RULES_IMPORT for line in prose.splitlines()):
+            found.append(Finding(path=name, check="import", message="does not import AGENTS.md on a line of its own, so the rules never load"))
+
+    return found
+
+
 CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_leftovers,
     check_strays,
@@ -1409,4 +1462,5 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_style,
     check_hygiene,
     check_layout,
+    check_front_doors,
 )

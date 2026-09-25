@@ -238,7 +238,7 @@ it is.
 
 | Command | What it does |
 |---|---|
-| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill links and what a write left behind. |
+| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill links, the front doors' imports and what a write left behind. |
 | `brain doctor --fix` | Applies every fixable repair, in passes until a pass changes nothing, then reports what is left. A repair that fails is reported as a flag with the reason. |
 
 Doctor checks that nothing was left behind by an interrupted write,
@@ -259,6 +259,12 @@ which must reach its skill rather than point at nothing or be a plain
 file. It reports too a real folder copy of a kit skill that fell
 behind the brain's, a dangling link doctor once made for a project
 skill since gone from the brain, and a skills folder it cannot list.
+It reads the front doors, `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`,
+the way Claude Code and Gemini CLI read their `@` imports, code and
+comments stepped over, and reports an import with punctuation glued to
+its path, which those parsers take as part of the name so the file
+never loads, an import that reaches no file, and a `CLAUDE.md` or
+`GEMINI.md` that does not import `AGENTS.md` on a line of its own.
 
 `--fix` repairs a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written
