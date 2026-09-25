@@ -518,7 +518,7 @@ Say the state in plain words first, then what changed, then what is left and wha
 
 **`.agents/` at the repo root is the project's brain, committed, all but what git ignores there, so any agent on any machine resumes cold.**
 
-Read `.agents/INDEX.md` before working. It is the spine: the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked.
+Read `.agents/INDEX.md` before working. It is the spine: the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked. The tool's own code, under `.agents/skills/agent-brain/scripts/`, is never read by hand, not through a Read and not through the shell, since the skill sheet and its command reference say what every command does and the code costs context for nothing. The port writes Claude Code a rule that refuses the read, and a project whose work is that code, the kit's own checkout, says so in its section 0 and carries no such rule.
 
 ### 8.1 Upkeep
 

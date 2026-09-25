@@ -37,6 +37,15 @@ AGENT_FOLDERS = store.NEAR_ROOTS[1:]
 MERGED = ("settings.json", "hooks.json")
 NOT_SHIPPED = ("settings.local.json",)
 
+# The kit's code is never read by hand in a project, since the skill
+# sheet and its reference say what every command does, so the port
+# writes Claude Code the rule that refuses the read, which holds Edit
+# and Write off the same files too, and those the upgrade replaces
+# whole. The leading slash anchors the path at the settings file's
+# project, not at the filesystem root.
+CLAUDE_SETTINGS = Path(".claude") / "settings.json"
+READ_GUARD = f"Read(/{FOLDER}/{schema.SKILLS}/agent-brain/scripts/**)"
+
 # A hook group is the kit's when its command is one of two shapes with
 # plain arguments after it: a call of a script under the kit's own skill
 # folder, by either name of the brain, anchored at the project root the
@@ -516,12 +525,13 @@ def prepare(
     if KIT_MARK not in front_doors["AGENTS.md"]:
         raise UpgradeError("the kit's AGENTS.md has no line saying where its words start, so section 0 has no place to end")
 
+    front_doors["AGENTS.md"] = kit_words_of(front_doors["AGENTS.md"])
     merged: list[Path] = []
 
     for relative in kit.agent_files():
         target = project.root / relative
         if relative.name in MERGED and store.readable_file(target):
-            merged_config(existing=read_as_is(target), kit=kit.text(relative), where=str(relative))
+            merged_config(existing=read_as_is(target), kit=kit_config(kit=kit, relative=relative), where=str(relative))
             merged.append(relative)
 
     return Prepared(
@@ -548,7 +558,7 @@ def install(
     """
     stamp = prepared.stamp
     front_doors = dict(prepared.front_doors)
-    zero = section_zero_of(project=project, layout=prepared.layout)
+    zero = section_zero_of(project=project, layout=prepared.layout, kits_own=section_zero_in(kit.text(Path("AGENTS.md"))))
     if zero is not None:
         front_doors["AGENTS.md"] = with_section_zero(text=front_doors["AGENTS.md"], zero=zero.text)
         report.done(zero.says)
@@ -585,10 +595,15 @@ def install(
         if relative in prepared.merged:
             merged = merged_config(
                 existing=read_as_is(project.root / relative),
-                kit=kit.text(relative),
+                kit=kit_config(kit=kit, relative=relative),
                 where=str(relative),
             )
             put(project=project, relative=relative, text=merged, report=report)
+            continue
+
+        if relative == CLAUDE_SETTINGS:
+            if put_config(kit=kit, project=project, relative=relative, report=report):
+                report.done(f"wrote {relative}")
             continue
 
         if copy(kit=kit, project=project, relative=relative):
@@ -919,6 +934,7 @@ class Zero:
 def section_zero_of(
     project: Project,
     layout: str,
+    kits_own: Optional[str] = None,
 ) -> Optional[Zero]:
     """The project's own rules, from the first front door that carries a `## 0.` section with words in it.
 
@@ -929,7 +945,10 @@ def section_zero_of(
     front door that says something of its own goes whole under the
     heading, for the agent to read against the rulebook, because the
     kit's copy is about to replace it. Never on an upgrade, where a front
-    door without a section is the kit's own earlier text.
+    door without a section is the kit's own earlier text. `kits_own` is
+    the kit checkout's own section 0, which a front door copied from the
+    checkout carries word for word, and that one is nobody's rules here,
+    so it is read past.
     """
     texts: dict[str, str] = {}
     for name in OLD_LAYOUT_DOORS if layout == "old" else FRONT_DOORS:
@@ -941,6 +960,10 @@ def section_zero_of(
             texts[path.name] = path.read_text(encoding="utf-8-sig")
         except (OSError, UnicodeDecodeError):
             continue
+
+    for name, text in list(texts.items()):
+        if kits_own is not None and KIT_MARK in text and section_zero_in(text) == kits_own:
+            texts[name] = kit_words_of(text)
 
     for name, text in texts.items():
         zero = section_zero_in(text)
@@ -1084,9 +1107,21 @@ def with_section_zero(
     zero: str,
 ) -> str:
     """The kit's AGENTS.md with the project's section 0 between the title and the kit's marker line."""
-    title, rest = text.split(KIT_MARK, 1)
+    title, rest = kit_words_of(text).split(KIT_MARK, 1)
 
     return f"{title.rstrip()}\n\n{zero.rstrip()}\n\n{KIT_MARK}{rest}"
+
+
+def kit_words_of(
+    text: str,
+) -> str:
+    """The kit's AGENTS.md without a section 0 of its own, which is the kit checkout's rules for working on the tool and never ships."""
+    title, rest = text.split(KIT_MARK, 1)
+    own = next((match for match in sections.heading_matches(title) if match.group(1).startswith("0.")), None)
+    if own is not None:
+        title = title[: own.start()]
+
+    return f"{title.rstrip()}\n\n{KIT_MARK}{rest}"
 
 
 def merged_config(
@@ -1103,7 +1138,9 @@ def merged_config(
     nothing, so a list the project wrote empty on purpose is kept too.
     An event whose value is not a list is left alone unless the kit
     defines it. Any other key the kit sets is added only where the
-    project has none. The file keeps its indent and its own characters.
+    project has none, save a list under such a key, a deny rule for
+    one, which gains the kit's entries the project lacks. The file
+    keeps its indent and its own characters.
     """
     try:
         have = json.loads(existing)
@@ -1136,12 +1173,63 @@ def merged_config(
 
         if isinstance(value, dict) and isinstance(have.get(key), dict):
             for inner, inner_value in value.items():
+                mine = have[key].get(inner)
+                if isinstance(inner_value, list) and mine is not None:
+                    if not isinstance(mine, list):
+                        raise UpgradeError(f"{key}.{inner} in {where} is not a JSON list")
+
+                    mine += [item for item in inner_value if item not in mine]
+                    continue
+
                 have[key].setdefault(inner, inner_value)
             continue
 
         have.setdefault(key, value)
 
     return json.dumps(have, indent=indent_of(existing), ensure_ascii=False) + "\n"
+
+
+def kit_config(
+    kit: Kit,
+    relative: Path,
+) -> str:
+    """A kit hook config as it goes into a project, Claude Code's with the read guard under permissions.deny.
+
+    The kit's own checkout never gets the guard, since the run refuses
+    to install the kit onto itself, and that checkout is where the
+    tool's code is the work.
+    """
+    text = kit.text(relative)
+    if relative != CLAUDE_SETTINGS:
+        return text
+
+    try:
+        settings = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise UpgradeError(f"the kit's {relative} is not valid JSON: {error}") from error
+
+    deny = settings.setdefault("permissions", {}).setdefault("deny", [])
+    if READ_GUARD not in deny:
+        deny.append(READ_GUARD)
+
+    return json.dumps(settings, indent=indent_of(text), ensure_ascii=False) + "\n"
+
+
+def put_config(
+    kit: Kit,
+    project: Project,
+    relative: Path,
+    report: Report,
+) -> bool:
+    """Write a kit hook config as it goes into this project, and say whether anything was written."""
+    text = kit_config(kit=kit, relative=relative)
+    target = project.root / relative
+    if store.readable_file(target) and holds(path=target, data=text.encode("utf-8")):
+        return False
+
+    put(project=project, relative=relative, text=text, report=report, quiet=True)
+
+    return True
 
 
 def indent_of(
@@ -1376,6 +1464,9 @@ def same_as_kit(
     source = kit_source(relative)
     if source is None:
         return False
+
+    if relative == "AGENTS.md":
+        return holds(path=project.root / relative, data=kit_words_of(kit.text(source)).encode("utf-8"))
 
     return store.same_bytes(
         one=project.root / relative,
