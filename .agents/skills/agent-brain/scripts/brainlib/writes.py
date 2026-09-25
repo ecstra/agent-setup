@@ -232,6 +232,13 @@ def retitle(
         except OSError as error:
             raise Partial(f"{stem} was written, and a step that named it could not follow, {store.explain(error)}, which brain doctor reports until the folder can be written") from error
 
+    # a became field written by hand may name the file by its name or its path rather than its id, so it follows the rename too, written as the key the tool would write
+    if entry.kind.name in ("todo", "bug"):
+        try:
+            move_became(brain=brain, old={old_name, old_stem, entry.relative}, to=entry.identifier or stem, stamp=stamp)
+        except OSError as error:
+            raise Partial(f"{stem} was written, and a became field that named it could not follow, {store.explain(error)}, which brain doctor reports until the folder can be written") from error
+
     # the chain stores a plan by its file, and a todo or a bug with no id too, so the stem it holds follows
     if entry.kind.name == "plan" or entry.identifier is None:
         try:
@@ -240,6 +247,23 @@ def retitle(
             raise Partial(f"{stem} was written, and the chain could not follow the name, {store.explain(error)}, so it says {task.WORDS[entry.kind.name]} {old_stem}, not in this checkout, until {task.FILE} can be written again and brain task off drops it, link by link, for brain task on {stem} to start it") from error
 
     return brain.read(path=target, kind=entry.kind)
+
+
+def move_became(
+    brain: store.Brain,
+    old: set[str],
+    to: str,
+    stamp: str,
+) -> None:
+    """Write every became field that names the entry by one of its old keys as the key given, in the refiled todos and bugs that carry one."""
+    for kind_name in ("todo", "bug"):
+        for holder in brain.entries_of(schema.kind_named(kind_name)):
+            became = holder.field("became") or ""
+            if became not in old or became == to:
+                continue
+
+            holder.document.set(key="became", value=to)
+            steps.save(brain=brain, entry=holder, stamp=stamp)
 
 
 def undo_retitle(

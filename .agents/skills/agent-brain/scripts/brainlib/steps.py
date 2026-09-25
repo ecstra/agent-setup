@@ -1029,8 +1029,11 @@ def follows_its_entry(
             return "which was refiled as nothing the brain knows, so its mark stands skipped"
 
         handed = pointer_of(successor)
-        if unreadable_reached(brain=brain, key=handed) is not None:
-            return f"which was refiled as {handed}, whose steps do not read, so its mark stands skipped until they are put right, which brain doctor names, and follows {handed} then"
+        broken = unreadable_reached(brain=brain, key=handed)
+        if broken is not None:
+            where = handed if broken == handed else f"{handed}, whose steps lead to {broken}"
+
+            return f"which was refiled as {where}, whose steps do not read, so its mark stands skipped until they are put right, which brain doctor names, and follows {handed} then"
 
         return f"which was refiled as {handed}, whose steps lead back here, so its mark stands skipped until {handed} closes or its steps no longer lead back, and follows {handed} then"
 
@@ -1041,6 +1044,14 @@ def follows_its_entry(
         settles = POINTED_KINDS[kind] if asked == "done" else POINTED_GONE[kind]
         if not settles:
             return f"so its mark follows that entry, and a step at a {kind} is never {asked}"
+
+        # a refile never skips the step, it hands it on to the entry filed in the refiled one's place, where it takes that entry's mark
+        gone = [status for status in settles if status != "refiled"]
+        if asked == "skipped" and not gone:
+            return f"so its mark follows that entry, and follows the entry filed in its place once {key} is refiled, a {kind} being never dropped"
+
+        if asked == "skipped":
+            return f"so its mark follows that entry, and goes skipped once {key} is {' or '.join(gone)}, or follows the entry filed in its place once {key} is refiled"
 
         return f"so its mark follows that entry, and goes {asked} once {key} is {' or '.join(settles)}"
 
