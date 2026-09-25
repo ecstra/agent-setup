@@ -44,15 +44,21 @@ NOT_SHIPPED = ("settings.local.json",)
 # whole. The folder is named by both paths Claude Code reaches it
 # through, the brain's and the skill link's, and the leading slash
 # anchors each at the settings file's project, not at the filesystem
-# root. A deny rule on Read is the kit's when it names that folder, so
-# a release that rewords a rule replaces the earlier one the way a kit
-# hook group is replaced, and the project's own rules stay.
+# root. A deny rule on Read is the kit's when it names that folder at
+# the project, by either of those paths or the brain's old name, so a
+# release that rewords a rule replaces the earlier one the way a kit
+# hook group is replaced, while a rule for a copy kept elsewhere is the
+# project's own and stays.
 CLAUDE_SETTINGS = Path(".claude") / "settings.json"
 READ_GUARDS = (
     f"Read(/{FOLDER}/{schema.SKILLS}/agent-brain/scripts/**)",
     f"Read(/{doctor.SKILL_LINKS.as_posix()}/agent-brain/scripts/**)",
 )
-KIT_RULE = re.compile(r"^Read\(.*agent-brain/scripts.*\)$")
+KIT_RULE = re.compile(
+    r"^Read\(/(?:"
+    + "|".join(re.escape(folder) for folder in (f"{FOLDER}/{schema.SKILLS}", f"{OLD_FOLDER}/{schema.SKILLS}", doctor.SKILL_LINKS.as_posix()))
+    + r")/agent-brain/scripts(?:/.*)?\)$"
+)
 
 # A hook group is the kit's when its command is one of two shapes with
 # plain arguments after it: a call of a script under the kit's own skill
