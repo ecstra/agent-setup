@@ -203,24 +203,24 @@ another heading by hand, and doctor names the line meanwhile.
 Reopening a closed entry with `brain set` is refused while its steps
 and another open entry's would point at each other, and while its own
 table, or the steps of an entry it points at, does not read, since
-the tool cannot tell. Doctor reports a Steps section with
-no table or one that does not read, a step line sitting outside the
-table, a step whose pointer reaches nothing, a pointed mark that
-drifted, a pointer left on a refiled entry or written by name, two
-open entries whose steps wait on each other, a `became` on an entry
-that is not refiled or naming nothing, two files or the wrong kind, an
-entry done or fixed with a step still pending, since dropped, wontfix
-and refiled close as they are, and a plan with no Steps section at all.
-Four of those it repairs under `--fix`, the drifted mark, the pointer,
-which it moves on to the entry filed in the refiled one's place or
-writes as the id, a numbered list under a plan's or a todo's Steps,
-which becomes the table with its rows marked by the entry's own
-status, pending while it is open, done once it is done, skipped once
-it was dropped or refiled, and the plan with no Steps section, which
-gets an empty table. A list under a bug's Steps is only flagged, since
-it may be the reproduction, which goes under Evidence by hand, and on
-an open bug `brain steps <key> add` keeps it as the fix's steps when
-that is what it is.
+the tool cannot tell. Doctor reports a Steps section with no table or
+one that does not read, a step line sitting outside the table, a step
+whose pointer reaches nothing, a pointed mark that drifted, a pointer
+left on a refiled entry or written by name, two open entries whose
+steps wait on each other, a `became` on an entry that is not refiled
+or naming nothing, two files or the wrong kind, an entry done or fixed
+with a step still pending, since dropped, wontfix and refiled close as
+they are, and a plan with no Steps section at all. Four of those it
+repairs under `--fix`, the drifted mark, the pointer, which it moves
+on to the entry filed in the refiled one's place or writes as the id,
+a numbered list under a plan's or a todo's Steps, which becomes the
+table with its rows marked by the entry's own status, pending while
+it is open, done once it is done, skipped once it was dropped or
+refiled, and the plan with no Steps section, which gets an empty
+table. A list under a bug's Steps is only flagged, since it may be the
+reproduction, which goes under Evidence by hand, and on an open bug
+`brain steps <key> add` keeps it as the fix's steps when that is what
+it is.
 
 ## The review ledger
 
@@ -230,7 +230,7 @@ that is what it is.
 | `brain ledger batch <ledger> --theme T` | Adds the next batch, numbered past the highest one, status pending, and prints its number. The theme is one line with no pipe. |
 | `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE\|auto] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. The ack is the owner's word that starts a batch, recorded on it, so `fixing`, `verified` and `done` on a batch that holds findings are refused until the batch carries one, and verification closes the batch with no further word. An ack of `auto` is the standing word's stamp, and the standing word section says when it is taken, when it is refused, and what a stamp left on a pending batch means. Refuses when given none of them, and refuses `verified` or `done` while a finding in the batch is still open. A batch with no findings runs and closes without an ack, and a change to the theme alone never trips a guard. An open finding filed into a batch already verified or done, or reopened there, or a finding moved in already fixed, puts the batch back to `fixing` with its ack kept, since the word covered it, so the late fix is verified like the rest. A batch that had none, an empty one closed without an ack and then given a finding, asks for the ack before anything else. The ack, like the theme, is one line with no pipe. |
 | `brain ledger add <ledger> "claim" --severity S [--found-by review\|hunter] [--batch n]` | Records the next finding, numbered past the highest one, and prints its id. The claim is one line. A batch number must name a row of the table, so no finding is filed where the report cannot see it. With `-` in place of the claim, the claims come in on standard input inside a quoted heredoc, one per line, all filed with the same severity, batch and found-by in one write, so they land whole or not at all, and the ids print one per line. That keeps the shell off a backtick or a dollar sign in a claim, and files a batch's worth in one call. Empty standard input is refused. |
-| `brain ledger set <ledger> F-NN field=value ...` | Changes a finding, each value one line taken as written. The fields are severity, found-by, batch, status, fix and reason, and a line a hand edit lost comes back. A fixed finding always names its commit, `fix=<hash>`, a wontfix or a deferred one says why in the same call, `reason=<one line>`, and the reason leaves with the status, so a later status never borrows it. A batch must be one the table has. Statuses: open, fixed, wontfix, deferred. |
+| `brain ledger set <ledger> F-NN field=value ...` | Changes a finding, each value one line taken as written. The fields are severity, found-by, batch, status, fix and reason, and a line a hand edit lost comes back. A fixed finding always names its commit, `fix=<hash>`, a wontfix or a deferred one says why in the same call, `reason=<one line>`, and the reason leaves with the status, so a later status never borrows it. A batch must be one the table has. The statuses are open, fixed, wontfix and deferred. |
 | `brain ledger report <ledger>` | The ledger's state in a few lines, counted from the file, with a blank status read as open the way close reads it. The first line gives the status and the counts, then one line per batch with its status, ack and counts, then a last line saying what comes next. That last line names an open or a fixed finding filed into no batch the table has before anything else, since a fix is verified by its batch, then walks the batches in order and says what the first unfinished one needs, the owner's word for a pending one, or its start when the ack is already on it or the standing word holds, a stamp from an earlier word counting only while the word holds, the ack on record for one that holds findings and has none, the standing word's while one holds, then its open findings, a late one included, its verification, and its marking done. Once every batch is done it says the closing pass is owed, per house rule 7, until a batch themed `closing pass` records that the pass ran, and then to close the ledger. |
 | `brain ledger close <ledger>` | Flips the ledger to closed and writes the count under Summary. Refuses while a finding is open or has no status, and until the report's next line says to close the ledger, so a batch not yet done or a closing pass still owed holds it open. |
 
