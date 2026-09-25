@@ -676,6 +676,12 @@ def refiled_word(
         return f"which was refiled as nothing the brain knows, so the tool keeps the key {kept} and the step stands skipped"
 
     handed_on = steps.pointer_of(successor)
+    if successor.field("status") == "refiled":
+        return f"which sits in a loop of refiles through {kept} and {handed_on}, so the tool keeps the key {kept} and the step stands skipped until the loop is undone"
+
+    if steps.doubled(brain=brain, key=handed_on):
+        return f"which was refiled as {handed_on}, which two files carry, so the tool keeps the key {kept} and the step stands skipped while the {steps.doubled_word(handed_on)} is doubled"
+
     if steps.unreadable_reached(brain=brain, key=handed_on) is not None:
         return f"which was refiled as {handed_on}, whose steps do not read, so the tool keeps the key {kept} and the step stands skipped until they are put right"
 
