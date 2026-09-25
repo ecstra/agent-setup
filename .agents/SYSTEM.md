@@ -510,7 +510,7 @@ Blocking one wording does little, because the same shape returns in new words. P
 
 **Open with where things stand. The reader has not read the code, the docs, the ledger or the brain.**
 
-Say the state in plain words first, then what changed, then what is left and what the user has to do. Nothing about your own process, effort, passes or reasoning. A tally that argues for the work and a failed command narrated as news are process too. Name a file once and say what it does. A ledger or a doc is a record and never the answer, so never point at one in place of saying the thing.
+Say the state in plain words first, then what changed, then what is left and what the user has to do. Nothing about your own process, effort, passes or reasoning. A tally that argues for the work and a failed command narrated as news are process too. Name a file once and say what it does. A ledger or a doc is a record and never the answer, so never point at one in place of saying the thing. A finding, a bug, a todo or a decision is named by what it is, in plain words, its id at most beside the words in brackets and never in their place, since the user does not hold the ledger or the brain in their head.
 
 ---
 

@@ -5,6 +5,13 @@ Every report follows SYSTEM.md section 7.6. The state lines come from
 are the refuted and hunter counts the shapes below carry. Never a tip
 line.
 
+A finding, a bug, a todo or a decision is named by what it is, in
+plain words, "the dirty guard skips ignored files" and never "F-03".
+The id may follow the words in brackets where the owner would need it
+to look the thing up, and it never stands in their place, since the
+owner does not hold the ledger in their head. The same holds in every
+reply outside the reports.
+
 While the owner's standing word holds, a line below that puts the next
 step on the owner's word or asks for the ack, "Batch 1 starts on your
 word." and "Your call: ack batch 2, which starts it." alike, says
@@ -60,7 +67,7 @@ Fixed:
 - <file>, <what changed, in plain words>
 The hunter found <n> more, fixed above. (or: The hunter found nothing.)
 
-Deferred: <F-nn> as <BUG-nnn>, <why it cannot be fixed here>.
+Deferred: <the finding, in plain words> (F-nn), filed as <the bug's title> (BUG-nnn), <why it cannot be fixed here>.
 Cut short: the hunter, after three runs, <the files it never reached, or that candidates past its cap remained>.
 Your call: ack batch <n+1>, which starts it.
 ```
