@@ -449,7 +449,15 @@ def table_change(
 
 @dataclass(frozen=True)
 class TableWrite:
-    """A write to a stepped file as the hook reads it: the file's key and keys, its state, the rows it holds and the rows it would hold, which a list under a new Steps heading gives as the rows the tool would turn it into."""
+    """A write to a stepped file as the hook reads it.
+
+    The key is the name a command names the file by, own the keys a
+    step would point at it with, its id and its name, and node the
+    file's own place in the pointer graph, its path folded in case, so
+    two files that carry one id stay two nodes. The rows are the ones
+    the file holds and the ones the write would leave, which a list
+    under Steps gives as the rows the tool would turn it into.
+    """
 
     inside: str
     key: str
