@@ -39,12 +39,20 @@ NOT_SHIPPED = ("settings.local.json",)
 
 # The kit's code is never read by hand in a project, since the skill
 # sheet and its reference say what every command does, so the port
-# writes Claude Code the rule that refuses the read, which holds Edit
+# writes Claude Code the rules that refuse the read, which hold Edit
 # and Write off the same files too, and those the upgrade replaces
-# whole. The leading slash anchors the path at the settings file's
-# project, not at the filesystem root.
+# whole. The folder is named by both paths Claude Code reaches it
+# through, the brain's and the skill link's, and the leading slash
+# anchors each at the settings file's project, not at the filesystem
+# root. A deny rule on Read is the kit's when it names that folder, so
+# a release that rewords a rule replaces the earlier one the way a kit
+# hook group is replaced, and the project's own rules stay.
 CLAUDE_SETTINGS = Path(".claude") / "settings.json"
-READ_GUARD = f"Read(/{FOLDER}/{schema.SKILLS}/agent-brain/scripts/**)"
+READ_GUARDS = (
+    f"Read(/{FOLDER}/{schema.SKILLS}/agent-brain/scripts/**)",
+    f"Read(/{doctor.SKILL_LINKS.as_posix()}/agent-brain/scripts/**)",
+)
+KIT_RULE = re.compile(r"^Read\(.*agent-brain/scripts.*\)$")
 
 # A hook group is the kit's when its command is one of two shapes with
 # plain arguments after it: a call of a script under the kit's own skill
@@ -457,6 +465,7 @@ class Prepared:
     stamp: str
     project_version: str
     front_doors: dict[str, str]
+    settings: str
     merged: list[Path]
     layout: str
 
@@ -526,18 +535,24 @@ def prepare(
     if KIT_MARK not in front_doors["AGENTS.md"]:
         raise UpgradeError("the kit's AGENTS.md has no line saying where its words start, so section 0 has no place to end")
 
+    settings = kit_config(kit=kit)
     merged: list[Path] = []
 
     for relative in kit.agent_files():
         target = project.root / relative
         if relative.name in MERGED and store.readable_file(target):
-            merged_config(existing=read_as_is(target), kit=kit_config(kit=kit, relative=relative), where=str(relative))
+            merged_config(
+                existing=read_as_is(target),
+                kit=settings if relative == CLAUDE_SETTINGS else kit.text(relative),
+                where=str(relative),
+            )
             merged.append(relative)
 
     return Prepared(
         stamp=stamp,
         project_version=project_version,
         front_doors=front_doors,
+        settings=settings,
         merged=merged,
         layout=project.state(),
     )
@@ -595,14 +610,19 @@ def install(
         if relative in prepared.merged:
             merged = merged_config(
                 existing=read_as_is(project.root / relative),
-                kit=kit_config(kit=kit, relative=relative),
+                kit=prepared.settings if relative == CLAUDE_SETTINGS else kit.text(relative),
                 where=str(relative),
             )
             put(project=project, relative=relative, text=merged, report=report)
             continue
 
         if relative == CLAUDE_SETTINGS:
-            if put_config(kit=kit, project=project, relative=relative, report=report):
+            if put_config(
+                project=project,
+                relative=relative,
+                text=prepared.settings,
+                report=report,
+            ):
                 report.done(f"wrote {relative}")
             continue
 
@@ -1168,10 +1188,10 @@ def merged_config(
     An event left with no group stays as an empty list, which runs
     nothing, so a list the project wrote empty on purpose is kept too.
     An event whose value is not a list is left alone unless the kit
-    defines it. Any other key the kit sets is added only where the
-    project has none, save a list under such a key, a deny rule for
-    one, which gains the kit's entries the project lacks. The file
-    keeps its indent and its own characters.
+    defines it. The kit's deny rules go in the same way as its hook
+    groups, its earlier ones replaced and the project's own kept. Any
+    other key the kit sets is added only where the project has none.
+    The file keeps its indent and its own characters.
     """
     try:
         have = json.loads(existing)
@@ -1198,20 +1218,15 @@ def merged_config(
     for event, groups in want.get("hooks", {}).items():
         hooks[event] = hooks.get(event, []) + groups
 
+    if isinstance(want.get("permissions"), dict):
+        merge_guards(have=have, guards=want["permissions"].get("deny", []), where=where)
+
     for key, value in want.items():
         if key == "hooks":
             continue
 
         if isinstance(value, dict) and isinstance(have.get(key), dict):
             for inner, inner_value in value.items():
-                mine = have[key].get(inner)
-                if isinstance(inner_value, list) and mine is not None:
-                    if not isinstance(mine, list):
-                        raise UpgradeError(f"{key}.{inner} in {where} is not a JSON list")
-
-                    mine += [item for item in inner_value if item not in mine]
-                    continue
-
                 have[key].setdefault(inner, inner_value)
             continue
 
@@ -1220,40 +1235,59 @@ def merged_config(
     return json.dumps(have, indent=indent_of(existing), ensure_ascii=False) + "\n"
 
 
+def merge_guards(
+    have: dict,
+    guards: list,
+    where: str,
+) -> None:
+    """The kit's deny rules into the project's list, the kit's earlier spellings dropped and the project's own rules kept in their order."""
+    permissions = have.setdefault("permissions", {})
+    if not isinstance(permissions, dict):
+        raise UpgradeError(f"permissions in {where} is not a JSON object")
+
+    deny = permissions.setdefault("deny", [])
+    if not isinstance(deny, list):
+        raise UpgradeError(f"permissions.deny in {where} is not a JSON list")
+
+    permissions["deny"] = [rule for rule in deny if not is_kit_rule(rule)] + guards
+
+
+def is_kit_rule(
+    rule: object,
+) -> bool:
+    return isinstance(rule, str) and KIT_RULE.match(rule) is not None
+
+
 def kit_config(
     kit: Kit,
-    relative: Path,
 ) -> str:
-    """A kit hook config as it goes into a project, Claude Code's with the read guard under permissions.deny.
+    """The kit's Claude Code settings as they go into a project, with the read guards under permissions.deny.
 
-    The kit's own checkout never gets the guard, since the run refuses
-    to install the kit onto itself, and that checkout is where the
-    tool's code is the work.
+    The kit's own checkout never gets them, since the run refuses to
+    install the kit onto itself, and that checkout is where the tool's
+    code is the work.
     """
-    text = kit.text(relative)
-    if relative != CLAUDE_SETTINGS:
-        return text
-
+    text = kit.text(CLAUDE_SETTINGS)
     try:
         settings = json.loads(text)
     except json.JSONDecodeError as error:
-        raise UpgradeError(f"the kit's {relative} is not valid JSON: {error}") from error
+        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS} is not valid JSON: {error}") from error
 
-    deny = settings.setdefault("permissions", {}).setdefault("deny", [])
-    if READ_GUARD not in deny:
-        deny.append(READ_GUARD)
+    if not isinstance(settings, dict):
+        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS} is not a JSON object")
+
+    settings["permissions"] = {"deny": list(READ_GUARDS)}
 
     return json.dumps(settings, indent=indent_of(text), ensure_ascii=False) + "\n"
 
 
 def put_config(
-    kit: Kit,
     project: Project,
     relative: Path,
+    text: str,
     report: Report,
 ) -> bool:
-    """Write a kit hook config as it goes into this project, and say whether anything was written."""
-    text = kit_config(kit=kit, relative=relative)
+    """Write a composed kit config into the project, and say whether anything was written."""
     target = project.root / relative
     if store.readable_file(target) and holds(path=target, data=text.encode("utf-8")):
         return False
