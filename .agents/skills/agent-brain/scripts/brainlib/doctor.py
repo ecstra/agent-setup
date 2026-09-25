@@ -611,7 +611,9 @@ def check_table(
         pending = [step.number for step in rows if step.status == "pending"]
         if pending and entry.field("status") == steps.CLOSING[entry.kind.name]:
             numbers = ", ".join(str(number) for number in pending)
-            found.append(Finding(path=entry.relative, check="steps", message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it and close it again once the step is settled, and when the set to open is refused for a loop, close the entry whose steps point back here first"))
+            # nothing points at a plan, so only a todo or a bug can have its reopen refused for a loop
+            way_round = "" if entry.kind.name == "plan" else ", and when the set to open is refused for a loop, close the entry whose steps point back here first"
+            found.append(Finding(path=entry.relative, check="steps", message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it and close it again once the step is settled{way_round}"))
 
         return found
 
