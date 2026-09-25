@@ -21,7 +21,6 @@ def create(
     title: str,
     description: str,
     body: str,
-    by: str = "",
     values: Optional[dict[str, str]] = None,
     category: str = "",
     links: Optional[list[str]] = None,
@@ -29,7 +28,7 @@ def create(
 ) -> store.Entry:
     """File a plan from its prose, the steps it lists under Steps turned into the table, or an empty table when it lists none, with the fields, the category and the links any other kind takes."""
     fields = dict(values or {})
-    fields["by"] = by or fields.get("by") or "owner"
+    fields["by"] = fields.get("by") or "owner"
     if fields["by"] not in steps.BY:
         raise PlanError(f"a plan is set by {' or '.join(steps.BY)}, not '{fields['by']}'")
 

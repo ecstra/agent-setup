@@ -55,8 +55,11 @@ CLOSING: dict[str, str] = {
 TABLE_HEADER = "| # | Step | Points at | By | Status |\n|---|---|---|---|---|\n"
 HEADER_LINE = re.compile(r"^\|[ \t]*#[ \t]*\|[ \t]*Step[ \t]*\|[ \t]*Points at[ \t]*\|[ \t]*By[ \t]*\|[ \t]*Status[ \t]*\|[ \t]*\n\|[-| \t]+\|[ \t]*$", re.MULTILINE)
 # a cell runs to the next pipe, and a pipe written as \| is part of the cell,
-# the one escape there is, so every other backslash is the cell's own
-CELL = r"((?:\\\||[^|\n])*?)"
+# the one escape there is, so every other backslash is the cell's own, and
+# a cell neither starts nor ends with blank space, so the padding around it
+# has one reading and a row that does not match fails at once rather than
+# through every split of its padding
+CELL = r"((?:(?:\\\||[^|\n \t])(?:\\\||[^|\n])*?(?<![ \t]))?)"
 ROW = re.compile(
     rf"^\|[ \t]*(\d+)[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*{CELL}[ \t]*\|[ \t]*$",
     re.MULTILINE,
@@ -604,7 +607,7 @@ def pointed(
     if entry is None or entry.kind.name not in POINTED_KINDS:
         return None
 
-    answers = {entry.identifier, entry.name} - {None}
+    answers = own_keys(entry)
     if entry.kind.name == "review":
         answers.add(entry.path.parent.name)
 
@@ -639,8 +642,7 @@ def derived_row(
     if status == "refiled":
         seen = (seen or set()) | {step.points_at}
         successor = refiled_to(brain=brain, entry=entry)
-        # the hand off waits on a successor whose steps do not read as much as on one that points back, since either could leave the two waiting on each other
-        if successor is not None and pointer_of(successor) not in seen and not doubled(brain=brain, key=pointer_of(successor)) and not (own and (pointer_of(successor) in own or unreadable_reached(brain=brain, key=pointer_of(successor)) is not None or points_back(brain=brain, key=pointer_of(successor), own=own))):
+        if successor is not None and hands_on_to(brain=brain, successor=successor, own=own, seen=seen):
             moved = Step(number=step.number, text=step.text, points_at=pointer_of(successor), by=step.by, status=step.status)
             return derived_row(brain=brain, step=moved, own=own, seen=seen)
 
@@ -663,6 +665,26 @@ def kept_pointer(
     pointer = pointer_of(entry)
 
     return step.points_at if doubled(brain=brain, key=pointer) else pointer
+
+
+def hands_on_to(
+    brain: store.Brain,
+    successor: store.Entry,
+    own: Optional[set[str]],
+    seen: set[str],
+) -> bool:
+    """Whether a step at a refiled entry moves on to the entry filed in its place: not through a loop of refiles, not to an id two files carry, and, with the holder's own keys in hand, not to the holder itself nor to a successor whose steps lead back here or do not read, since either could leave the two waiting on each other."""
+    handed = pointer_of(successor)
+    if handed in seen or doubled(brain=brain, key=handed):
+        return False
+
+    if not own:
+        return True
+
+    if handed in own or unreadable_reached(brain=brain, key=handed) is not None:
+        return False
+
+    return not points_back(brain=brain, key=handed, own=own)
 
 
 def refiled_to(
@@ -737,14 +759,6 @@ def became_gaps(
     return []
 
 
-def derived_status(
-    brain: store.Brain,
-    step: Step,
-) -> str:
-    """The status a pointed step should carry, read off the entry it points at, or its own when it points at nothing."""
-    return derived_row(brain=brain, step=step).status
-
-
 def points_back(
     brain: store.Brain,
     key: str,
@@ -753,7 +767,7 @@ def points_back(
 ) -> bool:
     """Whether the entry the key names, while it is open, has a step that points, at any remove, at one of the own keys, which would leave the two waiting on each other for good, a closed entry's steps waiting on nothing."""
     entry = pointed(brain=brain, key=key)
-    if entry is None or (entry.field("status") or "") not in OPEN_STATUSES.get(entry.kind.name, ()):
+    if entry is None or not is_open(entry):
         return False
 
     seen = (seen or set()) | {key}
@@ -846,7 +860,7 @@ def reopening_gaps(
 ) -> list[str]:
     """What reopening a closed entry falls short of: its steps and another open entry's would point at each other, which a close let stand and a reopening would set waiting for good."""
     status = fields.get("status", "")
-    was_open = (entry.field("status") or "") in OPEN_STATUSES.get(entry.kind.name, ())
+    was_open = is_open(entry)
     if entry.kind.name not in STEPPED_KINDS or was_open or status not in OPEN_STATUSES[entry.kind.name]:
         return []
 
@@ -940,7 +954,7 @@ def looping(
     rows: list[Step],
 ) -> list[str]:
     """The steps of an open entry that point at an open entry whose steps point back, one line each, which doctor reports since no write should have let them stand."""
-    if (entry.field("status") or "") not in OPEN_STATUSES.get(entry.kind.name, ()):
+    if not is_open(entry):
         return []
 
     own = own_keys(entry)
@@ -964,7 +978,7 @@ def add(
     if status not in OPEN_STATUSES[entry.kind.name]:
         raise StepsError(f"{entry.name} is {status}, a step is added while it is open")
 
-    own = {entry.identifier, entry.name} - {None}
+    own = own_keys(entry)
     body = entry.document.body
     if span(body) is None:
         body = with_table(body=body, rows=[], kind=entry.kind)
@@ -1242,7 +1256,7 @@ def refresh_pointing(
     if entry is None or entry.kind.name not in POINTED_KINDS:
         return []
 
-    keys = {entry.identifier, entry.name} - {None}
+    wanted = {answer.lower() for answer in own_keys(entry)}
     changed: list[str] = []
     # a holder that cannot be written is passed over for the ones after it, and its failure is raised once every holder has had its turn
     first_failure: Optional[OSError] = None
@@ -1253,7 +1267,7 @@ def refresh_pointing(
             except StepsError:
                 continue
 
-            if not any(step.points_at.lower() in {key.lower() for key in keys} for step in rows):
+            if not any(step.points_at.lower() in wanted for step in rows):
                 continue
 
             try:
