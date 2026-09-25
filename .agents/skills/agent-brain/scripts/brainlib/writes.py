@@ -232,10 +232,11 @@ def retitle(
         except OSError as error:
             raise Partial(f"{stem} was written, and a step that named it could not follow, {store.explain(error)}, which brain doctor reports until the folder can be written") from error
 
-    # a became field written by hand may name the file by its name or its path rather than its id, so it follows the rename too, written as the id, or as the new name while two files carry the id or the file has none, and stays like a cell when two files with no id share the name, since it could mean either
-    if entry.kind.name in ("todo", "bug") and not (two_files and entry.identifier is None):
+    # a became field written by hand may name the file by its name or its path rather than its id, so it follows the rename too, written as the id, or as the new name while two files carry the id or the file has none, and when two files with no id share the name only a field naming this file by its path moves, since the name could mean either
+    if entry.kind.name in ("todo", "bug"):
+        naming = {entry.relative} if two_files and entry.identifier is None else {old_name, old_stem, entry.relative}
         try:
-            move_became(brain=brain, old={old_name, old_stem, entry.relative}, to=stem if two_files or entry.identifier is None else entry.identifier, stamp=stamp)
+            move_became(brain=brain, old=naming, to=stem if two_files or entry.identifier is None else entry.identifier, stamp=stamp)
         except OSError as error:
             raise Partial(f"{stem} was written, and a became field that named it could not follow, {store.explain(error)}, which brain doctor reports until the folder can be written") from error
 
