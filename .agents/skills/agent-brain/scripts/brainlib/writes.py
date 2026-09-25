@@ -237,7 +237,7 @@ def retitle(
         try:
             task.renamed(brain=brain, kind=entry.kind.name, old=old_stem, new=stem)
         except (OSError, task.TaskError) as error:
-            raise Partial(f"{stem} was written, and the chain could not follow the name, {store.explain(error)}, so it says {entry.kind.name} {old_stem}, not in this checkout, until {task.FILE} can be written again and brain task off drops it, link by link, for brain task on {stem} to start it") from error
+            raise Partial(f"{stem} was written, and the chain could not follow the name, {store.explain(error)}, so it says {task.WORDS[entry.kind.name]} {old_stem}, not in this checkout, until {task.FILE} can be written again and brain task off drops it, link by link, for brain task on {stem} to start it") from error
 
     return brain.read(path=target, kind=entry.kind)
 

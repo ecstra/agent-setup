@@ -1022,13 +1022,15 @@ def follows_its_entry(
     """Why a pointed step takes no mark by hand, and what gives it the mark asked for instead, the entry named as the cell names it, since that key is the one that resolves."""
     kind = target.kind.name
     status = target.field("status") or ""
-    # a step still at a refiled entry is one whose hand off is held, since the entry filed in its place leads back here, or one that has no successor, and a set to open would undo the refile
+    # a step still at a refiled entry is one whose hand off is held, since the entry filed in its place leads back here or its steps do not read, or one that has no successor, and a set to open would undo the refile
     if status == "refiled" and asked == "pending":
         successor = refiled_to(brain=brain, entry=target)
         if successor is None:
             return "which was refiled as nothing the brain knows, so its mark stands skipped"
 
         handed = pointer_of(successor)
+        if unreadable_reached(brain=brain, key=handed) is not None:
+            return f"which was refiled as {handed}, whose steps do not read, so its mark stands skipped until they are put right, which brain doctor names, and follows {handed} then"
 
         return f"which was refiled as {handed}, whose steps lead back here, so its mark stands skipped until {handed} closes or its steps no longer lead back, and follows {handed} then"
 
