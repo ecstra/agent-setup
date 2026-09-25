@@ -18,7 +18,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from . import clock, frontmatter, ledger, schema, steps, store
+from . import clock, frontmatter, schema, steps, store
 
 FILE = ".task"
 NONE = "task none"
@@ -172,11 +172,10 @@ def looked_up(
     if entry is None:
         return (UNREADABLE if unreadable(brain=brain, item=item) else AWAY), None
 
-    status = entry.field("status") or ""
-    if status in steps.OPEN_STATUSES.get(item.kind, ()):
+    if steps.is_open(entry):
         return OPEN, entry
 
-    if status in known_statuses(entry.kind):
+    if (entry.field("status") or "") in known_statuses(entry.kind):
         return CLOSED, entry
 
     return UNKNOWN, entry
@@ -281,12 +280,6 @@ def unreadable(
     return False
 
 
-def is_open(
-    entry: store.Entry,
-) -> bool:
-    return steps.is_open(entry)
-
-
 def resolve(
     brain: store.Brain,
     key: str,
@@ -303,7 +296,7 @@ def resolve(
     if entry.kind.name not in steps.OPEN_STATUSES:
         raise TaskError(f"the work is a plan, a todo, a bug or a review, and {entry.name} is a {entry.kind.name}")
 
-    if not is_open(entry):
+    if not steps.is_open(entry):
         raise TaskError(f"{entry.name} is {entry.field('status')}, and the work is on something open")
 
     return entry
@@ -372,7 +365,7 @@ def may_push(
 
     pointer = rows[step - 1].points_at
 
-    return bool(pointer) and pointer in (entry.identifier, entry.name)
+    return bool(pointer) and pointer in steps.own_keys(entry)
 
 
 def mark(
@@ -553,6 +546,9 @@ def batch_text(
     entry: store.Entry,
 ) -> str:
     """Where a review stands, the first batch not yet done with its status, read off the ledger."""
+    # here and not above, since the ledger imports the writer and the writer imports this module, and an import at the top would run the writer's body while this module is half built
+    from . import ledger
+
     try:
         rows = ledger.batches(entry)
     except ledger.LedgerError:
