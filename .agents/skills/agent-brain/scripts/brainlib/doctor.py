@@ -598,7 +598,7 @@ def check_table(
     except steps.StepsError as broken:
         message = str(broken).split(": ", 1)[1]
         if entry.kind.name == "bug" and not steps.has_table(entry.document.body):
-            message += ", a bug's Steps being the fix's steps and a reproduction going under Evidence, so move it there by hand, or on an open bug run brain steps <key> add to keep it as the fix's"
+            message += ", a bug's Steps being the fix's steps and a reproduction going under Evidence, so move it there by hand, or make it a numbered list and on an open bug run brain steps <key> add to keep it as the fix's"
 
         offered = convert_steps(brain=brain, entry=entry)
         if isinstance(offered, str):
@@ -673,6 +673,10 @@ def refiled_word(
 
     successor = steps.refiled_to(brain=brain, entry=landed)
     if successor is None:
+        became = landed.field("became") or ""
+        if became and steps.doubled(brain=brain, key=became):
+            return f"which was refiled as {became}, which two files carry, so the tool keeps the key {kept} and the step stands skipped while the {steps.doubled_word(became)} is doubled"
+
         return f"which was refiled as nothing the brain knows, so the tool keeps the key {kept} and the step stands skipped"
 
     handed_on = steps.pointer_of(successor)
@@ -682,8 +686,11 @@ def refiled_word(
     if steps.doubled(brain=brain, key=handed_on):
         return f"which was refiled as {handed_on}, which two files carry, so the tool keeps the key {kept} and the step stands skipped while the {steps.doubled_word(handed_on)} is doubled"
 
-    if steps.unreadable_reached(brain=brain, key=handed_on) is not None:
-        return f"which was refiled as {handed_on}, whose steps do not read, so the tool keeps the key {kept} and the step stands skipped until they are put right"
+    broken = steps.unreadable_reached(brain=brain, key=handed_on)
+    if broken is not None:
+        where = handed_on if broken == handed_on else f"{handed_on}, whose steps lead to {broken}"
+
+        return f"which was refiled as {where}, whose steps do not read, so the tool keeps the key {kept} and the step stands skipped until they are put right"
 
     return f"which was refiled as {handed_on}, whose steps lead back here, so the tool keeps the key {kept} and the step stands skipped"
 
