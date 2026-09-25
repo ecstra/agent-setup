@@ -594,9 +594,9 @@ def check_table(
 ) -> list[Finding]:
     found: list[Finding] = []
     try:
-        rows = steps.stored_rows(entry)
+        rows = steps.stored_rows_of(kind=entry.kind.name, body=entry.document.body)
     except steps.StepsError as broken:
-        message = str(broken).split(": ", 1)[1]
+        message = str(broken)
         if entry.kind.name == "bug" and not steps.has_table(entry.document.body):
             message += ", a bug's Steps being the fix's steps and a reproduction going under Evidence, so move it there by hand, or make it a numbered list and on an open bug run brain steps <key> add to keep it as the fix's"
 
@@ -625,8 +625,18 @@ def check_table(
         fresh = steps.derived_row(brain=brain, step=step, own=own)
         derived.append(fresh)
         if step.points_at and steps.pointed(brain=brain, key=step.points_at) is None:
-            why = f"which two files carry, so it reaches nothing while the {steps.doubled_word(step.points_at)} is doubled" if steps.doubled(brain=brain, key=step.points_at) else "which reaches no todo, bug or review"
-            found.append(Finding(path=entry.relative, check="steps", message=f"step {step.number} points at '{step.points_at}', {why}, and brain steps <key> step {step.number} done or skipped marks it by hand meanwhile"))
+            if steps.doubled(brain=brain, key=step.points_at):
+                why = f"which two files carry, so it reaches nothing while the {steps.doubled_word(step.points_at)} is doubled"
+            else:
+                why = "which reaches no todo, bug or review"
+
+            found.append(
+                Finding(
+                    path=entry.relative,
+                    check="steps",
+                    message=f"step {step.number} points at '{step.points_at}', {why}, and brain steps <key> step {step.number} done or skipped marks it by hand meanwhile",
+                )
+            )
         elif fresh.points_at != step.points_at:
             target = steps.pointed(brain=brain, key=step.points_at)
             moved = target is not None and target.field("status") == "refiled"
@@ -711,7 +721,7 @@ def convert_steps(
     if steps.has_table(body):
         return None
 
-    own = {entry.identifier, entry.name} - {None}
+    own = steps.own_keys(entry)
     try:
         steps.converted(brain=brain, body=body, by=entry.field("by") or "agent", kind=entry.kind, status=steps.settled_as(entry), own=own)
     except steps.StepsError as refused:
