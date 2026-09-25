@@ -2,7 +2,7 @@
 name: spec-plans
 kind: doc
 description: format and lifecycle for .agents/plans, a goal with the steps that reach it
-updated: 2026-09-24
+updated: 2026-09-25
 links: [spec/conventions.md, spec/todos.md, spec/bugs.md, spec/reviews.md]
 ---
 
@@ -51,9 +51,10 @@ The steps table:
 ```
 
 A step is numbered from 1 and never renumbered or deleted. It points
-at a todo or a bug by id, which a retitle never moves, or at a review
-by name, or at nothing when it is a plain line such as something the
-owner does themselves. `By` says who set the step, `owner` or `agent`,
+at a todo or a bug by id, which a retitle never moves, or by name for
+a file with no id, which doctor reports and a retitle moves the cell
+along with, or at a review by name, or at nothing when it is a plain
+line such as something the owner does themselves. `By` says who set the step, `owner` or `agent`,
 so the agreed steps read apart from the ones the agent added on its
 own. `Status` is `pending`, `done` or `skipped`, and a step that
 points at an entry takes its status from that entry, done when the

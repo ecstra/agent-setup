@@ -16,7 +16,7 @@ the entry written all the same.
 | `brain version` | The kit version this project carries, from `.agents/VERSION`. |
 | `brain status [--json]` | The clock, the standing word and the current work first, then version, doctor health, counts per tracker, open reviews, the latest handover, unreadable files. The JSON form carries all of that but the clock and the word, the chain under `task`, which is null when the file does not read as a chain. |
 | `brain ack` | The clock and where the owner's standing word to proceed stands, off, held, or on with what is left of it and what ends it. |
-| `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. Kinds: bug, decision, doc, handover, memory, plan, review, todo. |
+| `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. The kinds are bug, decision, doc, handover, memory, plan, review and todo. |
 | `brain show <key> [--meta]` | The whole file, or with `--meta` its frontmatter only. |
 | `brain path <key>` | The absolute path behind an id, a name or a brain relative path. |
 | `brain links <key> [--json]` | What the entry links to, and every entry that links to it. |
@@ -200,10 +200,10 @@ open entry `brain steps add` turns a numbered list into the table, and
 so does `--fix` on a todo, never on a bug, while prose or bullets
 neither turns, so make them a numbered list first or move them under
 another heading by hand, and doctor names the line meanwhile.
-Reopening a closed entry with `brain set` is refused while
-its steps and another open entry's would point at each other, and
-while its own table, or the steps of an entry it points at, does not
-read, since the tool cannot tell. Doctor reports a Steps section with
+Reopening a closed entry with `brain set` is refused while its steps
+and another open entry's would point at each other, and while its own
+table, or the steps of an entry it points at, does not read, since
+the tool cannot tell. Doctor reports a Steps section with
 no table or one that does not read, a step line sitting outside the
 table, a step whose pointer reaches nothing, a pointed mark that
 drifted, a pointer left on a refiled entry or written by name, two
