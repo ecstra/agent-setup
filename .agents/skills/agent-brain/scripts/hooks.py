@@ -835,7 +835,7 @@ def row_line_in(
     return None
 
 
-TABLE_LINE = re.compile(r"^\|[ \t]*#[ \t]*\|.*\|$|^\|(?:[ \t]*:?-+:?[ \t]*\|){5}$")
+TABLE_LINE = re.compile(r"^\|[ \t]*#[ \t]*\|[ \t]*Step[ \t]*\|[ \t]*Points at[ \t]*\|[ \t]*By[ \t]*\|[ \t]*Status[ \t]*\|$|^\|(?:[ \t]*:?-+:?[ \t]*\|){5}$")
 
 
 def step_line_in(
