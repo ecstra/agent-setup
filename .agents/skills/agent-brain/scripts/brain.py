@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import autoack, clock, doctor, frontmatter, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
+from brainlib import autoack, clock, doctor, frontmatter, index, ledger, plans, reads, schema, slices, steps, store, task, upgrade, writes
 
 REFUSED = 1
 FINDINGS_REMAIN = 2
@@ -65,6 +65,7 @@ def main(
         store.StoreError,
         writes.WriteError,
         ledger.LedgerError,
+        slices.SliceError,
         plans.PlanError,
         steps.StepsError,
         task.TaskError,
@@ -101,6 +102,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_doctor(commands)
     add_steps(commands)
     add_ledger(commands)
+    add_slices(commands)
     add_port(commands)
     add_upgrade(commands)
 
@@ -782,6 +784,38 @@ def missing(
 ) -> int:
     print(f"nothing in the brain answers to '{key}'", file=sys.stderr)
     return REFUSED
+
+
+def add_slices(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser("slices", help="cut a range's changes into slices for the review's finders")
+    command.add_argument("revisions", nargs="?", default=slices.DEFAULT_RANGE, help="git's own range, main...HEAD unless given")
+    command.add_argument("pathspecs", nargs="*", help="git's own pathspecs to narrow the cut, such as :!docs")
+    command.add_argument("--size", type=int, default=slices.DEFAULT_SIZE, help="the most changed lines a slice takes")
+    command.set_defaults(handler=run_slices, needs_brain=False)
+
+
+def run_slices(
+    brain: Optional[store.Brain],
+    args: argparse.Namespace,
+) -> int:
+    """Cut the repository the command runs in, since a review's code may sit apart from the brain that holds its ledger."""
+    cut = slices.cut(
+        root=Path.cwd(),
+        revisions=args.revisions,
+        size=args.size,
+        pathspecs=args.pathspecs,
+    )
+    print(
+        slices.render(
+            slices=cut,
+            revisions=args.revisions,
+            size=args.size,
+        )
+    )
+
+    return 0
 
 
 def add_port(
