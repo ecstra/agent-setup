@@ -36,7 +36,8 @@ AGENTS.md section 0 names its exact gates, tooling, and PR rules.
 Before any review: every suite, analyzer, and build the project's
 AGENTS.md section 0 names, green, and `brain doctor` clean. The review
 judges code that already works, reviewers never burn effort on red
-suites or a brain with broken links.
+suites or a brain with broken links. When the review starts the working
+tree is clean as well, since a review reads committed work only.
 
 ## The review protocol
 
@@ -56,76 +57,103 @@ suites or a brain with broken links.
    (GPT) is a second pair of eyes the owner can add. All of it works on
    the local branch, whether or not a PR is open yet.
 2. **Findings first, whole.** The finding pass cuts the branch into
-   slices and runs finder sub agents over them, one per slice and
-   angle, all at once, then looks once more per slice while a sub
-   agent merges what they found. Every candidate is filed, the rare
-   and the small included, since a fixer proves a claim with a failing
-   test before it changes anything. The agent reports every finding
-   ranked by severity before touching anything. No fixing during
-   reporting, no silent triage.
+   slices and runs its finder sub agents all at once, for each angle
+   one per slice or one over the whole branch, as the angle reads. A
+   second look follows per slice, then sub agents merge what was found
+   and join the findings that are one. Every candidate is filed, the
+   rare and the small included, since a fixer proves a claim with a
+   failing test before it changes anything. The agent reports every
+   finding ranked by severity before touching anything. No fixing
+   during reporting, no silent triage.
 3. **The ledger.** All findings land in
    `.agents/reviews/<yyyy-mm>-<branch-slug>/ledger.md` per
    [spec/reviews.md](spec/reviews.md): severity graded (breaks, bug,
-   debt, nit), split into themed batches ordered by severity,
-   correctness first, nits last, five batches at most. A finding not
-   worth fixing gets a written reason, so no future review re
-   litigates it.
-4. **The round of fixes.** Every batch that has the owner's word is
-   fixed in one round, and inside it everything that can run at once
-   does so.
-   - The round's findings are grouped by file, a large group split
-     again by cause, and each group has one fixer sub agent. Where a
-     group's findings are one mechanism, the main agent writes its
-     model before the fixer starts, and a verifier reads the model
-     against the code before anything is built to it. The fixer names
-     the cause, writes a failing test over the claim and its sibling
-     cases, then fixes the cause and never the one line.
-   - A verifier sub agent per group checks bug wise, not code wise,
-     that each bug is actually gone, its sibling cases with it, and
-     that nothing new surfaced, and judges the tests the fixer wrote.
-     What still stands goes back to the fixer, three rounds at most,
-     and then the main agent takes the group and writes its model,
-     whole, before any more code.
-   - A finding is the branch's own. A further case in code the branch
-     never touched, the same on the base, is an older defect. It is
-     filed in `.agents/bugs/` the moment it is met and named in the
-     report, and the finding keeps its scope.
-   - Once every group is quiet the gates run once, and each group
-     becomes one commit, its hash recorded beside every finding of the
-     group.
-   - Hunter sub agents sweep what the round changed, for defects the
-     fixes brought into the code. Their finds enter the ledger as
-     findings (`found-by: hunter`) and the next round fixes them. No
-     backlog. The rounds stop at the first hunt that finds nothing.
-   - The last pass follows that hunt, once. The docs that describe
-     the changed code are written, and one sweep holds every line the
-     rounds wrote to the house style, since both follow the code and
-     would be done again each time it moved.
+   debt, nit), split into batches by theme, correctness first and
+   wording last, five batches at most. Every finding leaves the open
+   list as fixed, as refuted where the claim is wrong, as left as it
+   is (wontfix) where the claim is true and the behaviour on purpose,
+   or as deferred, and one that is not fixed carries its reason, so no
+   future review re litigates it.
+4. **The rounds of fixes.** The batches that have the owner's word are
+   fixed together in rounds, and inside a round everything that can
+   run at once does so.
+   - The round's findings are grouped by file, each group with one
+     fixer sub agent. Files that share a test or need each other are
+     one group, and a group is never split, so no two fixers edit one
+     file at once. Where a group's findings are one mechanism, the
+     main agent writes its model first, and a fresh verifier checks it
+     before anything is built to it. The fixer names the cause and its
+     sibling cases, writes a failing test over them where a test can
+     drive the claim, then fixes the cause and never the one line.
+   - A group's verifier sub agent, or several for a group of many
+     findings, checks bug wise, not code wise, that each bug is
+     actually gone, its sibling cases with it, and that nothing new
+     surfaced, and judges every test the group's diff adds or changes,
+     a loosened or deleted one among them. A claim the fixer answers as
+     wrong or as on purpose stands only where the verifier agrees. What
+     still stands goes back to the fixer, each finding three passes at
+     most. Then the main agent writes the group's model, or writes it
+     again whole, and one fresh fixer takes what is open, with three
+     passes of its own. What stands after those is set aside for the
+     owner's word, per rule 5.
+   - A finding is the branch's own. A further case outside the code
+     the range changed or made reachable, the same on the base, is an
+     older defect. It is filed in `.agents/bugs/` the moment it is met
+     and named in the report, and the finding keeps its scope, as the
+     [skill sheet](skills/branch-review/SKILL.md) says.
+   - Once every group is quiet the gates run, and once they are green
+     each group whose files changed becomes one commit, its hash
+     recorded beside the fixed findings whose change it holds. A
+     finding another group's change settled takes the hash of that
+     change's commit. The gates prove the round's last commit, and a
+     commit before it is not proven alone.
+   - Hunter sub agents then read what the round changed, for defects
+     the fixes brought into the code and nothing else. Their finds
+     enter the ledger as findings (`found-by: hunter`), each in the
+     batch of the finding whose fix brought it, and the next round
+     fixes them. No backlog. The rounds stop at the first hunt that
+     finds nothing.
+   - The last pass follows that hunt, as a round with no hunt. It
+     takes the findings that waited for it, those on how code is
+     written or how its comments read, and those on a doc of code the
+     rounds changed. The docs writers, who between them own every doc
+     of the project, write the docs that describe the changed code, and
+     a sweep holds every line the rounds wrote to the house style,
+     since both follow the code and would be done again each time it
+     moved. Its groups are checked by their verifiers and the gates and
+     committed like any, and nothing hunts what it wrote.
    - Sub agents run in parallel. Only a fixer edits, and only the files
-     of its group. None commits, none writes the ledger and none runs
-     the whole suite, which the gates run once per round in the main
-     session.
-5. **Batch close.** Mark it in the ledger, report to the owner, and name
-   anything that cannot be fixed inside the branch. Such a finding
-   leaves for `.agents/bugs/` on the owner's word alone, as its own
-   file, linked both ways, and earns a future branch sparingly.
+     of its group. The whole suite runs in the gates, and the commits
+     and the ledger are the main session's. An agent without sub
+     agents takes each step itself, in the same order.
+5. **The close of the batches.** After the last pass the batches the
+   word covered are marked verified and done in the ledger, all but a
+   batch that holds a finding set aside, and one report to the owner
+   covers them all. It names every finding that cannot be fixed
+   inside the branch and asks the owner's word on it first. Such a
+   finding leaves for `.agents/bugs/` on the owner's word alone, as
+   its own file, linked both ways, and earns a future branch
+   sparingly. Where the owner says no, it is left as it is on their
+   reason, or fixed the way they name. Deferred or left as it is, it
+   closes its batch with no round, and one more report says so.
 6. **The owner's ack gates each batch.** A batch starts only when they
-   say so, and a word that covers several starts them together. The
-   ack is that word to start a batch, recorded on the
-   batch it starts, and verification is what closes a batch. A standing
-   word, `brain ack on` with an end by time or by task, is the ack for
-   every gate of the review until that end, each batch and the closing
-   pass, a batch the owner acked ahead starting on that ack instead,
-   and each report says which of the two the step ran on. The close
-   follows the last batch with no word. The PR and the merge are not
-   the review's gates and stay on the owner's explicit ask, per the git
-   rules below.
-   A standing word with no end is not taken, the agent proposes one and
-   waits. Nothing starts a review but the owner's own word.
+   say so, in number order, and a word that covers several starts them
+   together. The ack is that word to start a batch, recorded on the
+   batch it starts, and verification is what closes a batch. A
+   standing word, `brain ack on` with an end by time or by task, is the
+   ack for every gate of the review until that end, each batch and the
+   closing pass, a batch the owner acked ahead starting on that ack
+   instead, and each report says which of the two the step ran on. The
+   close follows the last batch with no word. The PR and the merge are
+   not the review's gates and stay on the owner's explicit ask, per the
+   git rules below. A standing word with no end is not taken, the agent
+   proposes one and waits. Nothing starts a review but the owner's own
+   word.
 7. **The closing pass.** Above low, the branch gets one more pass over
    itself, whole, as it stands after the last batch, by fresh finders,
-   to catch what the fixes introduced and what the review missed.
-   Sweeps skip this.
+   to catch what the fixes introduced and what the review missed. What
+   they find is one more batch, fixed on the owner's word in rounds
+   like any other. Sweeps skip this.
 
 ## Git rules
 
