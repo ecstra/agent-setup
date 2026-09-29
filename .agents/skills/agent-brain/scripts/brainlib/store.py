@@ -285,18 +285,20 @@ class Brain:
     ) -> bool:
         """Whether the folder a path names in front of a brain folder is this brain's project.
 
-        It is when it is the same folder on disk, given absolute or read
-        from the current folder. A path that is not absolute here is
-        also taken when its folders are the last ones of the project's
-        own path, which is how git prints a path from a top above the
-        project. A Windows path under a drive is judged that way by its
-        folders below the drive, since on any other system it cannot
-        name a file.
+        A leading ~ is the home folder. It is this project when it is the
+        same folder on disk, given absolute or read from the current
+        folder. A path that is not absolute here is also taken when its
+        folders are the last ones of the project's own path, which is
+        how git prints a path from a top above the project. A Windows
+        path under a drive or a share, on a system that does not read it
+        as one, is judged that way by its folders below the drive or
+        share, since it cannot name a file here.
         """
         project: Path = self.root.parent
+        expanded: str = os.path.expanduser(folder)
         try:
             same_folder: bool = os.path.samefile(
-                f1=Path.cwd() / folder,
+                f1=Path.cwd() / expanded,
                 f2=project,
             )
         except (OSError, ValueError):
@@ -306,11 +308,13 @@ class Brain:
         if same_folder:
             return True
 
-        if Path(folder).is_absolute():
+        windows = PureWindowsPath(expanded)
+        # POSIX reads a share, //wsl.localhost/Ubuntu/..., as absolute, so this is settled before the refusal below
+        foreign_drive: bool = bool(windows.drive and windows.root) and not Path(expanded).drive
+        if Path(expanded).is_absolute() and not foreign_drive:
             return False
 
-        windows = PureWindowsPath(folder)
-        folders: tuple[str, ...] = windows.parts[1:] if windows.drive and windows.root else PurePosixPath(folder).parts
+        folders: tuple[str, ...] = windows.parts[1:] if foreign_drive else PurePosixPath(expanded).parts
 
         return folders == project.parts[-len(folders) :]
 
