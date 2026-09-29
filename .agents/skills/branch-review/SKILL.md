@@ -53,8 +53,9 @@ what they return, runs the gates and commits.
   shapes [references/prompts.md](references/prompts.md) gives. The main
   session files them with the brain tool and never re reads what a sub
   agent read.
-- Finders, verifiers and hunters read and judge. They never edit, never
-  commit, never run the test suite and never write the ledger. A fixer
+- Finders, verifiers and hunters read and judge. They never edit the
+  project, never commit, never run the test suite and never write the
+  ledger, and the one file each writes is its answer. A fixer
   edits the files of its group and no other, runs the tests of those
   files and never the whole suite, and never commits or writes the
   ledger. The main session runs the gates, commits and writes the
@@ -67,13 +68,16 @@ what they return, runs the gates and commits.
   once, and a wider pass runs in waves. Ledger writes are the one
   exception and go one at a time, since the tool holds no lock and two
   at once would lose one.
-- What sub agents say lives in files. Every report is saved as it came
-  to a scratch folder outside the repository, and a task that needs
-  earlier blocks, a list of findings or a page of rules is written to
-  a file there and handed over as the file's path. The main session
-  never retypes a block and reads a report only for what it has to
-  decide, a result that is not FIXED, a verdict that is not GONE, a
-  change a fixer needs outside its files.
+- What sub agents say lives in files. Every prompt names a file in a
+  scratch folder outside the repository, the sub agent writes its
+  blocks there and answers with a line per block, and a task that
+  needs earlier blocks, a list of findings or a page of rules gets
+  them as a file's path. A whole report handed back stays in the main
+  session's context for the rest of the review, which every later
+  call pays for. The main session never retypes a block and opens a
+  report only for what it has to decide, a result that is not FIXED,
+  a verdict that is not GONE, a change a fixer needs outside its
+  files.
 - One commit per group of fixes, pushed, its hash on every finding of
   the group. The gates run once per round, when every group is quiet.
 - The main session stays small, since every call costs what the
@@ -272,7 +276,11 @@ round has no order among its batches.
    the code has to do for every case of the kind, each rule with the
    purpose it serves, and what it will not cover. It lists the cases
    it was held against, every layout the project's docs say they
-   support among them. A fresh verifier then reads it against the code
+   support among them. A model promises what the code can keep. Where
+   the mechanism imitates another product, a parser or an agent's own
+   rules, the model covers the plain cases, says nothing where it
+   cannot tell, and names the rest as limits, since an imitation has
+   no end of cases and every round finds the next one. A fresh verifier then reads it against the code
    with the model check prompt and answers with the cases it gets
    wrong, the model is amended once, and it goes into the group's
    first prompt with the model brief. The check takes a few minutes
@@ -319,7 +327,11 @@ round has no order among its batches.
    brain ledger set 2026-09-feat-billing F-05 status=refuted reason="line 212 already guards it"
    ```
 
-8. Hunt over what the round changed. Cut it with
+8. Hunt over what the round changed, for defects the fixes brought
+   into the code and nothing else. The tests a fixer wrote were judged
+   by its verifier, and code a review writes draws as many candidates
+   as the branch's own, so a hunt that reads it all like a first pass
+   starts the review over. Cut the round's code with
    `brain slices <the commit before the round>..HEAD` and spawn one
    hunter per slice, all at once, fresh, with the hunter prompt. What
    the hunters return goes through the merge like a finder's pool, is

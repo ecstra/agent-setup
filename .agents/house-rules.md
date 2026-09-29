@@ -82,9 +82,10 @@ suites or a brain with broken links.
      cases, then fixes the cause and never the one line.
    - A verifier sub agent per group checks bug wise, not code wise,
      that each bug is actually gone, its sibling cases with it, and
-     that nothing new surfaced. What still stands goes back to the
-     fixer, three rounds at most, and then the main agent takes the
-     group and writes its model, whole, before any more code.
+     that nothing new surfaced, and judges the tests the fixer wrote.
+     What still stands goes back to the fixer, three rounds at most,
+     and then the main agent takes the group and writes its model,
+     whole, before any more code.
    - A finding is the branch's own. A further case in code the branch
      never touched, the same on the base, is an older defect. It is
      filed in `.agents/bugs/` the moment it is met and named in the
@@ -92,10 +93,10 @@ suites or a brain with broken links.
    - Once every group is quiet the gates run once, and each group
      becomes one commit, its hash recorded beside every finding of the
      group.
-   - Hunter sub agents sweep what the round changed. Their finds enter
-     the ledger as findings (`found-by: hunter`) and the next round
-     fixes them. No backlog. The rounds stop at the first hunt that
-     finds nothing.
+   - Hunter sub agents sweep what the round changed, for defects the
+     fixes brought into the code. Their finds enter the ledger as
+     findings (`found-by: hunter`) and the next round fixes them. No
+     backlog. The rounds stop at the first hunt that finds nothing.
    - The last pass follows that hunt, once. The docs that describe
      the changed code are written, and one sweep holds every line the
      rounds wrote to the house style, since both follow the code and

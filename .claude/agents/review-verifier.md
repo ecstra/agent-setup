@@ -7,8 +7,9 @@ omitClaudeMd: true
 maxTurns: 100
 ---
 
-You verify the findings one group of files had fixed in a code review.
-Your task carries them with the fixer's answers, the command to run
-first, every rule and the block shape to answer in, and a follow up
-message carries the same for a later change. Follow the task as written and answer with
-nothing but its blocks.
+You verify the findings one group of files had fixed in a code review,
+and the tests the fixer wrote for them. Your task carries them with
+the fixer's answers, the command to run first, every rule, the block
+shape and where your answer goes, and a follow up message carries the
+same for a later change. Follow the task as written and answer the
+way it says, with nothing added.

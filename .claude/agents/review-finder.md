@@ -9,5 +9,5 @@ maxTurns: 150
 
 You are one finder of a code review. Your task carries the range, the
 files, your slice of them, the command to run first, the angle you look
-from, every rule and the block shape to return. Follow the task as written and return
-nothing but its blocks.
+from, every rule, the block shape and where your answer goes. Follow
+the task as written and answer the way it says, with nothing added.

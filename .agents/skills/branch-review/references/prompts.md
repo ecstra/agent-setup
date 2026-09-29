@@ -15,6 +15,18 @@ Blocks a prompt carries, the candidates already found or a group's
 findings, are put into that file from the files the reports were
 saved to, so the main session never retypes them.
 
+Every prompt ends with these lines, which name the file its answer
+goes to in the same scratch folder. A whole report handed back lands
+in the main session's context and stays there for the rest of the
+review, so the blocks go to the file and the answer is a line each.
+
+```text
+Write your blocks to <the answer file> with one Bash call, a quoted
+heredoc, before you answer. Your answer is then one line per block
+and nothing else, its id and its <Type or Result or Verdict>, or the
+single line (none).
+```
+
 ## The shapes
 
 A candidate, returned by a finder or a hunter, is one block, numbered
@@ -231,6 +243,14 @@ For each finding, in this order:
    test cannot be made to fail is refuted, so answer REFUTED and
    change nothing for it. A finding no test can show, a doc or a rule,
    is checked against the code or the rule it quotes.
+   Keep the test small, since every line you write is read again. Add
+   rows to a table the test files already have where one covers the
+   function. Build on the helpers and the fixtures that are there,
+   and take names and paths from the code's own constants. A case
+   that leans on the platform, a file mode, a link, a signal, carries
+   the skip the file's other tests of that kind carry. Each case has
+   to fail on the code as it stood before your fix, so a case that
+   passes there is left out.
 4. Fix the cause, so every case passes. Never special case the
    scenario's own input, and never loosen a test to fit the code.
 5. Run the tests of your files, once per line, and never the whole
@@ -295,9 +315,10 @@ git status --porcelain --untracked-files=all -- <the files>
 git diff HEAD -- <the files>
 When that is too long for one call, read it file by file, and read an
 untracked file whole, since no diff shows it. Then read the code as it
-now stands with Read and grep through Bash. You may run one small
-snippet against the code on a temporary copy to reproduce a scenario,
-never the project's test suite.
+now stands with Read and grep through Bash. On a temporary copy of
+the code you may run one small snippet to reproduce a scenario, or
+one test the fixer wrote with the fix taken out to see it fail, never
+the project's test suite.
 
 Judge the bug and not the look of the code. For a fixed finding, ask
 whether the scenario is gone, whether the sibling cases are gone with
@@ -305,6 +326,13 @@ it, and whether the test would fail without the fix. For a refuted
 one, ask whether the line the fixer quoted makes the scenario
 impossible. Ask too whether the fix refuses or changes what the
 project's docs say it supports, which is a NEW PROBLEM.
+
+The tests the fixer wrote are yours to judge and nobody reads them
+after you. For each, ask whether it fails on the code before the fix,
+whether any change to the code could make it fail, whether its name
+says what its body checks, and whether it writes out again a helper
+or a constant the project already has. One that falls short is a NEW
+PROBLEM on its finding, named by the test.
 
 A case counts against a finding when the range changed the code it
 sits in or made it reachable. One in code the range never touched,
@@ -345,14 +373,18 @@ When that is too long for one call, read it file by file. Then read
 with Read and grep through Bash, and read the enclosing function of
 every hunk you judge.
 
-Look for two things only: defects the fixes introduced, and defects of
-the same kind as these findings in the code the round touched. A
-defect the code had before the range, the same on <base>, is outside
-the hunt unless the round's change is what makes it reachable, and so
-is a limit the project's docs name. How code is written, and a doc
-that has not yet followed the code, are the last pass's and no
-candidate of yours. Return up to 20 candidates as blocks in this
-shape, numbered C-1 onward, and nothing else:
+Look for one thing only, a defect the fixes brought into the code:
+behaviour that was right before the round and is wrong after it, or
+new code that does the wrong thing with an input it takes. For each
+function the round changed, read its callers too, since a fix in one
+place breaks another. A defect the code had before the range, the same
+on <base>, is outside the hunt unless the round's change is what makes
+it reachable, and so is a limit the project's docs name. The tests the
+round wrote were judged by the verifiers, so read them to learn what a
+fix claims and report nothing on them. How code is written, and a doc
+that has not yet followed the code, are the last pass's. Return up to
+20 candidates as blocks in this shape, numbered C-1 onward, and
+nothing else:
 ### C-1
 - File: <file>:<line>
 - Type: <breaks or bug or debt or nit>
@@ -491,5 +523,7 @@ it now stands and this line added after the angle.
 
 ```text
 The branch was reviewed and its findings fixed. Report only what the
-fixes introduced or what the review missed.
+fixes introduced or what the review missed. The tests the review
+wrote were judged by its verifiers and its lines were swept for the
+house style, so report on neither.
 ```
