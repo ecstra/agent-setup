@@ -138,18 +138,21 @@ brain ledger batch 2026-09-feat-billing 2 --status done
 brain ledger close 2026-09-feat-billing
 ```
 
-Findings and batches number themselves, five batches at most, and
-`set` takes every finding a group's commit fixed in one call. A batch
-that holds findings runs only on the owner's ack, the word that starts
-it, given as a date or as `auto` while the owner's standing word
-holds, and verification closes it, `report` says where the review
-stands and what comes next, the closing pass leaves a batch of its
-own, empty when it found nothing, and `close` refuses while any
+Findings and batches number themselves, with no more batches than
+[spec/reviews.md](../../spec/reviews.md) allows, and `set` takes every
+finding a group's commit fixed in one call, the findings first and the
+changes after them. A batch that holds findings runs only on the
+owner's ack, the word that starts it, given as a date or as `auto`
+while the owner's standing word holds, and a batch starts only once
+every earlier one that holds findings has started. Verification
+closes a batch, `report` says where the review stands and what comes
+next, the closing pass leaves one more batch of its own, outside the
+cap and empty when it found nothing, and `close` refuses while any
 finding is still open or the report names a step before the close.
-The standing word is
-`brain ack on` with an end, by time or by task, `brain ack off` takes
-it back, `brain ack` says where it stands, and the reference says what
-a second `brain ack on` does and what each refuses.
+The standing word is `brain ack on` with an end, by time or by task,
+`brain ack off` takes it back, `brain ack` says where it stands, and
+the reference says what a second `brain ack on` does and what each
+refuses.
 
 ```bash
 brain ack on --for 8h --until-done 2026-10-feat-search

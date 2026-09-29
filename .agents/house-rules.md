@@ -67,13 +67,13 @@ tree is clean as well, since a review reads committed work only.
    during reporting, no silent triage.
 3. **The ledger.** All findings land in
    `.agents/reviews/<yyyy-mm>-<branch-slug>/ledger.md` per
-   [spec/reviews.md](spec/reviews.md): severity graded (breaks, bug,
-   debt, nit), split into batches by theme, correctness first and
-   wording last, five batches at most. Every finding leaves the open
-   list as fixed, as refuted where the claim is wrong, as left as it
-   is (wontfix) where the claim is true and the behaviour on purpose,
-   or as deferred, and one that is not fixed carries its reason, so no
-   future review re litigates it.
+   [spec/reviews.md](spec/reviews.md), which holds the grades and the
+   cap on batches. Each is graded breaks, bug, debt or nit and filed
+   into a batch by theme, correctness first and wording last. Every
+   finding leaves the open list as fixed, as refuted where the claim is
+   wrong, as left as it is (wontfix) where the claim is true and the
+   behaviour on purpose, or as deferred, and one that is not fixed
+   carries its reason, so no future review re litigates it.
 4. **The rounds of fixes.** The batches that have the owner's word are
    fixed together in rounds, and inside a round everything that can
    run at once does so.
