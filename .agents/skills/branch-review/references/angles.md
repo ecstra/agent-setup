@@ -15,9 +15,10 @@ filed, at every level.
 Low fits a small mechanical branch. Medium is the floor for anything
 that touches logic or changes an interface. High is the usual level for
 a feature branch. Max is for a wide surface or subtle logic. A finder
-returns up to 8 candidates, up to 12 at max. The second look follows
-the angles at every level. Which levels owe the closing pass is house
-rule 7.
+returns up to 20 candidates, since a narrower cap sends a finder round
+again over a slice it has already read. The second look follows the
+angles at every level, once. Which levels owe the closing pass is
+house rule 7.
 
 An angle reads by slice or reads the whole branch. One that judges the
 changed lines themselves reads by slice, one finder per slice, so each
@@ -132,9 +133,9 @@ the candidate names the simpler general change.
 ## the second look, the gaps after everything else
 
 Run at every level, one finder per slice, spawned once the angles have
-returned, with the pooled candidates of its slice as its already found
-list, and again while a look still returns something new, three looks
-at most. The closing pass runs one look and no second. The finder re
+returned, beside the merge, with the candidates of its own slice as
+its already found list. It runs once and is never repeated. The
+closing pass runs the angles and no second look. The finder re
 reads the slice's diff and the enclosing functions looking only for
 defects not already on the list, such as moved or extracted code that
 dropped a guard, a default evaluated once, a lock scope that shrank, a

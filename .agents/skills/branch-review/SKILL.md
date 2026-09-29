@@ -53,10 +53,19 @@ what they return, runs the gates and commits.
   ledger.
 - Parallel wherever it can be. Finders by slice and angle, fixers by
   group, a verifier per group, hunters by slice of what a round
-  changed. In Claude Code no more than twenty sub agents run at once,
-  and a wider pass runs in waves. Ledger writes are the one exception
-  and go one at a time, since the tool holds no lock and two at once
-  would lose one.
+  changed. Nothing waits for a wave to end. A run that has to go again
+  goes the moment it returns, and a verifier starts the moment its
+  fixer returns. In Claude Code no more than twenty sub agents run at
+  once, and a wider pass runs in waves. Ledger writes are the one
+  exception and go one at a time, since the tool holds no lock and two
+  at once would lose one.
+- What sub agents say lives in files. Every report is saved as it came
+  to a scratch folder outside the repository, and a task that needs
+  earlier blocks, a list of findings or a page of rules is written to
+  a file there and handed over as the file's path. The main session
+  never retypes a block and reads a report only for what it has to
+  decide, a result that is not FIXED, a verdict that is not GONE, a
+  change a fixer needs outside its files.
 - One commit per group of fixes, pushed, its hash on every finding of
   the group. The gates run once per round, when every group is quiet.
 - The main session stays small, since every call costs what the
@@ -138,9 +147,9 @@ such as `':!.agents/skills'`. An uncommitted file no diff shows joins
 the slice that holds its neighbours, by hand.
 
 Pick the size so the finders of the pass fit one wave where they can,
-and never above 400. A finder with more to read than it can report in
-one run has to run again, and those runs come one after another, which
-is where a finding pass loses its time.
+and never above 400. A finder with more to report than its cap has to
+run again, and those runs come one after another, which is where a
+finding pass loses its time, so the cap is wide and the slice small.
 [references/angles.md](references/angles.md) says which angles read by
 slice and which read the whole branch.
 
@@ -171,14 +180,21 @@ slice and which read the whole branch.
    slice, and an angle that reads the whole branch gets one finder
    over the whole range. A finder returns candidate blocks and nothing
    else.
-3. Pool the candidates, merge those on the same file and line that name
-   the same defect, and number them C-1 onward.
-4. Look again. One finder per slice runs with the second look angle
-   and the pooled candidates of its slice pasted under Already found.
-   What it returns joins the pool, and the look repeats, the slices
-   that returned nothing left out, until a look returns nothing new,
-   three looks at most.
-5. Grade and batch the whole pool. Every candidate is filed, and no
+3. Hand the pool to one sub agent with the merge prompt, which makes
+   one finding of the candidates one fix settles and gives each its
+   type, its theme and the group that will own it. It drops none and
+   judges none.
+4. Beside the merge, look again, once. One finder per slice runs with
+   the second look angle and the candidates of its own slice as
+   Already found. What the look returns is placed against the merged
+   list with the placing prompt, as a further case of a finding or as
+   a finding of its own. The look is never repeated, since each repeat
+   costs as much as the first pass and brings a fraction of it, and
+   the hunts and the closing pass read the code again.
+5. A candidate that turns on how another product behaves, an agent's
+   own permission rules or a parser's, goes to a sub agent that checks
+   that product's docs before anything is built on it.
+6. Grade and batch the merged list. Every finding is filed, and no
    verifier reads it first, since the fixer proves a claim with a
    failing test before it fixes and a verifier judges every claim a
    fixer calls wrong. Severity is breaks, bug, debt or nit per
@@ -199,7 +215,7 @@ slice and which read the whole branch.
    EOF
    ```
 
-6. Report with the findings shape. The batches start on the owner's
+7. Report with the findings shape. The batches start on the owner's
    word, every one the word covers at once, so stop there, unless the
    standing word holds, in which case they all start on it and the
    report's last line says so. When nothing was found, there is no
@@ -219,43 +235,53 @@ round has no order among its batches.
    brain ledger batch 2026-09-feat-billing 2 --status fixing --ack 2026-09-23
    ```
 
-2. Group the round's open findings by file. Findings that name the
-   same file are one group, a test file counts with its code file, and
-   groups that would share a file become one. A group owns its files.
-   A file more than one group needs, a shared doc most often, goes to
-   the group with the most findings in it, and every other fixer names
-   the change it needs there in its report, which the main session
-   hands to that group's fixer.
-3. Spawn one fixer per group, all at once, with the fixer prompt, the
+2. Group the round's open findings by file, then by cause. Findings
+   that name the same file are one group, a test file counts with its
+   code file, and a group of more than about ten is split by cause,
+   each part the findings one mechanism or one set of functions
+   explains. The parts of a split share their file. Each is told the
+   functions that are its own and touches no line outside them, puts
+   every new test into a test file of its own, reads a file again
+   right before it edits it, and names a failure it did not cause
+   without chasing it. A doc several groups need belongs to the docs
+   group, and every other fixer names the change it needs there in its
+   report, which the main session hands on.
+3. Write the model first where a group's findings are one mechanism,
+   a parser, a merge, a check of who something is. The model says what
+   the code has to do for every case of the kind and what it will not
+   cover, and it goes into the group's first prompt with the model
+   brief. A mechanism patched one finding at a time comes back every
+   round.
+4. Spawn one fixer per group, all at once, with the fixer prompt, the
    group's findings with their scenarios, the files it owns, and the
    command that runs the tests of those files under every interpreter
    the gates name.
-4. The moment a fixer returns, the verifier of its group starts, fresh
+5. The moment a fixer returns, the verifier of its group starts, fresh
    the first time and resumed after, with the verifier prompt over the
    working tree. No group waits for another.
-5. A verdict of STILL THERE, NEW PROBLEM or REAL goes back to the
+6. A verdict of STILL THERE, NEW PROBLEM or REAL goes back to the
    group's fixer, resumed with the fixer's follow up, and the verifier
    is resumed after it. Three rounds at most inside a group. What
    still stands after the third comes to the main session, which reads
-   the code, writes the model, what the code has to do for every case
-   of the kind and what it will not cover, and hands it to a fresh
-   fixer or fixes it itself. The same holds when a fixer answers
-   BLOCKED since the fix needs a mechanism the code does not have. The
-   model comes first, then the code, and what the model leaves out is
-   stated in the docs as a limit.
-6. Once every group is quiet, every verdict GONE or REFUTED, run the
+   the code, writes the model where step 3 wrote none, or writes it
+   again, and hands it to a fresh fixer or fixes it itself. The same
+   holds when a fixer answers BLOCKED since the fix needs a mechanism
+   the code does not have. What a model leaves out is stated in the
+   docs as a limit.
+7. Once every group is quiet, every verdict GONE or REFUTED, run the
    gates once. A red gate names a test, the test names its group, and
    the failure goes to that group's fixer like a verdict. Green, each
-   group becomes one commit of its own files, pushed, and its hash
-   goes on every finding of the group in one call. A refuted claim is
-   set refuted with the verifier's reason.
+   group becomes one commit of its own files, the parts of a split
+   together since they share their file, pushed, and its hash goes on
+   every finding of the group in one call. A refuted claim is set
+   refuted with the verifier's reason.
 
    ```bash
    brain ledger set 2026-09-feat-billing F-03 F-04 F-09 status=fixed fix=abc1234
    brain ledger set 2026-09-feat-billing F-05 status=refuted reason="line 212 already guards it"
    ```
 
-7. Hunt over what the round changed. Cut it with
+8. Hunt over what the round changed. Cut it with
    `brain slices <the commit before the round>..HEAD` and spawn one
    hunter per slice, all at once, fresh, with the hunter prompt. What
    the hunters return is filed with `--found-by hunter` into the batch
@@ -263,7 +289,7 @@ round has no order among its batches.
    verifiers of the same groups resumed. No backlog. The rounds repeat
    until a hunt returns nothing, each hunt reading only what the round
    before it changed.
-8. A finding not worth fixing is set `wontfix`, and the tool wants the
+9. A finding not worth fixing is set `wontfix`, and the tool wants the
    reason.
 
    ```bash
@@ -280,7 +306,7 @@ round has no order among its batches.
    brain ledger batch 2026-09-feat-billing 1 --status done
    ```
 
-9. The report's call is the ack of the batches still pending, which
+10. The report's call is the ack of the batches still pending, which
    starts their round as in step 1, or, after the last batch, the
    closing pass where house rule 7 owes one. Where none is owed, the
    ledger closes with no word and the report says so.

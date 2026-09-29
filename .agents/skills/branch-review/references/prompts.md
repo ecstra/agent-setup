@@ -8,6 +8,13 @@ spends its turns thinking rather than fetching, and says what to do
 when the diff is too long for one call, since the shell pages output
 over about 25000 characters.
 
+A prompt longer than a few lines is written to a file in the review's
+scratch folder, outside the repository, and the sub agent is handed
+one line, that its whole task is in that file and to read it first.
+Blocks a prompt carries, the candidates already found or a group's
+findings, are put into that file from the files the reports were
+saved to, so the main session never retypes them.
+
 ## The shapes
 
 A candidate, returned by a finder or a hunter, is one block, numbered
@@ -100,10 +107,87 @@ round, and the report then carries the cut short line of
 ## The second look
 
 The finder prompt with the second look angle and the slice the look is
-for, and the pooled candidates that name a file of that slice pasted
-after it as blocks under the heading "Already found". It numbers its
-own candidates from C-1 like any finder, and the main session
-renumbers them after the pooled list when it files them.
+for, and the candidates of that slice's own finders after it as blocks
+under the heading "Already found", never the whole pool, which costs
+the look its time. It numbers its own candidates from C-1 like any
+finder.
+
+## The merge
+
+```text
+The finders of a code review returned their candidates, and many name
+the same defect from several angles. Merge them into one list of
+findings. You judge nothing else: you do not decide whether a
+candidate is true, and you drop none.
+
+The review's range is <base>...<head> in <project root>.
+
+Run this first, as one Bash call:
+cat <the scratch folder's pool files>
+When that is too long for one call, read the files one by one with
+Read. Each file is one finder's run, named for its angle and its
+slice, and holds blocks numbered C-1 onward. Read the code only where
+two candidates cannot be told apart without it.
+
+The rules of the merge:
+1. Two candidates are one finding when one fix of one cause settles
+   both. A candidate that names a further case of the same cause joins
+   the finding, and its case goes into the finding's scenario as a
+   sibling case.
+2. Two candidates that sit on the same line and have different causes
+   stay apart. When in doubt, keep them apart.
+3. Every candidate lands in exactly one finding.
+4. The type is graded by what the defect does, never by the rule it
+   breaks, per spec/reviews.md.
+5. The group is the code file whose fixer will own the finding. A test
+   file goes with its code file. A doc is its own group. A finding
+   whose fix sits in a code file and also needs a doc changed belongs
+   to the code file's group.
+6. The theme is one of at most five themes you choose for the whole
+   list, by kind, in the order they would be fixed, correctness first
+   and nits last.
+
+Answer with the themes on the first lines, one per line as
+"Theme 1: <name>", then one block per finding, in this shape, numbered
+P-1 onward in the order of theme, then type from breaks to nit, then
+group, and nothing else before or after:
+### P-1
+- File: <the path from the repository root>:<line>
+- Type: <breaks or bug or debt or nit>
+- Theme: <the theme's number>
+- Group: <the code file or the doc that owns it>
+- Claim: <the defect in one sentence on one line, named by its cause>
+- Scenario: <the input or state and the wrong result, the sibling cases after it, all on one line>
+- From: <the candidates merged, as the file's name and the id>
+Do not edit anything, do not commit, do not run the test suite.
+```
+
+## The placing
+
+```text
+A code review merged its finders' candidates into a list of findings,
+and the second look returned more candidates. Place each of them: it
+either joins a finding of the list, or it is a finding of its own. You
+judge nothing else, and you drop none.
+
+Run this first, as one Bash call:
+cat <the file the merged list was saved to>
+Then read the look's candidates in <the files they were saved to>.
+
+A candidate joins a finding when one fix of one cause settles both.
+One with a cause no finding of the list has is a finding of its own,
+and when in doubt it is its own. Type, group and theme are given as
+the merge gives them, the theme one of the list's own.
+
+Answer with one block per candidate and nothing else. For one that
+joins:
+### <the look file's name> <C-n>
+- Joins: <P-n>
+- Case: <the further case it adds, on one line>
+For one that is its own, the merge's block shape under the same
+heading, without its From line.
+Do not edit anything, do not commit, do not run the test suite.
+```
 
 ## The fixer
 
@@ -229,19 +313,20 @@ every hunk you judge.
 
 Look for two things only: defects the fixes introduced, and defects of
 the same kind as these findings in the code the round touched. Return
-up to 8 candidates as blocks in this shape, numbered C-1 onward, and
+up to 20 candidates as blocks in this shape, numbered C-1 onward, and
 nothing else:
 ### C-1
 - File: <file>:<line>
 - Type: <breaks or bug or debt or nit>
 - Claim: <the defect in one sentence>
 - Scenario: <the concrete input or state and the wrong result>
-When more than 8 deserve a scenario, report the 8 that matter most and
-end with the single line (more remain). When this task ends with blocks
-under the heading Already found, those are reported already, so report
-only what is not among them. Return the single line (none) when there
-is nothing. Do not edit anything, do not commit, do not run the test
-suite, and do not widen the scope beyond the range you were given.
+When more than 20 deserve a scenario, report the 20 that matter most
+and end with the single line (more remain). When this task ends with
+blocks under the heading Already found, those are reported already, so
+report only what is not among them. Return the single line (none) when
+there is nothing. Do not edit anything, do not commit, do not run the
+test suite, and do not widen the scope beyond the range you were
+given.
 ```
 
 ## The cap resume

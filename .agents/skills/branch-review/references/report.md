@@ -36,9 +36,8 @@ The batches start on your word, all at once or the ones you name.
 
 After the closing pass the last line names its one batch, "The closing
 pass batch starts on your word." The cut short line appears only when
-a finder ran three times and still ended with (more remain), or the
-second look still returned candidates at its third run, and it goes
-into every shape below the same way.
+a finder ran three times and still ended with (more remain), and it
+goes into every shape below the same way.
 
 ## When nothing was found
 

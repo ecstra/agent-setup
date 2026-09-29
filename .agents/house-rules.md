@@ -57,11 +57,12 @@ suites or a brain with broken links.
    the local branch, whether or not a PR is open yet.
 2. **Findings first, whole.** The finding pass cuts the branch into
    slices and runs finder sub agents over them, one per slice and
-   angle, all at once, then looks again until a look finds nothing
-   new. Every candidate is filed, the rare and the small included,
-   since a fixer proves a claim with a failing test before it changes
-   anything. The agent reports every finding ranked by severity before
-   touching anything. No fixing during reporting, no silent triage.
+   angle, all at once, then looks once more per slice while a sub
+   agent merges what they found. Every candidate is filed, the rare
+   and the small included, since a fixer proves a claim with a failing
+   test before it changes anything. The agent reports every finding
+   ranked by severity before touching anything. No fixing during
+   reporting, no silent triage.
 3. **The ledger.** All findings land in
    `.agents/reviews/<yyyy-mm>-<branch-slug>/ledger.md` per
    [spec/reviews.md](spec/reviews.md): severity graded (breaks, bug,
@@ -72,10 +73,12 @@ suites or a brain with broken links.
 4. **The round of fixes.** Every batch that has the owner's word is
    fixed in one round, and inside it everything that can run at once
    does so.
-   - The round's findings are grouped by file, and each group has one
-     fixer sub agent. It names the cause, writes a failing test over
-     the claim and its sibling cases, then fixes the cause and never
-     the one line.
+   - The round's findings are grouped by file, a large group split
+     again by cause, and each group has one fixer sub agent. Where a
+     group's findings are one mechanism, the main agent writes its
+     model before the fixer starts. The fixer names the cause, writes
+     a failing test over the claim and its sibling cases, then fixes
+     the cause and never the one line.
    - A verifier sub agent per group checks bug wise, not code wise,
      that each bug is actually gone, its sibling cases with it, and
      that nothing new surfaced. What still stands goes back to the
