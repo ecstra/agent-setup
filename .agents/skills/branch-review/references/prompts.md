@@ -142,10 +142,14 @@ The rules of the merge:
 5. The group is the code file whose fixer will own the finding. A test
    file goes with its code file. A doc is its own group. A finding
    whose fix sits in a code file and also needs a doc changed belongs
-   to the code file's group.
+   to the code file's group. A finding that is only about how code is
+   written, a call by position, a name, a comment that restates the
+   line, has the group style.
 6. The theme is one of at most five themes you choose for the whole
    list, by kind, in the order they would be fixed, correctness first
    and nits last.
+7. Needs names what the fix cannot do without in a file of another
+   group, as the file and the function, or none.
 
 Answer with the themes on the first lines, one per line as
 "Theme 1: <name>", then one block per finding, in this shape, numbered
@@ -155,12 +159,19 @@ group, and nothing else before or after:
 - File: <the path from the repository root>:<line>
 - Type: <breaks or bug or debt or nit>
 - Theme: <the theme's number>
-- Group: <the code file or the doc that owns it>
+- Group: <the code file or the doc that owns it, or style>
 - Claim: <the defect in one sentence on one line, named by its cause>
 - Scenario: <the input or state and the wrong result, the sibling cases after it, all on one line>
+- Needs: <the file and the function of another group, or none>
 - From: <the candidates merged, as the file's name and the id>
 Do not edit anything, do not commit, do not run the test suite.
 ```
+
+After a hunt the same prompt merges the hunters' reports. The themes
+are the ledger's own, given by number in place of rule 6, and the
+findings the rounds already closed are handed over as a file, so a
+candidate that is a further case of one says which on a line
+`- Joins: <F-nn or none>` after Needs.
 
 ## The placing
 
@@ -231,6 +242,12 @@ mapping between two worlds, a state machine, stop before writing it
 and answer BLOCKED with what it has to do, since its model is written
 before its code.
 
+A sibling case is the finding's when the range changed the code it
+sits in or made it reachable. One you meet in code the range never
+touched, which behaves the same on <base>, is an older defect. Leave
+it as it is and name it after your blocks, one line each, as
+Older: <file>:<line> <the defect and the input that shows it>.
+
 Answer with one block per finding, in this shape and nothing else:
 ### <F-nn>
 - Result: <FIXED or REFUTED or BLOCKED>
@@ -240,6 +257,16 @@ Answer with one block per finding, in this shape and nothing else:
 - Outside: <a change a file you do not own needs, as file, what and why, or none>
 Do not commit, do not stash, do not switch branch, do not write the
 ledger, and do not delete a file or a folder you did not make.
+```
+
+A group that another group needs something from, or that needs
+something itself, gets these lines after the list of files, from the
+Needs lines of the merge.
+
+```text
+Built against, at the same time as you, by the fixer of <the other group>:
+<the function's name, its parameters with their types, what it returns and what it raises>
+<"You write it." or "You call it and never write it. Until it lands your tests of it fail, which you name under Outside.">
 ```
 
 ## The fixer's follow up, sent to a resumed fixer
@@ -276,7 +303,14 @@ Judge the bug and not the look of the code. For a fixed finding, ask
 whether the scenario is gone, whether the sibling cases are gone with
 it, and whether the test would fail without the fix. For a refuted
 one, ask whether the line the fixer quoted makes the scenario
-impossible.
+impossible. Ask too whether the fix refuses or changes what the
+project's docs say it supports, which is a NEW PROBLEM.
+
+A case counts against a finding when the range changed the code it
+sits in or made it reachable. One in code the range never touched,
+which behaves the same on <base>, is an older defect. It never makes a
+verdict STILL THERE. Name it after your blocks, one line each, as
+Older: <file>:<line> <the defect and the input that shows it>.
 
 Answer with one block per finding, in this shape and nothing else:
 ### <F-nn>
@@ -312,9 +346,13 @@ with Read and grep through Bash, and read the enclosing function of
 every hunk you judge.
 
 Look for two things only: defects the fixes introduced, and defects of
-the same kind as these findings in the code the round touched. Return
-up to 20 candidates as blocks in this shape, numbered C-1 onward, and
-nothing else:
+the same kind as these findings in the code the round touched. A
+defect the code had before the range, the same on <base>, is outside
+the hunt unless the round's change is what makes it reachable, and so
+is a limit the project's docs name. How code is written, and a doc
+that has not yet followed the code, are the last pass's and no
+candidate of yours. Return up to 20 candidates as blocks in this
+shape, numbered C-1 onward, and nothing else:
 ### C-1
 - File: <file>:<line>
 - Type: <breaks or bug or debt or nit>
@@ -361,17 +399,89 @@ findings above, and what the verifier answered:
 
 ## The model brief
 
-When a group comes to the main session after three rounds, or a fixer
-answered BLOCKED, the main session writes the model and hands it to a
-fresh fixer as the fixer prompt with these lines after the list of
-files.
+Where a group is one mechanism, when a group comes to the main session
+after three rounds, or when a fixer answered BLOCKED, the main session
+writes the model and hands it to a fresh fixer as the fixer prompt
+with these lines after the list of files. A model that comes back is
+written again whole, never as points added to the old one.
 
 ```text
 The fix follows this model and nothing beside it:
-<what the code has to do for every case of the kind, as rules>
+<what the code has to do for every case of the kind, as rules, each with the purpose it serves>
+The cases it was held against:
+<one per line, the layouts the project's docs say they support among them, each with what the code does for it>
 What it does not cover, which you state in the docs you own as a limit
 and never work around:
 <the cases left out, or none>
+```
+
+## The model check
+
+Sent to a fresh verifier before any fixer builds to a model.
+
+```text
+A group of review findings in <project root>, range <base>...<head>,
+is one mechanism, and its fix will be built to the model below. Find
+what the model gets wrong before any code is written to it.
+
+The findings, one per line:
+<F-nn> <file>:<line> <the claim>
+The model:
+<the model brief's lines>
+
+Read the code the findings name and the project's docs on what it
+supports, with Read and grep through Bash. Where the model imitates
+another product, a parser or an agent's own rules, hold it against
+that product's docs. Then look for a case the model decides wrongly:
+an input or a layout the docs say is supported that a rule refuses, a
+case two rules decide differently, a case no rule decides, a rule
+stated for every kind where it holds for one.
+
+Answer with one block per case, numbered M-1 onward, and nothing else,
+or the single line (none):
+### M-1
+- Case: <the input, state or layout>
+- Model: <what the model does with it, quoting the rule>
+- Right: <what it has to do, and the doc or the line of code that says so>
+Do not edit, do not commit, do not run the test suite.
+```
+
+## The last pass
+
+The docs group of the last pass gets the fixer prompt over the docs
+that describe what the rounds changed, with the commits of the rounds
+to read first. The style sweep gets this prompt, one fixer per file
+group, and its verifier the verifier prompt with the rules in place of
+scenarios.
+
+```text
+You make one style sweep in <project root>, on the branch <branch>.
+Rounds of review fixes landed as <the commit before the first
+round>..<head>, and their code is final. You hold the lines they wrote
+to the house style, and you change no behaviour.
+
+The ledger's findings on how code is written, one per line:
+<F-nn> <file>:<line> <the claim>
+
+The files you own, and you edit no other:
+<one per line>
+
+Read first `.agents/SYSTEM.md` section 2, and section 0 of AGENTS.md
+when the project has one. Then run this, as one Bash call, and work
+only on the lines it shows as added:
+git diff <the commit before the first round>..<head> -- <the files>
+
+Hold every added line to those rules, and no line the rounds did not
+write. No assertion, no expected value, no message and no behaviour
+changes. A line you cannot hold to a rule without changing behaviour
+is named in your answer and left. Run the tests of your files after
+the sweep, once per line:
+<the command, one line per interpreter the gates name>
+
+Answer with one block per finding in the fixer's shape, Cause holding
+the kinds of line you changed with a count for each.
+Do not commit, do not stash, do not switch branch, do not write the
+ledger, and do not delete a file or a folder you did not make.
 ```
 
 ## The closing finder

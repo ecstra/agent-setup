@@ -24,6 +24,14 @@ what they return, runs the gates and commits.
   is wrong, or as wontfix with a reason the report names. One that
   cannot be fixed inside the branch is named in the report with the
   reason, and it leaves for `.agents/bugs/` on the owner's word alone.
+- A finding is the branch's own. It names what the range changed, what
+  the change made reachable, or the function around a changed line. A
+  further case met in code the range never touched, which behaves the
+  same on the base, is an older defect and was never the review's. It
+  is filed as a bug through the tool the moment it is met, the report
+  names it, and the finding keeps its scope. A finding widened to take
+  such cases in never closes, since the code before the branch has no
+  end of them.
 - Every gate of the review that waits for the owner's word, house rule
   6 names them, first asks `brain ack`. While the owner's standing word
   holds, the gate passes, the batch takes `--ack auto`, or starts on
@@ -245,13 +253,35 @@ round has no order among its batches.
    right before it edits it, and names a failure it did not cause
    without chasing it. A doc several groups need belongs to the docs
    group, and every other fixer names the change it needs there in its
-   report, which the main session hands on.
+   report, which the main session hands on. A helper the tests share,
+   a fixture project among them, belongs to one group like any file.
+   What a group needs from another, a function to call or a shape to
+   read, is seen here, from the Needs line of the merge. Both groups
+   get the signature they build against in their first prompt, so
+   neither waits for the other's report.
+
+   Two kinds of finding wait for the last pass, step 9, since they
+   follow the code. A doc that describes code the round changes is
+   written once that code is final, and a doc finding that describes
+   no such code starts with the rest. A finding on how code is
+   written, a call by position, a name, a comment that restates the
+   line, waits for the sweep, since every fix writes new lines and a
+   style finding fixed early comes back in them.
 3. Write the model first where a group's findings are one mechanism,
    a parser, a merge, a check of who something is. The model says what
-   the code has to do for every case of the kind and what it will not
-   cover, and it goes into the group's first prompt with the model
-   brief. A mechanism patched one finding at a time comes back every
-   round.
+   the code has to do for every case of the kind, each rule with the
+   purpose it serves, and what it will not cover. It lists the cases
+   it was held against, every layout the project's docs say they
+   support among them. A fresh verifier then reads it against the code
+   with the model check prompt and answers with the cases it gets
+   wrong, the model is amended once, and it goes into the group's
+   first prompt with the model brief. The check takes a few minutes
+   beside the other groups' fixers, and a wrong model costs a round
+   per case it missed. Where the mechanism has two halves, one that
+   reads and one that judges what was read, the model names the
+   interface between them, and each half is a group of its own, built
+   against that interface at the same time. A mechanism patched one
+   finding at a time comes back every round.
 4. Spawn one fixer per group, all at once, with the fixer prompt, the
    group's findings with their scenarios, the files it owns, and the
    command that runs the tests of those files under every interpreter
@@ -262,19 +292,27 @@ round has no order among its batches.
 6. A verdict of STILL THERE, NEW PROBLEM or REAL goes back to the
    group's fixer, resumed with the fixer's follow up, and the verifier
    is resumed after it. Three rounds at most inside a group. What
-   still stands after the third comes to the main session, which reads
-   the code, writes the model where step 3 wrote none, or writes it
-   again, and hands it to a fresh fixer or fixes it itself. The same
-   holds when a fixer answers BLOCKED since the fix needs a mechanism
-   the code does not have. What a model leaves out is stated in the
-   docs as a limit.
+   still stands after the third comes to the main session. It first
+   asks whether the case that stands is the branch's or an older
+   defect, which leaves as a bug. Then it reads the code and writes
+   the model where step 3 wrote none, or writes it again whole, with
+   what the group's verdicts taught carried into it, and hands it to a
+   fresh fixer or fixes it itself. A model amended a sentence at a
+   time comes back as often as a fix patched a line at a time. The
+   same holds when a fixer answers BLOCKED since the fix needs a
+   mechanism the code does not have. What a model leaves out is stated
+   in the docs as a limit.
 7. Once every group is quiet, every verdict GONE or REFUTED, run the
    gates once. A red gate names a test, the test names its group, and
    the failure goes to that group's fixer like a verdict. Green, each
    group becomes one commit of its own files, the parts of a split
    together since they share their file, pushed, and its hash goes on
-   every finding of the group in one call. A refuted claim is set
-   refuted with the verifier's reason.
+   every finding of the group in one call. The groups commit in the
+   order of what needs what, a group another builds against first,
+   and two groups that need each other are one commit, so that a
+   commit passes alone. The gates prove the round's last commit and
+   no other. A refuted claim is set refuted with the verifier's
+   reason.
 
    ```bash
    brain ledger set 2026-09-feat-billing F-03 F-04 F-09 status=fixed fix=abc1234
@@ -284,29 +322,39 @@ round has no order among its batches.
 8. Hunt over what the round changed. Cut it with
    `brain slices <the commit before the round>..HEAD` and spawn one
    hunter per slice, all at once, fresh, with the hunter prompt. What
-   the hunters return is filed with `--found-by hunter` into the batch
-   whose theme fits, and the next round takes it, the fixers and the
-   verifiers of the same groups resumed. No backlog. The rounds repeat
-   until a hunt returns nothing, each hunt reading only what the round
-   before it changed.
-9. A finding not worth fixing is set `wontfix`, and the tool wants the
+   the hunters return goes through the merge like a finder's pool, is
+   filed with `--found-by hunter` into the batch whose theme fits, and
+   the next round takes it, the fixers and the verifiers of the same
+   groups resumed. No backlog. The rounds repeat until a hunt returns
+   nothing, each hunt reading only what the round before it changed.
+   A hunter leaves how code is written, and the docs that follow the
+   code, to the last pass.
+9. The last pass follows the hunt that returned nothing, once, over
+   everything the rounds changed, cut with
+   `brain slices <the commit before the first round>..HEAD`. The docs
+   group writes what describes the changed code. Beside it the style
+   sweep runs, a fixer per file group with SYSTEM.md section 2 and the
+   findings on how code is written that have the word, changing no
+   behaviour. One verifier votes on the docs and one on the sweep,
+   then the gates run and each is one commit.
+10. A finding not worth fixing is set `wontfix`, and the tool wants the
    reason.
 
    ```bash
    brain ledger set 2026-09-feat-billing F-09 status=wontfix reason="the guard is on purpose"
    ```
 
-   The batches close on the first hunt that returns nothing, with
-   every finding landed and every verdict in. Verification is what
-   closes a batch, so both marks go in at once, batch by batch, and
-   then the report, with the round shape.
+   The batches close after the last pass, with every finding landed
+   and every verdict in. Verification is what closes a batch, so both
+   marks go in at once, batch by batch, and then the report, with the
+   round shape.
 
    ```bash
    brain ledger batch 2026-09-feat-billing 1 --status verified
    brain ledger batch 2026-09-feat-billing 1 --status done
    ```
 
-10. The report's call is the ack of the batches still pending, which
+11. The report's call is the ack of the batches still pending, which
    starts their round as in step 1, or, after the last batch, the
    closing pass where house rule 7 owes one. Where none is owed, the
    ledger closes with no word and the report says so.

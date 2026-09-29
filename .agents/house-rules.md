@@ -76,14 +76,19 @@ suites or a brain with broken links.
    - The round's findings are grouped by file, a large group split
      again by cause, and each group has one fixer sub agent. Where a
      group's findings are one mechanism, the main agent writes its
-     model before the fixer starts. The fixer names the cause, writes
-     a failing test over the claim and its sibling cases, then fixes
-     the cause and never the one line.
+     model before the fixer starts, and a verifier reads the model
+     against the code before anything is built to it. The fixer names
+     the cause, writes a failing test over the claim and its sibling
+     cases, then fixes the cause and never the one line.
    - A verifier sub agent per group checks bug wise, not code wise,
      that each bug is actually gone, its sibling cases with it, and
      that nothing new surfaced. What still stands goes back to the
      fixer, three rounds at most, and then the main agent takes the
-     group and writes its model before any more code.
+     group and writes its model, whole, before any more code.
+   - A finding is the branch's own. A further case in code the branch
+     never touched, the same on the base, is an older defect. It is
+     filed in `.agents/bugs/` the moment it is met and named in the
+     report, and the finding keeps its scope.
    - Once every group is quiet the gates run once, and each group
      becomes one commit, its hash recorded beside every finding of the
      group.
@@ -91,6 +96,10 @@ suites or a brain with broken links.
      the ledger as findings (`found-by: hunter`) and the next round
      fixes them. No backlog. The rounds stop at the first hunt that
      finds nothing.
+   - The last pass follows that hunt, once. The docs that describe
+     the changed code are written, and one sweep holds every line the
+     rounds wrote to the house style, since both follow the code and
+     would be done again each time it moved.
    - Sub agents run in parallel. Only a fixer edits, and only the files
      of its group. None commits, none writes the ledger and none runs
      the whole suite, which the gates run once per round in the main

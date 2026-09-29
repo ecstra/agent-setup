@@ -66,13 +66,14 @@ Refuted: <the claim, in plain words> (F-nn), <why it is wrong>.
 Left as it is: <the finding, in plain words> (F-nn), <the reason>.
 Taken over: <the group's files>, after three rounds, <the model in one line and what it leaves out>.
 Cannot be fixed here: <the finding, in plain words> (F-nn), <why>, yours to send to the bugs or not.
+Older than the branch: <the defect, in plain words> (BUG-nnn), filed as a bug.
 Cut short: a hunter, after three runs, <the files it never reached, or that candidates past its cap remained>.
 Your call: ack batch <n>, which starts it.
 ```
 
-The refuted, left, taken over and cannot lines appear only when there
-is one, a line each, and the cut short line only when a hunter ran
-three times and still ended with (more remain). When no batch is left
+The refuted, left, taken over, cannot and older lines appear only when
+there is one, a line each, and the cut short line only when a hunter
+ran three times and still ended with (more remain). When no batch is left
 pending, there is none to ack, and the closing line says instead what
 comes, the closing pass where house rule 7 owes one. Where none is
 owed, the ledger closes with no word and the line reads "The ledger is
