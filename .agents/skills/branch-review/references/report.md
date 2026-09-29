@@ -5,9 +5,6 @@ Every report follows SYSTEM.md section 7.6. The state lines come from
 are the refuted and hunter counts the shapes below carry. Never a tip
 line.
 
-What a report names, a finding, a bug, a todo or a decision, it names
-the way SYSTEM.md section 7.6 asks.
-
 While the owner's standing word holds, a line below that puts the next
 step on the owner's word or asks for the ack, "Batch 1 starts on your
 word." and "Your call: ack batch 2, which starts it." alike, says
