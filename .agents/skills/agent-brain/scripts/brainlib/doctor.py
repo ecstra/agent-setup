@@ -1423,6 +1423,7 @@ FENCE_OPEN = re.compile(r"(`{3,}|~{3,})(.*)$")
 FENCE_CLOSE = re.compile(r"(`{3,}|~{3,})\s*$")
 LIST_MARKER = re.compile(r"([-*+]|\d{1,9}[.)])(?:([ \t]+)|$)")
 HEADING = re.compile(r"#{1,6}(?:[ \t]|$)")
+SETEXT_UNDERLINE = re.compile(r"(?:=+|-+)[ \t]*$")
 INLINE_OPEN = re.compile(r"<!--|(?<!\\)`+")
 COMMENT_OPEN = "<!--"
 COMMENT_CLOSE = "-->"
@@ -1644,37 +1645,26 @@ class Opened:
 def claude_opens(
     prose: str,
 ) -> list[Opened]:
-    """The imports Claude Code opens in the lexer's text, emphasis judged by pairs on a line.
+    """The imports Claude Code opens in the lexer's text, emphasis paired the way markdown pairs it.
 
-    A run of `*` or `_` is emphasis only as one of a pair on its line, an
-    opener that starts the line or follows whitespace and a closer of
-    the same marker and length after it. An `@` right after a run opens
-    an import only when that run is such an opener, and a trailing run
-    comes off a path only when its opener stands earlier on the line.
+    Only a run that `paired_runs` uses up as an opener lets an `@` right
+    after it open an import, and only a run it uses up as a closer comes
+    off the end of a path. A run left without a partner is plain text,
+    so a lone marker opens nothing and stays in the path.
     """
     opened: list[Opened] = []
 
     for line in prose.split("\n"):
-        runs = list(MARKER_RUN.finditer(line))
+        pairs = paired_runs(line)
 
         for match in CLAUDE_IMPORT.finditer(line):
             after_marker = match.start() > 0 and line[match.start() - 1] in MARKERS
-            pairs = after_marker and opens_pair(
-                line=line,
-                runs=runs,
-                before=match.start(),
-            )
-            if after_marker and not pairs:
+            if after_marker and match.start() not in pairs.opener_ends:
                 continue
 
             path = match.group(1)
             tail = TRAILING_RUN.search(path)
-            if tail is not None and opener_before(
-                line=line,
-                runs=runs,
-                marker=tail.group(1),
-                position=match.start(1) + tail.start(),
-            ):
+            if tail is not None and match.start(1) + tail.start() in pairs.closer_starts:
                 path = path[: tail.start()]
 
             rest = WHITESPACE.split(
@@ -1693,47 +1683,82 @@ def claude_opens(
     return opened
 
 
-def opens_pair(
+@dataclass(frozen=True)
+class Pairs:
+    """The marker runs on one line that markdown pairs as emphasis, by where each opener ends and where each closer starts."""
+
+    opener_ends: frozenset[int]
+    closer_starts: frozenset[int]
+
+
+def paired_runs(
     line: str,
-    runs: list[re.Match],
-    before: int,
-) -> bool:
-    """Whether the marker run that ends right before `before` opens a pair, starting the line or following whitespace with a run of the same marker and length after it."""
-    for run in runs:
-        if run.end() != before:
-            continue
+) -> Pairs:
+    """The emphasis on one line, paired the way markdown pairs it.
 
-        closed = any(later.group() == run.group() and later.start() >= run.end() for later in runs)
+    A run is a maximal stretch of `*` or of `_`. It can open when a
+    character that is not whitespace follows it, and it can close when
+    one stands before it, while a run of `_` with a letter or a digit on
+    both sides does neither, since it sits inside a word. The runs are
+    walked from left to right and the ones that can open are kept. A run
+    that can close pairs with the nearest kept run of the same marker
+    and length, both used up, the closer tried before the opener when a
+    run can do both. A run that finds no partner stays plain text.
+    """
+    kept: list[re.Match] = []
+    opener_ends: set[int] = set()
+    closer_starts: set[int] = set()
 
-        return clear_before(line=line, run=run) and closed
-
-    return False
-
-
-def opener_before(
-    line: str,
-    runs: list[re.Match],
-    marker: str,
-    position: int,
-) -> bool:
-    """Whether an opening run of the same marker and length stands on the line before `position`."""
-    return any(
-        run.group() == marker
-        and run.end() <= position
-        and clear_before(
+    for run in MARKER_RUN.finditer(line):
+        can_open, can_close = flanks_of(
             line=line,
             run=run,
         )
-        for run in runs
+        partner = None
+        if can_close:
+            partner = nearest_partner(
+                kept=kept,
+                run=run,
+            )
+
+        if partner is not None:
+            kept.remove(partner)
+            opener_ends.add(partner.end())
+            closer_starts.add(run.start())
+            continue
+
+        if can_open:
+            kept.append(run)
+
+    return Pairs(
+        opener_ends=frozenset(opener_ends),
+        closer_starts=frozenset(closer_starts),
     )
 
 
-def clear_before(
+def nearest_partner(
+    kept: list[re.Match],
+    run: re.Match,
+) -> Optional[re.Match]:
+    """The last kept opener of the same marker and length as the run, or None when there is none."""
+    for opener in reversed(kept):
+        if opener.group() == run.group():
+            return opener
+
+    return None
+
+
+def flanks_of(
     line: str,
     run: re.Match,
-) -> bool:
-    """Whether the run starts the line or follows whitespace, the place an opening marker stands."""
-    return run.start() == 0 or line[run.start() - 1].isspace()
+) -> tuple[bool, bool]:
+    """Whether the marker run can open emphasis and whether it can close it, by the characters on either side."""
+    before = line[run.start() - 1] if run.start() > 0 else ""
+    after = line[run.end()] if run.end() < len(line) else ""
+    if run.group().startswith("_") and before.isalnum() and after.isalnum():
+        return False, False
+
+    return after != "" and not after.isspace(), before != "" and not before.isspace()
 
 
 def claude_code_slips(
@@ -1763,7 +1788,7 @@ def claude_code_slips(
     for opened in claude_opens(prose):
         if opened.cut_at_backslash:
             backslashed = is_import(
-                bare=bare_of(opened.written),
+                bare=with_slashes(bare_of(opened.written)),
                 project=project,
             )
             if backslashed:
@@ -1802,6 +1827,19 @@ def claude_code_slips(
         if path.startswith("/"):
             found.append(
                 from_root(
+                    name=name,
+                    path=path,
+                )
+            )
+            continue
+
+        back_in = climbs_back_in(
+            path=wanted,
+            project=project,
+        )
+        if back_in:
+            found.append(
+                back_in_by_name(
                     name=name,
                     path=path,
                 )
@@ -1934,6 +1972,19 @@ def gemini_cli_slips(
             )
             continue
 
+        back_in = climbs_back_in(
+            path=path,
+            project=project,
+        )
+        if back_in:
+            found.append(
+                back_in_by_name(
+                    name=name,
+                    path=path,
+                )
+            )
+            continue
+
         spelled = spelled_on_disk(
             base=project,
             path=path,
@@ -2059,6 +2110,47 @@ def from_root(
     )
 
 
+def back_in_by_name(
+    name: str,
+    path: str,
+) -> Finding:
+    """An import that climbs out of the project's folder and comes back in by its name is never looked up, since another checkout of the project may go by another name, and so never counts as the rules import."""
+    return import_finding(
+        name=name,
+        message=f"imports @{path} out of the project's folder and back in by its name, which another checkout may not share, so write it from the project's folder",
+    )
+
+
+def climbs_back_in(
+    path: str,
+    project: Path,
+) -> bool:
+    """Whether the path climbs above the project's folder and comes back into it by the folder's own name.
+
+    It is decided from the path's parts alone, never from the disk. The
+    parts are counted as they climb and descend, and a part that
+    descends from one level above the project's folder by the folder's
+    own name is the way back in. A path that climbs out and stays out
+    is looked up like any other.
+    """
+    level = 0
+
+    for part in path.split("/"):
+        if part in ("", "."):
+            continue
+
+        if part == "..":
+            level -= 1
+            continue
+
+        if level == -1 and part == project.name:
+            return True
+
+        level += 1
+
+    return False
+
+
 def spelled_otherwise(
     name: str,
     path: str,
@@ -2088,6 +2180,21 @@ def bare_of(
         repl="",
         string=token,
     ).partition("#")[0].rstrip(GLUED)
+
+
+def with_slashes(
+    token: str,
+) -> str:
+    """The token with an escaped space read as a space and every other backslash turned to a slash, the path its writer meant."""
+    spaced = token.replace(
+        ESCAPED_SPACE,
+        " ",
+    )
+
+    return spaced.replace(
+        "\\",
+        "/",
+    )
 
 
 def is_import(
@@ -2150,6 +2257,14 @@ def spelled_on_disk(
     return "/".join(spelled)
 
 
+@dataclass(frozen=True)
+class Blocks:
+    """What the reading of the blocks finds: the code and comment blocks, and the offsets where a block starts that no span reaches into."""
+
+    regions: list[Region]
+    starts: list[int]
+
+
 def hidden_regions(
     text: str,
 ) -> list[Region]:
@@ -2157,28 +2272,36 @@ def hidden_regions(
     blocks = block_regions(text)
     rest = blanked(
         text=text,
-        regions=blocks,
+        regions=blocks.regions,
         kinds=(IN_CODE, IN_COMMENT),
     )
+    spans = inline_regions(
+        text=rest,
+        starts=blocks.starts,
+    )
 
-    return blocks + inline_regions(rest)
+    return blocks.regions + spans
 
 
 def block_regions(
     text: str,
-) -> list[Region]:
+) -> Blocks:
     """Where the code blocks and the HTML comment blocks sit, read line by line in the order they come.
 
     A fence runs to the closer that matches it or to the end of the
     text, and a comment opened at the start of a line runs to its
-    `-->`, so a fence inside a comment opens nothing. A line indented
-    four columns past its margin is code when no paragraph is open,
-    which is at the start and after a blank line, a heading, a fence or
-    a comment. The margin is where the text of the list item the line
-    sits in starts, so a list item's paragraph indented four columns is
-    read.
+    `-->`, so a fence inside a comment opens nothing. A fence opens on a
+    list item's own line too, after its marker. A line indented four
+    columns past its margin is code when no paragraph is open, which is
+    at the start and after a blank line, a heading of either kind, a
+    fence or a comment. The margin is where the text of the list item
+    the line sits in starts, so a list item's paragraph indented four
+    columns is read, and a heading or a fence left of that margin ends
+    every list that is open. Each list item and each heading starts a
+    block of its own, which the spans read later never reach into.
     """
     regions: list[Region] = []
+    starts: list[int] = []
     items: list[int] = []
     fence: Optional[tuple[str, int]] = None
     in_comment = False
@@ -2217,7 +2340,11 @@ def block_regions(
         indent = indent_of(line)
         bare = line.lstrip()
         marker = LIST_MARKER.match(bare)
-        if after_break or marker is not None:
+        heading = HEADING.match(bare) is not None
+        underline = not after_break and SETEXT_UNDERLINE.match(bare) is not None
+        opener = fence_opener(bare)
+        interrupts = marker is not None or heading or underline or opener is not None
+        if after_break or interrupts:
             while items and indent < items[-1]:
                 items.pop()
 
@@ -2227,8 +2354,7 @@ def block_regions(
                 regions.append((start, end, IN_CODE))
             continue
 
-        opener = FENCE_OPEN.match(bare)
-        if opener is not None and not (opener.group(1).startswith("`") and "`" in opener.group(2)):
+        if opener is not None:
             fence = (opener.group(1), margin)
             regions.append((start, end, IN_CODE))
             continue
@@ -2245,16 +2371,48 @@ def block_regions(
             after_break = True
             continue
 
-        if HEADING.match(bare):
+        if underline:
             after_break = True
+            starts.append(end + 1)
+            continue
+
+        if heading:
+            after_break = True
+            starts.append(start)
+            starts.append(end + 1)
             continue
 
         if marker is not None:
-            items.append(indent + len(marker.group(1)) + item_gap(marker.group(2)))
+            item_margin = indent + len(marker.group(1)) + item_gap(marker.group(2))
+            items.append(item_margin)
+            starts.append(start)
+
+            item_fence = fence_opener(bare[marker.end() :])
+            if item_fence is not None:
+                fence = (item_fence.group(1), item_margin)
+                regions.append((start, end, IN_CODE))
+                continue
 
         after_break = False
 
-    return regions
+    return Blocks(
+        regions=regions,
+        starts=starts,
+    )
+
+
+def fence_opener(
+    bare: str,
+) -> Optional[re.Match]:
+    """The fence the text opens with, or None, since a backtick fence's info string holds no backtick."""
+    opener = FENCE_OPEN.match(bare)
+    if opener is None:
+        return None
+
+    if opener.group(1).startswith("`") and "`" in opener.group(2):
+        return None
+
+    return opener
 
 
 def fence_closes(
@@ -2298,14 +2456,16 @@ def indent_of(
 
 def inline_regions(
     text: str,
+    starts: list[int],
 ) -> list[Region]:
-    """Where the code spans and the HTML comments inside the paragraphs sit, read in the order they come.
+    """Where the code spans and the HTML comments inside the blocks sit, read in the order they come.
 
     A run of backticks is closed by the next run as long and a comment
-    by its `-->`, each inside its paragraph, and whichever opens first
-    holds what follows, so a backtick inside a comment opens no span.
-    An opener with no closer is literal, and the reading moves on past
-    it.
+    by its `-->`, each inside its block, and whichever opens first holds
+    what follows, so a backtick inside a comment opens no span. A block
+    ends at a blank line or where `starts` says another begins. An
+    opener with no closer in its block is plain text, and the reading
+    moves on past it.
     """
     regions: list[Region] = []
     position = 0
@@ -2321,6 +2481,7 @@ def inline_regions(
         closed = inline_end(
             text=text,
             opener=opener,
+            starts=starts,
         )
         if closed is None:
             position = opener.end()
@@ -2334,8 +2495,9 @@ def inline_regions(
 def inline_end(
     text: str,
     opener: re.Match,
+    starts: list[int],
 ) -> Optional[int]:
-    """Where the span or the comment the opener starts ends, or None when nothing closes it inside its paragraph."""
+    """Where the span or the comment the opener starts ends, or None when nothing closes it inside its block."""
     if opener.group() == COMMENT_OPEN:
         pattern = re.escape(COMMENT_CLOSE)
     else:
@@ -2346,6 +2508,9 @@ def inline_end(
         pos=opener.end(),
     )
     if closer is None or PARAGRAPH_BREAK.search(text[opener.end() : closer.start()]):
+        return None
+
+    if any(opener.start() < start <= closer.start() for start in starts):
         return None
 
     return closer.end()

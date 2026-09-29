@@ -23,10 +23,15 @@ the entry written all the same.
 
 A `<key>` is an id such as `BUG-004`, a name such as
 `stripe-retries-twice`, or a path. A path is written from the brain,
-such as `docs/systems/login.md`, from the project's root, such as
-`.agents/docs/systems/login.md`, or as any longer path that ends that
-way, which takes in the one git prints in a repository whose top sits
-above the project. Every command that takes a key reads it this way.
+such as `docs/systems/login.md`, or from the project's root, such as
+`.agents/docs/systems/login.md`. A longer path is a key only when what
+stands in front of the brain's folder leads to this brain, which is an
+absolute path to this project's own folder, a path that lands in this
+brain when read from the current folder, or the path git prints from a
+top above the project, such as `apps/web/.agents/docs/systems/login.md`
+for a project in `apps/web`, whose folders in front are the last
+folders of the project's own path. A path into another project's brain
+answers nothing. Every command that takes a key reads it this way.
 
 ## Writing
 
@@ -280,13 +285,16 @@ while Gemini CLI reads them raw.
 
 In both agents an `@` at the start or after whitespace opens an import
 whose path runs to the next whitespace. Claude Code reads the lexer's
-text, where a run of `*` or `_` is emphasis only as one of a pair on
-its line, an opener that starts the line or follows whitespace and a
-closer of the same marker and length. So an `@` right after such an
-opener opens an import too, a trailing run comes off the path only when
-its opener stands earlier on the line, and a lone marker opens nothing
-and stays in the path. A backslash before a space keeps the space, any
-other backslash ends the path, and the path is cut at its first `#`.
+text, where a run of `*` or `_` is emphasis only when markdown pairs
+it. A run can open when a character that is not whitespace follows it
+and can close when one stands before it, a run of `_` inside a word
+does neither, and a run that can close pairs with the nearest open run
+of the same marker and length before it on the line. So an `@` right
+after a run used as an opener opens an import too, a run used as a
+closer comes off the end of the path, and a run left without a partner
+opens nothing and stays in the path. A backslash before a space keeps
+the space, any other backslash ends the path, and the path is cut at
+its first `#`.
 Gemini CLI reads the raw text, so an `@` right after `*` or `_` opens
 nothing, markers after the path are part of its name, the path ends at
 a backslash, and a `#` fragment stays in the name it looks for. A token
@@ -311,17 +319,23 @@ folder, one that opens with `~`, is checked for glued punctuation and
 never for being there, since it is there on one machine and missing on
 the next. An import from the root of the disk, one that opens with `/`,
 is reported for that same reason, never looked up and never taken for
-the rules import. A front door that is not there is reported,
-`AGENTS.md` always and the other two while their agent's folder is
-there, since the rules then never load in that agent, and the next
-upgrade writes it back. So is a front door spelled in another case,
-such as `Claude.md`, since only the exact name is read, and one that is
-there but cannot be read.
+the rules import. So is one that climbs out of the project's folder and
+comes back in by the folder's own name, such as `@../app/AGENTS.md` in
+a folder named `app`, since another checkout may go by another name,
+while one that climbs out and stays out is looked up like any other. A
+front door that is not there is reported, `AGENTS.md` always and the
+other two while their agent's folder is there, since the rules then
+never load in that agent, and the next upgrade writes it back. So is a
+front door spelled in another case, such as `Claude.md`, since only the
+exact name is read, and one that is there but cannot be read.
 
-Doctor does not follow the lexer everywhere, so its silence on these
-is no pass. They are an `@` inside link text or strikethrough, a
-backtick after an escaped backslash, a thematic break written with
-hyphens, a comment that opens inside a list item, and an import with no
+Doctor does not follow the lexer everywhere, and in these cases it may
+stay silent where an agent loads nothing, or report an import no agent
+opens. They are an `@` inside link text or strikethrough, a backtick
+after an escaped backslash, a thematic break of any kind, `***`, `___`,
+`---` or a spaced one such as `* * *` or `- - -`, after which an
+indented block is read as prose and the spaced ones are taken for list
+items, a comment that opens inside a list item, and an import with no
 `.md` ending that leads nowhere, which reads as a mention.
 
 `--fix` repairs a missing or blank `updated` date, blank `links`
