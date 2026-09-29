@@ -169,14 +169,15 @@ slice and which read the whole branch.
 ## The finding pass
 
 1. Open the ledger before anything is found, so the review's folder
-   exists the moment it starts, with the level recorded and the clock
-   started. The summary comes in on standard input like every line the
-   agent writes from the branch, so the shell never touches it. The
-   open puts the review on the current work chain, under the todo or
-   the bug the work is on, which is the one it reviews when the work
-   was set as the rule asks, or as the root when nothing is on, and
-   every hook line then names the batch the review stands at. When the
-   chain keeps it off, the open says so, and the review goes on with
+   exists the moment it starts, with the level recorded, and commit
+   it at once, so git holds the time the review started. The summary
+   comes in on standard input like every line the agent writes from
+   the branch, so the shell never touches it. The open puts the review
+   on the current work chain, under the todo or the bug the work is
+   on, which is the one it reviews when the work was set as the rule
+   asks, or as the root when nothing is on, and every hook line then
+   names the batch the review stands at. When the chain keeps it off,
+   the open says so, and the review goes on with
    `brain task on <its key>` once the work in the way is finished or
    dropped with `brain task off`, or with `--replace` on the owner's
    word, and once a step points at it, under the plan, the todo or the
@@ -398,12 +399,13 @@ brain ledger batch 2026-09-feat-billing 2 --status done
 
 Once every batch is done, and the closing pass with it where one was
 owed, the ledger closes and the report says the branch is ready to
-merge on the owner's ask, with the time the review took, which the
-ledger's clock gives. The close follows the last batch with no word.
-The PR and the merge wait for the owner's ask whether or not a
-standing word holds.
+merge on the owner's ask, with the time the review took, from the
+commit that opened the ledger to the close, which git gives. The
+close follows the last batch with no word. The PR and the merge wait
+for the owner's ask whether or not a standing word holds.
 
 ```bash
+git log --reverse --format=%cd --date=iso -- .agents/reviews/2026-09-feat-billing/ledger.md | head -1
 brain ledger close 2026-09-feat-billing
 ```
 

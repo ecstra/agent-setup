@@ -17,7 +17,7 @@ the review runs, permanent once born. The full protocol lives in
 `ledger.md` inside the review's folder. Standard frontmatter,
 `kind: review`, plus `branch:`, `status: open | closed` and
 `level: low | medium | high | max`, the level the review ran at. The
-body holds four sections.
+body holds three sections.
 
 1. **Summary**: the review's scope (what the branch did) and the final
    count when closed.
@@ -37,17 +37,6 @@ body holds four sections.
 - status: open | fixed | refuted | wontfix | deferred
 - fix: <commit hash, date, when fixed>
 - reason: <one line, when refuted, wontfix or deferred>
-```
-
-4. **Clock**: one line per event with its time, written by the tool,
-   the open, every finding filed, every change of a batch's status and
-   the close, so a review reports the time it took. A ledger opened
-   before the clock has no such section and gets none.
-
-```
-- 2026-09-29 11:42 +0530 opened
-- 2026-09-29 11:58 +0530 12 findings filed into batch 1, found by review
-- 2026-09-29 12:03 +0530 batch 1 fixing
 ```
 
 The fix of a finding is the commit of its group, so the findings a

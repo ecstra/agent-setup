@@ -1,9 +1,8 @@
 # The reports
 
 Every report follows SYSTEM.md section 7.6. The state lines come from
-`brain ledger report`, never from memory, the clock line among them,
-and the only counts in prose are the hunt counts the shapes below
-carry. Never a tip line.
+`brain ledger report`, never from memory, and the only counts in prose
+are the hunt counts the shapes below carry. Never a tip line.
 
 While the owner's standing word holds, a line below that puts the next
 step on the owner's word or asks for the ack, "The batches start on
@@ -46,6 +45,7 @@ goes into every shape below the same way.
 
 The finders found nothing. No batch, no closing pass.
 Cut short: <the angle and its slice>, after three runs, <the files it never reached, or that candidates past its cap remained>.
+The review took <the time from the commit that opened the ledger to now>.
 The ledger is closed, and the branch is ready to merge on your ask.
 ```
 
@@ -73,11 +73,14 @@ Your call: ack batch <n>, which starts it.
 
 The refuted, left, taken over, cannot and older lines appear only when
 there is one, a line each, and the cut short line only when a hunter
-ran three times and still ended with (more remain). When no batch is left
-pending, there is none to ack, and the closing line says instead what
-comes, the closing pass where house rule 7 owes one. Where none is
-owed, the ledger closes with no word and the line reads "The ledger is
-closed, and the branch is ready to merge on your ask."
+ran three times and still ended with (more remain). When no batch is
+left pending, there is none to ack, and the closing line says instead
+what comes, the closing pass where house rule 7 owes one. Where none
+is owed, the ledger closes with no word and the report ends with the
+two lines that close every review, "The review took 1 h 40 min." and
+"The ledger is closed, and the branch is ready to merge on your ask."
+The time runs from the commit that opened the ledger to the close,
+and git gives it.
 
 ## After the closing pass
 
@@ -86,6 +89,7 @@ closed, and the branch is ready to merge on your ask."
 
 The closing pass found nothing. (or: The closing pass's findings are acked and fixed above.)
 Cut short: <the angle and its slice>, after three runs, <the files it never reached, or that candidates past its cap remained>.
+The review took <the time from the commit that opened the ledger to now>.
 The ledger is closed, and the branch is ready to merge on your ask.
 ```
 

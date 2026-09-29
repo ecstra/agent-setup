@@ -1,16 +1,16 @@
 """Review ledgers, the one body the tool edits by design.
 
-A ledger's batches, findings and clock are structured records inside
-the body, per spec/reviews.md, so numbering a finding or flipping its
-status is bookkeeping rather than prose. Everything outside those
-records stays as it was written.
+A ledger's batches and findings are structured records inside the body,
+per spec/reviews.md, so numbering a finding or flipping its status is
+bookkeeping rather than prose. Everything outside those records stays as
+it was written.
 """
 
 import re
-from datetime import date, datetime, timedelta
+from datetime import date
 from typing import Optional
 
-from . import autoack, clock, frontmatter, schema, sections, store, writes
+from . import autoack, frontmatter, schema, sections, store, writes
 
 FINDING = re.compile(r"^### (F-\d+): (.+?)[ \t]*$", re.MULTILINE)
 FINDING_ID = re.compile(r"F-\d+")
@@ -22,11 +22,6 @@ BATCH_ROW = re.compile(
 )
 
 BATCH_HEADER = "| # | Theme | Status | Ack |\n|---|---|---|---|\n"
-
-# One line of the Clock section, the minute with its zone, so a review
-# timed across a change of zone still counts right, then the event.
-CLOCK_FORMAT = "%Y-%m-%d %H:%M %z"
-CLOCK_LINE = re.compile(r"^- (\d{4}-\d{2}-\d{2} \d{2}:\d{2} [+-]\d{4}) (.+?)[ \t]*$", re.MULTILINE)
 
 # The batch table's header line and the rule under it, however the words
 # are cased. It ends at the end of the rule line.
@@ -74,7 +69,6 @@ def open_ledger(
     summary: str,
     level: str = DEFAULT_LEVEL,
     stamp: str = "",
-    at: Optional[datetime] = None,
 ) -> store.Entry:
     if level not in LEVELS:
         raise LedgerError(f"a review runs at {' or '.join(LEVELS)}, not '{level}'")
@@ -90,9 +84,7 @@ def open_ledger(
         f"{summary}\n\n"
         "## Batches\n\n"
         f"{BATCH_HEADER}\n"
-        "## Findings\n\n"
-        "## Clock\n\n"
-        f"{clock_line(event='opened', at=at or clock.now())}\n"
+        "## Findings\n"
     )
 
     return writes.create(
@@ -139,7 +131,6 @@ def set_batch(
     status: str = "",
     ack: str = "",
     theme: str = "",
-    at: Optional[datetime] = None,
 ) -> None:
     if status and status not in BATCH_STATUSES:
         raise LedgerError(f"a batch is {' or '.join(BATCH_STATUSES)}, not '{status}'")
@@ -201,13 +192,6 @@ def set_batch(
             ack=new_ack,
         )
         body = body[: match.start()] + row + body[match.end() :]
-        if new_status != old_status:
-            body = clocked(
-                body=body,
-                event=f"batch {number} {new_status}",
-                at=at or clock.now(),
-            )
-
         replaced = True
         break
 
@@ -254,7 +238,6 @@ def add_finding(
     severity: str,
     found_by: str = "review",
     batch: int = 0,
-    at: Optional[datetime] = None,
 ) -> str:
     return add_findings(
         brain=brain,
@@ -263,7 +246,6 @@ def add_finding(
         severity=severity,
         found_by=found_by,
         batch=batch,
-        at=at,
     )[0]
 
 
@@ -274,7 +256,6 @@ def add_findings(
     severity: str,
     found_by: str = "review",
     batch: int = 0,
-    at: Optional[datetime] = None,
 ) -> list[str]:
     """File the claims in one load and one write, numbered on from the last finding, so a pass lands whole or not at all."""
     severity = checked(field="severity", value=severity)
@@ -301,24 +282,13 @@ def add_findings(
         for identifier, claim in zip(identifiers, claims)
     )
 
-    at = at or clock.now()
-    noun = "finding" if len(identifiers) == 1 else "findings"
-    into = f"batch {batch_cell}" if batch_cell else "no batch"
-
-    body = entry.document.body
+    body = reopened(
+        body=entry.document.body,
+        number=int(batch_cell) if batch_cell else None,
+    )
     section_start = section_span(body=body, title="Findings")[0]
     section_end = sections.heading_after(body=body, start=section_start, depth=2)
-    body = body[:section_end].rstrip("\n") + "\n" + blocks + ("\n" if section_end < len(body) else "") + body[section_end:]
-    body = clocked(
-        body=body,
-        event=f"{len(identifiers)} {noun} filed into {into}, found by {found_by}",
-        at=at,
-    )
-    entry.document.body = reopened(
-        body=body,
-        number=int(batch_cell) if batch_cell else None,
-        at=at,
-    )
+    entry.document.body = body[:section_end].rstrip("\n") + "\n" + blocks + ("\n" if section_end < len(body) else "") + body[section_end:]
     save(brain=brain, entry=entry)
 
     return identifiers
@@ -329,14 +299,12 @@ def set_finding(
     key: str,
     identifier: str,
     changes: dict[str, str],
-    at: Optional[datetime] = None,
 ) -> None:
     set_findings(
         brain=brain,
         key=key,
         identifiers=[identifier],
         changes=changes,
-        at=at,
     )
 
 
@@ -345,7 +313,6 @@ def set_findings(
     key: str,
     identifiers: list[str],
     changes: dict[str, str],
-    at: Optional[datetime] = None,
 ) -> None:
     """Make the same changes to every finding named in one load and one write, so the call lands whole or not at all.
 
@@ -353,8 +320,6 @@ def set_findings(
     and a finding named twice is changed once.
     """
     changes = {field: checked(field=field, value=value) for field, value in changes.items()}
-
-    at = at or clock.now()
 
     entry = ledger_entry(brain=brain, key=key)
     known_batch(
@@ -369,7 +334,6 @@ def set_findings(
             name=entry.name,
             identifier=identifier,
             changes=changes,
-            at=at,
         )
 
     entry.document.body = body
@@ -381,7 +345,6 @@ def changed(
     name: str,
     identifier: str,
     changes: dict[str, str],
-    at: datetime,
 ) -> str:
     """The body with one finding's changes made, refused when the ledger named `name` has no such finding or the changes break a rule it is held to."""
     span = finding_span(body=body, identifier=identifier)
@@ -417,16 +380,14 @@ def changed(
     return reopened(
         body=body,
         number=batch_of(after),
-        at=at,
     )
 
 
 def reopened(
     body: str,
     number: Optional[int],
-    at: datetime,
 ) -> str:
-    """The body with the batch put back to fixing, the move on the clock, when a finding lands in it after it was verified or done.
+    """The body with the batch put back to fixing when a finding lands in it after it was verified or done.
 
     A late finding, a hunter's, a reopened one or one moved in already
     fixed, needs its fix verified like the rest, so the batch goes
@@ -446,11 +407,7 @@ def reopened(
             status="fixing",
             ack=match.group(4),
         )
-        return clocked(
-            body=body[: match.start()] + row + body[match.end() :],
-            event=f"batch {number} fixing",
-            at=at,
-        )
+        return body[: match.start()] + row + body[match.end() :]
 
     return body
 
@@ -503,7 +460,6 @@ def close(
     brain: store.Brain,
     key: str,
     stamp: str = "",
-    at: Optional[datetime] = None,
 ) -> None:
     entry = ledger_entry(brain=brain, key=key)
     if entry.field("status") == "closed":
@@ -530,11 +486,6 @@ def close(
     entry.document.body = (
         entry.document.body[:summary_end].rstrip("\n") + "\n\n" + line + entry.document.body[summary_end:]
     )
-    entry.document.body = clocked(
-        body=entry.document.body,
-        event="closed",
-        at=at or clock.now(),
-    )
     entry.document.set(key="status", value="closed")
     save(brain=brain, entry=entry, stamp=stamp)
 
@@ -544,7 +495,6 @@ def close(
 def report(
     brain: store.Brain,
     key: str,
-    at: Optional[datetime] = None,
 ) -> str:
     """The ledger's state in a few lines, counted from the file, with what comes next."""
     entry = ledger_entry(
@@ -564,13 +514,6 @@ def report(
         ack = f", ack {row['ack']}" if row["ack"] else ""
         lines.append(f"batch {row['number']}, {row['theme']}: {row['status']}{ack}, {tally(own)}")
 
-    timing = time_taken(
-        body=entry.document.body,
-        at=at or clock.now(),
-    )
-    if timing:
-        lines.append(timing)
-
     step = next_step(
         brain=brain,
         entry=entry,
@@ -580,92 +523,6 @@ def report(
     lines.append("next: " + step)
 
     return "\n".join(lines)
-
-
-def time_taken(
-    body: str,
-    at: datetime,
-) -> Optional[str]:
-    """The report's clock line, when the review opened and how long it ran, or has run so far until `at`, or None when the clock holds no opening."""
-    events = clock_events(body)
-    opened = [moment for moment, event in events if event == "opened"]
-    if not opened:
-        return None
-
-    start = opened[0]
-    closed = [moment for moment, event in events if event == "closed"]
-    if closed:
-        return f"clock: opened {start:%Y-%m-%d %H:%M}, closed {closed[-1]:%Y-%m-%d %H:%M}, {duration(closed[-1] - start)}"
-
-    return f"clock: opened {start:%Y-%m-%d %H:%M}, {duration(at - start)} so far"
-
-
-def duration(
-    elapsed: timedelta,
-) -> str:
-    """A span in whole minutes, `38 min` under an hour and `1 h 13 min` from an hour on, the minutes always shown."""
-    minutes = int(elapsed.total_seconds() // 60)
-    if minutes < 60:
-        return f"{minutes} min"
-
-    hours, minutes = divmod(minutes, 60)
-
-    return f"{hours} h {minutes} min"
-
-
-def clock_line(
-    event: str,
-    at: datetime,
-) -> str:
-    return f"- {at.strftime(CLOCK_FORMAT)} {event}"
-
-
-def clocked(
-    body: str,
-    event: str,
-    at: datetime,
-) -> str:
-    """The body with a line for the event at the end of its Clock section.
-
-    A ledger with no Clock section, one opened by an older tool, comes
-    back as it was, so no event adds the section to it.
-    """
-    found = sections.span(body=body, title="Clock")
-    if found is None:
-        return body
-
-    start, end = found
-    kept = body[:end].rstrip()
-    gap = "\n" if len(kept) > start else "\n\n"
-    rest = "\n" + body[end:] if end < len(body) else ""
-
-    return kept + gap + clock_line(event=event, at=at) + "\n" + rest
-
-
-def clock_events(
-    body: str,
-) -> list[tuple[datetime, str]]:
-    """The Clock section's lines outside code, each as its time and its event, a line whose time is not a real one left out."""
-    found = sections.span(body=body, title="Clock")
-    if found is None:
-        return []
-
-    start, end = found
-    spans = sections.code_spans(body)
-    events: list[tuple[datetime, str]] = []
-
-    for match in CLOCK_LINE.finditer(string=body, pos=start, endpos=end):
-        if sections.in_code(spans=spans, position=match.start()):
-            continue
-
-        try:
-            moment = datetime.strptime(match.group(1), CLOCK_FORMAT)
-        except ValueError:
-            continue
-
-        events.append((moment, match.group(2)))
-
-    return events
 
 
 def in_batch(
