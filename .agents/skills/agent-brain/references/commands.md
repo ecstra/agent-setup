@@ -289,19 +289,22 @@ text, where a run of `*` or `_` is emphasis only when markdown pairs
 it. A run can open when a character that is not whitespace follows it
 and can close when one stands before it, a run of `_` inside a word
 does neither, and a run that can close pairs with the nearest open run
-of the same marker and length before it on the line. So an `@` right
-after a run used as an opener opens an import too, a run used as a
-closer comes off the end of the path, and a run left without a partner
-opens nothing and stays in the path. A backslash before a space keeps
-the space, any other backslash ends the path, and the path is cut at
-its first `#`.
-Gemini CLI reads the raw text, so an `@` right after `*` or `_` opens
-nothing, markers after the path are part of its name, the path ends at
-a backslash, and a `#` fragment stays in the name it looks for. A token
-is an import when it opens with `~`, `/`, `./` or `../`, names a
-markdown file, or leads to a file under any spelling of its case, so a
-handle such as `@alice`, a package such as `@tanstack/query@5.59.0` or
-a decorator such as `@pytest.fixture` is passed over.
+of the same marker and length before it in its block. The lines of a
+paragraph are read together, so a pair may open on one line and close
+on a later one, but never across a blank line, a list item's start, a
+heading or a fence. So an `@` right after a run used as an opener opens
+an import too, a run used as a closer comes off the end of the path,
+and a run left without a partner opens nothing and stays in the path. A
+backslash before a space keeps the space, any other backslash ends the
+path, and the path is cut at its first `#`. Gemini CLI reads the raw
+text, so an `@` right after `*` or `_` opens nothing, markers after the
+path are part of its name, a backslash before a space ends the path and
+any other backslash is part of the name, and a `#` fragment stays in
+the name it looks for. A token is an import when it opens with `~`,
+`/`, `./` or `../`, names a markdown file, or leads to a file under any
+spelling of its case, so a handle such as `@alice`, a package such as
+`@tanstack/query@5.59.0` or a decorator such as `@pytest.fixture` is
+passed over.
 
 Doctor reports an import with punctuation glued to its path, which the
 parser takes as part of the name so the file never loads, an import
@@ -310,19 +313,21 @@ case, which loads only where the file system ignores case, one with a
 backslash in its path, where Claude Code's path ends, and a `CLAUDE.md`
 or `GEMINI.md` with no import that resolves to the project's
 `AGENTS.md`, whether in a sentence or on a line of its own. Under
-Gemini CLI's reading it reports too an escaped space, emphasis markers
-glued to the path, a fragment kept in the name and, in a file both
-agents read, an import right after an emphasis marker, which Gemini CLI
-never opens. A finding names the agent only where the two read
-differently, and one both give is named once. An import from the home
-folder, one that opens with `~`, is checked for glued punctuation and
-never for being there, since it is there on one machine and missing on
-the next. An import from the root of the disk, one that opens with `/`,
-is reported for that same reason, never looked up and never taken for
-the rules import. So is one that climbs out of the project's folder and
-comes back in by the folder's own name, such as `@../app/AGENTS.md` in
-a folder named `app`, since another checkout may go by another name,
-while one that climbs out and stays out is looked up like any other. A
+Gemini CLI's reading it reports too an escaped space, a backslash kept
+in the name, emphasis markers glued to the path, a fragment kept in the
+name and, in a file both agents read, an import right after an emphasis
+marker, which Gemini CLI never opens. A finding names the agent only
+where the two read differently, and one both give is named once. An
+import from the home folder, one that opens with `~`, is checked for
+glued punctuation and never for being there, since it is there on one
+machine and missing on the next. An import from the root of the disk,
+one that opens with `/`, is reported for that same reason, never looked
+up and never taken for the rules import. So is one that climbs out of
+the project's folder and comes back in by retracing the folders it
+climbed out of, such as `@../../apps/web/x.md` in a project at
+`repo/apps/web`, since another checkout may go by other names, while
+one that climbs out and stays out, such as
+`@../../packages/web/README.md` there, is looked up like any other. A
 front door that is not there is reported, `AGENTS.md` always and the
 other two while their agent's folder is there, since the rules then
 never load in that agent, and the next upgrade writes it back. So is a

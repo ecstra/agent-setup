@@ -1437,6 +1437,15 @@ Region = tuple[int, int, str]
 IN_CODE = "code"
 IN_COMMENT = "comment"
 
+
+@dataclass(frozen=True)
+class Blocks:
+    """What the reading of the blocks finds: the code and comment regions, and the offsets where a block starts that no span or emphasis reaches into."""
+
+    regions: list[Region]
+    starts: list[int]
+
+
 # What a front door that is not there costs, since the rules then never
 # load in the agent that reads it.
 MISSING: dict[str, str] = {
@@ -1644,21 +1653,28 @@ class Opened:
 
 def claude_opens(
     prose: str,
+    starts: list[int],
 ) -> list[Opened]:
     """The imports Claude Code opens in the lexer's text, emphasis paired the way markdown pairs it.
 
-    Only a run that `paired_runs` uses up as an opener lets an `@` right
+    The runs are paired within their block, so an opener on one line of
+    a paragraph pairs with a closer on a later line of it, and never
+    across a blank line, a list item's start, a heading or a fence. Only
+    a run that `paired_runs` uses up as an opener lets an `@` right
     after it open an import, and only a run it uses up as a closer comes
     off the end of a path. A run left without a partner is plain text,
     so a lone marker opens nothing and stays in the path.
     """
     opened: list[Opened] = []
 
-    for line in prose.split("\n"):
-        pairs = paired_runs(line)
+    for block in blocks_of(
+        prose=prose,
+        starts=starts,
+    ):
+        pairs = paired_runs(block)
 
-        for match in CLAUDE_IMPORT.finditer(line):
-            after_marker = match.start() > 0 and line[match.start() - 1] in MARKERS
+        for match in CLAUDE_IMPORT.finditer(block):
+            after_marker = match.start() > 0 and block[match.start() - 1] in MARKERS
             if after_marker and match.start() not in pairs.opener_ends:
                 continue
 
@@ -1668,7 +1684,7 @@ def claude_opens(
                 path = path[: tail.start()]
 
             rest = WHITESPACE.split(
-                string=line[match.end() :],
+                string=block[match.end() :],
                 maxsplit=1,
             )[0]
             opened.append(
@@ -1683,18 +1699,42 @@ def claude_opens(
     return opened
 
 
+def blocks_of(
+    prose: str,
+    starts: list[int],
+) -> list[str]:
+    """The prose cut into its blocks, at each blank line and where `starts` says a block begins, each block's lines joined again."""
+    found: list[str] = []
+    current: list[str] = []
+    begins = set(starts)
+
+    for match in LINE.finditer(prose):
+        line = match.group()
+        if current and (match.start() in begins or not line.strip()):
+            found.append("\n".join(current))
+            current = []
+
+        if line.strip():
+            current.append(line)
+
+    if current:
+        found.append("\n".join(current))
+
+    return found
+
+
 @dataclass(frozen=True)
 class Pairs:
-    """The marker runs on one line that markdown pairs as emphasis, by where each opener ends and where each closer starts."""
+    """The marker runs in one block that markdown pairs as emphasis, by where each opener ends and where each closer starts."""
 
     opener_ends: frozenset[int]
     closer_starts: frozenset[int]
 
 
 def paired_runs(
-    line: str,
+    block: str,
 ) -> Pairs:
-    """The emphasis on one line, paired the way markdown pairs it.
+    """The emphasis in one block, paired the way markdown pairs it, a line end counting as whitespace.
 
     A run is a maximal stretch of `*` or of `_`. It can open when a
     character that is not whitespace follows it, and it can close when
@@ -1709,9 +1749,9 @@ def paired_runs(
     opener_ends: set[int] = set()
     closer_starts: set[int] = set()
 
-    for run in MARKER_RUN.finditer(line):
+    for run in MARKER_RUN.finditer(block):
         can_open, can_close = flanks_of(
-            line=line,
+            block=block,
             run=run,
         )
         partner = None
@@ -1749,12 +1789,12 @@ def nearest_partner(
 
 
 def flanks_of(
-    line: str,
+    block: str,
     run: re.Match,
 ) -> tuple[bool, bool]:
     """Whether the marker run can open emphasis and whether it can close it, by the characters on either side."""
-    before = line[run.start() - 1] if run.start() > 0 else ""
-    after = line[run.end()] if run.end() < len(line) else ""
+    before = block[run.start() - 1] if run.start() > 0 else ""
+    after = block[run.end()] if run.end() < len(block) else ""
     if run.group().startswith("_") and before.isalnum() and after.isalnum():
         return False, False
 
@@ -1764,7 +1804,7 @@ def flanks_of(
 def claude_code_slips(
     name: str,
     text: str,
-    hidden: list[Region],
+    hidden: Blocks,
     project: Path,
 ) -> list[Finding]:
     """The front door's imports as Claude Code reads them.
@@ -1781,11 +1821,14 @@ def claude_code_slips(
     loads_rules = False
     prose = blanked(
         text=text,
-        regions=hidden,
+        regions=hidden.regions,
         kinds=(IN_CODE, IN_COMMENT),
     )
 
-    for opened in claude_opens(prose):
+    for opened in claude_opens(
+        prose=prose,
+        starts=hidden.starts,
+    ):
         if opened.cut_at_backslash:
             backslashed = is_import(
                 bare=with_slashes(bare_of(opened.written)),
@@ -1892,7 +1935,7 @@ ESCAPED_PATH = re.compile(r"(?:[^\s\\]|\\ )+")
 def gemini_cli_slips(
     name: str,
     text: str,
-    hidden: list[Region],
+    hidden: Blocks,
     project: Path,
 ) -> list[Finding]:
     """The front door's imports as Gemini CLI reads them.
@@ -1901,14 +1944,15 @@ def gemini_cli_slips(
     included. Only an `@` at the start or after whitespace opens an
     import, so one right after `*` or `_` opens nothing, and the path is
     every character up to the next whitespace. A backslash ends it at
-    the space, a `#` fragment stays in the name it looks for, and
-    emphasis markers after the path are part of the name.
+    the space and is part of the name anywhere else, a `#` fragment
+    stays in the name it looks for, and emphasis markers after the path
+    are part of the name.
     """
     found: list[Finding] = []
     loads_rules = False
     prose = blanked(
         text=text,
-        regions=hidden,
+        regions=hidden.regions,
         kinds=(IN_CODE,),
     )
 
@@ -1931,6 +1975,20 @@ def gemini_cli_slips(
                     import_finding(
                         name=name,
                         message=f"imports @{escaped.group()} with an escaped space, which Gemini CLI does not read, so the path ends at the backslash there",
+                    )
+                )
+                continue
+
+        if "\\" in path:
+            backslashed = is_import(
+                bare=with_slashes(bare_of(path)),
+                project=project,
+            )
+            if backslashed:
+                found.append(
+                    import_finding(
+                        name=name,
+                        message=f"imports @{path} with a backslash in its path, which Gemini CLI reads as part of the name, so write it with slashes",
                     )
                 )
                 continue
@@ -2041,18 +2099,21 @@ def gemini_cli_slips(
 def unopened_after_markers(
     name: str,
     text: str,
-    hidden: list[Region],
+    hidden: Blocks,
     project: Path,
 ) -> list[Finding]:
     """The imports Claude Code opens right after an emphasis marker, which Gemini CLI never opens, named in a file both agents read."""
     found: list[Finding] = []
     prose = blanked(
         text=text,
-        regions=hidden,
+        regions=hidden.regions,
         kinds=(IN_CODE, IN_COMMENT),
     )
 
-    for opened in claude_opens(prose):
+    for opened in claude_opens(
+        prose=prose,
+        starts=hidden.starts,
+    ):
         if not opened.after_marker or opened.cut_at_backslash:
             continue
 
@@ -2125,28 +2186,32 @@ def climbs_back_in(
     path: str,
     project: Path,
 ) -> bool:
-    """Whether the path climbs above the project's folder and comes back into it by the folder's own name.
+    """Whether the path climbs above the project's folder and comes back into it by retracing the names it climbed out of.
 
-    It is decided from the path's parts alone, never from the disk. The
-    parts are counted as they climb and descend, and a part that
-    descends from one level above the project's folder by the folder's
-    own name is the way back in. A path that climbs out and stays out
-    is looked up like any other.
+    It is decided from the path's parts and the names of the project's
+    own folder and its parents, never from the disk. The path is walked
+    over those names, a `..` stepping up one and a name stepping down
+    into that name, and it comes back in only when, after climbing above
+    the project, its steps down lead to the project's own folder again.
+    A path that climbs out and stays out is looked up like any other.
     """
-    level = 0
+    home = list(project.parts)
+    trail = list(home)
+    climbed_out = False
 
     for part in path.split("/"):
         if part in ("", "."):
             continue
 
         if part == "..":
-            level -= 1
+            if len(trail) > 1:
+                trail.pop()
+            climbed_out = climbed_out or len(trail) < len(home)
             continue
 
-        if level == -1 and part == project.name:
+        trail.append(part)
+        if climbed_out and trail == home:
             return True
-
-        level += 1
 
     return False
 
@@ -2257,18 +2322,10 @@ def spelled_on_disk(
     return "/".join(spelled)
 
 
-@dataclass(frozen=True)
-class Blocks:
-    """What the reading of the blocks finds: the code and comment blocks, and the offsets where a block starts that no span reaches into."""
-
-    regions: list[Region]
-    starts: list[int]
-
-
 def hidden_regions(
     text: str,
-) -> list[Region]:
-    """Where the code and the HTML comments sit, the blocks first and then the spans and comments inside what the blocks leave."""
+) -> Blocks:
+    """Where the code and the HTML comments sit, the blocks first and then the spans and comments inside what the blocks leave, with the offsets where a block starts."""
     blocks = block_regions(text)
     rest = blanked(
         text=text,
@@ -2280,7 +2337,10 @@ def hidden_regions(
         starts=blocks.starts,
     )
 
-    return blocks.regions + spans
+    return Blocks(
+        regions=blocks.regions + spans,
+        starts=blocks.starts,
+    )
 
 
 def block_regions(
