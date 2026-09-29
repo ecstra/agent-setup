@@ -1,8 +1,16 @@
 # The reports
 
 Every report follows SYSTEM.md section 7.6. The state lines come from
-`brain ledger report`, never from memory, and the only counts in prose
-are the hunt counts the shapes below carry. Never a tip line.
+`brain ledger report`, never from memory. Never a tip line.
+
+A report speaks of the review's own run in four lines only, the one
+exception 7.6 names, since the owner measures the review by them. The
+hunts line gives the count of what the hunts found. The cut short line
+names a sub agent the [skill sheet](../SKILL.md) counts as cut short,
+with what it left undone. The time line gives the time the review
+took, from the commit that opened the ledger to the close. The line of
+the last section says that the review ran without sub agents, where it
+did. No other line counts the review's work or tells how it went.
 
 While the owner's standing word holds, a line below that puts the next
 step on the owner's word or asks for the ack, "The batches start on
@@ -29,14 +37,16 @@ Batch 1, <theme>:
 Batch 2, <theme>:
 - ...
 
-Cut short: <the angle and its slice>, after three runs, <the files it never reached, or that candidates past its cap remained>.
-The batches start on your word, all at once or the ones you name.
+Refuted: <the claim, in plain words> (F-nn), <why it is wrong, with the page of the product's docs that says so>.
+Cut short: <the finder, its angle and its slice or the whole range, or the second look of a slice>, <that candidates past its cap remained, or that it stopped twice at its turn cap and reported nothing>.
+The batches start on your word, all at once or the first few in number order.
 ```
 
-After the closing pass the last line names its one batch, "The closing
-pass batch starts on your word." The cut short line appears only when
-a finder ran three times and still ended with (more remain), and it
-goes into every shape below the same way.
+The refuted line appears only for a claim about another product that
+the product's docs refuted before it was filed, a line each. After the
+closing pass the last line names its one batch, "The closing pass
+batch starts on your word." The cut short line appears only when there
+is one, a line each, in this shape and every shape below.
 
 ## When nothing was found
 
@@ -44,14 +54,16 @@ goes into every shape below the same way.
 <the lines brain ledger report prints>
 
 The finders found nothing. No batch, no closing pass.
-Cut short: <the angle and its slice>, after three runs, <the files it never reached, or that candidates past its cap remained>.
-The review took <the time from the commit that opened the ledger to now>.
+Cut short: <the finder, its angle and its slice or the whole range, or the second look of a slice>, <that candidates past its cap remained, or that it stopped twice at its turn cap and reported nothing>.
+The review took <the time, such as 1 h 40 min>.
 The ledger is closed, and the branch is ready to merge on your ask.
 ```
 
-## After a round
+## After the rounds
 
-One report for the round, whatever the count of batches in it.
+The round shape, one report once the last pass is done, for every
+batch the word covered, and once more after the owner's word on a
+finding that cannot be fixed here, as the end of this section says.
 
 ```text
 <the lines brain ledger report prints>
@@ -64,23 +76,32 @@ The hunts found <n> more, fixed above. (or: The hunts found nothing.)
 
 Refuted: <the claim, in plain words> (F-nn), <why it is wrong>.
 Left as it is: <the finding, in plain words> (F-nn), <the reason>.
-Taken over: <the group's files>, after three rounds, <the model in one line and what it leaves out>.
 Cannot be fixed here: <the finding, in plain words> (F-nn), <why>, yours to send to the bugs or not.
+Sent to the bugs: <the finding, in plain words> (F-nn), filed as <the bug, in plain words> (BUG-nnn), on your word.
 Older than the branch: <the defect, in plain words> (BUG-nnn), filed as a bug.
-Cut short: a hunter, after three runs, <the files it never reached, or that candidates past its cap remained>.
-Your call: ack batch <n>, which starts it.
+Cut short: <the sub agent and its slice or group>, <that candidates past its cap remained, or that it stopped twice at its turn cap and answered nothing>.
+Your call: ack batches <n> to <m>, which starts them, all at once or the first few in number order.
 ```
 
-The refuted, left, taken over, cannot and older lines appear only when
-there is one, a line each, and the cut short line only when a hunter
-ran three times and still ended with (more remain). When no batch is
-left pending, there is none to ack, and the closing line says instead
-what comes, the closing pass where house rule 7 owes one. Where none
-is owed, the ledger closes with no word and the report ends with the
-two lines that close every review, "The review took 1 h 40 min." and
-"The ledger is closed, and the branch is ready to merge on your ask."
-The time runs from the commit that opened the ledger to the close,
-and git gives it.
+The refuted, left, cannot, sent and older lines appear only when there
+is one, a line each. While a batch stays open for a finding that
+cannot be fixed here, the closing line asks the owner's word on that
+finding first, which a standing word does not give, "Your call: your
+word on the finding that cannot be fixed here, which keeps batch 3
+open." Otherwise it asks for the pending batches, and names one left
+alone as in "Your call: ack batch 4, which starts it." With none
+pending it asks for the closing pass where house rule 7 owes one.
+Where none is owed, the ledger closes with no word and the report
+ends with the two lines that close every review, "The review took
+1 h 40 min." and "The ledger is closed, and the branch is ready to
+merge on your ask."
+
+A word that sends the finding to the bugs or leaves it as it is starts
+no round. The report then comes again in this shape with nothing fixed
+and no hunts line, the finding on its sent or left line, and its
+closing line asks for what comes next or ends the review, as the
+paragraph above says. A word that names how to fix the finding starts
+a round, which reports like any other.
 
 ## After the closing pass
 
@@ -88,8 +109,8 @@ and git gives it.
 <the lines brain ledger report prints>
 
 The closing pass found nothing. (or: The closing pass's findings are acked and fixed above.)
-Cut short: <the angle and its slice>, after three runs, <the files it never reached, or that candidates past its cap remained>.
-The review took <the time from the commit that opened the ledger to now>.
+Cut short: <the finder, its angle and its slice or the whole range>, <that candidates past its cap remained, or that it stopped twice at its turn cap and reported nothing>.
+The review took <the time, such as 1 h 40 min>.
 The ledger is closed, and the branch is ready to merge on your ask.
 ```
 

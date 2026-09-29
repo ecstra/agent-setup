@@ -10,26 +10,26 @@ filed, at every level.
 | low | scan |
 | medium | scan, removed, callers, rules |
 | high | scan, removed, callers, pitfalls, rules, tests, docs |
-| max | every angle |
+| max | scan, removed, callers, pitfalls, wrappers, rules, tests, docs, reuse, simplification, efficiency, altitude |
 
 Low fits a small mechanical branch. Medium is the floor for anything
 that touches logic or changes an interface. High is the usual level for
 a feature branch. Max is for a wide surface or subtle logic. A finder
-returns up to 20 candidates, since a narrower cap sends a finder round
-again over a slice it has already read. The second look follows the
-angles at every level, once. Which levels owe the closing pass is
+returns up to 20 candidates. The second look, the last brief below, is
+in no level's set. It follows the angles at every level, once per
+slice, and never in the closing pass, as the
+[skill sheet](../SKILL.md) says. Which levels owe the closing pass is
 house rule 7.
 
 An angle reads by slice or reads the whole branch. One that judges the
 changed lines themselves reads by slice, one finder per slice, so each
-has little enough to read in one run. One that follows a change to
-where it lands, a caller, a guard that moved, a doc, reads the whole
-branch, one finder over the whole range, since a slice would cut the
-path it follows.
+has little enough to read in one run. One that follows a change out of
+its own lines to where it lands reads the whole branch, one finder over
+the whole range, since a slice would cut the path it follows.
 
 | Reads | Angles |
 |---|---|
-| by slice | scan, pitfalls, rules, tests, reuse, simplification, efficiency, altitude, the second look |
+| by slice | scan, pitfalls, rules, tests, reuse, simplification, efficiency, altitude |
 | the whole branch | removed, callers, wrappers, docs |
 
 ## scan, the line by line read
@@ -113,16 +113,16 @@ an exit code.
 
 ## reuse, simplification and efficiency, the cleanup angles
 
-Three angles, one finder each, run at max. Reuse looks for new code
-that does what a helper in the codebase already does, found by grep
-through Bash in the shared and the adjacent modules, and names the
-helper. Simplification looks for complexity the diff adds with no
-observable effect, redundant or derivable state, copy and paste with
-one variation, deep nesting, dead code left behind, and names the
-simpler form. Efficiency looks for wasted work the diff introduces, a
-repeated read or computation, independent work run in sequence,
-blocking work on a hot path, and names the cheaper form. A cleanup
-candidate states its cost in the scenario field instead of a failure.
+Three angles run at max. Reuse looks for new code that does what a
+helper in the codebase already does, found by grep through Bash in the
+shared and the adjacent modules, and names the helper. Simplification
+looks for complexity the diff adds with no observable effect, redundant
+or derivable state, copy and paste with one variation, deep nesting,
+dead code left behind, and names the simpler form. Efficiency looks for
+wasted work the diff introduces, a repeated read or computation,
+independent work run in sequence, blocking work on a hot path, and
+names the cheaper form. A cleanup candidate states its cost in the
+scenario field instead of a failure.
 
 ## altitude, the fix at the wrong depth
 
@@ -132,12 +132,9 @@ the candidate names the simpler general change.
 
 ## the second look, the gaps after everything else
 
-Run at every level, one finder per slice, spawned once the angles have
-returned, beside the merge, with the candidates of its own slice as
-its already found list. It runs once and is never repeated. The
-closing pass runs the angles and no second look. The finder re
-reads the slice's diff and the enclosing functions looking only for
-defects not already on the list, such as moved or extracted code that
-dropped a guard, a default evaluated once, a lock scope that shrank, a
-predicate with a side effect, a config default flipped. It returns
-nothing when there is nothing new.
+The finder re reads the slice's diff and the enclosing functions
+looking only for defects not among the blocks under Already found,
+such as moved or extracted code that dropped a guard, a default
+evaluated once, a lock scope that shrank, a predicate with a side
+effect, a config default flipped. It returns nothing when there is
+nothing new.
