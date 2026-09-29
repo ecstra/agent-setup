@@ -21,6 +21,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional, Protocol, TextIO, Union
+from urllib.parse import unquote
 
 from . import doctor, frontmatter, schema, sections, store, style
 
@@ -666,24 +667,31 @@ def check(
 ) -> tuple[list[doctor.Finding], list[doctor.Finding]]:
     """Doctor with --fix over the brain as installed: what it could not clear in the project's files, and what sits in the kit's own.
 
-    A finding in one of the brain's files the kit ships, or under one of
-    its skill folders, is in a file the install replaces every time, so
-    it is the kit's to put right, reported apart and never counted
-    against the project. Each finding lands on one side or the other by
-    its place in doctor's list, so two equal slips in AGENTS.md, one in
-    the kit's words and one in section 0, are one for each.
+    A finding in one of the brain's files the kit ships, under one of its
+    skill folders, or in a file of the agent folders the kit copies
+    whole, is in a file the install replaces every time, so it is the
+    kit's to put right, reported apart and never counted against the
+    project. So is an import finding in a front door that the kit's own
+    text of that door gives too. Each finding lands on one side or the
+    other by its place in doctor's list, so two equal slips in
+    AGENTS.md, one in the kit's words and one in section 0, are one for
+    each.
     """
     found = doctor.run(brain=store.Brain(root=project.brain), fix=True)
     names = store.skill_folders(kit.brain)
     shipped = set(kit.brain_files())
-    in_kits_words = Counter(
-        finding.message
-        for finding in doctor.import_slips(
-            name="AGENTS.md",
-            text=kit.text(Path("AGENTS.md")),
-            project=project.root,
+    copied = {relative for relative in kit.agent_files() if relative.name not in MERGED} | set(style.COPIES)
+    in_kits_words = {
+        name: Counter(
+            finding.message
+            for finding in doctor.import_slips(
+                name=name,
+                text=kit.text(Path(name)),
+                project=project.root,
+            )
         )
-    )
+        for name in FRONT_DOORS
+    }
     projects: list[doctor.Finding] = []
     kits: list[doctor.Finding] = []
     for finding in found:
@@ -691,6 +699,7 @@ def check(
             finding=finding,
             names=names,
             shipped=shipped,
+            copied=copied,
             in_kits_words=in_kits_words,
         ):
             kits.append(finding)
@@ -704,31 +713,38 @@ def kits_own(
     finding: doctor.Finding,
     names: list[str],
     shipped: set[Path],
-    in_kits_words: Counter[str],
+    copied: set[Path],
+    in_kits_words: dict[str, Counter[str]],
 ) -> bool:
     """Whether a doctor finding sits in what the install writes whole.
 
     That is one of the brain's files the kit ships, named relative to
     the brain in `shipped`, or anything else in one of the named skill
-    folders, its path spelled from the brain or from the project root,
-    an import slip in CLAUDE.md or GEMINI.md, which the install writes
-    as the kit's text, or an import slip in AGENTS.md that the kit's own
-    words below the marker carry too, since the part above them is the
-    project's section 0. The kit's words give each such slip so many
-    times, and every one taken for the kit's comes off its count in
-    `in_kits_words`, so the same slip once more is the project's. An
-    import slip is known by its check, so a project file of the same
-    name inside the brain is never taken for a front door.
+    folders, its path spelled from the brain or from the project root.
+    It is a file of the agent folders in `copied`, named from the
+    project root, which the install copies whole or doctor makes from
+    the kit's chat style source, a merged config never. It is an import
+    finding in a front door that the kit's own text of that door gives
+    too, as the install writes CLAUDE.md and GEMINI.md as the kit's
+    text and AGENTS.md below the marker as the kit's words, the part
+    above them being the project's section 0. The kit's text gives each
+    such finding so many times, and every one taken for the kit's comes
+    off its count in `in_kits_words`, so the same finding once more is
+    the project's, and so is one the kit's text never gives, a door
+    that is missing, misspelled or cannot be read. An import finding is
+    known by its check, so a project file of the same name inside the
+    brain is never taken for a front door.
     """
     if finding.check == "import":
-        if finding.path != "AGENTS.md":
-            return True
-
-        if in_kits_words[finding.message] < 1:
+        left = in_kits_words.get(finding.path)
+        if left is None or left[finding.message] < 1:
             return False
 
-        in_kits_words[finding.message] -= 1
+        left[finding.message] -= 1
 
+        return True
+
+    if Path(finding.path) in copied:
         return True
 
     parts = Path(finding.path).parts
@@ -1011,9 +1027,10 @@ def is_the_kit(
     """Why the project gets nothing installed, being the kit's own checkout, or None when it is not.
 
     The same folder under any spelling, or another checkout of the
-    kit's repository, a worktree or a clone however many local clones
-    away. The kit is where the tool's code is the work, so it never gets
-    the read guard and never has its own files written over.
+    kit's repository, a worktree, a clone of the kit's origin, or a
+    clone at most ORIGIN_HOPS local clones away. The kit is where the
+    tool's code is the work, so it never gets the read guard and never
+    has its own files written over.
     """
     if store.quietly(lambda: kit.root.samefile(project.root)):
         return "the kit is the project, there is nothing to install"
@@ -1046,19 +1063,29 @@ def same_repository(
 
 def ancestry(
     folder: Path,
-) -> set[Union[tuple[int, int], str]]:
+) -> set[Union[tuple[int, int], Path, str]]:
     """The repositories a checkout comes from, its own and each local origin's in turn, then the remote one it names.
 
-    A repository is recorded by the identity of its git common dir, so
-    a worktree and every spelling of the path read the same. A local
-    origin, a file URL or a plain path to a folder that is there, is
-    walked on from, at most ORIGIN_HOPS times and never into a
-    repository already recorded. An origin that is a URL is recorded as
-    the repository it names and ends the walk.
+    Each folder the walk stands in is recorded by its own identity
+    before git is asked anything about it, so two clones of one folder
+    meet there even when git cannot open it, and then by the identity
+    of its git common dir, so a worktree and every spelling of the path
+    read the same. A local origin, a file URL or a plain path, is
+    resolved against the folder it was read in. One that is a folder
+    is walked on from, at most ORIGIN_HOPS times and never into a
+    folder already recorded, and one that is not there is recorded by
+    its resolved path and ends the walk. An origin that is a remote URL
+    is recorded as the repository it names and ends the walk too.
     """
-    found: set[Union[tuple[int, int], str]] = set()
+    found: set[Union[tuple[int, int], Path, str]] = set()
 
     for _ in range(ORIGIN_HOPS + 1):
+        place = identity(folder)
+        if place is None or place in found:
+            return found
+
+        found.add(place)
+
         here = Project(root=folder)
         common = git(
             project=here,
@@ -1068,10 +1095,8 @@ def ancestry(
             return found
 
         repository = identity(folder / common.stdout.strip())
-        if repository is None or repository in found:
-            return found
-
-        found.add(repository)
+        if repository is not None:
+            found.add(repository)
 
         origin = git(
             project=here,
@@ -1081,9 +1106,16 @@ def ancestry(
             return found
 
         url = origin.stdout.strip()
-        checkout = folder / local_checkout(url)
-        if not store.quietly(checkout.is_dir):
+        checkout = local_origin(
+            folder=folder,
+            url=url,
+        )
+        if checkout is None:
             found.add(repository_named(url))
+            return found
+
+        if not store.quietly(checkout.is_dir):
+            found.add(checkout)
             return found
 
         folder = checkout
@@ -1115,11 +1147,32 @@ def is_a_top(
     return answered(top) and store.quietly(lambda: Path(top.stdout.strip()).samefile(folder))
 
 
-def local_checkout(
+def local_origin(
+    folder: Path,
     url: str,
-) -> Path:
-    """The folder a local origin names, a file URL or a plain path, its `.git` taken off."""
-    path = Path(url[len("file://") :] if url.startswith("file://") else url)
+) -> Optional[Path]:
+    """The folder a local origin names, resolved against the folder it was read in with its `.git` taken off, or None for a remote URL.
+
+    Git's own rule tells them apart: a file URL is local, any other
+    scheme is remote, and text with no scheme is a local path unless a
+    colon comes before its first slash, which makes it host:path, a
+    drive letter aside. A file URL keeps its percent escapes in the
+    config, `my%20kit` for `my kit`, so they are decoded.
+    """
+    if url.startswith("file://"):
+        named = unquote(url[len("file://") :])
+    elif "://" in url:
+        return None
+    else:
+        colon = url.find(":")
+        slash = url.find("/")
+        host_and_path = colon != -1 and not 0 <= slash < colon
+        if host_and_path and not Path(url).drive:
+            return None
+
+        named = url
+
+    path = Path(os.path.realpath(folder / named))
 
     return path.parent if path.name == ".git" else path
 
@@ -1769,8 +1822,16 @@ def same_as_kit(
     A port followed by an upgrade before a commit leaves every kit file
     untracked and identical, and a project that ignores an agent folder
     leaves the kit's files there ignored and identical. Only a file that
-    maps to one the kit copies whole can be judged this way.
+    maps to one the kit copies whole can be judged this way, and the
+    version stamp, which the run never copies but writes as the kit's
+    stamp trimmed, so it is judged against that text.
     """
+    if Path(relative) == Path(FOLDER) / VERSION:
+        return says(
+            path=project.root / relative,
+            text=kit.version() + "\n",
+        )
+
     source = kit_source(relative)
     if source is None:
         return False
