@@ -16,6 +16,9 @@ from . import frontmatter, schema
 # what the store notes for a folder it could not list, beside the files it could not read
 UNLISTED = "cannot be listed"
 
+# the hosts Windows serves a WSL distro's files under, casefolded
+WSL_HOSTS = ("wsl.localhost", "wsl$")
+
 
 class StoreError(Exception):
     """The brain is missing, or something in it cannot be read."""
@@ -289,10 +292,12 @@ class Brain:
         same folder on disk, given absolute or read from the current
         folder. A path that is not absolute here is also taken when its
         folders are the last ones of the project's own path, which is
-        how git prints a path from a top above the project. A Windows
-        path under a drive or a share, on a system that does not read it
-        as one, is judged that way by its folders below the drive or
-        share, since it cannot name a file here.
+        how git prints a path from a top above the project.
+
+        A Windows path, with a drive letter or a share in front, on a
+        system that does not read it as one, is this project only when
+        the folder it names inside WSL, as `wsl_parts` reads it, is the
+        project's whole path. Outside WSL it is never a folder here.
         """
         project: Path = self.root.parent
         expanded: str = os.path.expanduser(folder)
@@ -309,12 +314,14 @@ class Brain:
             return True
 
         windows = PureWindowsPath(expanded)
-        # POSIX reads a share, //wsl.localhost/Ubuntu/..., as absolute, so this is settled before the refusal below
-        foreign_drive: bool = bool(windows.drive and windows.root) and not Path(expanded).drive
-        if Path(expanded).is_absolute() and not foreign_drive:
+        # POSIX reads a share, //wsl.localhost/Ubuntu/..., as absolute, so a Windows path is settled before the refusal below
+        if windows.drive and windows.root and not Path(expanded).drive:
+            return wsl_parts(windows) == project.parts
+
+        if Path(expanded).is_absolute():
             return False
 
-        folders: tuple[str, ...] = windows.parts[1:] if foreign_drive else PurePosixPath(expanded).parts
+        folders: tuple[str, ...] = PurePosixPath(expanded).parts
 
         return folders == project.parts[-len(folders) :]
 
@@ -393,6 +400,35 @@ class Brain:
             return folder / f"{self.next_id(kind)}-{slug}.md"
 
         return folder / f"{slug}.md"
+
+
+def wsl_parts(
+    windows: PureWindowsPath,
+) -> Optional[tuple[str, ...]]:
+    """The folders a Windows path names inside the WSL distro the tool runs in, or None when it names none.
+
+    The distro is the one WSL_DISTRO_NAME names, and outside WSL the
+    variable is unset, so no Windows path names a folder there. A drive
+    letter path is that letter's folder under /mnt, the letter lowered.
+    A share is the distro's root only when its host is wsl.localhost or
+    wsl$ and the share is the distro, both in any case.
+    """
+    distro: str = os.environ.get(
+        "WSL_DISTRO_NAME",
+        "",
+    )
+    if distro == "":
+        return None
+
+    below_drive: tuple[str, ...] = windows.parts[1:]
+    if not windows.drive.startswith("\\\\"):
+        return ("/", "mnt", windows.drive[0].lower(), *below_drive)
+
+    host, _, share = windows.drive[2:].partition("\\")
+    if host.casefold() not in WSL_HOSTS or share.casefold() != distro.casefold():
+        return None
+
+    return ("/", *below_drive)
 
 
 def hidden(
