@@ -120,15 +120,17 @@ at an open entry that points at the old one.
 ## A review
 
 ```bash
+brain slices main...HEAD --size 300
 brain ledger open feat/billing --level high --summary - <<'EOF'
 The billing branch, six commits.
 EOF
 brain ledger batch 2026-09-feat-billing --theme correctness
 brain ledger add 2026-09-feat-billing - --severity breaks --batch 1 <<'EOF'
 the guard is inverted
+the guard's message names the wrong file
 EOF
 brain ledger batch 2026-09-feat-billing 1 --status fixing --ack 2026-09-16
-brain ledger set 2026-09-feat-billing F-01 status=fixed fix=abc1234
+brain ledger set 2026-09-feat-billing F-01 F-02 status=fixed fix=abc1234
 brain ledger batch 2026-09-feat-billing 1 --status verified
 brain ledger batch 2026-09-feat-billing 1 --status done
 brain ledger report 2026-09-feat-billing
@@ -137,10 +139,14 @@ brain ledger batch 2026-09-feat-billing 2 --status done
 brain ledger close 2026-09-feat-billing
 ```
 
-Findings and batches number themselves. A batch that holds findings
-runs only on the owner's ack, the word that starts it, given as a date
-or as `auto` while the owner's standing word holds, and verification
-closes it, `report` says where the review stands and what comes next,
+`slices` cuts a range into slices for the review's finders, from git's
+own line counts. Findings and batches number themselves, five batches
+at most, and `set` takes every finding a group's commit fixed in one
+call. The ledger keeps a clock of its own steps. A batch that holds
+findings runs only on the owner's ack, the word that starts it, given
+as a date or as `auto` while the owner's standing word holds, and
+verification closes it, `report` says where the review stands, the
+time it has taken and what comes next,
 the closing pass leaves a batch of its own, empty when it found
 nothing, and `close` refuses while any finding is still open or the
 report names a step before the close. The standing word is

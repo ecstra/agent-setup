@@ -2,7 +2,7 @@
 name: house-rules-agent
 kind: doc
 description: the branch contract and code review protocol, the agent's operating version
-updated: 2026-09-24
+updated: 2026-09-29
 links: [spec/reviews.md, spec/bugs.md, spec/todos.md, README.md]
 ---
 
@@ -55,40 +55,50 @@ suites or a brain with broken links.
    reaches for one nor asks for it by name. Codex `/review --base main`
    (GPT) is a second pair of eyes the owner can add. All of it works on
    the local branch, whether or not a PR is open yet.
-2. **Findings first, whole.** The finding pass runs one finder sub
-   agent per angle, all at once, then verifiers over the candidates,
-   a few at a time grouped by file, so what reaches the ledger has
-   been checked against the code. The agent reports every finding ranked by severity before
+2. **Findings first, whole.** The finding pass cuts the branch into
+   slices and runs finder sub agents over them, one per slice and
+   angle, all at once, then looks again until a look finds nothing
+   new. Every candidate is filed, the rare and the small included,
+   since a fixer proves a claim with a failing test before it changes
+   anything. The agent reports every finding ranked by severity before
    touching anything. No fixing during reporting, no silent triage.
 3. **The ledger.** All findings land in
    `.agents/reviews/<yyyy-mm>-<branch-slug>/ledger.md` per
    [spec/reviews.md](spec/reviews.md): severity graded (breaks, bug,
    debt, nit), split into themed batches ordered by severity,
-   correctness first, nits last. A finding not worth fixing gets a
-   written reason, so no future review re litigates it.
-4. **The batch loop.** One batch at a time, and inside it everything
-   that can run at once does so.
-   - Fix the batch, one commit per fix, the hash recorded beside the
-     finding.
-   - A hunter sub agent sweeps the batch's scope for related bugs the
-     review missed, and beside it verifier sub agents, a few findings
-     each grouped by file, check bug wise, not code wise, that each bug
-     is actually gone and nothing new surfaced. Hunter finds enter the
-     ledger as findings
-     (`found-by: hunter`) and are fixed in the same batch. No backlog.
-   - After a follow up commit, the verifier it concerns is resumed and
-     told to re read the changed lines. The loop stops at the first
-     pass where every verifier says gone and every hunter that ran has
-     returned with its finds handled.
-   - Sub agents run in parallel. They never edit, never commit, never
-     write the ledger and never run the suite, which the gates run once
-     per commit in the main session.
+   correctness first, nits last, five batches at most. A finding not
+   worth fixing gets a written reason, so no future review re
+   litigates it.
+4. **The round of fixes.** Every batch that has the owner's word is
+   fixed in one round, and inside it everything that can run at once
+   does so.
+   - The round's findings are grouped by file, and each group has one
+     fixer sub agent. It names the cause, writes a failing test over
+     the claim and its sibling cases, then fixes the cause and never
+     the one line.
+   - A verifier sub agent per group checks bug wise, not code wise,
+     that each bug is actually gone, its sibling cases with it, and
+     that nothing new surfaced. What still stands goes back to the
+     fixer, three rounds at most, and then the main agent takes the
+     group and writes its model before any more code.
+   - Once every group is quiet the gates run once, and each group
+     becomes one commit, its hash recorded beside every finding of the
+     group.
+   - Hunter sub agents sweep what the round changed. Their finds enter
+     the ledger as findings (`found-by: hunter`) and the next round
+     fixes them. No backlog. The rounds stop at the first hunt that
+     finds nothing.
+   - Sub agents run in parallel. Only a fixer edits, and only the files
+     of its group. None commits, none writes the ledger and none runs
+     the whole suite, which the gates run once per round in the main
+     session.
 5. **Batch close.** Mark it in the ledger, report to the owner, and name
-   anything unfixable in scope. Unfixables defer into `.agents/bugs/` as
-   their own files, linked both ways, and earn a future branch sparingly,
-   on the owner's call.
-6. **The owner's ack gates each batch.** The next batch starts only when
-   they say so. The ack is that word to start a batch, recorded on the
+   anything that cannot be fixed inside the branch. Such a finding
+   leaves for `.agents/bugs/` on the owner's word alone, as its own
+   file, linked both ways, and earns a future branch sparingly.
+6. **The owner's ack gates each batch.** A batch starts only when they
+   say so, and a word that covers several starts them together. The
+   ack is that word to start a batch, recorded on the
    batch it starts, and verification is what closes a batch. A standing
    word, `brain ack on` with an end by time or by task, is the ack for
    every gate of the review until that end, each batch and the closing
@@ -100,13 +110,15 @@ suites or a brain with broken links.
    A standing word with no end is not taken, the agent proposes one and
    waits. Nothing starts a review but the owner's own word.
 7. **The closing pass.** Above low, the branch gets one more pass over
-   itself as it stands after the last batch, to catch what the fixes
-   introduced and what the review missed. Sweeps skip this.
+   itself, whole, as it stands after the last batch, by fresh finders,
+   to catch what the fixes introduced and what the review missed.
+   Sweeps skip this.
 
 ## Git rules
 
 - Commits are allowed and expected: one commit per change, so every
-  change is undoable and addressable by hash.
+  change is undoable and addressable by hash. In a review the change
+  is a group's fixes, one commit per group.
 - Single author, no co-author, no AI attribution anywhere: not in
   commits, not in PR titles or bodies, no generated-with footers.
 - Commit messages in the owner's voice: added:/fixed:/improved:/updated:/

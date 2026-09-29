@@ -27,7 +27,7 @@ written record of what the project knows.
 | `.agents/SYSTEM.md` | The rulebook. How to write code, how to talk to you, where docs go, how a branch gets reviewed, how git is used. |
 | `.agents/` | The project's memory. Docs, plans, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
 | `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
-| `.agents/skills/branch-review/` | The code review, run on your word. Finder sub agents in parallel, one per angle, verifiers a few findings each grouped by file, the findings filed in a ledger, then fixes batch by batch with a hunter and verifiers until clean, and a report that says where things stand first. |
+| `.agents/skills/branch-review/` | The code review, run on your word. Finder sub agents in parallel, one per slice of the branch and angle, the findings filed in a ledger, then fixer sub agents in parallel, one per group of files, each group checked by a verifier and each round swept by hunters until clean, and a report that says where things stand first. |
 | `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
 | `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so the brain is checked without anyone asking and the clock, your standing word and the work the agent is on stay in front of it, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
@@ -192,7 +192,7 @@ prompt below if the agent did not run the port itself.
    the tool's doctor with `--fix` and leaves the brain clean.
 7. **Hand you the branch**: you say when it is ready for review, and
    the agent runs the review the way the house rules describe, findings
-   in a ledger, fixed batch by batch with your ack on each. Then it
+   in a ledger, fixed in rounds on your ack of the batches. Then it
    opens the PR and merges, both on your ask. When the PR opens and
    whether as a draft is your project's own rule in section 0, so the
    agent never asks. After that the root holds `README.md`, `AGENTS.md`,
@@ -313,7 +313,8 @@ need to, but the commands are short enough to know.
 | `brain task on <entry>` | The work the agent is on, one chain at a time from a plan down to the step, which the agent sets before multi step work and moves with `brain task done`, a mark in the entry's own steps table, or which moves of itself when the entry a step points at closes, a refiled one handing the step on to the entry filed in its place. The agent cannot start a second piece of work while one stands, short of `--replace` on your word, and a link falls off the chain when its entry closes. |
 | `brain doctor` and `brain doctor --fix` | Checks every file against its spec, and `--fix` repairs the mechanical slips, a stale index, a link written as a name, a chat style copy that drifted. |
 | `brain new`, `brain set`, `brain refile` | Files a plan, a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
-| `brain ledger` | Opens, fills and closes a code review ledger, batch by batch, and `brain ledger report` says where a review stands, counted from the file. |
+| `brain ledger` | Opens, fills and closes a code review ledger, and `brain ledger report` says where a review stands and the time it has taken, counted from the file. |
+| `brain slices` | Cuts a branch's changes into slices for the review's finders, from git's own line counts, so each finder has little enough to read in one run. |
 | `brain ack on --for 8h` | Your standing word to proceed, for a time or until a task is done, so the agent passes the review's gates that normally wait for you, the house rules name them, and each report says which ack the step ran on. It never starts a review, and the PR and the merge still wait for your ask. `brain ack off` takes it back. |
 | `brain port` and `brain upgrade` | The two commands above, run from a kit checkout against your project. |
 

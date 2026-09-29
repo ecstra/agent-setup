@@ -1,6 +1,6 @@
 ---
 name: branch-review
-description: The kit's code review, run on the owner's word over one branch. Finder sub agents in parallel by angle, verifiers by findings grouped by file, the ledger through the brain tool, then the batch loop of fixes, hunter and verifiers until clean. Use it when the owner asks for a review, and never start one on your own.
+description: The kit's code review, run on the owner's word over one branch. Finder sub agents in parallel by slice and angle, the ledger through the brain tool, then rounds of fixes by fixer sub agents in parallel by file group, each checked by a verifier and swept by a hunter until clean. Use it when the owner asks for a review, and never start one on your own.
 argument-hint: [low|medium|high|max] [<base>...<head>]
 ---
 
@@ -9,13 +9,21 @@ argument-hint: [low|medium|high|max] [<base>...<head>]
 The review protocol of [house-rules.md](../../house-rules.md), run by
 the agent. The level names how wide the finding pass goes and never how
 hard the model thinks, which is the session's effort and the owner's to
-set. Sub agents do the reading and the judging wherever the agent has
-them, and the last section says what to do without them.
+set. Sub agents do the reading, the fixing and the judging wherever the
+agent has them, and the last section says what to do without them. The
+main session coordinates. It cuts the work, briefs the sub agents, files
+what they return, runs the gates and commits.
 
 ## What holds throughout
 
 - The owner said "review". The agent never decides a branch is ready,
   and no standing word starts one.
+- Every finding gets fixed. None is dropped for being rare or small,
+  and none is left for later on the agent's own call. A finding leaves
+  the open list as fixed, as refuted once a verifier agrees the claim
+  is wrong, or as wontfix with a reason the report names. One that
+  cannot be fixed inside the branch is named in the report with the
+  reason, and it leaves for `.agents/bugs/` on the owner's word alone.
 - Every gate of the review that waits for the owner's word, house rule
   6 names them, first asks `brain ack`. While the owner's standing word
   holds, the gate passes, the batch takes `--ack auto`, or starts on
@@ -30,48 +38,58 @@ them, and the last section says what to do without them.
   and ends when it closes, or a time tonight, and nothing is recorded
   until they answer.
 - Every sub agent gets the scope, one fetch command to run first, its
-  angle or its findings, and the block shape it returns. It never gets
-  the diff pasted in and never hears what the main session thinks.
-- A sub agent returns blocks, one per candidate or verdict, in the
+  slice and its angle or its findings, and the block shape it returns.
+  It never gets the diff pasted in and never hears what the main
+  session thinks.
+- A sub agent returns blocks, one per candidate, fix or verdict, in the
   shapes [references/prompts.md](references/prompts.md) gives. The main
   session files them with the brain tool and never re reads what a sub
   agent read.
-- Sub agents never edit, never commit, never run the test suite and
-  never write the ledger. Verifiers judge from the code, and the gates
-  run the suite once per commit in the main session.
-- Parallel wherever it can be. Finders by angle, verifiers by findings,
-  the hunter beside the verifiers. A verifier takes up to six
-  candidates or findings, a file's stay together, and files with fewer
-  share one verifier that gets the file list, so the count follows the
-  findings and a branch of many files never means many verifiers. In
-  Claude Code no more than twenty sub agents run at once, and a wider
-  pass runs in waves. Ledger writes are the one exception and go one
-  at a time, since the tool holds no lock and two at once would lose
-  one.
-- One commit per fix, pushed after each, the hash in the ledger.
+- Finders, verifiers and hunters read and judge. They never edit, never
+  commit, never run the test suite and never write the ledger. A fixer
+  edits the files of its group and no other, runs the tests of those
+  files and never the whole suite, and never commits or writes the
+  ledger. The main session runs the gates, commits and writes the
+  ledger.
+- Parallel wherever it can be. Finders by slice and angle, fixers by
+  group, a verifier per group, hunters by slice of what a round
+  changed. In Claude Code no more than twenty sub agents run at once,
+  and a wider pass runs in waves. Ledger writes are the one exception
+  and go one at a time, since the tool holds no lock and two at once
+  would lose one.
+- One commit per group of fixes, pushed, its hash on every finding of
+  the group. The gates run once per round, when every group is quiet.
+- The main session stays small, since every call costs what the
+  caller's context holds. A review starts in a fresh session where the
+  agent can, and the main session reads no code a sub agent can read
+  for it, a group it takes over aside. A sub agent whose last report
+  shows its context past about 250k tokens is not resumed again. A
+  fresh one takes its place with the replacement brief of
+  [references/prompts.md](references/prompts.md).
 - Every report follows [references/report.md](references/report.md),
   and the rule behind it is SYSTEM.md section 7.6.
 - In Claude Code the sub agents are the definitions under
-  `.claude/agents/`, on Opus at the session's effort, with Read and
-  Bash. Claude Code reads them when a session starts, so after a port,
-  an upgrade or an edit to a definition the running session keeps the
-  old text, or has none, until it restarts. The prompt carries every
-  rule and every shape on its own, so the review runs the same either
-  way, and a session with no definition spawns a general purpose sub
-  agent with the definition's text at the top of its prompt. Another
-  agent uses the strongest model it has. Each definition caps the turns
-  a sub agent may take, wide enough for a finder to read a large branch
-  file by file. One that stops at its cap has read and not reported, so
-  it is resumed once with the cap resume line of
-  [references/prompts.md](references/prompts.md), a hunter included. A
-  finder or a hunter whose report ends with (more remain) had more
-  candidates than its cap, or files it never reached, and runs again,
-  fresh, with every block reported so far by every run pasted under
-  Already found, and, after a cap resume, with the files it named
-  unread as its file list. A finder runs at most three times in a pass
-  and a hunter three times in a batch, each hunter counted on its own,
-  and a report names one cut short that way, with the files it never
-  reached, or that candidates past its cap remained.
+  `.claude/agents/`, on Opus at the session's effort. The finder, the
+  verifier and the hunter have Read and Bash, and the fixer has Edit
+  and Write besides. Claude Code reads them when a session starts, so
+  after a port, an upgrade or an edit to a definition the running
+  session keeps the old text, or has none, until it restarts. The
+  prompt carries every rule and every shape on its own, so the review
+  runs the same either way, and a session with no definition spawns a
+  general purpose sub agent with the definition's text at the top of
+  its prompt. Another agent uses the strongest model it has. Each
+  definition caps the turns a sub agent may take, wide enough for a
+  finder to read its slice file by file. One that stops at its cap has
+  read and not reported, so it is resumed once with the cap resume
+  line of [references/prompts.md](references/prompts.md), a hunter
+  included. A finder or a hunter whose report ends with (more remain)
+  had more candidates than its cap, or files it never reached, and
+  runs again, fresh, with every block reported so far by every run
+  pasted under Already found, and, after a cap resume, with the files
+  it named unread as its file list. A finder runs at most three times
+  in a pass and a hunter three times in a round, each counted on its
+  own, and a report names one cut short that way, with the files it
+  never reached, or that candidates past its cap remained.
 
 ## The gates
 
@@ -104,21 +122,43 @@ it file by file, tracked and untracked alike, the kit's files left out
 the same way, and a prompt names an untracked file as one to read
 whole, since no diff shows it.
 
+## The slices
+
+```bash
+brain slices main...HEAD --size 300
+```
+
+Run from the project's root, the command cuts the range into slices
+from git's own line counts and prints them, each a list of files. A
+test file rides with its code file, docs go together, and a file too
+big for one slice is cut at its functions and listed with the lines of
+each part, which a finder can take since it only reads. What the scope
+leaves out is left out here with git's own pathspecs after the range,
+such as `':!.agents/skills'`. An uncommitted file no diff shows joins
+the slice that holds its neighbours, by hand.
+
+Pick the size so the finders of the pass fit one wave where they can,
+and never above 400. A finder with more to read than it can report in
+one run has to run again, and those runs come one after another, which
+is where a finding pass loses its time.
+[references/angles.md](references/angles.md) says which angles read by
+slice and which read the whole branch.
+
 ## The finding pass
 
 1. Open the ledger before anything is found, so the review's folder
-   exists the moment it starts, with the level recorded. The summary
-   comes in on standard input like every line the agent writes from the
-   branch, so the shell never touches it. The open puts the review on
-   the current work chain, under the todo or the bug the work is on,
-   which is the one it reviews when the work was set as the rule asks,
-   or as the root when nothing is on, and every hook line then names
-   the batch the review stands at. When the chain keeps it off, the
-   open says so, and the review goes on with `brain task on <its key>`
-   once the work in the way is finished or dropped with
-   `brain task off`, or with `--replace` on the owner's word, and once
-   a step points at it, under the plan, the todo or the bug whose
-   current step that is.
+   exists the moment it starts, with the level recorded and the clock
+   started. The summary comes in on standard input like every line the
+   agent writes from the branch, so the shell never touches it. The
+   open puts the review on the current work chain, under the todo or
+   the bug the work is on, which is the one it reviews when the work
+   was set as the rule asks, or as the root when nothing is on, and
+   every hook line then names the batch the review stands at. When the
+   chain keeps it off, the open says so, and the review goes on with
+   `brain task on <its key>` once the work in the way is finished or
+   dropped with `brain task off`, or with `--replace` on the owner's
+   word, and once a step points at it, under the plan, the todo or the
+   bug whose current step that is.
 
    ```bash
    brain ledger open feat/billing --level high --summary - <<'EOF'
@@ -126,25 +166,30 @@ whole, since no diff shows it.
    EOF
    ```
 
-2. Spawn the finders, one per angle the level lists in
-   [references/angles.md](references/angles.md), all at once, each with
-   the finder prompt. A finder returns candidate blocks and nothing
-   else. At max the sweep finder waits for step 3.
+2. Cut the slices and spawn the finders, all at once, each with the
+   finder prompt. An angle that reads by slice gets one finder per
+   slice, and an angle that reads the whole branch gets one finder
+   over the whole range. A finder returns candidate blocks and nothing
+   else.
 3. Pool the candidates, merge those on the same file and line that name
-   the same defect, and number them C-1 onward. At max, spawn the sweep
-   finder now, with the pooled list as its already found list.
-4. Spawn the verifiers, at most six candidates each, a file's together
-   and small files sharing, all at once, with the verifier prompt. A
-   verdict is CONFIRMED, PLAUSIBLE or REFUTED. A refuted candidate is
-   never filed, and the report gives the refuted count only. The
-   sweep's candidates go through a second, smaller round the same way.
-5. Grade and batch what survived. Severity is breaks, bug, debt or nit
-   per [spec/reviews.md](../../spec/reviews.md). Batches are by theme in
-   severity order, correctness first, nits last, and a batch is sized so
-   one round of fixes closes it. The claims go in on standard input
-   inside a quoted heredoc, one per line, so the shell never touches a
-   backtick or a dollar sign in them, and one call files every claim of
-   a batch that shares a severity.
+   the same defect, and number them C-1 onward.
+4. Look again. One finder per slice runs with the second look angle
+   and the pooled candidates of its slice pasted under Already found.
+   What it returns joins the pool, and the look repeats, the slices
+   that returned nothing left out, until a look returns nothing new,
+   three looks at most.
+5. Grade and batch the whole pool. Every candidate is filed, and no
+   verifier reads it first, since the fixer proves a claim with a
+   failing test before it fixes and a verifier judges every claim a
+   fixer calls wrong. Severity is breaks, bug, debt or nit per
+   [spec/reviews.md](../../spec/reviews.md). Batches are by theme in
+   severity order, correctness first, nits last, five at most, which
+   the tool holds, so a theme is wide enough to take every finding of
+   its kind. The claims go in on standard input inside a quoted
+   heredoc, one per line, so the shell never touches a backtick or a
+   dollar sign in them, and one call files every claim of a batch that
+   shares a severity. The scenario of each stays with the main session
+   for the fixer's prompt.
 
    ```bash
    brain ledger batch 2026-09-feat-billing --theme correctness
@@ -154,79 +199,107 @@ whole, since no diff shows it.
    EOF
    ```
 
-6. Report with the findings shape. Batch 1 starts on the owner's word,
-   so stop there, unless the standing word holds, in which case batch
-   1 starts on it and the report's last line says so. When nothing
-   survived, there is no batch and nothing was fixed, so no closing
-   pass is owed. The report says so, the ledger closes, and the branch
-   is ready to merge on the owner's ask.
+6. Report with the findings shape. The batches start on the owner's
+   word, every one the word covers at once, so stop there, unless the
+   standing word holds, in which case they all start on it and the
+   report's last line says so. When nothing was found, there is no
+   batch and nothing was fixed, so no closing pass is owed. The report
+   says so, the ledger closes, and the branch is ready to merge on the
+   owner's ask.
 
-## The batch loop
+## The round of fixes
 
-One batch at a time.
+Every batch that has the owner's word is fixed in one round, and a
+round has no order among its batches.
 
-1. Record the owner's ack on the batch, the word that starts it, then
-   fix each finding with one commit, the gates green before every
-   commit, push, and record the hash.
+1. Record the word on each batch it covers, which starts it.
 
    ```bash
    brain ledger batch 2026-09-feat-billing 1 --status fixing --ack 2026-09-23
-   brain ledger set 2026-09-feat-billing F-03 status=fixed fix=abc1234
+   brain ledger batch 2026-09-feat-billing 2 --status fixing --ack 2026-09-23
    ```
 
-2. Spawn at once, all fresh, a hunter over the batch's scope with the
-   hunter prompt and verifiers over the batch's findings, grouped the
-   same way as in the finding pass, with the batch verifier prompt.
-3. What the hunter found goes through verifiers, all at once, and what
-   survives is filed with `--found-by hunter --batch N` and fixed in this
-   batch. No backlog. Those fixes then get fresh batch verifiers of
-   their own, grouped the same way.
-4. After a follow up commit, the verifier of each finding it touched is
-   resumed with the follow up prompt, which tells it the commits and to
-   re read the changed lines before voting. Hunters are never resumed
-   for a follow up. A new hunter runs only when a follow up commit
-   touched a file the batch had not touched before.
-5. A finding that cannot be fixed in this branch is deferred into
-   `.agents/bugs/` with `brain new bug`, linked both ways, and named in
-   the report. A finding not worth fixing is set `wontfix`, and either
-   way the tool wants the reason, before the batch can be verified.
+2. Group the round's open findings by file. Findings that name the
+   same file are one group, a test file counts with its code file, and
+   groups that would share a file become one. A group owns its files.
+   A file more than one group needs, a shared doc most often, goes to
+   the group with the most findings in it, and every other fixer names
+   the change it needs there in its report, which the main session
+   hands to that group's fixer.
+3. Spawn one fixer per group, all at once, with the fixer prompt, the
+   group's findings with their scenarios, the files it owns, and the
+   command that runs the tests of those files under every interpreter
+   the gates name.
+4. The moment a fixer returns, the verifier of its group starts, fresh
+   the first time and resumed after, with the verifier prompt over the
+   working tree. No group waits for another.
+5. A verdict of STILL THERE, NEW PROBLEM or REAL goes back to the
+   group's fixer, resumed with the fixer's follow up, and the verifier
+   is resumed after it. Three rounds at most inside a group. What
+   still stands after the third comes to the main session, which reads
+   the code, writes the model, what the code has to do for every case
+   of the kind and what it will not cover, and hands it to a fresh
+   fixer or fixes it itself. The same holds when a fixer answers
+   BLOCKED since the fix needs a mechanism the code does not have. The
+   model comes first, then the code, and what the model leaves out is
+   stated in the docs as a limit.
+6. Once every group is quiet, every verdict GONE or REFUTED, run the
+   gates once. A red gate names a test, the test names its group, and
+   the failure goes to that group's fixer like a verdict. Green, each
+   group becomes one commit of its own files, pushed, and its hash
+   goes on every finding of the group in one call. A refuted claim is
+   set refuted with the verifier's reason.
+
+   ```bash
+   brain ledger set 2026-09-feat-billing F-03 F-04 F-09 status=fixed fix=abc1234
+   brain ledger set 2026-09-feat-billing F-05 status=refuted reason="line 212 already guards it"
+   ```
+
+7. Hunt over what the round changed. Cut it with
+   `brain slices <the commit before the round>..HEAD` and spawn one
+   hunter per slice, all at once, fresh, with the hunter prompt. What
+   the hunters return is filed with `--found-by hunter` into the batch
+   whose theme fits, and the next round takes it, the fixers and the
+   verifiers of the same groups resumed. No backlog. The rounds repeat
+   until a hunt returns nothing, each hunt reading only what the round
+   before it changed.
+8. A finding not worth fixing is set `wontfix`, and the tool wants the
+   reason.
 
    ```bash
    brain ledger set 2026-09-feat-billing F-09 status=wontfix reason="the guard is on purpose"
    ```
 
-   The batch closes on the first pass where every finding has landed,
-   every verifier says gone, the verifiers of the hunter's finds
-   included, and every hunter that ran has returned with its finds
-   filed and handled. Verification is what closes it, so both marks go
-   in at once, and then the report, with the batch shape.
+   The batches close on the first hunt that returns nothing, with
+   every finding landed and every verdict in. Verification is what
+   closes a batch, so both marks go in at once, batch by batch, and
+   then the report, with the round shape.
 
    ```bash
    brain ledger batch 2026-09-feat-billing 1 --status verified
    brain ledger batch 2026-09-feat-billing 1 --status done
    ```
 
-6. The report's call is the ack of the next batch, which starts it as
-   in step 1, or, after the last batch, the closing pass where house
-   rule 7 owes one. Where none is owed, the ledger closes with no word
-   and the report says so.
+9. The report's call is the ack of the batches still pending, which
+   starts their round as in step 1, or, after the last batch, the
+   closing pass where house rule 7 owes one. Where none is owed, the
+   ledger closes with no word and the report says so.
 
 ## The closing pass
 
 House rule 7 says which reviews owe a closing pass, the tool holds the
 same rule, and the report's next line says when it is due. Once the
-last batch is done, the finders run once more over the whole branch as
-it now stands, with the closing line added to their prompt, looking
-only for what the fixes introduced or the review missed. The pass
-opens a batch themed `closing pass`, so the ledger knows it ran. What
-survives verification is filed into it and reported with the finding
-pass shape, findings first like any other, and the batch then runs on
-the owner's word like any batch. When more survives than one round of
-fixes closes, it is batched by theme in severity order like the
-finding pass, the first batch themed `closing pass` and the rest
-`closing pass, <theme>`, each on the owner's ack like any batch. A
-pass that found nothing leaves the batch empty and sets it done, which
-needs no ack. The empty pass is batch 2 here.
+last batch is done, fresh finders read the whole branch as it now
+stands, the slices cut anew since the fixes grew it, in the layout of
+the finding pass, one look, with the closing line added to their
+prompt, looking only for what the fixes introduced or the review
+missed. The pass opens one batch themed `closing pass`, so the ledger
+knows it ran. What the finders return is filed into it and reported
+with the finding pass shape, findings first like any other, and the
+batch then runs on the owner's word as a round of fixes like any
+other, its hunts included. A pass that found nothing leaves the batch
+empty and sets it done, which needs no ack. The empty pass is batch 2
+here.
 
 ```bash
 brain ledger batch 2026-09-feat-billing --theme "closing pass"
@@ -237,8 +310,9 @@ brain ledger batch 2026-09-feat-billing 2 --status done
 
 Once every batch is done, and the closing pass with it where one was
 owed, the ledger closes and the report says the branch is ready to
-merge on the owner's ask. The close follows the last batch with no
-word. The PR and the merge wait for the owner's ask whether or not a
+merge on the owner's ask, with the time the review took, which the
+ledger's clock gives. The close follows the last batch with no word.
+The PR and the merge wait for the owner's ask whether or not a
 standing word holds.
 
 ```bash
@@ -247,7 +321,8 @@ brain ledger close 2026-09-feat-billing
 
 ## Without sub agents
 
-An agent that cannot spawn sub agents works through the angles of its
-level itself, one after another in the same context, checks each
-candidate itself against the code before filing it, and says so in
-every report, right after the state lines.
+An agent that cannot spawn sub agents works through the slices and the
+angles of its level itself, one after another in the same context,
+fixes group by group the way the fixer prompt says, a failing test
+before each fix, reads each fix again against its claim before the
+gates, and says so in every report, right after the state lines.

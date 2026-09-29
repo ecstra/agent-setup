@@ -1,22 +1,35 @@
 # The angles
 
-Each angle is one finder sub agent, and the angle's text below is its
-whole brief. The level picks the set. Every finder returns candidates in
-the block shape from [prompts.md](prompts.md) and nothing else, and
-every candidate goes through a verifier at every level.
+Each angle's text below is a finder's whole brief. The level picks the
+set. Every finder returns candidates in the block shape from
+[prompts.md](prompts.md) and nothing else, and every candidate is
+filed, at every level.
 
 | Level | Angles |
 |---|---|
 | low | scan |
 | medium | scan, removed, callers, rules |
 | high | scan, removed, callers, pitfalls, rules, tests, docs |
-| max | every angle, then the sweep |
+| max | every angle |
 
 Low fits a small mechanical branch. Medium is the floor for anything
 that touches logic or changes an interface. High is the usual level for
 a feature branch. Max is for a wide surface or subtle logic. A finder
-returns up to 8 candidates, up to 12 at max. Which levels owe the
-closing pass is house rule 7.
+returns up to 8 candidates, up to 12 at max. The second look follows
+the angles at every level. Which levels owe the closing pass is house
+rule 7.
+
+An angle reads by slice or reads the whole branch. One that judges the
+changed lines themselves reads by slice, one finder per slice, so each
+has little enough to read in one run. One that follows a change to
+where it lands, a caller, a guard that moved, a doc, reads the whole
+branch, one finder over the whole range, since a slice would cut the
+path it follows.
+
+| Reads | Angles |
+|---|---|
+| by slice | scan, pitfalls, rules, tests, reuse, simplification, efficiency, altitude, the second look |
+| the whole branch | removed, callers, wrappers, docs |
 
 ## scan, the line by line read
 
@@ -116,12 +129,14 @@ Check that each change fixes its cause at the right depth and not a
 symptom above it. A special case layered on shared code is the sign, and
 the candidate names the simpler general change.
 
-## sweep, the gaps after everything else
+## the second look, the gaps after everything else
 
-Run at max, spawned once the other angles have returned, with their
-pooled candidates as its already found list, and the same way in the
-closing pass at max. The finder re reads the diff and the enclosing
-functions looking only for defects not already on the list, such as
-moved or extracted code that dropped a guard, a default evaluated once,
-a lock scope that shrank, a predicate with a side effect, a config
-default flipped. It returns nothing when there is nothing new.
+Run at every level, one finder per slice, spawned once the angles have
+returned, with the pooled candidates of its slice as its already found
+list, and again while a look still returns something new, three looks
+at most. The closing pass runs one look and no second. The finder re
+reads the slice's diff and the enclosing functions looking only for
+defects not already on the list, such as moved or extracted code that
+dropped a guard, a default evaluated once, a lock scope that shrank, a
+predicate with a side effect, a config default flipped. It returns
+nothing when there is nothing new.
