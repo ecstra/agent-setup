@@ -242,13 +242,24 @@ class Brain:
         self,
         key: str,
     ) -> Optional[Entry]:
-        """Resolve an id, a name, or a path from the brain or the repo root to one entry.
+        """Resolve a key to one entry, or to nothing when no file answers to it.
+
+        A key is an id, a name, or a path to the file with slashes or
+        backslashes. The path may start in the brain, in the project's
+        folder, at the top of the git repository or at the root of the
+        disk, since everything up to the last brain folder in it is
+        dropped before the lookup.
 
         A key that fits more than one file, a stem two kinds share or
         the ledger.md every review is, is refused with the paths named,
         rather than answered with whichever came first.
         """
-        found = self.by_key().get(key, [])
+        parts: list[str] = key.replace("\\", "/").split("/")
+        brain_folders: list[int] = [index for index, part in enumerate(parts[:-1]) if part == self.root.name]
+        if brain_folders:
+            parts = parts[brain_folders[-1] + 1 :]
+
+        found = self.by_key().get("/".join(parts), [])
         if len(found) > 1:
             paths = ", ".join(entry.relative for entry in found)
             raise Ambiguous(f"'{key}' names {len(found)} files, use the path: {paths}")
@@ -264,8 +275,9 @@ class Brain:
         if self.keyed is None:
             keyed: dict[str, list[Entry]] = {}
             for entry in self.entries():
-                # the path from the repo root is the one a person copies from a terminal or a diff
-                keys = {entry.identifier, entry.name, entry.relative, f"{self.root.name}/{entry.relative}", entry.path.stem} - {None}
+                # `find` turns a key's backslashes to slashes, so on Windows only this spelling of the path can match it
+                with_slashes: str = entry.path.relative_to(entry.root).as_posix()
+                keys = {entry.identifier, entry.name, entry.relative, with_slashes, entry.path.stem} - {None}
                 # a review's file is its folder's ledger, so the folder's name answers for it as a plan's stem does
                 if entry.kind.name == "review":
                     keys.add(entry.path.parent.name)
