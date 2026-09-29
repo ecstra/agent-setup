@@ -282,16 +282,17 @@ round has no order among its batches.
    the mechanism imitates another product, a parser or an agent's own
    rules, the model covers the plain cases, says nothing where it
    cannot tell, and names the rest as limits, since an imitation has
-   no end of cases and every round finds the next one. A fresh verifier then reads it against the code
-   with the model check prompt and answers with the cases it gets
-   wrong, the model is amended once, and it goes into the group's
-   first prompt with the model brief. The check takes a few minutes
-   beside the other groups' fixers, and a wrong model costs a round
-   per case it missed. Where the mechanism has two halves, one that
-   reads and one that judges what was read, the model names the
-   interface between them, and each half is a group of its own, built
-   against that interface at the same time. A mechanism patched one
-   finding at a time comes back every round.
+   no end of cases and every round finds the next one. A fresh
+   verifier then reads it against the code with the model check
+   prompt and answers with the cases it gets wrong, the model is
+   amended once, and it goes into the group's first prompt with the
+   model brief. The check takes a few minutes beside the other groups'
+   fixers, and a wrong model costs a round per case it missed. Where
+   the mechanism has two halves, one that reads and one that judges
+   what was read, the model names the interface between them, and each
+   half is a group of its own, built against that interface at the
+   same time. A mechanism patched one finding at a time comes back
+   every round.
 4. Spawn one fixer per group, all at once, with the fixer prompt, the
    group's findings with their scenarios, the files it owns, and the
    command that runs the tests of those files under every interpreter
