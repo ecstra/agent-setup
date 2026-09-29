@@ -5,12 +5,8 @@ Every report follows SYSTEM.md section 7.6. The state lines come from
 are the refuted and hunter counts the shapes below carry. Never a tip
 line.
 
-A finding, a bug, a todo or a decision is named by what it is, in
-plain words, "the dirty guard skips ignored files" and never "F-03".
-The id may follow the words in brackets where the owner would need it
-to look the thing up, and it never stands in their place, since the
-owner does not hold the ledger in their head. The same holds in every
-reply outside the reports.
+What a report names, a finding, a bug, a todo or a decision, it names
+the way SYSTEM.md section 7.6 asks.
 
 While the owner's standing word holds, a line below that puts the next
 step on the owner's word or asks for the ack, "Batch 1 starts on your
