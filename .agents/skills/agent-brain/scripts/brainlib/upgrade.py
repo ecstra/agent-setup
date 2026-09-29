@@ -17,9 +17,10 @@ import shutil
 import subprocess
 import tempfile
 import unicodedata
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Optional, Protocol, TextIO
+from typing import Callable, Optional, Protocol, TextIO, Union
 
 from . import doctor, frontmatter, schema, sections, store, style
 
@@ -36,6 +37,11 @@ AGENT_FOLDERS = store.NEAR_ROOTS[1:]
 # stay beside the kit's. Everything else the kit ships is copied whole.
 MERGED = ("settings.json", "hooks.json")
 NOT_SHIPPED = ("settings.local.json",)
+
+# How many local origins the walk from a checkout to the repositories it
+# comes from follows, two git calls each, more than any chain of local
+# clones a person keeps.
+ORIGIN_HOPS = 8
 
 # The kit's code is never read by hand in a project, since the skill
 # sheet and its reference say what every command does, so the port
@@ -56,7 +62,14 @@ READ_GUARDS = (
 )
 KIT_RULE = re.compile(
     r"^Read\(/(?:"
-    + "|".join(re.escape(folder) for folder in (f"{FOLDER}/{schema.SKILLS}", f"{OLD_FOLDER}/{schema.SKILLS}", doctor.SKILL_LINKS.as_posix()))
+    + "|".join(
+        re.escape(folder)
+        for folder in (
+            f"{FOLDER}/{schema.SKILLS}",
+            f"{OLD_FOLDER}/{schema.SKILLS}",
+            doctor.SKILL_LINKS.as_posix(),
+        )
+    )
     + r")/agent-brain/scripts(?:/.*)?\)$"
 )
 
@@ -111,6 +124,9 @@ KIT_HOOK = re.compile(
 IGNORE_FILE = schema.IGNORE_FILE
 IGNORE_HEADING = "# The agent kit's own ignores."
 BOM = codecs.BOM_UTF8.decode("utf-8")
+# a carriage return with or without a newline after it, the line ends
+# text mode reads as a newline
+OTHER_LINE_ENDS = re.compile(r"\r\n?")
 
 # The project's own section, whatever it was called before, takes the
 # heading the rulebook names. In the kit's AGENTS.md it ends at the
@@ -381,7 +397,10 @@ def upgrade(
     if state == "none":
         raise UpgradeError(f"{project.root} carries no brain, run brain port instead")
 
-    reason = is_the_kit(kit=kit, project=project)
+    reason = is_the_kit(
+        kit=kit,
+        project=project,
+    )
     if reason is not None:
         raise UpgradeError(reason)
 
@@ -647,46 +666,77 @@ def check(
 ) -> tuple[list[doctor.Finding], list[doctor.Finding]]:
     """Doctor with --fix over the brain as installed: what it could not clear in the project's files, and what sits in the kit's own.
 
-    A finding under one of the skill folders the kit ships is in a file
-    the install replaces every time, so it is the kit's to put right,
-    reported apart and never counted against the project.
+    A finding in one of the brain's files the kit ships, or under one of
+    its skill folders, is in a file the install replaces every time, so
+    it is the kit's to put right, reported apart and never counted
+    against the project. Each finding lands on one side or the other by
+    its place in doctor's list, so two equal slips in AGENTS.md, one in
+    the kit's words and one in section 0, are one for each.
     """
     found = doctor.run(brain=store.Brain(root=project.brain), fix=True)
     names = store.skill_folders(kit.brain)
-    in_kits_words = {
+    shipped = set(kit.brain_files())
+    in_kits_words = Counter(
         finding.message
         for finding in doctor.import_slips(
             name="AGENTS.md",
             text=kit.text(Path("AGENTS.md")),
             project=project.root,
         )
-    }
-    kits = [finding for finding in found if kits_own(finding=finding, names=names, in_kits_words=in_kits_words)]
+    )
+    projects: list[doctor.Finding] = []
+    kits: list[doctor.Finding] = []
+    for finding in found:
+        if kits_own(
+            finding=finding,
+            names=names,
+            shipped=shipped,
+            in_kits_words=in_kits_words,
+        ):
+            kits.append(finding)
+        else:
+            projects.append(finding)
 
-    return [finding for finding in found if finding not in kits], kits
+    return projects, kits
 
 
 def kits_own(
     finding: doctor.Finding,
     names: list[str],
-    in_kits_words: set[str],
+    shipped: set[Path],
+    in_kits_words: Counter[str],
 ) -> bool:
     """Whether a doctor finding sits in what the install writes whole.
 
-    That is one of the named skill folders, its path spelled from the
-    brain or from the project root, an import slip in CLAUDE.md or
-    GEMINI.md, which the install writes as the kit's text, or an import
-    slip in AGENTS.md that the kit's own words below the marker carry
-    too, since the part above them is the project's section 0. An
+    That is one of the brain's files the kit ships, named relative to
+    the brain in `shipped`, or anything else in one of the named skill
+    folders, its path spelled from the brain or from the project root,
+    an import slip in CLAUDE.md or GEMINI.md, which the install writes
+    as the kit's text, or an import slip in AGENTS.md that the kit's own
+    words below the marker carry too, since the part above them is the
+    project's section 0. The kit's words give each such slip so many
+    times, and every one taken for the kit's comes off its count in
+    `in_kits_words`, so the same slip once more is the project's. An
     import slip is known by its check, so a project file of the same
     name inside the brain is never taken for a front door.
     """
     if finding.check == "import":
-        return finding.path != "AGENTS.md" or finding.message in in_kits_words
+        if finding.path != "AGENTS.md":
+            return True
+
+        if in_kits_words[finding.message] < 1:
+            return False
+
+        in_kits_words[finding.message] -= 1
+
+        return True
 
     parts = Path(finding.path).parts
     if parts and parts[0] in (FOLDER, OLD_FOLDER):
         parts = parts[1:]
+
+    if parts and Path(*parts) in shipped:
+        return True
 
     return len(parts) > 1 and parts[0] == schema.SKILLS and parts[1] in names
 
@@ -960,15 +1010,18 @@ def is_the_kit(
 ) -> Optional[str]:
     """Why the project gets nothing installed, being the kit's own checkout, or None when it is not.
 
-    The same folder under any spelling, a worktree of the same
-    repository, or a clone of the checkout or of its origin. The kit is
-    where the tool's code is the work, so it never gets the read guard
-    and never has its own files written over.
+    The same folder under any spelling, or another checkout of the
+    kit's repository, a worktree or a clone however many local clones
+    away. The kit is where the tool's code is the work, so it never gets
+    the read guard and never has its own files written over.
     """
     if store.quietly(lambda: kit.root.samefile(project.root)):
         return "the kit is the project, there is nothing to install"
 
-    if same_repository(kit=kit, project=project):
+    if same_repository(
+        kit=kit,
+        project=project,
+    ):
         return "the project is a worktree or a clone of the kit, there is nothing to install"
 
     return None
@@ -978,38 +1031,86 @@ def same_repository(
     kit: Kit,
     project: Project,
 ) -> bool:
-    """Whether the project shares the kit's git repository, as a worktree, or was cloned from the checkout or from its origin, under any spelling of the URL.
+    """Whether the project is a checkout of the kit's repository, which it is when the two ancestries meet.
 
-    The repository is shared only when each folder is the top of its
-    own repository, since a kit vendored as plain files inside a
-    project's repository, or a project folder inside the kit's, shares a
-    `.git` without being a checkout of the kit.
+    Each folder has to be the top of its own repository first, since a
+    kit vendored as plain files inside a project's repository, or a
+    project folder inside the kit's, shares a `.git` and its origin
+    without being a checkout of the kit.
     """
-    if is_a_top(kit.root) and is_a_top(project.root):
-        mine = git(project=project, arguments=["rev-parse", "--git-common-dir"])
-        kits = git(project=Project(root=kit.root), arguments=["rev-parse", "--git-common-dir"])
-        if answered(mine) and answered(kits):
-            if store.quietly(lambda: (project.root / mine.stdout.strip()).samefile(kit.root / kits.stdout.strip())):
-                return True
-
-    origin = git(project=project, arguments=["remote", "get-url", "origin"])
-    if not answered(origin):
+    if not is_a_top(kit.root) or not is_a_top(project.root):
         return False
 
-    url = origin.stdout.strip()
-    if store.quietly(lambda: local_checkout(url).samefile(kit.root)):
-        return True
+    return not ancestry(kit.root).isdisjoint(ancestry(project.root))
 
-    kits_origin = git(project=Project(root=kit.root), arguments=["remote", "get-url", "origin"])
 
-    return answered(kits_origin) and repository_named(kits_origin.stdout.strip()) == repository_named(url)
+def ancestry(
+    folder: Path,
+) -> set[Union[tuple[int, int], str]]:
+    """The repositories a checkout comes from, its own and each local origin's in turn, then the remote one it names.
+
+    A repository is recorded by the identity of its git common dir, so
+    a worktree and every spelling of the path read the same. A local
+    origin, a file URL or a plain path to a folder that is there, is
+    walked on from, at most ORIGIN_HOPS times and never into a
+    repository already recorded. An origin that is a URL is recorded as
+    the repository it names and ends the walk.
+    """
+    found: set[Union[tuple[int, int], str]] = set()
+
+    for _ in range(ORIGIN_HOPS + 1):
+        here = Project(root=folder)
+        common = git(
+            project=here,
+            arguments=["rev-parse", "--git-common-dir"],
+        )
+        if not answered(common):
+            return found
+
+        repository = identity(folder / common.stdout.strip())
+        if repository is None or repository in found:
+            return found
+
+        found.add(repository)
+
+        origin = git(
+            project=here,
+            arguments=["remote", "get-url", "origin"],
+        )
+        if not answered(origin):
+            return found
+
+        url = origin.stdout.strip()
+        checkout = folder / local_checkout(url)
+        if not store.quietly(checkout.is_dir):
+            found.add(repository_named(url))
+            return found
+
+        folder = checkout
+
+    return found
+
+
+def identity(
+    path: Path,
+) -> Optional[tuple[int, int]]:
+    """The device and inode of a path, the same under every spelling of it, or None when nothing is there."""
+    try:
+        found = os.stat(path)
+    except OSError:
+        return None
+
+    return found.st_dev, found.st_ino
 
 
 def is_a_top(
     folder: Path,
 ) -> bool:
     """Whether the folder is the top of a git repository of its own."""
-    top = git(project=Project(root=folder), arguments=["rev-parse", "--show-toplevel"])
+    top = git(
+        project=Project(root=folder),
+        arguments=["rev-parse", "--show-toplevel"],
+    )
 
     return answered(top) and store.quietly(lambda: Path(top.stdout.strip()).samefile(folder))
 
@@ -1029,12 +1130,26 @@ def repository_named(
     """A git URL as host and path, lowercased, without the scheme, the user, the port, a trailing slash or `.git`, so two spellings of one origin read the same."""
     rest = url.strip()
     if "://" in rest:
-        rest = rest.split("://", 1)[1]
+        rest = rest.split(
+            sep="://",
+            maxsplit=1,
+        )[1]
     elif ":" in rest and not rest.startswith("/"):
-        rest = rest.replace(":", "/", 1)
+        rest = rest.replace(
+            ":",
+            "/",
+            1,
+        )
 
     host, _, path = rest.partition("/")
-    host = host.rsplit("@", 1)[-1].split(":", 1)[0]
+    host = host.rsplit(
+        sep="@",
+        maxsplit=1,
+    )[-1]
+    host = host.split(
+        sep=":",
+        maxsplit=1,
+    )[0]
     path = path.rstrip("/")
     if path.endswith(".git"):
         path = path[: -len(".git")]
@@ -1289,19 +1404,41 @@ def merged_config(
     for event, groups in want.get("hooks", {}).items():
         hooks[event] = hooks.get(event, []) + groups
 
-    if isinstance(want.get("permissions"), dict):
-        merge_guards(have=have, guards=want["permissions"].get("deny", []), where=where)
+    if isinstance(
+        want.get("permissions"),
+        dict,
+    ):
+        merge_guards(
+            have=have,
+            guards=want["permissions"].get(
+                "deny",
+                [],
+            ),
+            where=where,
+        )
 
     for key, value in want.items():
         if key == "hooks":
             continue
 
-        if isinstance(value, dict):
-            if key in have and not isinstance(have[key], dict):
+        if isinstance(
+            value,
+            dict,
+        ):
+            if key in have and not isinstance(
+                have[key],
+                dict,
+            ):
                 raise UpgradeError(f"{key} in {where} is not a JSON object")
 
             for inner, inner_value in value.items():
-                have.setdefault(key, {}).setdefault(inner, inner_value)
+                have.setdefault(
+                    key,
+                    {},
+                ).setdefault(
+                    inner,
+                    inner_value,
+                )
             continue
 
         have.setdefault(key, value)
@@ -1315,12 +1452,24 @@ def merge_guards(
     where: str,
 ) -> None:
     """The kit's deny rules into the project's list, the kit's earlier spellings dropped and the project's own rules kept in their order."""
-    permissions = have.setdefault("permissions", {})
-    if not isinstance(permissions, dict):
+    permissions = have.setdefault(
+        "permissions",
+        {},
+    )
+    if not isinstance(
+        permissions,
+        dict,
+    ):
         raise UpgradeError(f"permissions in {where} is not a JSON object")
 
-    deny = permissions.setdefault("deny", [])
-    if not isinstance(deny, list):
+    deny = permissions.setdefault(
+        "deny",
+        [],
+    )
+    if not isinstance(
+        deny,
+        list,
+    ):
         raise UpgradeError(f"permissions.deny in {where} is not a JSON list")
 
     permissions["deny"] = [rule for rule in deny if not is_kit_rule(rule)] + guards
@@ -1329,7 +1478,13 @@ def merge_guards(
 def is_kit_rule(
     rule: object,
 ) -> bool:
-    return isinstance(rule, str) and KIT_RULE.match(rule) is not None
+    if not isinstance(
+        rule,
+        str,
+    ):
+        return False
+
+    return KIT_RULE.match(rule) is not None
 
 
 def kit_config(
@@ -1347,12 +1502,19 @@ def kit_config(
     except json.JSONDecodeError as error:
         raise UpgradeError(f"the kit's {CLAUDE_SETTINGS} is not valid JSON: {error}") from error
 
-    if not isinstance(settings, dict):
+    if not isinstance(
+        settings,
+        dict,
+    ):
         raise UpgradeError(f"the kit's {CLAUDE_SETTINGS} is not a JSON object")
 
     settings["permissions"] = {"deny": list(READ_GUARDS)}
 
-    return json.dumps(settings, indent=indent_of(text), ensure_ascii=False) + "\n"
+    return json.dumps(
+        obj=settings,
+        indent=indent_of(text),
+        ensure_ascii=False,
+    ) + "\n"
 
 
 def put_config(
@@ -1363,10 +1525,19 @@ def put_config(
 ) -> bool:
     """Write a composed kit config into the project, and say whether anything was written."""
     target = project.root / relative
-    if store.readable_file(target) and holds(path=target, data=text.encode("utf-8")):
+    if store.readable_file(target) and says(
+        path=target,
+        text=text,
+    ):
         return False
 
-    put(project=project, relative=relative, text=text, report=report, quiet=True)
+    put(
+        project=project,
+        relative=relative,
+        text=text,
+        report=report,
+        quiet=True,
+    )
 
     return True
 
@@ -1718,12 +1889,15 @@ def put(
 ) -> bool:
     """Write one file whole, and say whether it was new or replaced. True when a file that said something else was written over.
 
-    A target that already holds the text is left alone, so a run that
-    changes nothing touches nothing.
+    A target that already says the text, its line ends aside, is left
+    alone, so a run that changes nothing touches nothing.
     """
     target = project.root / relative
     was_there = store.readable_file(target)
-    if was_there and holds(path=target, data=text.encode("utf-8")):
+    if was_there and says(
+        path=target,
+        text=text,
+    ):
         return False
 
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -1733,6 +1907,27 @@ def put(
         report.done(f"{'replaced' if was_there else 'created'} {relative}")
 
     return was_there
+
+
+def says(
+    path: Path,
+    text: str,
+) -> bool:
+    """Whether the file already says this text, its line ends aside, false when it cannot be read.
+
+    The run writes its texts in text mode, so on Windows a file it wrote
+    holds CRLF where the text holds a newline, and bytes would call the
+    file changed on every run.
+    """
+    try:
+        said = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+
+    return said == OTHER_LINE_ENDS.sub(
+        repl="\n",
+        string=text,
+    )
 
 
 def holds(
