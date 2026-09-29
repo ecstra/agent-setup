@@ -72,7 +72,7 @@ Review scope: the range <base>...<head> in <project root>. The files:
 <when git status --porcelain --untracked-files=all lists anything: "Uncommitted work is in scope too. git diff HEAD shows the tracked changes, and read these untracked files whole, since no diff shows them:" followed by their paths>
 
 Your slice, the part of the range you judge:
-<the slice's lines as brain slices printed them, or "the whole range" for an angle that reads the whole branch>
+<the slice's files, one per line, a part of a big file as "<file> lines <from> to <to>", or "the whole range" for an angle that reads the whole branch>
 A line that names lines of a file gives you that part of the file. The
 rest of the range is another finder's, and you read it only to
 understand your own.
@@ -365,7 +365,7 @@ A round of review fixes just landed in <project root>, range
 The round's commits: <the hashes>.
 
 Your slice of what the round changed:
-<the slice's lines as brain slices printed them>
+<the slice's files, one per line, a part of a big file as "<file> lines <from> to <to>">
 
 Run this first, as one Bash call:
 git diff <the commit before the round>..<head> -- <the slice's files>

@@ -146,17 +146,18 @@ whole, since no diff shows it.
 ## The slices
 
 ```bash
-brain slices main...HEAD --size 300
+git diff --numstat main...HEAD
 ```
 
-Run from the project's root, the command cuts the range into slices
-from git's own line counts and prints them, each a list of files. A
-test file rides with its code file, docs go together, and a file too
-big for one slice is cut at its functions and listed with the lines of
-each part, which a finder can take since it only reads. What the scope
-leaves out is left out here with git's own pathspecs after the range,
-such as `':!.agents/skills'`. An uncommitted file no diff shows joins
-the slice that holds its neighbours, by hand.
+The main session cuts the range into slices itself, from git's own
+count of changed lines per file, each slice a list of files that
+holds about 300 changed lines. A test file rides with its code file
+and docs go together. A file too big for one slice is cut into parts
+by its hunks, which `git diff -U0 main...HEAD -- <file>` lists, and
+each part goes to a finder as a range of lines, which a finder can
+take since it only reads. What the scope leaves out is left out here.
+An uncommitted file no diff shows joins the slice that holds its
+neighbours.
 
 Pick the size so the finders of the pass fit one wave where they can,
 and never above 400. A finder with more to report than its cap has to
@@ -331,24 +332,25 @@ round has no order among its batches.
    into the code and nothing else. The tests a fixer wrote were judged
    by its verifier, and code a review writes draws as many candidates
    as the branch's own, so a hunt that reads it all like a first pass
-   starts the review over. Cut the round's code with
-   `brain slices <the commit before the round>..HEAD` and spawn one
-   hunter per slice, all at once, fresh, with the hunter prompt. What
-   the hunters return goes through the merge like a finder's pool, is
-   filed with `--found-by hunter` into the batch whose theme fits, and
-   the next round takes it, the fixers and the verifiers of the same
-   groups resumed. No backlog. The rounds repeat until a hunt returns
-   nothing, each hunt reading only what the round before it changed.
-   A hunter leaves how code is written, and the docs that follow the
-   code, to the last pass.
+   starts the review over. Cut the round's code into slices the way
+   the finding pass was cut, from
+   `git diff --numstat <the commit before the round>..HEAD`, and
+   spawn one hunter per slice, all at once, fresh, with the hunter
+   prompt. What the hunters return goes through the merge like a
+   finder's pool, is filed with `--found-by hunter` into the batch
+   whose theme fits, and the next round takes it, the fixers and the
+   verifiers of the same groups resumed. No backlog. The rounds repeat
+   until a hunt returns nothing, each hunt reading only what the round
+   before it changed. A hunter leaves how code is written, and the
+   docs that follow the code, to the last pass.
 9. The last pass follows the hunt that returned nothing, once, over
-   everything the rounds changed, cut with
-   `brain slices <the commit before the first round>..HEAD`. The docs
-   group writes what describes the changed code. Beside it the style
-   sweep runs, a fixer per file group with SYSTEM.md section 2 and the
-   findings on how code is written that have the word, changing no
-   behaviour. One verifier votes on the docs and one on the sweep,
-   then the gates run and each is one commit.
+   everything the rounds changed, from the commit before the first
+   round to the head. The docs group writes what describes the changed
+   code. Beside it the style sweep runs, a fixer per file group with
+   SYSTEM.md section 2 and the findings on how code is written that
+   have the word, changing no behaviour. One verifier votes on the
+   docs and one on the sweep, then the gates run and each is one
+   commit.
 10. A finding not worth fixing is set `wontfix`, and the tool wants the
    reason.
 

@@ -248,12 +248,6 @@ their batch and who found them, every change of a batch's status and
 the close. The tool writes it and nothing reads it but the report. A
 ledger opened before the clock has no such section and gets none.
 
-## The slices
-
-| Command | What it does |
-|---|---|
-| `brain slices [<range>] [--size N] [pathspec ...]` | Cuts the changes of a range into slices for the review's finders and prints them, run from the project's root and needing no brain. The range is git's own, `main...HEAD` unless given, and the size is the most changed lines a slice takes, 300 unless given. The first line gives the count and the total, then each slice its number and weight and one line per file. The weights are git's counts of added and deleted lines. A test file rides with its code file when both changed, docs are packed among themselves after the code, and the files go in path order. A file heavier than the size is cut at its functions and listed once per part with its lines, `doctor.py lines 421 to 912`, the cut made where a line with no indentation follows a blank one, and deeper only inside a block that is still too heavy. A block that cannot be cut stays whole, so a slice can weigh more than the size, and its line says what it weighs. A pathspec after the range is git's own and narrows the cut, so `':!docs'` leaves a folder out. Refused for a size below 1, outside a git repository and for a revision git does not know. |
-
 ## Doctor
 
 | Command | What it does |

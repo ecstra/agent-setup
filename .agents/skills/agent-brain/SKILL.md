@@ -120,7 +120,6 @@ at an open entry that points at the old one.
 ## A review
 
 ```bash
-brain slices main...HEAD --size 300
 brain ledger open feat/billing --level high --summary - <<'EOF'
 The billing branch, six commits.
 EOF
@@ -139,10 +138,9 @@ brain ledger batch 2026-09-feat-billing 2 --status done
 brain ledger close 2026-09-feat-billing
 ```
 
-`slices` cuts a range into slices for the review's finders, from git's
-own line counts. Findings and batches number themselves, five batches
-at most, and `set` takes every finding a group's commit fixed in one
-call. The ledger keeps a clock of its own steps. A batch that holds
+Findings and batches number themselves, five batches at most, and
+`set` takes every finding a group's commit fixed in one call. The
+ledger keeps a clock of its own steps. A batch that holds
 findings runs only on the owner's ack, the word that starts it, given
 as a date or as `auto` while the owner's standing word holds, and
 verification closes it, `report` says where the review stands, the
