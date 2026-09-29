@@ -8,7 +8,7 @@ commits, ledgers and links that nobody can rewrite.
 
 import os
 from dataclasses import dataclass, replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Callable, Optional
 
 from . import frontmatter, schema
@@ -247,24 +247,72 @@ class Brain:
         A key is an id, a name, or a path to the file with slashes or
         backslashes. The path may start in the brain, in the project's
         folder, at the top of the git repository or at the root of the
-        disk, since everything up to the last brain folder in it is
-        dropped before the lookup.
+        disk. Everything up to the last brain folder in it is dropped
+        before the lookup, once what stood in front of that folder is
+        known to lead to this project, and a path into another
+        project's brain is found nowhere.
 
         A key that fits more than one file, a stem two kinds share or
         the ledger.md every review is, is refused with the paths named,
         rather than answered with whichever came first.
         """
-        parts: list[str] = key.replace("\\", "/").split("/")
+        parts: list[str] = key.replace(
+            "\\",
+            "/",
+        ).split("/")
         brain_folders: list[int] = [index for index, part in enumerate(parts[:-1]) if part == self.root.name]
         if brain_folders:
-            parts = parts[brain_folders[-1] + 1 :]
+            brain_folder: int = brain_folders[-1]
+            in_front: str = "".join(f"{part}/" for part in parts[:brain_folder])
+            if in_front and not self.is_this_project(in_front):
+                return None
 
-        found = self.by_key().get("/".join(parts), [])
+            parts = parts[brain_folder + 1 :]
+
+        found = self.by_key().get(
+            "/".join(parts),
+            [],
+        )
         if len(found) > 1:
             paths = ", ".join(entry.relative for entry in found)
             raise Ambiguous(f"'{key}' names {len(found)} files, use the path: {paths}")
 
         return found[0] if found else None
+
+    def is_this_project(
+        self,
+        folder: str,
+    ) -> bool:
+        """Whether the folder a path names in front of a brain folder is this brain's project.
+
+        It is when it is the same folder on disk, given absolute or read
+        from the current folder. A path that is not absolute here is
+        also taken when its folders are the last ones of the project's
+        own path, which is how git prints a path from a top above the
+        project. A Windows path under a drive is judged that way by its
+        folders below the drive, since on any other system it cannot
+        name a file.
+        """
+        project: Path = self.root.parent
+        try:
+            same_folder: bool = os.path.samefile(
+                f1=Path.cwd() / folder,
+                f2=project,
+            )
+        except (OSError, ValueError):
+            # a folder that is not on disk, or cannot be read, is not this project
+            same_folder = False
+
+        if same_folder:
+            return True
+
+        if Path(folder).is_absolute():
+            return False
+
+        windows = PureWindowsPath(folder)
+        folders: tuple[str, ...] = windows.parts[1:] if windows.drive and windows.root else PurePosixPath(folder).parts
+
+        return folders == project.parts[-len(folders) :]
 
     def by_key(self) -> dict[str, list[Entry]]:
         """Every entry under each key it answers to, built once per scan.
