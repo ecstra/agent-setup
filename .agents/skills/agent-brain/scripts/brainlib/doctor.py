@@ -10,6 +10,7 @@ import errno
 import os
 import re
 import shutil
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -1394,44 +1395,46 @@ def skill_target(
     return os.path.relpath(str(project / SKILL_HOMES / name), str(link.parent.resolve()))
 
 
-# In the import parsers of Claude Code and Gemini CLI, an `@` at the
-# start of a text, after whitespace or right after an emphasis marker
-# opens a path that runs to the next whitespace, so a full stop or a
-# comma glued to the path becomes part of it and the file silently never
-# loads. Both step over code and HTML comments, and Claude Code reads a
-# backslash before a space as part of the path.
-IMPORT = re.compile(r"(?<![^\s*_])@((?:[^\s\\]|\\ )+)")
-HTML_COMMENT = re.compile(
-    r"<!--.*?-->",
-    re.DOTALL,
-)
+# Two agents read the front doors' `@` imports, each by its own rules.
+# Each has a front door of its own and a folder a project keeps for it,
+# and AGENTS.md is read by every agent whose folder the project keeps.
+CLAUDE_CODE = "Claude Code"
+GEMINI_CLI = "Gemini CLI"
+OWN_DOORS: dict[str, tuple[str, str]] = {
+    "CLAUDE.md": (CLAUDE_CODE, ".claude"),
+    "GEMINI.md": (GEMINI_CLI, ".gemini"),
+}
+RULES = "AGENTS.md"
+NO_RULES = "does not import AGENTS.md, so the rules never load"
+
+# A path runs to the next whitespace in both agents, so a full stop or
+# a comma glued to it becomes part of the name and the file never loads.
 GLUED = ".,;:!?)"
 ESCAPED_SPACE = "\\ "
-RULES = "AGENTS.md"
-
-# An emphasis marker closing on the path, and any punctuation after it,
-# which the lexer leaves outside the text the parser reads.
 EMPHASIS_END = re.compile(f"[*_]+[{re.escape(GLUED)}]*$")
 
-# The markdown lexer both agents read with. A fence opens on a line of
-# three or more backticks or tildes indented at most three spaces, a
-# backtick fence's info string holding no backtick, and only a fence of
-# the same character at least as long closes it.
-FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
-FENCE_CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})\s*$")
-BACKTICKS = re.compile(r"`+")
+# The markdown lexer both agents find code with, read line by line for
+# the blocks and in order inside a paragraph for the spans and comments.
+LINE = re.compile(
+    r"^.*$",
+    re.MULTILINE,
+)
+FENCE_OPEN = re.compile(r"(`{3,}|~{3,})(.*)$")
+FENCE_CLOSE = re.compile(r"(`{3,}|~{3,})\s*$")
+LIST_MARKER = re.compile(r"([-*+]|\d{1,9}[.)])(?:([ \t]+)|$)")
+HEADING = re.compile(r"#{1,6}(?:[ \t]|$)")
+INLINE_OPEN = re.compile(r"<!--|(?<!\\)`+")
+COMMENT_OPEN = "<!--"
+COMMENT_CLOSE = "-->"
 PARAGRAPH_BREAK = re.compile(r"\n[ \t\r]*\n")
 NOT_A_LINE_END = re.compile(r"[^\n]")
 CODE_INDENT = 4
 
-# The front doors an agent reads only where the project keeps that
-# agent's folder, and the ones Gemini CLI reads, whose parser ends a
-# path at the first whitespace and knows no escape.
-AGENT_FOLDERS: dict[str, str] = {
-    "CLAUDE.md": ".claude",
-    "GEMINI.md": ".gemini",
-}
-GEMINI_READS: tuple[str, ...] = (RULES, "GEMINI.md")
+# A stretch of a front door the lexer holds apart from its text, as its
+# start, its end and whether it is code or an HTML comment.
+Region = tuple[int, int, str]
+IN_CODE = "code"
+IN_COMMENT = "comment"
 
 # What a front door that is not there costs, since the rules then never
 # load in the agent that reads it.
@@ -1460,19 +1463,22 @@ def check_front_doors(
     project = brain.root.parent
 
     for name in schema.FRONT_DOORS:
-        folder = AGENT_FOLDERS.get(name)
-        if folder is not None and not store.quietly((project / folder).is_dir):
+        own = OWN_DOORS.get(name)
+        kept = own is None or keeps(
+            project=project,
+            folder=own[1],
+        )
+        if not kept:
             continue
 
         spelled = spelling_of(
-            project=project,
+            folder=project,
             name=name,
         )
         if spelled is None:
             found.append(
-                Finding(
-                    path=name,
-                    check="import",
+                import_finding(
+                    name=name,
                     message=MISSING[name],
                 )
             )
@@ -1480,9 +1486,8 @@ def check_front_doors(
 
         if spelled != name:
             found.append(
-                Finding(
-                    path=name,
-                    check="import",
+                import_finding(
+                    name=name,
                     message=f"is spelled {spelled}, and only {name} is read, so rename it",
                 )
             )
@@ -1499,9 +1504,8 @@ def check_front_doors(
             )
         except OSError as error:
             found.append(
-                Finding(
-                    path=name,
-                    check="import",
+                import_finding(
+                    name=name,
                     message=f"cannot be read: {store.explain(error)}",
                 )
             )
@@ -1517,18 +1521,18 @@ def check_front_doors(
 
 
 def spelling_of(
-    project: Path,
+    folder: Path,
     name: str,
 ) -> Optional[str]:
-    """The name the front door goes by in the project folder, another case of it when only that is there, or None when neither is.
+    """The name an entry goes by in the folder, another case of it when only that is there, or None when neither is.
 
-    The folder is listed rather than the file opened, since a file
+    The folder is listed rather than the entry opened, since a file
     system blind to case opens Claude.md for CLAUDE.md where Linux does
     not, and the answer has to be the same on every machine. A folder
     that cannot be listed leaves the read to say what is wrong.
     """
     try:
-        entries = sorted(os.listdir(project))
+        entries = sorted(os.listdir(folder))
     except OSError:
         return name
 
@@ -1549,133 +1553,535 @@ def import_slips(
 ) -> list[Finding]:
     """The import findings of one front door's text, read against the project's files, so the upgrade can ask the same of the kit's own text.
 
-    A token is an import only when it holds a dot or opens with `~` or
-    `/`, so a mention such as @alice or @tanstack/query is passed over.
-    The path is cut at its first `#`, the way Claude Code drops a
-    fragment. An import from the home folder is personal, there on one
-    machine and missing on the next, so it is never looked for. The
-    rules load when any import resolves to the project's AGENTS.md.
+    The door is judged once by each agent that reads it here. Each
+    agent's findings stay whole, a slip written twice named twice, and a
+    later agent's list drops only as many copies of a message as an
+    earlier one already gave, so a slip both agents see is named once.
+    The upgrade counts on that, telling the kit's slips in AGENTS.md
+    from the project's by how many of each there are. The code and the
+    comments are found once, since both agents find them with the same
+    lexer.
+    """
+    hidden = hidden_regions(text)
+    found: list[Finding] = []
+
+    for agent in readers_of(
+        name=name,
+        project=project,
+    ):
+        slips = READERS[agent](
+            name=name,
+            text=text,
+            hidden=hidden,
+            project=project,
+        )
+        named = Counter(known.message for known in found)
+        for slip in slips:
+            if named[slip.message] > 0:
+                named[slip.message] -= 1
+                continue
+
+            found.append(slip)
+
+    return found
+
+
+def readers_of(
+    name: str,
+    project: Path,
+) -> list[str]:
+    """The agents that read the front door in this project, in the order doctor judges it.
+
+    CLAUDE.md and GEMINI.md each belong to their own agent. AGENTS.md
+    is read by every agent whose folder the project keeps, and by Claude
+    Code's rules when it keeps neither folder.
+    """
+    own = OWN_DOORS.get(name)
+    if own is not None:
+        return [own[0]]
+
+    kept = [
+        agent
+        for agent, folder in OWN_DOORS.values()
+        if keeps(
+            project=project,
+            folder=folder,
+        )
+    ]
+
+    return kept or [CLAUDE_CODE]
+
+
+def keeps(
+    project: Path,
+    folder: str,
+) -> bool:
+    """Whether the project keeps the agent's folder, and so runs that agent."""
+    return store.quietly((project / folder).is_dir)
+
+
+# Claude Code opens an import at an `@` at the start or after whitespace
+# of the lexer's text, where the emphasis markers around it are already
+# gone, and a backslash before a space carries the path on.
+CLAUDE_IMPORT = re.compile(r"(?<![^\s*_])@((?:[^\s\\]|\\ )+)")
+
+
+def claude_code_slips(
+    name: str,
+    text: str,
+    hidden: list[Region],
+    project: Path,
+) -> list[Finding]:
+    """The front door's imports as Claude Code reads them.
+
+    It runs on the markdown lexer's text, so code and HTML comments are
+    skipped and emphasis markers around an import are not part of it.
+    An `@` at the start or after whitespace opens an import, the path
+    runs to the next whitespace, a backslash before a space keeps the
+    space in the path, and the path is cut at its first `#`. A file
+    that is missing is skipped without a word, which is why doctor
+    names it.
     """
     found: list[Finding] = []
-    rules = resolved(project / RULES)
-    imports_rules = False
-    prose = HTML_COMMENT.sub(
-        repl=" ",
-        string=code_blanked(text),
+    loads_rules = False
+    prose = blanked(
+        text=text,
+        regions=hidden,
+        kinds=(IN_CODE, IN_COMMENT),
     )
 
-    for match in IMPORT.finditer(prose):
-        token = EMPHASIS_END.sub(
+    for match in CLAUDE_IMPORT.finditer(prose):
+        path = EMPHASIS_END.sub(
             repl="",
             string=match.group(1),
         ).partition("#")[0]
-        if not import_shaped(token.rstrip(GLUED)):
-            continue
-
-        if ESCAPED_SPACE in token and name in GEMINI_READS:
-            found.append(
-                Finding(
-                    path=name,
-                    check="import",
-                    message=f"imports @{token} with an escaped space, which Gemini CLI does not read, so the path ends at the backslash there",
-                )
-            )
-            continue
-
-        if token[-1] in GLUED:
-            found.append(
-                Finding(
-                    path=name,
-                    check="import",
-                    message=f"imports @{token} with the punctuation glued on, so the parser looks for that name and the file never loads, end the path with a space or a line break",
-                )
-            )
-            continue
-
-        if token.startswith("~"):
-            continue
-
-        target = project / token.replace(
+        wanted = path.replace(
             ESCAPED_SPACE,
             " ",
         )
-        if rules is not None and resolved(target) == rules:
-            imports_rules = True
+        imported = is_import(
+            bare=wanted.rstrip(GLUED),
+            project=project,
+        )
+        if not imported:
+            continue
 
-        if not store.readable_file(target):
+        if path[-1] in GLUED:
             found.append(
-                Finding(
-                    path=name,
-                    check="import",
-                    message=f"imports @{token}, which is not there",
+                glued_on(
+                    name=name,
+                    path=path,
+                )
+            )
+            continue
+
+        if path.startswith("~"):
+            continue
+
+        spelled = spelled_on_disk(
+            base=project,
+            path=wanted,
+        )
+        loads_rules = loads_rules or reaches_rules(
+            target=project / (spelled or wanted),
+            project=project,
+        )
+        if spelled is None:
+            found.append(
+                import_finding(
+                    name=name,
+                    message=f"imports @{path}, which is not there",
+                )
+            )
+        elif spelled != wanted:
+            found.append(
+                spelled_otherwise(
+                    name=name,
+                    path=path,
+                    spelled=spelled,
                 )
             )
 
-    if name != RULES and not imports_rules:
+    if name != RULES and not loads_rules:
         found.append(
-            Finding(
-                path=name,
-                check="import",
-                message="does not import AGENTS.md, so the rules never load",
+            import_finding(
+                name=name,
+                message=NO_RULES,
             )
         )
 
     return found
 
 
-def import_shaped(
-    bare: str,
+# Gemini CLI opens an import only at an `@` at the start or after
+# whitespace of the raw text, and takes every character up to the next
+# whitespace. The path Claude Code would read from the same `@` shows
+# where Gemini CLI stopped at an escaped space.
+GEMINI_IMPORT = re.compile(r"(?<!\S)@(\S+)")
+ESCAPED_PATH = re.compile(r"(?:[^\s\\]|\\ )+")
+
+
+def gemini_cli_slips(
+    name: str,
+    text: str,
+    hidden: list[Region],
+    project: Path,
+) -> list[Finding]:
+    """The front door's imports as Gemini CLI reads them.
+
+    It skips code regions and reads the rest raw, HTML comments
+    included. Only an `@` at the start or after whitespace opens an
+    import, so one right after `*` or `_` opens nothing, and the path is
+    every character up to the next whitespace. A backslash ends it at
+    the space, a `#` fragment stays in the name it looks for, and
+    emphasis markers after the path are part of the name.
+    """
+    found: list[Finding] = []
+    loads_rules = False
+    prose = blanked(
+        text=text,
+        regions=hidden,
+        kinds=(IN_CODE,),
+    )
+
+    for match in GEMINI_IMPORT.finditer(prose):
+        path = match.group(1)
+        escaped = ESCAPED_PATH.match(
+            string=prose,
+            pos=match.start(1),
+        )
+        if escaped is not None and ESCAPED_SPACE in escaped.group():
+            escaped_import = is_import(
+                bare=bare_of(escaped.group()).replace(
+                    ESCAPED_SPACE,
+                    " ",
+                ),
+                project=project,
+            )
+            if escaped_import:
+                found.append(
+                    import_finding(
+                        name=name,
+                        message=f"imports @{escaped.group()} with an escaped space, which Gemini CLI does not read, so the path ends at the backslash there",
+                    )
+                )
+                continue
+
+        imported = is_import(
+            bare=bare_of(path),
+            project=project,
+        )
+        if not imported:
+            continue
+
+        if EMPHASIS_END.search(path):
+            found.append(
+                import_finding(
+                    name=name,
+                    message=f"imports @{path} with emphasis markers glued on, which Gemini CLI reads as part of the name",
+                )
+            )
+            continue
+
+        if path[-1] in GLUED:
+            found.append(
+                glued_on(
+                    name=name,
+                    path=path,
+                )
+            )
+            continue
+
+        if path.startswith("~"):
+            continue
+
+        spelled = spelled_on_disk(
+            base=project,
+            path=path,
+        )
+        loads_rules = loads_rules or reaches_rules(
+            target=project / (spelled or path),
+            project=project,
+        )
+        if spelled is None and "#" in path:
+            found.append(
+                import_finding(
+                    name=name,
+                    message=f"imports @{path}, which Gemini CLI looks for with the fragment in its name, so it is not there",
+                )
+            )
+        elif spelled is None:
+            found.append(
+                import_finding(
+                    name=name,
+                    message=f"imports @{path}, which is not there",
+                )
+            )
+        elif spelled != path:
+            found.append(
+                spelled_otherwise(
+                    name=name,
+                    path=path,
+                    spelled=spelled,
+                )
+            )
+
+    if name != RULES and not loads_rules:
+        found.append(
+            import_finding(
+                name=name,
+                message=NO_RULES,
+            )
+        )
+
+    return found
+
+
+READERS: dict[str, Callable[..., list[Finding]]] = {
+    CLAUDE_CODE: claude_code_slips,
+    GEMINI_CLI: gemini_cli_slips,
+}
+
+
+def import_finding(
+    name: str,
+    message: str,
+) -> Finding:
+    return Finding(
+        path=name,
+        check="import",
+        message=message,
+    )
+
+
+def glued_on(
+    name: str,
+    path: str,
+) -> Finding:
+    return import_finding(
+        name=name,
+        message=f"imports @{path} with the punctuation glued on, so the parser looks for that name and the file never loads, end the path with a space or a line break",
+    )
+
+
+def spelled_otherwise(
+    name: str,
+    path: str,
+    spelled: str,
+) -> Finding:
+    return import_finding(
+        name=name,
+        message=f"imports @{path}, which is spelled {spelled}, so it loads only where the file system ignores case",
+    )
+
+
+def reaches_rules(
+    target: Path,
+    project: Path,
 ) -> bool:
-    """Whether a token, its trailing punctuation set aside, reads as a path, with a dot in it, `./` included, or an opening `~` or `/`."""
-    return "." in bare or bare.startswith(("~", "/"))
+    """Whether an import's target resolves to the project's AGENTS.md, however its path is spelled."""
+    rules = resolved(project / RULES)
+
+    return rules is not None and resolved(target) == rules
 
 
-def code_blanked(
-    text: str,
+def bare_of(
+    token: str,
 ) -> str:
-    """The text with its code blanked where the agents' markdown lexer finds code, blocks line by line and spans by backtick runs."""
-    return spans_blanked(blocks_blanked(text))
+    """The token with trailing emphasis markers, its fragment and trailing punctuation set aside, the form that says whether it is an import at all."""
+    return EMPHASIS_END.sub(
+        repl="",
+        string=token,
+    ).partition("#")[0].rstrip(GLUED)
 
 
-def blocks_blanked(
+def is_import(
+    bare: str,
+    project: Path,
+) -> bool:
+    """Whether a token, its trailing punctuation set aside, is an import and not a mention.
+
+    It is one when it opens with `~`, `/`, `./` or `../`, when it names a
+    markdown file, or when its target is there under any spelling of its
+    case. Anything else that leads nowhere, a handle, a package or a
+    decorator, is a mention.
+    """
+    if bare.startswith(("~", "/", "./", "../")) or bare.casefold().endswith(".md"):
+        return True
+
+    spelled = spelled_on_disk(
+        base=project,
+        path=bare,
+    )
+
+    return spelled is not None
+
+
+def spelled_on_disk(
+    base: Path,
+    path: str,
+) -> Optional[str]:
+    """The path as the files spell it, or None when it leads to no file.
+
+    It is walked part by part from `base`, or from the root when it is
+    absolute, and each part is looked up in its folder's listing, by its
+    exact name first and then by its case. Asking the file system for
+    the whole path would follow the machine's case rule, and the answer
+    has to be the same on every machine.
+    """
+    current = Path("/") if path.startswith("/") else base
+    spelled: list[str] = []
+
+    for part in path.split("/"):
+        if part in ("", ".", ".."):
+            spelled.append(part)
+            current = current / part
+            continue
+
+        entry = spelling_of(
+            folder=current,
+            name=part,
+        )
+        if entry is None:
+            return None
+
+        spelled.append(entry)
+        current = current / entry
+
+    if not store.readable_file(current):
+        return None
+
+    return "/".join(spelled)
+
+
+def hidden_regions(
     text: str,
-) -> str:
-    """The text with each code block's lines emptied.
+) -> list[Region]:
+    """Where the code and the HTML comments sit, the blocks first and then the spans and comments inside what the blocks leave."""
+    blocks = block_regions(text)
+    rest = blanked(
+        text=text,
+        regions=blocks,
+        kinds=(IN_CODE, IN_COMMENT),
+    )
+
+    return blocks + inline_regions(rest)
+
+
+def block_regions(
+    text: str,
+) -> list[Region]:
+    """Where the code blocks and the HTML comment blocks sit, read line by line in the order they come.
 
     A fence runs to the closer that matches it or to the end of the
-    text. An indented line is code when it follows a blank line, another
-    indented code line, a fence or the start of the text, since there is
-    then no paragraph for it to carry on.
+    text, and a comment opened at the start of a line runs to its
+    `-->`, so a fence inside a comment opens nothing. A line indented
+    four columns past its margin is code when no paragraph is open,
+    which is at the start and after a blank line, a heading, a fence or
+    a comment. The margin is where the text of the list item the line
+    sits in starts, so a list item's paragraph indented four columns is
+    read.
     """
-    kept: list[str] = []
-    fence: Optional[str] = None
+    regions: list[Region] = []
+    items: list[int] = []
+    fence: Optional[tuple[str, int]] = None
+    in_comment = False
     after_break = True
 
-    for line in text.split("\n"):
-        if fence is not None:
-            closer = FENCE_CLOSE.match(line)
-            if closer is not None and closer.group(1)[0] == fence[0] and len(closer.group(1)) >= len(fence):
-                fence = None
+    for match in LINE.finditer(text):
+        line = match.group()
+        start, end = match.span()
 
-            kept.append("")
-            continue
+        if in_comment:
+            close = line.find(COMMENT_CLOSE)
+            if close == -1:
+                regions.append((start, end, IN_COMMENT))
+                continue
 
-        opener = FENCE_OPEN.match(line)
-        if opener is not None and not (opener.group(1)[0] == "`" and "`" in opener.group(2)):
-            fence = opener.group(1)
+            regions.append((start, start + close + len(COMMENT_CLOSE), IN_COMMENT))
+            in_comment = False
             after_break = True
-            kept.append("")
             continue
 
-        blank = not line.strip()
-        if not blank and after_break and indent_of(line) >= CODE_INDENT:
-            kept.append("")
+        if fence is not None:
+            regions.append((start, end, IN_CODE))
+            closes = fence_closes(
+                fence=fence,
+                line=line,
+            )
+            if closes:
+                fence = None
+                after_break = True
             continue
 
-        kept.append(line)
-        after_break = blank
+        if not line.strip():
+            after_break = True
+            continue
 
-    return "\n".join(kept)
+        indent = indent_of(line)
+        bare = line.lstrip()
+        marker = LIST_MARKER.match(bare)
+        if after_break or marker is not None:
+            while items and indent < items[-1]:
+                items.pop()
+
+        margin = items[-1] if items else 0
+        if indent - margin >= CODE_INDENT:
+            if after_break:
+                regions.append((start, end, IN_CODE))
+            continue
+
+        opener = FENCE_OPEN.match(bare)
+        if opener is not None and not (opener.group(1).startswith("`") and "`" in opener.group(2)):
+            fence = (opener.group(1), margin)
+            regions.append((start, end, IN_CODE))
+            continue
+
+        if bare.startswith(COMMENT_OPEN):
+            opened = end - len(bare)
+            close = bare.find(
+                COMMENT_CLOSE,
+                len(COMMENT_OPEN),
+            )
+            in_comment = close == -1
+            closed = end if in_comment else opened + close + len(COMMENT_CLOSE)
+            regions.append((opened, closed, IN_COMMENT))
+            after_break = True
+            continue
+
+        if HEADING.match(bare):
+            after_break = True
+            continue
+
+        if marker is not None:
+            items.append(indent + len(marker.group(1)) + item_gap(marker.group(2)))
+
+        after_break = False
+
+    return regions
+
+
+def fence_closes(
+    fence: tuple[str, int],
+    line: str,
+) -> bool:
+    """Whether the line closes the fence, a run of the same character at least as long, indented less than four columns past the fence's margin."""
+    marker, margin = fence
+    closer = FENCE_CLOSE.match(line.lstrip())
+    if closer is None or indent_of(line) - margin >= CODE_INDENT:
+        return False
+
+    return closer.group(1)[0] == marker[0] and len(closer.group(1)) >= len(marker)
+
+
+def item_gap(
+    spacing: Optional[str],
+) -> int:
+    """How far past its marker a list item's text starts, one column when the marker ends the line or the gap would make its text code."""
+    if not spacing or len(spacing) > CODE_INDENT:
+        return 1
+
+    return len(spacing)
 
 
 def indent_of(
@@ -1694,57 +2100,86 @@ def indent_of(
     return columns
 
 
-def spans_blanked(
+def inline_regions(
     text: str,
-) -> str:
-    """The text with each code span turned to spaces, a run of backticks closed by the next run as long inside its paragraph.
+) -> list[Region]:
+    """Where the code spans and the HTML comments inside the paragraphs sit, read in the order they come.
 
-    An opener with no such closer is literal backticks, and the search
-    moves on to the next run.
+    A run of backticks is closed by the next run as long and a comment
+    by its `-->`, each inside its paragraph, and whichever opens first
+    holds what follows, so a backtick inside a comment opens no span.
+    An opener with no closer is literal, and the reading moves on past
+    it.
     """
-    runs = list(BACKTICKS.finditer(text))
-    kept: list[str] = []
-    cursor = 0
-    index = 0
+    regions: list[Region] = []
+    position = 0
 
-    while index < len(runs):
-        opener = runs[index]
-        closing = closing_run(
-            runs=runs,
-            opener=index,
+    while True:
+        opener = INLINE_OPEN.search(
+            string=text,
+            pos=position,
         )
-        if closing is None or PARAGRAPH_BREAK.search(text[opener.end() : runs[closing].start()]):
-            index += 1
+        if opener is None:
+            return regions
+
+        closed = inline_end(
+            text=text,
+            opener=opener,
+        )
+        if closed is None:
+            position = opener.end()
             continue
 
-        closer = runs[closing]
-        kept.append(text[cursor : opener.start()])
+        kind = IN_COMMENT if opener.group() == COMMENT_OPEN else IN_CODE
+        regions.append((opener.start(), closed, kind))
+        position = closed
+
+
+def inline_end(
+    text: str,
+    opener: re.Match,
+) -> Optional[int]:
+    """Where the span or the comment the opener starts ends, or None when nothing closes it inside its paragraph."""
+    if opener.group() == COMMENT_OPEN:
+        pattern = re.escape(COMMENT_CLOSE)
+    else:
+        pattern = f"(?<!`){opener.group()}(?!`)"
+
+    closer = re.compile(pattern).search(
+        string=text,
+        pos=opener.end(),
+    )
+    if closer is None or PARAGRAPH_BREAK.search(text[opener.end() : closer.start()]):
+        return None
+
+    return closer.end()
+
+
+def blanked(
+    text: str,
+    regions: list[Region],
+    kinds: tuple[str, ...],
+) -> str:
+    """The text with the regions of the given kinds turned to spaces, its line ends and so its offsets kept."""
+    kept: list[str] = []
+    cursor = 0
+
+    for start, end, kind in sorted(regions):
+        if kind not in kinds:
+            continue
+
+        kept.append(text[cursor:start])
         kept.append(
             NOT_A_LINE_END.sub(
                 repl=" ",
-                string=text[opener.start() : closer.end()],
+                string=text[start:end],
             )
         )
-        cursor = closer.end()
-        index = closing + 1
+        cursor = end
 
     kept.append(text[cursor:])
 
     return "".join(kept)
-
-
-def closing_run(
-    runs: list[re.Match],
-    opener: int,
-) -> Optional[int]:
-    """The index of the first run after the opener that is as long as it, or None when there is none."""
-    width = len(runs[opener].group())
-
-    for offset, run in enumerate(runs[opener + 1 :]):
-        if len(run.group()) == width:
-            return opener + 1 + offset
-
-    return None
 
 
 CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
