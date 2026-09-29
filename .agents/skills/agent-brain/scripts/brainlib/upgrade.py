@@ -549,10 +549,14 @@ def prepare(
             )
 
         for definition in skill.definitions if skill else ():
-            own = project.root / definition
-            if not shipped and store.readable_file(own) and not store.same_bytes(one=own, other=kit.root / definition):
+            own = project.root / definition.path
+            carried = schema.carries(
+                since=definition.since,
+                stamp=stamped,
+            )
+            if not carried and store.readable_file(own) and not store.same_bytes(one=own, other=kit.root / definition.path):
                 raise UpgradeError(
-                    f"the kit now ships a sub agent definition at {definition} with the {name} skill, "
+                    f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, "
                     "and the file there is the project's own, move it aside first"
                 )
 

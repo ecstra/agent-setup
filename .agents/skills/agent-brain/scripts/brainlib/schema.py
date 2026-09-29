@@ -321,6 +321,19 @@ KIT_FILES: tuple[str, ...] = (
 
 
 @dataclass(frozen=True)
+class Definition:
+    """One sub agent definition a skill brings under .claude/agents/, its path relative to the project root.
+
+    A skill gains definitions after it first ships, so each carries
+    the release it came with, and a project stamped older than that
+    with a file of the same name made it itself.
+    """
+
+    path: str
+    since: str
+
+
+@dataclass(frozen=True)
 class KitSkill:
     """One skill the kit ships under skills/, a folder with a SKILL.md.
 
@@ -329,14 +342,14 @@ class KitSkill:
     kit's own, replaced whole, from the release named in `since` on. A
     project stamped older than that with a folder of the same name made
     it itself, and the upgrade refuses to write over it. The same holds
-    for the sub agent definitions a skill brings under .claude/agents/,
-    named in `definitions` relative to the project root.
+    for the sub agent definitions a skill brings, each from its own
+    release on.
     """
 
     name: str
     hook: str
     since: str
-    definitions: tuple[str, ...] = ()
+    definitions: tuple[Definition, ...] = ()
 
 
 KIT_SKILLS: tuple[KitSkill, ...] = (
@@ -350,9 +363,22 @@ KIT_SKILLS: tuple[KitSkill, ...] = (
         hook="the code review, run on the owner's word with sub agents in parallel",
         since="1.2.0",
         definitions=(
-            ".claude/agents/review-finder.md",
-            ".claude/agents/review-hunter.md",
-            ".claude/agents/review-verifier.md",
+            Definition(
+                path=".claude/agents/review-finder.md",
+                since="1.2.0",
+            ),
+            Definition(
+                path=".claude/agents/review-fixer.md",
+                since="1.4.0",
+            ),
+            Definition(
+                path=".claude/agents/review-hunter.md",
+                since="1.2.0",
+            ),
+            Definition(
+                path=".claude/agents/review-verifier.md",
+                since="1.2.0",
+            ),
         ),
     ),
 )
@@ -369,7 +395,18 @@ def ships(
     stamp: tuple[int, ...],
 ) -> bool:
     """Whether the release a brain is stamped with carries the skill."""
-    return as_tuple(skill.since) <= stamp
+    return carries(
+        since=skill.since,
+        stamp=stamp,
+    )
+
+
+def carries(
+    since: str,
+    stamp: tuple[int, ...],
+) -> bool:
+    """Whether a brain stamped `stamp` is on the release named in `since` or a later one."""
+    return as_tuple(since) <= stamp
 
 
 def as_tuple(
