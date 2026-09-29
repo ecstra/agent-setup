@@ -2,7 +2,7 @@
 name: spec-reviews
 kind: doc
 description: format and lifecycle for .agents/reviews, the code review ledgers
-updated: 2026-09-23
+updated: 2026-09-29
 links: [spec/conventions.md, house-rules.md, spec/bugs.md]
 ---
 
@@ -17,14 +17,16 @@ the review runs, permanent once born. The full protocol lives in
 `ledger.md` inside the review's folder. Standard frontmatter,
 `kind: review`, plus `branch:`, `status: open | closed` and
 `level: low | medium | high | max`, the level the review ran at. The
-body holds three sections.
+body holds four sections.
 
 1. **Summary**: the review's scope (what the branch did) and the final
    count when closed.
 2. **Batches**: the batch table. Number, theme, status
    (pending, fixing, verified, done), the owner's ack that started it
    noted per batch, as a date, or as `auto` and the date when the
-   batch ran on the owner's standing word.
+   batch ran on the owner's standing word. A review has five batches
+   at most, the one the closing pass opens aside, since the batches
+   are fixed together and a batch is a theme of the report.
 3. **Findings**: one block per finding, ordered by batch then severity:
 
 ```
@@ -32,16 +34,31 @@ body holds three sections.
 - severity: breaks | bug | debt | nit
 - found-by: review | hunter
 - batch: 2
-- status: open | fixed | wontfix | deferred
+- status: open | fixed | refuted | wontfix | deferred
 - fix: <commit hash, date, when fixed>
-- reason: <one line, when wontfix or deferred>
+- reason: <one line, when refuted, wontfix or deferred>
 ```
 
-A wontfix carries its reason on its own line, and the tool refuses the
-status without one. A finding too big for its branch is `deferred`
-with its reason the same way, and it graduates into bugs/ as its own
-file, linked both ways, which is the only path a finding leaves its
-ledger by.
+4. **Clock**: one line per event with its time, written by the tool,
+   the open, every finding filed, every change of a batch's status and
+   the close, so a review reports the time it took. A ledger opened
+   before the clock has no such section and gets none.
+
+```
+- 2026-09-29 11:42 +0530 opened
+- 2026-09-29 11:58 +0530 12 findings filed into batch 1, found by review
+- 2026-09-29 12:03 +0530 batch 1 fixing
+```
+
+The fix of a finding is the commit of its group, so the findings a
+group fixed together carry the same hash. A refuted finding is a claim
+a fixer could not reproduce and a verifier agreed is wrong, and a
+wontfix is one left as it is on purpose. Each carries its reason on
+its own line, and the tool refuses the status without one. A finding
+too big for its branch is `deferred` with its reason the same way, on
+the owner's word alone, and it graduates into bugs/ as its own file,
+linked both ways, which is the only path a finding leaves its ledger
+by.
 
 ## Lifecycle
 

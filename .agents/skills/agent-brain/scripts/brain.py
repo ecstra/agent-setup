@@ -603,10 +603,9 @@ def add_ledger(
     adding.add_argument("--batch", type=int, default=0)
     adding.set_defaults(handler=run_ledger_add)
 
-    setting = actions.add_parser("set", help="change a finding's status or fix")
+    setting = actions.add_parser("set", help="change the status or fix of one finding or several")
     setting.add_argument("key")
-    setting.add_argument("finding")
-    setting.add_argument("changes", nargs="+", metavar="field=value")
+    setting.add_argument("words", nargs="+", metavar="word", help="the findings, like F-03, and the changes, like status=fixed")
     setting.set_defaults(handler=run_ledger_set)
 
     reporting = actions.add_parser("report", help="the ledger's state in a few lines, and what comes next")
@@ -699,11 +698,18 @@ def run_ledger_set(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    ledger.set_finding(
+    """Change every finding named, a word shaped F-<digits> naming a finding and every other word a field=value change."""
+    identifiers = [word for word in args.words if ledger.FINDING_ID.fullmatch(word)]
+    changes = [word for word in args.words if not ledger.FINDING_ID.fullmatch(word)]
+    if not identifiers or not changes:
+        print("give at least one finding and one change, like F-03 status=fixed", file=sys.stderr)
+        return REFUSED
+
+    ledger.set_findings(
         brain=brain,
         key=args.key,
-        identifier=args.finding,
-        changes=pairs(args.changes),
+        identifiers=identifiers,
+        changes=pairs(changes),
     )
     return 0
 
