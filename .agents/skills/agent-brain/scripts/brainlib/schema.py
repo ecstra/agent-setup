@@ -406,7 +406,7 @@ def carries(
     stamp: tuple[int, ...],
 ) -> bool:
     """Whether a brain stamped `stamp` is on the release named in `since` or a later one."""
-    return as_tuple(since) <= stamp
+    return as_tuple(version=since) <= stamp
 
 
 def as_tuple(

@@ -726,8 +726,8 @@ def findings_and_changes(
     changes: dict[str, str] = {}
 
     for word in words:
-        is_finding = ledger.FINDING_ID.fullmatch(word) is not None
-        if not is_finding and ledger.FINDING_ID.fullmatch(word.upper()):
+        is_finding = ledger.FINDING_ID.fullmatch(string=word) is not None
+        if not is_finding and ledger.FINDING_ID.fullmatch(string=word.upper()):
             raise writes.WriteError(f"'{word}' names a finding in lower case, write it {word.upper()}")
 
         if is_finding and changes:

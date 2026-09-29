@@ -183,6 +183,7 @@ def set_batch(
             number=number,
         )
         starting = old_status == "pending" and status in ("fixing", "verified", "done")
+
         if auto and old_ack and not is_auto(old_ack):
             raise LedgerError(f"batch {number} already carries the owner's ack {old_ack}")
 
@@ -394,16 +395,19 @@ def changed(
 
     leaves_fixed = before.get("status") == "fixed" and new_status not in ("", "fixed")
     if leaves_fixed and "fix" not in changes:
-        block = without_bullet(block=block, field="fix")
+        block = without_bullet(
+            block=block,
+            field="fix",
+        )
 
     body = body[:start] + block + body[end:]
     moved = batch_of(after) != batch_of(before)
-    if not (is_open(after) or moved):
+    if not (is_open(item=after) or moved):
         return body
 
     return reopened(
         body=body,
-        number=batch_of(after),
+        number=batch_of(item=after),
     )
 
 
