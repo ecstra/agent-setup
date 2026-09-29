@@ -699,7 +699,7 @@ def run_ledger_set(
     args: argparse.Namespace,
 ) -> int:
     """Change every finding named, the findings like F-03 first and the field=value changes after them."""
-    identifiers, changes = findings_and_changes(args.words)
+    identifiers, changes = findings_and_changes(words=args.words)
     ledger.set_findings(
         brain=brain,
         key=args.key,
@@ -736,7 +736,7 @@ def findings_and_changes(
         if not identifiers:
             raise writes.WriteError(f"'{word}' comes before any finding, name the findings first, like F-03 status=fixed")
 
-        change = pairs([word])
+        change = pairs(items=[word])
         field = next(iter(change))
         if field in changes:
             raise writes.WriteError(f"'{word}' sets {field} a second time, give each field once")

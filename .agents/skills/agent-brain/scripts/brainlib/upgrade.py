@@ -554,7 +554,14 @@ def prepare(
                 since=definition.since,
                 stamp=stamped,
             )
-            if not carried and store.readable_file(own) and not store.same_bytes(one=own, other=kit.root / definition.path):
+            if carried or not store.readable_file(path=own):
+                continue
+
+            kits_copy = store.same_bytes(
+                one=own,
+                other=kit.root / definition.path,
+            )
+            if not kits_copy:
                 raise UpgradeError(
                     f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, "
                     "and the file there is the project's own, move it aside first"

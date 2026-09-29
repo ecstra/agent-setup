@@ -45,9 +45,7 @@ CLOSING_THEME = "closing pass"
 NO_CLOSING_LEVELS = ("low",)
 SWEEP_PREFIX = "sweep/"
 
-# The batches are fixed together in one round, so a batch is a theme in
-# the report and no longer a stop. The closing pass's batch is not one
-# of the themes and is not counted.
+# .agents/spec/reviews.md sets this cap on a review's batches and says why.
 MAX_BATCHES = 5
 
 # The next step the report gives once nothing else stands, and close
@@ -112,7 +110,7 @@ def add_batch(
         raise LedgerError("a batch needs a theme")
 
     entry = ledger_entry(brain=brain, key=key)
-    rows = batches(entry)
+    rows = batches(entry=entry)
     room_for(
         brain=brain,
         entry=entry,
@@ -148,15 +146,15 @@ def room_for(
             brain=brain,
             entry=entry,
             rows=rows,
-            items=findings(entry),
+            items=findings(entry=entry),
         )
         if step != CLOSING_STEP:
             raise LedgerError(f"a batch is themed {CLOSING_THEME} once the report's next step is {CLOSING_STEP}, not {step}")
 
         return
 
-    themes = [row for row in rows if row["theme"].casefold() != CLOSING_THEME]
-    if len(themes) >= MAX_BATCHES:
+    counted_batches = [row for row in rows if row["theme"].casefold() != CLOSING_THEME]
+    if len(counted_batches) >= MAX_BATCHES:
         raise LedgerError(f"a review has {MAX_BATCHES} batches at most, file the finding into the batch whose theme fits")
 
 
@@ -186,7 +184,7 @@ def set_batch(
         if int(row_number) != number:
             continue
 
-        rows = batches(entry)
+        rows = batches(entry=entry)
         was_closing = old_theme.casefold() == CLOSING_THEME
         if theme and (theme.casefold() == CLOSING_THEME) != was_closing:
             room_for(
@@ -200,13 +198,13 @@ def set_batch(
         if auto and new_status == "pending":
             raise LedgerError("auto ack is the word at a batch's start, give it with --status fixing")
 
-        items = findings(entry)
+        items = findings(entry=entry)
         own = in_batch(
             items=items,
             number=number,
         )
         starting = old_status == "pending" and status in ("fixing", "verified", "done")
-        holding = {batch_of(item) for item in items}
+        holding = {batch_of(item=item) for item in items}
         waiting = [row["number"] for row in rows if row["number"] < number and row["status"] == "pending" and row["number"] in holding]
         if starting and waiting:
             raise LedgerError(f"batch {waiting[0]} holds findings and is still pending, start it before batch {number}")
@@ -379,7 +377,7 @@ def set_findings(
 
         body = changed(
             body=body,
-            name=entry.name,
+            ledger_name=entry.name,
             identifier=identifier,
             changes=changes,
         )
@@ -390,14 +388,14 @@ def set_findings(
 
 def changed(
     body: str,
-    name: str,
+    ledger_name: str,
     identifier: str,
     changes: dict[str, str],
 ) -> str:
-    """The body with one finding's changes made, refused when the ledger named `name` has no such finding or the changes break a rule it is held to."""
+    """The body with one finding's changes made, refused when the ledger `ledger_name` has no such finding or the changes break a rule it is held to."""
     span = finding_span(body=body, identifier=identifier)
     if span is None:
-        raise LedgerError(f"{name} has no finding {identifier}")
+        raise LedgerError(f"{ledger_name} has no finding {identifier}")
 
     start, end = span
     block = body[start:end]
