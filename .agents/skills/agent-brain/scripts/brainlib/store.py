@@ -19,6 +19,9 @@ UNLISTED = "cannot be listed"
 # the hosts Windows serves a WSL distro's files under, casefolded
 WSL_HOSTS = ("wsl.localhost", "wsl$")
 
+# where WSL mounts each Windows drive, one folder per letter
+WSL_DRIVES = PurePosixPath("/mnt")
+
 
 class StoreError(Exception):
     """The brain is missing, or something in it cannot be read."""
@@ -295,9 +298,12 @@ class Brain:
         how git prints a path from a top above the project.
 
         A Windows path, with a drive letter or a share in front, on a
-        system that does not read it as one, is this project only when
-        the folder it names inside WSL, as `wsl_parts` reads it, is the
-        project's whole path. Outside WSL it is never a folder here.
+        system that does not read it as one, names a folder inside WSL
+        as `wsl_parts` reads it. When that folder is on disk it is this
+        project when it is the same folder, so a drive mount that opens
+        folders in any case is asked rather than second guessed. When it
+        is not, it is this project only when it spells the project's
+        whole path exactly. Outside WSL it is never a folder here.
         """
         project: Path = self.root.parent
         expanded: str = os.path.expanduser(folder)
@@ -316,7 +322,18 @@ class Brain:
         windows = PureWindowsPath(expanded)
         # POSIX reads a share, //wsl.localhost/Ubuntu/..., as absolute, so a Windows path is settled before the refusal below
         if windows.drive and windows.root and not Path(expanded).drive:
-            return wsl_parts(windows) == project.parts
+            inside_wsl: Optional[tuple[str, ...]] = wsl_parts(windows)
+            if inside_wsl is None:
+                return False
+
+            try:
+                return os.path.samefile(
+                    f1=Path(*inside_wsl),
+                    f2=project,
+                )
+            except (OSError, ValueError):
+                # the folder is not on disk, or cannot be read, so only its spelling can say
+                return inside_wsl == project.parts
 
         if Path(expanded).is_absolute():
             return False
@@ -422,7 +439,7 @@ def wsl_parts(
 
     below_drive: tuple[str, ...] = windows.parts[1:]
     if not windows.drive.startswith("\\\\"):
-        return ("/", "mnt", windows.drive[0].lower(), *below_drive)
+        return (*WSL_DRIVES.parts, windows.drive[0].lower(), *below_drive)
 
     host, _, share = windows.drive[2:].partition("\\")
     if host.casefold() not in WSL_HOSTS or share.casefold() != distro.casefold():
