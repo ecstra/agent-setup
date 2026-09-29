@@ -1621,9 +1621,119 @@ def keeps(
 
 
 # Claude Code opens an import at an `@` at the start or after whitespace
-# of the lexer's text, where the emphasis markers around it are already
-# gone, and a backslash before a space carries the path on.
+# of the lexer's text, or right after an emphasis marker that opens a
+# pair, and a backslash before a space carries the path on. Any other
+# backslash ends the path.
 CLAUDE_IMPORT = re.compile(r"(?<![^\s*_])@((?:[^\s\\]|\\ )+)")
+MARKERS = "*_"
+MARKER_RUN = re.compile(r"\*+|_+")
+TRAILING_RUN = re.compile(f"(\\*+|_+)[{re.escape(GLUED)}]*$")
+WHITESPACE = re.compile(r"\s")
+
+
+@dataclass(frozen=True)
+class Opened:
+    """One import Claude Code opens: the path it reads, the token as written up to the next whitespace, whether an emphasis marker stands right before it, and whether a backslash cut the path short."""
+
+    path: str
+    written: str
+    after_marker: bool
+    cut_at_backslash: bool
+
+
+def claude_opens(
+    prose: str,
+) -> list[Opened]:
+    """The imports Claude Code opens in the lexer's text, emphasis judged by pairs on a line.
+
+    A run of `*` or `_` is emphasis only as one of a pair on its line, an
+    opener that starts the line or follows whitespace and a closer of
+    the same marker and length after it. An `@` right after a run opens
+    an import only when that run is such an opener, and a trailing run
+    comes off a path only when its opener stands earlier on the line.
+    """
+    opened: list[Opened] = []
+
+    for line in prose.split("\n"):
+        runs = list(MARKER_RUN.finditer(line))
+
+        for match in CLAUDE_IMPORT.finditer(line):
+            after_marker = match.start() > 0 and line[match.start() - 1] in MARKERS
+            pairs = after_marker and opens_pair(
+                line=line,
+                runs=runs,
+                before=match.start(),
+            )
+            if after_marker and not pairs:
+                continue
+
+            path = match.group(1)
+            tail = TRAILING_RUN.search(path)
+            if tail is not None and opener_before(
+                line=line,
+                runs=runs,
+                marker=tail.group(1),
+                position=match.start(1) + tail.start(),
+            ):
+                path = path[: tail.start()]
+
+            rest = WHITESPACE.split(
+                string=line[match.end() :],
+                maxsplit=1,
+            )[0]
+            opened.append(
+                Opened(
+                    path=path,
+                    written=match.group(1) + rest,
+                    after_marker=after_marker,
+                    cut_at_backslash=bool(rest),
+                )
+            )
+
+    return opened
+
+
+def opens_pair(
+    line: str,
+    runs: list[re.Match],
+    before: int,
+) -> bool:
+    """Whether the marker run that ends right before `before` opens a pair, starting the line or following whitespace with a run of the same marker and length after it."""
+    for run in runs:
+        if run.end() != before:
+            continue
+
+        closed = any(later.group() == run.group() and later.start() >= run.end() for later in runs)
+
+        return clear_before(line=line, run=run) and closed
+
+    return False
+
+
+def opener_before(
+    line: str,
+    runs: list[re.Match],
+    marker: str,
+    position: int,
+) -> bool:
+    """Whether an opening run of the same marker and length stands on the line before `position`."""
+    return any(
+        run.group() == marker
+        and run.end() <= position
+        and clear_before(
+            line=line,
+            run=run,
+        )
+        for run in runs
+    )
+
+
+def clear_before(
+    line: str,
+    run: re.Match,
+) -> bool:
+    """Whether the run starts the line or follows whitespace, the place an opening marker stands."""
+    return run.start() == 0 or line[run.start() - 1].isspace()
 
 
 def claude_code_slips(
@@ -1635,12 +1745,12 @@ def claude_code_slips(
     """The front door's imports as Claude Code reads them.
 
     It runs on the markdown lexer's text, so code and HTML comments are
-    skipped and emphasis markers around an import are not part of it.
-    An `@` at the start or after whitespace opens an import, the path
-    runs to the next whitespace, a backslash before a space keeps the
-    space in the path, and the path is cut at its first `#`. A file
-    that is missing is skipped without a word, which is why doctor
-    names it.
+    skipped and emphasis markers around an import are not part of it,
+    judged by pairs as `claude_opens` says. An `@` at the start or after
+    whitespace opens an import, the path runs to the next whitespace, a
+    backslash before a space keeps the space in the path, any other
+    backslash ends it, and the path is cut at its first `#`. A file that
+    is missing is skipped without a word, which is why doctor names it.
     """
     found: list[Finding] = []
     loads_rules = False
@@ -1650,17 +1760,28 @@ def claude_code_slips(
         kinds=(IN_CODE, IN_COMMENT),
     )
 
-    for match in CLAUDE_IMPORT.finditer(prose):
-        path = EMPHASIS_END.sub(
-            repl="",
-            string=match.group(1),
-        ).partition("#")[0]
+    for opened in claude_opens(prose):
+        if opened.cut_at_backslash:
+            backslashed = is_import(
+                bare=bare_of(opened.written),
+                project=project,
+            )
+            if backslashed:
+                found.append(
+                    import_finding(
+                        name=name,
+                        message=f"imports @{opened.written} with a backslash in its path, which ends the path there, so write it with slashes",
+                    )
+                )
+            continue
+
+        path = opened.path.partition("#")[0]
         wanted = path.replace(
             ESCAPED_SPACE,
             " ",
         )
         imported = is_import(
-            bare=wanted.rstrip(GLUED),
+            bare=bare_of(wanted),
             project=project,
         )
         if not imported:
@@ -1676,6 +1797,15 @@ def claude_code_slips(
             continue
 
         if path.startswith("~"):
+            continue
+
+        if path.startswith("/"):
+            found.append(
+                from_root(
+                    name=name,
+                    path=path,
+                )
+            )
             continue
 
         spelled = spelled_on_disk(
@@ -1795,6 +1925,15 @@ def gemini_cli_slips(
         if path.startswith("~"):
             continue
 
+        if path.startswith("/"):
+            found.append(
+                from_root(
+                    name=name,
+                    path=path,
+                )
+            )
+            continue
+
         spelled = spelled_on_disk(
             base=project,
             path=path,
@@ -1826,6 +1965,17 @@ def gemini_cli_slips(
                 )
             )
 
+    if CLAUDE_CODE in readers_of(
+        name=name,
+        project=project,
+    ):
+        found += unopened_after_markers(
+            name=name,
+            text=text,
+            hidden=hidden,
+            project=project,
+        )
+
     if name != RULES and not loads_rules:
         found.append(
             import_finding(
@@ -1833,6 +1983,40 @@ def gemini_cli_slips(
                 message=NO_RULES,
             )
         )
+
+    return found
+
+
+def unopened_after_markers(
+    name: str,
+    text: str,
+    hidden: list[Region],
+    project: Path,
+) -> list[Finding]:
+    """The imports Claude Code opens right after an emphasis marker, which Gemini CLI never opens, named in a file both agents read."""
+    found: list[Finding] = []
+    prose = blanked(
+        text=text,
+        regions=hidden,
+        kinds=(IN_CODE, IN_COMMENT),
+    )
+
+    for opened in claude_opens(prose):
+        if not opened.after_marker or opened.cut_at_backslash:
+            continue
+
+        path = opened.path.partition("#")[0]
+        imported = is_import(
+            bare=bare_of(path),
+            project=project,
+        )
+        if imported:
+            found.append(
+                import_finding(
+                    name=name,
+                    message=f"imports @{path} right after an emphasis marker, where Gemini CLI opens no import",
+                )
+            )
 
     return found
 
@@ -1861,6 +2045,17 @@ def glued_on(
     return import_finding(
         name=name,
         message=f"imports @{path} with the punctuation glued on, so the parser looks for that name and the file never loads, end the path with a space or a line break",
+    )
+
+
+def from_root(
+    name: str,
+    path: str,
+) -> Finding:
+    """An import that opens with a slash is never looked up, since it is there on one machine and missing on the next, and so never counts as the rules import."""
+    return import_finding(
+        name=name,
+        message=f"imports @{path} from the root of the disk, which is there on one machine and missing on the next, so write it from the project's folder",
     )
 
 
@@ -1923,13 +2118,14 @@ def spelled_on_disk(
 ) -> Optional[str]:
     """The path as the files spell it, or None when it leads to no file.
 
-    It is walked part by part from `base`, or from the root when it is
-    absolute, and each part is looked up in its folder's listing, by its
-    exact name first and then by its case. Asking the file system for
-    the whole path would follow the machine's case rule, and the answer
-    has to be the same on every machine.
+    It is walked part by part from `base`, and each part is looked up in
+    its folder's listing, by its exact name first and then by its case.
+    Asking the file system for the whole path would follow the machine's
+    case rule, and the answer has to be the same on every machine. A
+    path from the root of the disk never comes here, for the same
+    reason.
     """
-    current = Path("/") if path.startswith("/") else base
+    current = base
     spelled: list[str] = []
 
     for part in path.split("/"):

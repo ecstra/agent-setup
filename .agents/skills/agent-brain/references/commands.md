@@ -263,10 +263,10 @@ file. It reports too a real folder copy of a kit skill that fell
 behind the brain's, a dangling link doctor once made for a project
 skill since gone from the brain, and a skills folder it cannot list.
 It reads the front doors, `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`,
-the way each agent reads its `@` imports. Claude Code reads
-`CLAUDE.md`, and `AGENTS.md` while the project keeps a `.claude/`
-folder. Gemini CLI reads `GEMINI.md`, and `AGENTS.md` while the project
-keeps a `.gemini/` folder. A front door is judged once for each agent
+the way each agent reads its `@` imports. Claude Code reads `CLAUDE.md`
+and `AGENTS.md` while the project keeps a `.claude/` folder, and Gemini
+CLI reads `GEMINI.md` and `AGENTS.md` while the project keeps a
+`.gemini/` folder. A front door is judged once for each agent
 that reads it, `AGENTS.md` by Claude Code's rules when the project
 keeps neither folder, and a front door that is a link to `AGENTS.md` is
 read once, as that file. Both agents find code the same way, in a fence
@@ -280,34 +280,49 @@ while Gemini CLI reads them raw.
 
 In both agents an `@` at the start or after whitespace opens an import
 whose path runs to the next whitespace. Claude Code reads the lexer's
-text, so an `@` right after an emphasis marker opens one as well and
-the markers around it are not part of it, a backslash before a space
-keeps the space, and the path is cut at its first `#`. Gemini CLI reads
-the raw text, so an `@` right after `*` or `_` opens nothing, markers
-after the path are part of its name, the path ends at a backslash, and
-a `#` fragment stays in the name it looks for. A token is an import
-when it opens with `~`, `/`, `./` or `../`, names a markdown file, or
-leads to a file under any spelling of its case, so a handle such as
-`@alice`, a package such as `@tanstack/query@5.59.0` or a decorator
-such as `@pytest.fixture` is passed over.
+text, where a run of `*` or `_` is emphasis only as one of a pair on
+its line, an opener that starts the line or follows whitespace and a
+closer of the same marker and length. So an `@` right after such an
+opener opens an import too, a trailing run comes off the path only when
+its opener stands earlier on the line, and a lone marker opens nothing
+and stays in the path. A backslash before a space keeps the space, any
+other backslash ends the path, and the path is cut at its first `#`.
+Gemini CLI reads the raw text, so an `@` right after `*` or `_` opens
+nothing, markers after the path are part of its name, the path ends at
+a backslash, and a `#` fragment stays in the name it looks for. A token
+is an import when it opens with `~`, `/`, `./` or `../`, names a
+markdown file, or leads to a file under any spelling of its case, so a
+handle such as `@alice`, a package such as `@tanstack/query@5.59.0` or
+a decorator such as `@pytest.fixture` is passed over.
 
 Doctor reports an import with punctuation glued to its path, which the
 parser takes as part of the name so the file never loads, an import
 that reaches no file, one found only under another spelling of its
-case, which loads only where the file system ignores case, and a
-`CLAUDE.md` or `GEMINI.md` with no import that resolves to the
-project's `AGENTS.md`, whether in a sentence or on a line of its own.
-Under Gemini CLI's reading it reports too an escaped space, emphasis
-markers glued to the path and a fragment kept in the name. A finding
-names the agent only where the two read differently, and one both give
-is named once. An import from the home folder, one that opens with `~`,
-is checked for glued punctuation and never for being there, since it is
-there on one machine and missing on the next. A front door that is not
-there is reported, `AGENTS.md` always and the other two while their
-agent's folder is there, since the rules then never load in that agent,
-and the next upgrade writes it back. So is a front door spelled in
-another case, such as `Claude.md`, since only the exact name is read,
-and one that is there but cannot be read.
+case, which loads only where the file system ignores case, one with a
+backslash in its path, where Claude Code's path ends, and a `CLAUDE.md`
+or `GEMINI.md` with no import that resolves to the project's
+`AGENTS.md`, whether in a sentence or on a line of its own. Under
+Gemini CLI's reading it reports too an escaped space, emphasis markers
+glued to the path, a fragment kept in the name and, in a file both
+agents read, an import right after an emphasis marker, which Gemini CLI
+never opens. A finding names the agent only where the two read
+differently, and one both give is named once. An import from the home
+folder, one that opens with `~`, is checked for glued punctuation and
+never for being there, since it is there on one machine and missing on
+the next. An import from the root of the disk, one that opens with `/`,
+is reported for that same reason, never looked up and never taken for
+the rules import. A front door that is not there is reported,
+`AGENTS.md` always and the other two while their agent's folder is
+there, since the rules then never load in that agent, and the next
+upgrade writes it back. So is a front door spelled in another case,
+such as `Claude.md`, since only the exact name is read, and one that is
+there but cannot be read.
+
+Doctor does not follow the lexer everywhere, so its silence on these
+is no pass. They are an `@` inside link text or strikethrough, a
+backtick after an escaped backslash, a thematic break written with
+hyphens, a comment that opens inside a list item, and an import with no
+`.md` ending that leads nowhere, which reads as a mention.
 
 `--fix` repairs a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written
@@ -372,12 +387,13 @@ the project's own prose to put right. A finding in a file the install
 writes whole is the kit's to fix, printed apart and never counted,
 since the install replaces that file every time. Such a file is a skill
 the kit ships, the brain's own `SYSTEM.md`, `README.md` or
-`house-rules.md`, a spec, or the version stamp `VERSION`, and an import
-slip in `CLAUDE.md`, in `GEMINI.md` or in the kit's words of
-`AGENTS.md` below its marker line counts the same way. The tool ships
-without its own tests, and the chat style copies in `.codex/` and
-`.gemini/` are the doctor's to make from the source in
-`.claude/output-styles/`.
+`house-rules.md`, a spec, the version stamp `VERSION`, or a file copied
+into the agent folders, which is a sub agent definition, the chat style
+source or one of its copies. An import slip in `CLAUDE.md`, in
+`GEMINI.md` or in the kit's words of `AGENTS.md` below its marker line
+counts the same way. The tool ships without its own tests, and the chat
+style copies in `.codex/` and `.gemini/` are the doctor's to make from
+the source in `.claude/output-styles/`.
 
 ## Hooks
 
