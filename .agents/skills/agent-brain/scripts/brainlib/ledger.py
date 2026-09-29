@@ -393,7 +393,7 @@ def changed(
         block = without_bullet(block=block, field="reason")
 
     leaves_fixed = before.get("status") == "fixed" and new_status not in ("", "fixed")
-    if leaves_fixed:
+    if leaves_fixed and "fix" not in changes:
         block = without_bullet(block=block, field="fix")
 
     body = body[:start] + block + body[end:]
