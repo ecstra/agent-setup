@@ -54,6 +54,10 @@ MAX_BATCHES = 5
 # refuses until the report gives it.
 CLOSE_STEP = "close the ledger"
 
+# The next step the report gives while the closing pass is owed, and
+# a batch takes the closing theme only while the report gives it.
+CLOSING_STEP = "the closing pass"
+
 # The ack a batch takes while the owner's standing word holds, recorded
 # as auto with the day, so the trail says which batches ran unattended.
 AUTO_ACK = "auto"
@@ -109,9 +113,12 @@ def add_batch(
 
     entry = ledger_entry(brain=brain, key=key)
     rows = batches(entry)
-    themes = [row for row in rows if row["theme"].casefold() != CLOSING_THEME]
-    if theme.casefold() != CLOSING_THEME and len(themes) >= MAX_BATCHES:
-        raise LedgerError("a review has five batches at most, file the finding into the batch whose theme fits")
+    room_for(
+        brain=brain,
+        entry=entry,
+        rows=rows,
+        theme=theme,
+    )
 
     number = max((row["number"] for row in rows), default=0) + 1
     row = "\n" + batch_row(number=number, theme=theme, status="pending", ack="")
@@ -122,6 +129,35 @@ def add_batch(
     save(brain=brain, entry=entry)
 
     return number
+
+
+def room_for(
+    brain: store.Brain,
+    entry: store.Entry,
+    rows: list[dict],
+    theme: str,
+) -> None:
+    """Refuse a batch taking `theme` where the ledger has no room for one more of its kind.
+
+    A theme counts against the cap. The closing pass's batch is taken
+    while the report names the pass as the next step, which it stops
+    doing once a batch carries the theme, so the ledger holds one.
+    """
+    if theme.casefold() == CLOSING_THEME:
+        step = next_step(
+            brain=brain,
+            entry=entry,
+            rows=rows,
+            items=findings(entry),
+        )
+        if step != CLOSING_STEP:
+            raise LedgerError(f"a batch is themed {CLOSING_THEME} once the report's next step is {CLOSING_STEP}, not {step}")
+
+        return
+
+    themes = [row for row in rows if row["theme"].casefold() != CLOSING_THEME]
+    if len(themes) >= MAX_BATCHES:
+        raise LedgerError(f"a review has {MAX_BATCHES} batches at most, file the finding into the batch whose theme fits")
 
 
 def set_batch(
@@ -150,15 +186,31 @@ def set_batch(
         if int(row_number) != number:
             continue
 
+        rows = batches(entry)
+        was_closing = old_theme.casefold() == CLOSING_THEME
+        if theme and (theme.casefold() == CLOSING_THEME) != was_closing:
+            room_for(
+                brain=brain,
+                entry=entry,
+                rows=rows,
+                theme=theme,
+            )
+
         new_status = status or old_status
         if auto and new_status == "pending":
             raise LedgerError("auto ack is the word at a batch's start, give it with --status fixing")
 
+        items = findings(entry)
         own = in_batch(
-            items=findings(entry),
+            items=items,
             number=number,
         )
         starting = old_status == "pending" and status in ("fixing", "verified", "done")
+        holding = {batch_of(item) for item in items}
+        waiting = [row["number"] for row in rows if row["number"] < number and row["status"] == "pending" and row["number"] in holding]
+        if starting and waiting:
+            raise LedgerError(f"batch {waiting[0]} holds findings and is still pending, start it before batch {number}")
+
         if auto and old_ack and not is_auto(old_ack):
             raise LedgerError(f"batch {number} already carries the owner's ack {old_ack}")
 
@@ -294,20 +346,6 @@ def add_findings(
     return identifiers
 
 
-def set_finding(
-    brain: store.Brain,
-    key: str,
-    identifier: str,
-    changes: dict[str, str],
-) -> None:
-    set_findings(
-        brain=brain,
-        key=key,
-        identifiers=[identifier],
-        changes=changes,
-    )
-
-
 def set_findings(
     brain: store.Brain,
     key: str,
@@ -317,8 +355,15 @@ def set_findings(
     """Make the same changes to every finding named in one load and one write, so the call lands whole or not at all.
 
     Each finding is held to every rule a change to it alone is held to,
-    and a finding named twice is changed once.
+    and a call that names no finding, no change or a finding twice is
+    refused.
     """
+    if not identifiers:
+        raise LedgerError("nothing to set, name a finding like F-03")
+
+    if not changes:
+        raise LedgerError("nothing to set, give a change like status=fixed")
+
     changes = {field: checked(field=field, value=value) for field, value in changes.items()}
 
     entry = ledger_entry(brain=brain, key=key)
@@ -328,7 +373,10 @@ def set_findings(
     )
     body = entry.document.body
 
-    for identifier in dict.fromkeys(identifiers):
+    for position, identifier in enumerate(identifiers):
+        if identifier in identifiers[:position]:
+            raise LedgerError(f"{identifier} is named twice, name each finding once")
+
         body = changed(
             body=body,
             name=entry.name,
@@ -623,7 +671,7 @@ def next_step(
         rows=rows,
     )
     if owed:
-        return "the closing pass"
+        return CLOSING_STEP
 
     return CLOSE_STEP
 
