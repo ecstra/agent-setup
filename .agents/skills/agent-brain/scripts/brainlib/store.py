@@ -8,13 +8,19 @@ commits, ledgers and links that nobody can rewrite.
 
 import os
 from dataclasses import dataclass, replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Callable, Optional
 
 from . import frontmatter, schema
 
 # what the store notes for a folder it could not list, beside the files it could not read
 UNLISTED = "cannot be listed"
+
+# the hosts Windows serves a WSL distro's files under, casefolded
+WSL_HOSTS = ("wsl.localhost", "wsl$")
+
+# where WSL mounts each Windows drive, one folder per letter
+WSL_DRIVES = PurePosixPath("/mnt")
 
 
 class StoreError(Exception):
@@ -242,18 +248,99 @@ class Brain:
         self,
         key: str,
     ) -> Optional[Entry]:
-        """Resolve an id, a name, or a path inside the brain to one entry.
+        """Resolve a key to one entry, or to nothing when no file answers to it.
+
+        A key is an id, a name, or a path to the file with slashes or
+        backslashes. The path may start in the brain, in the project's
+        folder, at the top of the git repository or at the root of the
+        disk. Everything up to the last brain folder in it is dropped
+        before the lookup, once what stood in front of that folder is
+        known to lead to this project, and a path into another
+        project's brain is found nowhere.
 
         A key that fits more than one file, a stem two kinds share or
         the ledger.md every review is, is refused with the paths named,
         rather than answered with whichever came first.
         """
-        found = self.by_key().get(key, [])
+        parts: list[str] = key.replace(
+            "\\",
+            "/",
+        ).split("/")
+        brain_folders: list[int] = [index for index, part in enumerate(parts[:-1]) if part == self.root.name]
+        if brain_folders:
+            brain_folder: int = brain_folders[-1]
+            in_front: str = "".join(f"{part}/" for part in parts[:brain_folder])
+            if in_front and not self.is_this_project(in_front):
+                return None
+
+            parts = parts[brain_folder + 1 :]
+
+        found = self.by_key().get(
+            "/".join(parts),
+            [],
+        )
         if len(found) > 1:
             paths = ", ".join(entry.relative for entry in found)
             raise Ambiguous(f"'{key}' names {len(found)} files, use the path: {paths}")
 
         return found[0] if found else None
+
+    def is_this_project(
+        self,
+        folder: str,
+    ) -> bool:
+        """Whether the folder a path names in front of a brain folder is this brain's project.
+
+        A leading ~ is the home folder. It is this project when it is the
+        same folder on disk, given absolute or read from the current
+        folder. A path that is not absolute here is also taken when its
+        folders are the last ones of the project's own path, which is
+        how git prints a path from a top above the project.
+
+        A Windows path, with a drive letter or a share in front, on a
+        system that does not read it as one, names a folder inside WSL
+        as `wsl_parts` reads it. When that folder is on disk it is this
+        project when it is the same folder, so a drive mount that opens
+        folders in any case is asked rather than second guessed. When it
+        is not, it is this project only when it spells the project's
+        whole path exactly. Outside WSL it is never a folder here.
+        """
+        project: Path = self.root.parent
+        expanded: str = os.path.expanduser(folder)
+        try:
+            same_folder: bool = os.path.samefile(
+                f1=Path.cwd() / expanded,
+                f2=project,
+            )
+        except (OSError, ValueError):
+            # a folder that is not on disk, or cannot be read, is not this project
+            same_folder = False
+
+        if same_folder:
+            return True
+
+        windows = PureWindowsPath(expanded)
+        # POSIX reads a share, //wsl.localhost/Ubuntu/..., as absolute, so a Windows path is settled before the refusal below
+        if windows.drive and windows.root and not Path(expanded).drive:
+            inside_wsl: Optional[tuple[str, ...]] = wsl_parts(windows)
+            if inside_wsl is None:
+                return False
+
+            try:
+                return os.path.samefile(
+                    f1=Path(*inside_wsl),
+                    f2=project,
+                )
+            except (OSError, ValueError):
+                # the folder is not on disk, or cannot be read, so only its spelling can say
+                return inside_wsl == project.parts
+
+        if Path(expanded).is_absolute():
+            return False
+
+        folders: tuple[str, ...] = PurePosixPath(expanded).parts
+
+        return folders == project.parts[-len(folders) :]
 
     def by_key(self) -> dict[str, list[Entry]]:
         """Every entry under each key it answers to, built once per scan.
@@ -264,7 +351,9 @@ class Brain:
         if self.keyed is None:
             keyed: dict[str, list[Entry]] = {}
             for entry in self.entries():
-                keys = {entry.identifier, entry.name, entry.relative, entry.path.stem} - {None}
+                # `find` turns a key's backslashes to slashes, so on Windows only this spelling of the path can match it
+                with_slashes: str = entry.path.relative_to(entry.root).as_posix()
+                keys = {entry.identifier, entry.name, entry.relative, with_slashes, entry.path.stem} - {None}
                 # a review's file is its folder's ledger, so the folder's name answers for it as a plan's stem does
                 if entry.kind.name == "review":
                     keys.add(entry.path.parent.name)
@@ -328,6 +417,35 @@ class Brain:
             return folder / f"{self.next_id(kind)}-{slug}.md"
 
         return folder / f"{slug}.md"
+
+
+def wsl_parts(
+    windows: PureWindowsPath,
+) -> Optional[tuple[str, ...]]:
+    """The folders a Windows path names inside the WSL distro the tool runs in, or None when it names none.
+
+    The distro is the one WSL_DISTRO_NAME names, and outside WSL the
+    variable is unset, so no Windows path names a folder there. A drive
+    letter path is that letter's folder under /mnt, the letter lowered.
+    A share is the distro's root only when its host is wsl.localhost or
+    wsl$ and the share is the distro, both in any case.
+    """
+    distro: str = os.environ.get(
+        "WSL_DISTRO_NAME",
+        "",
+    )
+    if distro == "":
+        return None
+
+    below_drive: tuple[str, ...] = windows.parts[1:]
+    if not windows.drive.startswith("\\\\"):
+        return (*WSL_DRIVES.parts, windows.drive[0].lower(), *below_drive)
+
+    host, _, share = windows.drive[2:].partition("\\")
+    if host.casefold() not in WSL_HOSTS or share.casefold() != distro.casefold():
+        return None
+
+    return ("/", *below_drive)
 
 
 def hidden(

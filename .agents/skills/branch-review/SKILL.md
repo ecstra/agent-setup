@@ -89,10 +89,20 @@ git status --porcelain --untracked-files=all
 
 The range is `main...HEAD` unless the owner gave one. The first command
 lists every changed file whole, and the list and the range go into
-every sub agent prompt. Uncommitted work is in scope too. The third
-command lists it file by file, tracked and untracked alike, and a
-prompt names an untracked file as one to read whole, since no diff
-shows it.
+every sub agent prompt. In a project the files the kit writes whole
+come off the list: its skills under `.agents/skills/`, `SYSTEM.md`,
+the brain's own `README.md` and `house-rules.md`, the specs, the
+version stamp in `.agents/VERSION`, the sub agent definitions under
+`.claude/agents/`, the skill links under `.claude/skills/`, the chat
+style, `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md` and the kit's words
+in `AGENTS.md` below its marker line, since a finding there is the
+kit's to fix and the next upgrade writes them back, and the project's
+rule refuses reading the tool's code besides. The kit's own checkout is
+the repository that ships the tool, and there every file is the work
+and stays. Uncommitted work is in scope too. The third command lists
+it file by file, tracked and untracked alike, the kit's files left out
+the same way, and a prompt names an untracked file as one to read
+whole, since no diff shows it.
 
 ## The finding pass
 

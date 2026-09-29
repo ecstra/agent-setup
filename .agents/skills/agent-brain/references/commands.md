@@ -18,12 +18,20 @@ the entry written all the same.
 | `brain ack` | The clock and where the owner's standing word to proceed stands, off, held, or on with what is left of it and what ends it. |
 | `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. The kinds are bug, decision, doc, handover, memory, plan, review and todo. |
 | `brain show <key> [--meta]` | The whole file, or with `--meta` its frontmatter only. |
-| `brain path <key>` | The absolute path behind an id, a name or a brain relative path. |
+| `brain path <key>` | The absolute path behind a key. |
 | `brain links <key> [--json]` | What the entry links to, and every entry that links to it. |
 
 A `<key>` is an id such as `BUG-004`, a name such as
-`stripe-retries-twice`, or a path inside `.agents/` such as
-`docs/systems/login.md`.
+`stripe-retries-twice`, or a path. A path is written from the brain,
+such as `docs/systems/login.md`, or from the project's root, such as
+`.agents/docs/systems/login.md`. A longer path is a key only when what
+stands in front of the brain's folder leads to this brain, which is an
+absolute path to this project's own folder, a path that lands in this
+brain when read from the current folder, or the path git prints from a
+top above the project, such as `apps/web/.agents/docs/systems/login.md`
+for a project in `apps/web`, whose folders in front are the last
+folders of the project's own path. A path into another project's brain
+answers nothing. Every command that takes a key reads it this way.
 
 ## Writing
 
@@ -238,7 +246,7 @@ it is.
 
 | Command | What it does |
 |---|---|
-| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill links and what a write left behind. |
+| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill links, the front doors' imports and what a write left behind. |
 | `brain doctor --fix` | Applies every fixable repair, in passes until a pass changes nothing, then reports what is left. A repair that fails is reported as a flag with the reason. |
 
 Doctor checks that nothing was left behind by an interrupted write,
@@ -259,6 +267,81 @@ which must reach its skill rather than point at nothing or be a plain
 file. It reports too a real folder copy of a kit skill that fell
 behind the brain's, a dangling link doctor once made for a project
 skill since gone from the brain, and a skills folder it cannot list.
+It reads the front doors, `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`,
+the way each agent reads its `@` imports. Claude Code reads `CLAUDE.md`
+and `AGENTS.md` while the project keeps a `.claude/` folder, and Gemini
+CLI reads `GEMINI.md` and `AGENTS.md` while the project keeps a
+`.gemini/` folder. A front door is judged once for each agent
+that reads it, `AGENTS.md` by Claude Code's rules when the project
+keeps neither folder, and a front door that is a link to `AGENTS.md` is
+read once, as that file. Both agents find code the same way, in a fence
+of backticks or tildes, closed or not, in an indented block, which is a
+line four columns in from the margin where no paragraph is open, the
+margin inside a list item being where its text starts, or in a span,
+which a backtick after a backslash never opens. A comment opened at the
+start of a line runs to its `-->` or to the end of the file, and a
+fence inside it opens nothing. Claude Code skips HTML comments too,
+while Gemini CLI reads them raw.
+
+In both agents an `@` at the start or after whitespace opens an import
+whose path runs to the next whitespace. Claude Code reads the lexer's
+text, where a run of `*` or `_` is emphasis only when markdown pairs
+it. A run can open when a character that is not whitespace follows it
+and can close when one stands before it, a run of `_` inside a word
+does neither, and a run that can close pairs with the nearest open run
+of the same marker and length before it in its block. The lines of a
+paragraph are read together, so a pair may open on one line and close
+on a later one, but never across a blank line, a list item's start, a
+heading or a fence. So an `@` right after a run used as an opener opens
+an import too, a run used as a closer comes off the end of the path,
+and a run left without a partner opens nothing and stays in the path. A
+backslash before a space keeps the space, any other backslash ends the
+path, and the path is cut at its first `#`. Gemini CLI reads the raw
+text, so an `@` right after `*` or `_` opens nothing, markers after the
+path are part of its name, a backslash before a space ends the path and
+any other backslash is part of the name, and a `#` fragment stays in
+the name it looks for. A token is an import when it opens with `~`,
+`/`, `./` or `../`, names a markdown file, or leads to a file under any
+spelling of its case, so a handle such as `@alice`, a package such as
+`@tanstack/query@5.59.0` or a decorator such as `@pytest.fixture` is
+passed over.
+
+Doctor reports an import with punctuation glued to its path, which the
+parser takes as part of the name so the file never loads, an import
+that reaches no file, one found only under another spelling of its
+case, which loads only where the file system ignores case, one with a
+backslash in its path, where Claude Code's path ends, and a `CLAUDE.md`
+or `GEMINI.md` with no import that resolves to the project's
+`AGENTS.md`, whether in a sentence or on a line of its own. Under
+Gemini CLI's reading it reports too an escaped space, a backslash kept
+in the name, emphasis markers glued to the path, a fragment kept in the
+name and, in a file both agents read, an import right after an emphasis
+marker, which Gemini CLI never opens. A finding names the agent only
+where the two read differently, and one both give is named once. An
+import from the home folder, one that opens with `~`, is checked for
+glued punctuation and never for being there, since it is there on one
+machine and missing on the next. An import from the root of the disk,
+one that opens with `/`, is reported for that same reason, never looked
+up and never taken for the rules import. So is one that climbs out of
+the project's folder and comes back in by retracing the folders it
+climbed out of, such as `@../../apps/web/x.md` in a project at
+`repo/apps/web`, since another checkout may go by other names, while
+one that climbs out and stays out, such as
+`@../../packages/web/README.md` there, is looked up like any other. A
+front door that is not there is reported, `AGENTS.md` always and the
+other two while their agent's folder is there, since the rules then
+never load in that agent, and the next upgrade writes it back. So is a
+front door spelled in another case, such as `Claude.md`, since only the
+exact name is read, and one that is there but cannot be read.
+
+Doctor does not follow the lexer everywhere, and in these cases it may
+stay silent where an agent loads nothing, or report an import no agent
+opens. They are an `@` inside link text or strikethrough, a backtick
+after an escaped backslash, a thematic break of any kind, `***`, `___`,
+`---` or a spaced one such as `* * *` or `- - -`, after which an
+indented block is read as prose and the spaced ones are taken for list
+items, a comment that opens inside a list item, and an import with no
+`.md` ending that leads nowhere, which reads as a mention.
 
 `--fix` repairs a missing or blank `updated` date, blank `links`
 written as `[]`, a name that disagrees with its filename, a link written
@@ -297,7 +380,7 @@ and `--project` has to name a folder that is there.
 
 | Command | What it does |
 |---|---|
-| `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain, which means the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, the review's sub agent definitions, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`, the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
+| `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain, which means the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, Claude Code's with the rules under `permissions.deny` that refuse reading the kit's code, by the brain's path and by the skill link's, an earlier spelling of the kit's replaced and the project's own rules kept, the review's sub agent definitions, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`, the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
 | `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Refuses without a brain, refuses while a file it would replace holds uncommitted work, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills`, in `.claude/skills` where the link goes, or a sub agent definition of its own under a name the skill brings, until the folder or file is moved aside. A folder the kit itself wrote is known by its bytes and passes. |
 
 What is the project's stays the project's, which is everything under
@@ -305,7 +388,9 @@ What is the project's stays the project's, which is everything under
 and any hook or setting of its own in the agent folders. Section 0
 ends at the comment line in `AGENTS.md` that says where the kit's
 words start, so it is found the same way whatever a release says after
-that line. In a file the first release wrote, before that line
+that line. The run refuses to install the kit onto itself, or onto a
+worktree or a clone of it, since that is where the tool's code is the
+work. In a file the first release wrote, before that line
 existed, it ends where that release's opening paragraph stood, and
 that paragraph is history, so it never moves. The kit's earlier hook
 groups are replaced under every event, told apart by a command that is
@@ -317,12 +402,17 @@ stays as an empty list. A rename goes through git where git tracks the
 file, so the move shows as one, and a root file the kit replaces is
 named in the report along with where git keeps the old one. The exit
 code is doctor's, 0 clean and 2 while findings remain, and those are
-the project's own prose to put right. A finding in the kit's own
-files, under `skills/agent-brain/` or `skills/branch-review/`, is the
-kit's to fix, printed apart and never counted, since the install
-replaces those files every time. The tool ships without its own tests,
-and the chat style copies in `.codex/` and `.gemini/` are the doctor's
-to make from the source in `.claude/output-styles/`.
+the project's own prose to put right. A finding in a file the install
+writes whole is the kit's to fix, printed apart and never counted,
+since the install replaces that file every time. Such a file is a skill
+the kit ships, the brain's own `SYSTEM.md`, `README.md` or
+`house-rules.md`, a spec, the version stamp `VERSION`, or a file copied
+into the agent folders, which is a sub agent definition, the chat style
+source or one of its copies. An import slip in `CLAUDE.md`, in
+`GEMINI.md` or in the kit's words of `AGENTS.md` below its marker line
+counts the same way. The tool ships without its own tests, and the chat
+style copies in `.codex/` and `.gemini/` are the doctor's to make from
+the source in `.claude/output-styles/`.
 
 ## Hooks
 

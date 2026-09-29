@@ -510,7 +510,7 @@ Blocking one wording does little, because the same shape returns in new words. P
 
 **Open with where things stand. The reader has not read the code, the docs, the ledger or the brain.**
 
-Say the state in plain words first, then what changed, then what is left and what the user has to do. Nothing about your own process, effort, passes or reasoning. A tally that argues for the work and a failed command narrated as news are process too. Name a file once and say what it does. A ledger or a doc is a record and never the answer, so never point at one in place of saying the thing.
+Say the state in plain words first, then what changed, then what is left and what the user has to do. Nothing about your own process, effort, passes or reasoning. A tally that argues for the work and a failed command narrated as news are process too. Name a file once and say what it does. A ledger or a doc is a record and never the answer, so never point at one in place of saying the thing. A finding, a bug, a todo or a decision is named by what it is, in plain words, its id at most beside the words in brackets and never in their place, since the user does not hold the ledger or the brain in their head.
 
 ---
 
@@ -518,7 +518,7 @@ Say the state in plain words first, then what changed, then what is left and wha
 
 **`.agents/` at the repo root is the project's brain, committed, all but what git ignores there, so any agent on any machine resumes cold.**
 
-Read `.agents/INDEX.md` before working. It is the spine: the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked.
+Read `.agents/INDEX.md` before working. It is the spine: the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked. The tool's own code, under `.agents/skills/agent-brain/scripts/`, is never read by hand, not through a Read and not through the shell, since the skill sheet and its command reference say what every command does and the code costs context for nothing. The port writes Claude Code the rules that refuse the read. The kit's own checkout is the one place that code is the work, and it carries no such rule, since the tool never installs the kit onto itself.
 
 ### 8.1 Upkeep
 

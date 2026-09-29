@@ -60,7 +60,7 @@ Fixed:
 - <file>, <what changed, in plain words>
 The hunter found <n> more, fixed above. (or: The hunter found nothing.)
 
-Deferred: <F-nn> as <BUG-nnn>, <why it cannot be fixed here>.
+Deferred: <the finding, in plain words> (F-nn), filed as <the bug's title> (BUG-nnn), <why it cannot be fixed here>.
 Cut short: the hunter, after three runs, <the files it never reached, or that candidates past its cap remained>.
 Your call: ack batch <n+1>, which starts it.
 ```
