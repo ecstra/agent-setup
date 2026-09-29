@@ -564,7 +564,7 @@ def prepare(
             if not kits_copy:
                 raise UpgradeError(
                     f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, "
-                    "and the file there is the project's own, move it aside first"
+                    "and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it"
                 )
 
     stamp = kit.version()

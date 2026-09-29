@@ -52,10 +52,6 @@ MAX_BATCHES = 5
 # refuses until the report gives it.
 CLOSE_STEP = "close the ledger"
 
-# The next step the report gives while the closing pass is owed, and
-# a batch takes the closing theme only while the report gives it.
-CLOSING_STEP = "the closing pass"
-
 # The ack a batch takes while the owner's standing word holds, recorded
 # as auto with the day, so the trail says which batches ran unattended.
 AUTO_ACK = "auto"
@@ -111,12 +107,12 @@ def add_batch(
 
     entry = ledger_entry(brain=brain, key=key)
     rows = batches(entry=entry)
-    room_for(
-        brain=brain,
-        entry=entry,
+    has_room = room_for(
         rows=rows,
         theme=theme,
     )
+    if not has_room:
+        raise LedgerError(f"a review has {MAX_BATCHES} batches at most, file the finding into the batch whose theme fits")
 
     number = max((row["number"] for row in rows), default=0) + 1
     row = "\n" + batch_row(number=number, theme=theme, status="pending", ack="")
@@ -130,32 +126,16 @@ def add_batch(
 
 
 def room_for(
-    brain: store.Brain,
-    entry: store.Entry,
     rows: list[dict],
     theme: str,
-) -> None:
-    """Refuse a batch taking `theme` where the ledger has no room for one more of its kind.
-
-    A theme counts against the cap. The closing pass's batch is taken
-    while the report names the pass as the next step, which it stops
-    doing once a batch carries the theme, so the ledger holds one.
-    """
+) -> bool:
+    """Whether a ledger with the batches `rows` has room for one more batch themed `theme`, the closing pass's batch standing outside the cap."""
     if theme.casefold() == CLOSING_THEME:
-        step = next_step(
-            brain=brain,
-            entry=entry,
-            rows=rows,
-            items=findings(entry=entry),
-        )
-        if step != CLOSING_STEP:
-            raise LedgerError(f"a batch is themed {CLOSING_THEME} once the report's next step is {CLOSING_STEP}, not {step}")
-
-        return
+        return True
 
     counted_batches = [row for row in rows if row["theme"].casefold() != CLOSING_THEME]
-    if len(counted_batches) >= MAX_BATCHES:
-        raise LedgerError(f"a review has {MAX_BATCHES} batches at most, file the finding into the batch whose theme fits")
+
+    return len(counted_batches) < MAX_BATCHES
 
 
 def set_batch(
@@ -184,31 +164,25 @@ def set_batch(
         if int(row_number) != number:
             continue
 
-        rows = batches(entry=entry)
-        was_closing = old_theme.casefold() == CLOSING_THEME
-        if theme and (theme.casefold() == CLOSING_THEME) != was_closing:
-            room_for(
-                brain=brain,
-                entry=entry,
-                rows=rows,
-                theme=theme,
-            )
+        # a batch already counted keeps its place under the cap whatever it
+        # is renamed to, so only the closing pass's batch can join the count
+        was_counted = old_theme.casefold() != CLOSING_THEME
+        has_room = was_counted or room_for(
+            rows=batches(entry=entry),
+            theme=theme or old_theme,
+        )
+        if not has_room:
+            raise LedgerError(f"a review has {MAX_BATCHES} batches at most besides the {CLOSING_THEME}, so batch {number} keeps its theme")
 
         new_status = status or old_status
         if auto and new_status == "pending":
             raise LedgerError("auto ack is the word at a batch's start, give it with --status fixing")
 
-        items = findings(entry=entry)
         own = in_batch(
-            items=items,
+            items=findings(entry=entry),
             number=number,
         )
         starting = old_status == "pending" and status in ("fixing", "verified", "done")
-        holding = {batch_of(item=item) for item in items}
-        waiting = [row["number"] for row in rows if row["number"] < number and row["status"] == "pending" and row["number"] in holding]
-        if starting and waiting:
-            raise LedgerError(f"batch {waiting[0]} holds findings and is still pending, start it before batch {number}")
-
         if auto and old_ack and not is_auto(old_ack):
             raise LedgerError(f"batch {number} already carries the owner's ack {old_ack}")
 
@@ -417,6 +391,10 @@ def changed(
 
     if new_status and new_status not in NEEDS_REASON:
         block = without_bullet(block=block, field="reason")
+
+    leaves_fixed = before.get("status") == "fixed" and new_status not in ("", "fixed")
+    if leaves_fixed:
+        block = without_bullet(block=block, field="fix")
 
     body = body[:start] + block + body[end:]
     moved = batch_of(after) != batch_of(before)
@@ -669,7 +647,7 @@ def next_step(
         rows=rows,
     )
     if owed:
-        return CLOSING_STEP
+        return "the closing pass"
 
     return CLOSE_STEP
 

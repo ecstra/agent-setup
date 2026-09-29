@@ -603,7 +603,7 @@ def add_ledger(
     adding.add_argument("--batch", type=int, default=0)
     adding.set_defaults(handler=run_ledger_add)
 
-    setting = actions.add_parser("set", help="change the status or fix of one finding or several")
+    setting = actions.add_parser("set", help="change any field of one finding or several")
     setting.add_argument("key")
     setting.add_argument("words", nargs="+", metavar="word", help="the findings first, like F-03, then the changes, like status=fixed")
     setting.set_defaults(handler=run_ledger_set)
@@ -699,6 +699,10 @@ def run_ledger_set(
     args: argparse.Namespace,
 ) -> int:
     """Change every finding named, the findings like F-03 first and the field=value changes after them."""
+    key_is_a_finding = ledger.FINDING_ID.fullmatch(string=args.key.upper()) is not None
+    if key_is_a_finding:
+        raise writes.WriteError(f"'{args.key}' names a finding, give the ledger's key before the findings")
+
     identifiers, changes = findings_and_changes(words=args.words)
     ledger.set_findings(
         brain=brain,
