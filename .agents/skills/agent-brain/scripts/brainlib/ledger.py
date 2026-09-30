@@ -13,6 +13,7 @@ from typing import Optional
 from . import autoack, frontmatter, schema, sections, store, writes
 
 FINDING = re.compile(r"^### (F-\d+): (.+?)[ \t]*$", re.MULTILINE)
+FINDING_ID = re.compile(r"F-\d+")
 BULLET = re.compile(r"^- ([a-z-]+):[ \t]*(.*?)[ \t]*$", re.MULTILINE)
 # One row of the batch table, on one line: the number, then three cells.
 BATCH_ROW = re.compile(
@@ -30,9 +31,9 @@ TABLE_HEADER = re.compile(
 )
 
 FIELDS = ("severity", "found-by", "batch", "status", "fix", "reason")
-NEEDS_REASON = ("wontfix", "deferred")
+NEEDS_REASON = ("wontfix", "deferred", "refuted")
 FOUND_BY = ("review", "hunter")
-FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred")
+FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred", "refuted")
 BATCH_STATUSES = ("pending", "fixing", "verified", "done")
 LEVELS = schema.REVIEW_LEVELS
 DEFAULT_LEVEL = "high"
@@ -43,6 +44,9 @@ DEFAULT_LEVEL = "high"
 CLOSING_THEME = "closing pass"
 NO_CLOSING_LEVELS = ("low",)
 SWEEP_PREFIX = "sweep/"
+
+# .agents/spec/reviews.md sets this cap on a review's batches and says why.
+MAX_BATCHES = 5
 
 # The next step the report gives once nothing else stands, and close
 # refuses until the report gives it.
@@ -102,7 +106,15 @@ def add_batch(
         raise LedgerError("a batch needs a theme")
 
     entry = ledger_entry(brain=brain, key=key)
-    number = max((row["number"] for row in batches(entry)), default=0) + 1
+    rows = batches(entry=entry)
+    has_room = room_for(
+        rows=rows,
+        theme=theme,
+    )
+    if not has_room:
+        raise LedgerError(f"a review has {MAX_BATCHES} batches at most, file the finding into the batch whose theme fits")
+
+    number = max((row["number"] for row in rows), default=0) + 1
     row = "\n" + batch_row(number=number, theme=theme, status="pending", ack="")
 
     body = entry.document.body
@@ -111,6 +123,19 @@ def add_batch(
     save(brain=brain, entry=entry)
 
     return number
+
+
+def room_for(
+    rows: list[dict],
+    theme: str,
+) -> bool:
+    """Whether a ledger with the batches `rows` has room for one more batch themed `theme`, the closing pass's batch standing outside the cap."""
+    if theme.casefold() == CLOSING_THEME:
+        return True
+
+    counted_batches = [row for row in rows if row["theme"].casefold() != CLOSING_THEME]
+
+    return len(counted_batches) < MAX_BATCHES
 
 
 def set_batch(
@@ -139,15 +164,26 @@ def set_batch(
         if int(row_number) != number:
             continue
 
+        # a batch already counted keeps its place under the cap whatever it
+        # is renamed to, so only the closing pass's batch can join the count
+        was_counted = old_theme.casefold() != CLOSING_THEME
+        has_room = was_counted or room_for(
+            rows=batches(entry=entry),
+            theme=theme or old_theme,
+        )
+        if not has_room:
+            raise LedgerError(f"a review has {MAX_BATCHES} batches at most besides the {CLOSING_THEME}, so batch {number} keeps its theme")
+
         new_status = status or old_status
         if auto and new_status == "pending":
             raise LedgerError("auto ack is the word at a batch's start, give it with --status fixing")
 
         own = in_batch(
-            items=findings(entry),
+            items=findings(entry=entry),
             number=number,
         )
         starting = old_status == "pending" and status in ("fixing", "verified", "done")
+
         if auto and old_ack and not is_auto(old_ack):
             raise LedgerError(f"batch {number} already carries the owner's ack {old_ack}")
 
@@ -283,12 +319,24 @@ def add_findings(
     return identifiers
 
 
-def set_finding(
+def set_findings(
     brain: store.Brain,
     key: str,
-    identifier: str,
+    identifiers: list[str],
     changes: dict[str, str],
 ) -> None:
+    """Make the same changes to every finding named in one load and one write, so the call lands whole or not at all.
+
+    Each finding is held to every rule a change to it alone is held to,
+    and a call that names no finding, no change or a finding twice is
+    refused.
+    """
+    if not identifiers:
+        raise LedgerError("nothing to set, name a finding like F-03")
+
+    if not changes:
+        raise LedgerError("nothing to set, give a change like status=fixed")
+
     changes = {field: checked(field=field, value=value) for field, value in changes.items()}
 
     entry = ledger_entry(brain=brain, key=key)
@@ -297,16 +345,44 @@ def set_finding(
         value=changes.get("batch", ""),
     )
     body = entry.document.body
+
+    for position, identifier in enumerate(identifiers):
+        if identifier in identifiers[:position]:
+            raise LedgerError(f"{identifier} is named twice, name each finding once")
+
+        body = changed(
+            body=body,
+            ledger_name=entry.name,
+            identifier=identifier,
+            changes=changes,
+        )
+
+    entry.document.body = body
+    save(brain=brain, entry=entry)
+
+
+def changed(
+    body: str,
+    ledger_name: str,
+    identifier: str,
+    changes: dict[str, str],
+) -> str:
+    """The body with one finding's changes made, refused when the ledger `ledger_name` has no such finding or the changes break a rule it is held to."""
     span = finding_span(body=body, identifier=identifier)
     if span is None:
-        raise LedgerError(f"{entry.name} has no finding {identifier}")
+        raise LedgerError(f"{ledger_name} has no finding {identifier}")
 
     start, end = span
     block = body[start:end]
     before = bullets(block)
     after = dict(before)
     after.update(changes)
-    if after.get("status") == "fixed" and not after.get("fix"):
+
+    # A fix an earlier call left on a finding that was not fixed names no
+    # commit of this fix, so a finding moving into fixed takes the call's own.
+    moves_into_fixed = after.get("status") == "fixed" and before.get("status") != "fixed"
+    named_commit = changes.get("fix") if moves_into_fixed else after.get("fix")
+    if after.get("status") == "fixed" and not named_commit:
         raise LedgerError("a fixed finding names its commit, fix=<hash>")
 
     new_status = changes.get("status", "")
@@ -322,16 +398,22 @@ def set_finding(
     if new_status and new_status not in NEEDS_REASON:
         block = without_bullet(block=block, field="reason")
 
-    body = body[:start] + block + body[end:]
-    moved = batch_of(after) != batch_of(before)
-    if is_open(after) or moved:
-        body = reopened(
-            body=body,
-            number=batch_of(after),
+    leaves_fixed = before.get("status") == "fixed" and new_status not in ("", "fixed")
+    if leaves_fixed and "fix" not in changes:
+        block = without_bullet(
+            block=block,
+            field="fix",
         )
 
-    entry.document.body = body
-    save(brain=brain, entry=entry)
+    body = body[:start] + block + body[end:]
+    moved = batch_of(after) != batch_of(before)
+    if not (is_open(item=after) or moved):
+        return body
+
+    return reopened(
+        body=body,
+        number=batch_of(item=after),
+    )
 
 
 def reopened(
@@ -502,7 +584,7 @@ def is_open(
 def needs_a_batch(
     item: dict,
 ) -> bool:
-    """Whether a finding has to sit in a batch, an open one and a fixed one, since a fix is verified by its batch, where a wontfix or a deferral needs none."""
+    """Whether a finding has to sit in a batch, an open one and a fixed one, since a fix is verified by its batch, where a wontfix, a deferral or a refuted claim needs none."""
     return is_open(item) or item.get("status") == "fixed"
 
 

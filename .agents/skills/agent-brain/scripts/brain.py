@@ -603,10 +603,9 @@ def add_ledger(
     adding.add_argument("--batch", type=int, default=0)
     adding.set_defaults(handler=run_ledger_add)
 
-    setting = actions.add_parser("set", help="change a finding's status or fix")
+    setting = actions.add_parser("set", help="change any field of one finding or several")
     setting.add_argument("key")
-    setting.add_argument("finding")
-    setting.add_argument("changes", nargs="+", metavar="field=value")
+    setting.add_argument("words", nargs="+", metavar="word", help="the findings first, like F-03, then the changes, like status=fixed")
     setting.set_defaults(handler=run_ledger_set)
 
     reporting = actions.add_parser("report", help="the ledger's state in a few lines, and what comes next")
@@ -699,13 +698,56 @@ def run_ledger_set(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
-    ledger.set_finding(
+    """Change every finding named, the findings like F-03 first and the field=value changes after them."""
+    key_is_a_finding = ledger.FINDING_ID.fullmatch(string=args.key.upper()) is not None
+    if key_is_a_finding:
+        raise writes.WriteError(f"'{args.key}' names a finding, give the ledger's key before the findings")
+
+    identifiers, changes = findings_and_changes(words=args.words)
+    ledger.set_findings(
         brain=brain,
         key=args.key,
-        identifier=args.finding,
-        changes=pairs(args.changes),
+        identifiers=identifiers,
+        changes=changes,
     )
     return 0
+
+
+def findings_and_changes(
+    words: list[str],
+) -> tuple[list[str], dict[str, str]]:
+    """The findings a `ledger set` names and the changes after them, refused at the first word out of its place.
+
+    Every finding comes before the first change and every field is given
+    once, so no word meant for one finding lands on another. An id in
+    lower case is refused as that rather than read as a change.
+    """
+    identifiers: list[str] = []
+    changes: dict[str, str] = {}
+
+    for word in words:
+        is_finding = ledger.FINDING_ID.fullmatch(string=word) is not None
+        if not is_finding and ledger.FINDING_ID.fullmatch(string=word.upper()):
+            raise writes.WriteError(f"'{word}' names a finding in lower case, write it {word.upper()}")
+
+        if is_finding and changes:
+            raise writes.WriteError(f"'{word}' comes after a change, name every finding before the changes")
+
+        if is_finding:
+            identifiers.append(word)
+            continue
+
+        if not identifiers:
+            raise writes.WriteError(f"'{word}' comes before any finding, name the findings first, like F-03 status=fixed")
+
+        change = pairs(items=[word])
+        field = next(iter(change))
+        if field in changes:
+            raise writes.WriteError(f"'{word}' sets {field} a second time, give each field once")
+
+        changes.update(change)
+
+    return identifiers, changes
 
 
 def run_ledger_report(

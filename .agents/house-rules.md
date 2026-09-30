@@ -2,7 +2,7 @@
 name: house-rules-agent
 kind: doc
 description: the branch contract and code review protocol, the agent's operating version
-updated: 2026-09-24
+updated: 2026-09-29
 links: [spec/reviews.md, spec/bugs.md, spec/todos.md, README.md]
 ---
 
@@ -36,7 +36,8 @@ AGENTS.md section 0 names its exact gates, tooling, and PR rules.
 Before any review: every suite, analyzer, and build the project's
 AGENTS.md section 0 names, green, and `brain doctor` clean. The review
 judges code that already works, reviewers never burn effort on red
-suites or a brain with broken links.
+suites or a brain with broken links. When the review starts the working
+tree is clean as well, since a review reads committed work only.
 
 ## The review protocol
 
@@ -55,53 +56,63 @@ suites or a brain with broken links.
    reaches for one nor asks for it by name. Codex `/review --base main`
    (GPT) is a second pair of eyes the owner can add. All of it works on
    the local branch, whether or not a PR is open yet.
-2. **Findings first, whole.** The finding pass runs one finder sub
-   agent per angle, all at once, then verifiers over the candidates,
-   a few at a time grouped by file, so what reaches the ledger has
-   been checked against the code. The agent reports every finding ranked by severity before
-   touching anything. No fixing during reporting, no silent triage.
+2. **Findings first, whole.** Finder sub agents read the branch all at
+   once, each over a slice of it or over the whole as its angle reads,
+   and further sub agents merge what they found into findings. Every
+   finding is filed, the rare and the small included, and the agent
+   reports them all before touching anything. No fixing during
+   reporting, no silent triage.
 3. **The ledger.** All findings land in
    `.agents/reviews/<yyyy-mm>-<branch-slug>/ledger.md` per
-   [spec/reviews.md](spec/reviews.md): severity graded (breaks, bug,
-   debt, nit), split into themed batches ordered by severity,
-   correctness first, nits last. A finding not worth fixing gets a
-   written reason, so no future review re litigates it.
-4. **The batch loop.** One batch at a time, and inside it everything
-   that can run at once does so.
-   - Fix the batch, one commit per fix, the hash recorded beside the
-     finding.
-   - A hunter sub agent sweeps the batch's scope for related bugs the
-     review missed, and beside it verifier sub agents, a few findings
-     each grouped by file, check bug wise, not code wise, that each bug
-     is actually gone and nothing new surfaced. Hunter finds enter the
-     ledger as findings
-     (`found-by: hunter`) and are fixed in the same batch. No backlog.
-   - After a follow up commit, the verifier it concerns is resumed and
-     told to re read the changed lines. The loop stops at the first
-     pass where every verifier says gone and every hunter that ran has
-     returned with its finds handled.
-   - Sub agents run in parallel. They never edit, never commit, never
-     write the ledger and never run the suite, which the gates run once
-     per commit in the main session.
-5. **Batch close.** Mark it in the ledger, report to the owner, and name
-   anything unfixable in scope. Unfixables defer into `.agents/bugs/` as
-   their own files, linked both ways, and earn a future branch sparingly,
-   on the owner's call.
-6. **The owner's ack gates each batch.** The next batch starts only when
-   they say so. The ack is that word to start a batch, recorded on the
-   batch it starts, and verification is what closes a batch. A standing
-   word, `brain ack on` with an end by time or by task, is the ack for
-   every gate of the review until that end, each batch and the closing
-   pass, a batch the owner acked ahead starting on that ack instead,
-   and each report says which of the two the step ran on. The close
-   follows the last batch with no word. The PR and the merge are not
-   the review's gates and stay on the owner's explicit ask, per the git
-   rules below.
-   A standing word with no end is not taken, the agent proposes one and
-   waits. Nothing starts a review but the owner's own word.
+   [spec/reviews.md](spec/reviews.md), which holds the grades and the
+   cap on batches. Each is graded breaks, bug, debt or nit and filed
+   into a batch by theme, correctness first and wording last. Every
+   finding leaves the open list as fixed, as refuted where the claim is
+   wrong, as left as it is (wontfix) where the claim is true and the
+   behaviour on purpose, or as deferred, and one that is not fixed
+   carries its reason, so no future review re litigates it.
+4. **The rounds of fixes.** The batches that have the owner's word are
+   fixed together in rounds, on the path the
+   [skill sheet](skills/branch-review/SKILL.md) gives. In a round one
+   fixer sub agent per group of files fixes the cause of each of its
+   findings, and verifier sub agents check each fix against the code.
+   Once the gates are green each group is one commit, and hunter sub
+   agents read what the round changed for defects the fixes brought
+   in, which the next round fixes, no backlog. The rounds end at the
+   first hunt that finds nothing. The last pass follows that hunt, and
+   nothing hunts it. It brings the docs up to the changed code and
+   holds the new lines to the house style. The skill sheet decides
+   which cases are the branch's, and any other that behaves the same
+   on the base is an older defect, filed in `.agents/bugs/` the moment
+   it is met. Sub agents run in parallel. With sub agents only a fixer
+   edits, and only its group's files, and the commits and the ledger
+   are the main session's. An agent without sub agents takes each
+   step itself, in the same order.
+5. **The close of the batches.** After the last pass the batches are
+   marked verified and done in the ledger, and one report to the owner
+   follows. A finding the fixes did not settle, or one that cannot be
+   fixed inside the branch, is named there, and its batch waits for
+   the owner's word instead of closing. Such a finding leaves for
+   `.agents/bugs/` on that word alone, as its own file, linked both
+   ways, and earns a future branch sparingly.
+6. **The owner's ack gates each batch.** A batch starts only when they
+   say so, in number order, and a word that covers several starts them
+   together. The ack is that word to start a batch, recorded on the
+   batch it starts, and verification is what closes a batch. A
+   standing word, `brain ack on` with an end by time or by task, is the
+   ack for every gate of the review until that end, each batch and the
+   closing pass, a batch the owner acked ahead starting on that ack
+   instead, and each report says which of the two the step ran on. The
+   close follows the last batch with no word. The PR and the merge are
+   not the review's gates and stay on the owner's explicit ask, per the
+   git rules below. A standing word with no end is not taken, the agent
+   proposes one and waits. Nothing starts a review but the owner's own
+   word.
 7. **The closing pass.** Above low, the branch gets one more pass over
-   itself as it stands after the last batch, to catch what the fixes
-   introduced and what the review missed. Sweeps skip this.
+   itself, whole, as it stands after the last batch, by fresh finders,
+   to catch what the fixes introduced and what the review missed. What
+   they find is one more batch, fixed on the owner's word in rounds
+   like any other. Sweeps skip this.
 
 ## Git rules
 

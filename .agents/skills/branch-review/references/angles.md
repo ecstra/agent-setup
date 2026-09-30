@@ -1,22 +1,30 @@
 # The angles
 
-Each angle is one finder sub agent, and the angle's text below is its
-whole brief. The level picks the set. Every finder returns candidates in
-the block shape from [prompts.md](prompts.md) and nothing else, and
-every candidate goes through a verifier at every level.
+Each angle's text below is what the finder prompt of
+[prompts.md](prompts.md) carries as the angle. The level picks the set.
 
 | Level | Angles |
 |---|---|
 | low | scan |
 | medium | scan, removed, callers, rules |
 | high | scan, removed, callers, pitfalls, rules, tests, docs |
-| max | every angle, then the sweep |
+| max | scan, removed, callers, pitfalls, wrappers, rules, tests, docs, reuse, simplification, efficiency, altitude |
 
 Low fits a small mechanical branch. Medium is the floor for anything
 that touches logic or changes an interface. High is the usual level for
-a feature branch. Max is for a wide surface or subtle logic. A finder
-returns up to 8 candidates, up to 12 at max. Which levels owe the
-closing pass is house rule 7.
+a feature branch. Max is for a wide surface or subtle logic. The last
+brief below is the second look's, and the [skill sheet](../SKILL.md)
+says when it runs. Which levels owe the closing pass is house rule 7.
+
+An angle that judges the changed lines themselves reads by slice, so
+each finder has little enough to read in one run. One that follows a
+change out of its own lines to where it lands reads the whole branch,
+since a slice would cut the path it follows.
+
+| Reads | Angles |
+|---|---|
+| by slice | scan, pitfalls, rules, tests, reuse, simplification, efficiency, altitude |
+| the whole branch | removed, callers, wrappers, docs |
 
 ## scan, the line by line read
 
@@ -26,7 +34,9 @@ in scope. For every line ask what input, state, timing or platform makes
 it wrong. Look for an inverted or wrong condition, an off by one, a null
 or missing value dereferenced, a falsy zero read as missing, a wrong
 variable from copy and paste, an error swallowed, a regex with an
-unescaped metacharacter, a missing await or return.
+unescaped metacharacter, a missing await or return. In a doc ask of
+every sentence what makes it false against the code or another doc,
+and of every step whether it can be followed as written.
 
 ## removed, the behaviour the diff took away
 
@@ -92,23 +102,29 @@ did.
 
 Find every document that describes what the diff changed, the root
 README, the docs under `.agents/docs/`, a skill's own references, a
-docstring, a help string. Check each claim there against the code as it
-now stands. A claim the diff made false is a candidate, and so is a new
-behaviour the docs should state and do not, such as a flag, a refusal or
-an exit code.
+docstring, a help string. Check each claim there against the code and
+the other docs as they now stand. A claim the diff made false is a
+candidate, and so is a new behaviour the docs should state and do not,
+such as a flag, a refusal or an exit code.
 
-## reuse, simplification and efficiency, the cleanup angles
+## reuse, the helper that exists already
 
-Three angles, one finder each, run at max. Reuse looks for new code
-that does what a helper in the codebase already does, found by grep
-through Bash in the shared and the adjacent modules, and names the
-helper. Simplification looks for complexity the diff adds with no
-observable effect, redundant or derivable state, copy and paste with
-one variation, deep nesting, dead code left behind, and names the
-simpler form. Efficiency looks for wasted work the diff introduces, a
-repeated read or computation, independent work run in sequence,
-blocking work on a hot path, and names the cheaper form. A cleanup
-candidate states its cost in the scenario field instead of a failure.
+Look for new code that does what a helper in the codebase already
+does, found by grep through Bash in the shared and the adjacent
+modules, and name the helper. The scenario states the cost.
+
+## simplification, the simpler form
+
+Look for complexity the diff adds with no observable effect, redundant
+or derivable state, copy and paste with one variation, deep nesting,
+dead code left behind, and name the simpler form. The scenario states
+the cost.
+
+## efficiency, the cheaper form
+
+Look for work the diff wastes, a read or a computation done twice or
+independent work run in sequence, and for blocking work on a hot path,
+and name the cheaper form. The scenario states the cost.
 
 ## altitude, the fix at the wrong depth
 
@@ -116,12 +132,9 @@ Check that each change fixes its cause at the right depth and not a
 symptom above it. A special case layered on shared code is the sign, and
 the candidate names the simpler general change.
 
-## sweep, the gaps after everything else
+## the second look, the gaps after everything else
 
-Run at max, spawned once the other angles have returned, with their
-pooled candidates as its already found list, and the same way in the
-closing pass at max. The finder re reads the diff and the enclosing
-functions looking only for defects not already on the list, such as
-moved or extracted code that dropped a guard, a default evaluated once,
-a lock scope that shrank, a predicate with a side effect, a config
-default flipped. It returns nothing when there is nothing new.
+Read the slice's diff and the enclosing functions for defects no
+candidate already found names, such as moved or extracted code that
+dropped a guard, a default evaluated once, a lock scope that shrank, a
+predicate with a side effect, a config default flipped.
