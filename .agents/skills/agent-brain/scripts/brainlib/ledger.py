@@ -377,7 +377,12 @@ def changed(
     before = bullets(block)
     after = dict(before)
     after.update(changes)
-    if after.get("status") == "fixed" and not after.get("fix"):
+
+    # A fix an earlier call left on a finding that was not fixed names no
+    # commit of this fix, so a finding moving into fixed takes the call's own.
+    moves_into_fixed = after.get("status") == "fixed" and before.get("status") != "fixed"
+    named_commit = changes.get("fix") if moves_into_fixed else after.get("fix")
+    if after.get("status") == "fixed" and not named_commit:
         raise LedgerError("a fixed finding names its commit, fix=<hash>")
 
     new_status = changes.get("status", "")
