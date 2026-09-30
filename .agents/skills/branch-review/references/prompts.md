@@ -335,13 +335,13 @@ Your slice of the round's changes, one per line:
 The rest of the round's changes are other hunters', and you read them
 only to understand your own.
 
-Look for one thing only, a defect the round's fixes brought in, in
-code or in a doc a fix wrote, which the files before the round did not
-have. For each function the round changed, read its callers too,
-wherever they sit, since a fix in one place breaks another. A case a
-model or the project's docs name as a limit is no candidate. How code
-is written, which is SYSTEM.md section 2, is the last pass's, and so is
-a doc that has not yet followed the code.
+Look for one thing only, a defect the round's fixes brought into the
+code, which the files before the round did not have. For each function
+the round changed, read its callers too, wherever they sit, since a fix
+in one place breaks another. A case a model or the project's docs name
+as a limit is no candidate. How code is written, which is SYSTEM.md
+section 2, is the last pass's, and so is a doc that has not yet
+followed the code.
 <where earlier answers exist, "Found already, and reported, are the candidates in these files" and their paths>
 
 Report every candidate you can name a scenario for, the rare and the

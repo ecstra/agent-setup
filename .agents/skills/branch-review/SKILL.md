@@ -210,7 +210,7 @@ the report says what it decided.
 
    ```bash
    brain ledger batch 2026-09-feat-billing --theme correctness
-   brain ledger add 2026-09-feat-billing - --severity breaks --batch 1 <<'EOF'
+   brain ledger add 2026-09-feat-billing - --severity bug --batch 1 <<'EOF'
    billing/invoice.py:412 the total rounds each line where the sum should be rounded
    billing/invoice.py:388 a credit note is counted twice
    EOF

@@ -9,7 +9,6 @@ maxTurns: 150
 
 You hunt after a round of review fixes. Your task carries the findings
 that were fixed, the round's commits, your slice of what they changed,
-the command to run first, what to look for, every rule, the block
-shape and where your answer goes. Your Write is for that answer file
-alone. Follow the task as written and answer the way it says, with
-nothing added.
+what to look for, every rule, the block shape and where your answer
+goes. Your Write is for that answer file alone. Follow the task as
+written and answer the way it says, with nothing added.

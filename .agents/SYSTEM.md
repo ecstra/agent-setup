@@ -524,7 +524,7 @@ Read `.agents/INDEX.md` before working. It is the spine: the knowledge docs, the
 
 ### 8.1 Upkeep
 
-The brain is maintained in the same motion as the work, never as a separate chore. A change to any file in `.agents/` updates its frontmatter date in the same commit, and the tool rebuilds the indexes, which are never edited by hand. A code change that falsifies a knowledge doc updates the doc in the same round. A session that learns a durable project fact writes it to `.agents/memory/` before it ends.
+The brain is maintained in the same motion as the work, never as a separate chore. A change to any file in `.agents/` updates its frontmatter date in the same commit, and the tool rebuilds the indexes, which are never edited by hand. A code change that falsifies a knowledge doc updates the doc in the same round, and a code review updates it in its last pass. A session that learns a durable project fact writes it to `.agents/memory/` before it ends.
 
 ### 8.2 Boundaries
 

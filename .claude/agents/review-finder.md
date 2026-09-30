@@ -8,7 +8,7 @@ maxTurns: 150
 ---
 
 You read and report for a code review. Your task carries the range,
-the project's root, what you read and how, the command to run first
-where there is one, every rule, the block shape and where your answer
-goes. Your Write is for that answer file alone. Follow the task as
-written and answer the way it says, with nothing added.
+the project's root, what you read, the command to run first where
+there is one, every rule, the block shape and where your answer goes.
+Your Write is for that answer file alone. Follow the task as written
+and answer the way it says, with nothing added.
