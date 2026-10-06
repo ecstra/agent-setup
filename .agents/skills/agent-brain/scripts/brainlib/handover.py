@@ -2,29 +2,62 @@
 
 A session that stops mid task, before a compaction or at its end,
 writes the note through `brain handover`, and the session start hook
-puts it whole in front of the next session and removes it, so a note is
-read once. The tool records what it can read off the machine, the
-branch and its head, the uncommitted files, the standing word and the
-current work, and the prose on standard input says the rest. The folder
-holds one file and git ignores it, since the note belongs to one
-machine and one stretch of work, like the standing word and the current
-work beside it.
+claims it, renaming it aside so a note written meanwhile is never the
+one removed, puts it whole in front of the next session and removes the
+claimed file once that context is out, so a note is read once. The
+tool records what it can read off the machine, the branch and its head,
+the uncommitted files, the standing word and the current work, and the
+prose on standard input says the rest. The folder holds one note and
+git ignores it, since the note belongs to one machine and one stretch
+of work, like the standing word and the current work beside it. A file
+at the note's path the tool never wrote is the project's own, and the
+tool neither claims nor writes over it.
 """
 
+import os
+import re
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from . import autoack, clock, frontmatter, store, task
+from . import autoack, clock, frontmatter, schema, store, task
 
-FOLDER = "handover"
+FOLDER = schema.HANDOVER_FOLDER
 FILE = "handover.md"
 RELATIVE = f"{FOLDER}/{FILE}"
+# the name a claimed note goes by beside the note's own until the context that carries it is out
+CLAIMED = f"{FILE}.reading"
 NO_GIT = "no git"
+NO_ANSWER = "git could not answer"
+NO_COMMITS = "no commits yet"
+DETACHED = "detached"
+UNKNOWN_TIME = "an unknown time"
+NO_WORDS = "a handover carries words, give them on standard input"
 FOLDER_IN_THE_WAY = f"{RELATIVE} is a folder the tool never made, move it away by hand"
+FILE_IN_THE_WAY = f"{FOLDER} is a file the tool never made, where the note's folder goes, move it away by hand"
 BY_HAND = f"{FOLDER}/ holds the one note brain handover writes for the next session, read and removed by the session start hook, and nothing there is written by hand"
+
+# the files the record names, the rest counted, so a build folder git
+# does not ignore never floods the next session's context
+LISTED = 50
+
+# how long one git call may take before the note says git could not
+# answer, so a hung git never holds up a session start or a write
+GIT_SECONDS = 10
+
+BYTE_ORDER_MARK = "\ufeff"
+HEADS = "refs/heads/"
+
+# a bisect started on a detached head keeps the commit's full name where
+# a branch's name would be
+OBJECT_NAME = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
+
+# the one shape the tool writes a moment in, to the second, a fraction of
+# one to six digits, then an offset or a Z, since the interpreters of the
+# kit's floor and ceiling read different sets of ISO forms
+MOMENT = re.compile(r"([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,6}))?([+-][0-9]{2}:[0-9]{2}|Z)")
 
 # what git's two letter status says about a file, in a word
 STATES: dict[str, str] = {
@@ -38,18 +71,64 @@ STATES: dict[str, str] = {
     "T": "type changed",
 }
 
+# the pairs git's status gives a file a merge left in conflict, whatever the letters say alone
+UNMERGED = frozenset({"DD", "AU", "UD", "UA", "DU", "AA", "UU"})
+
+# The claimed files this process took into a context and has not yet
+# released, which `read` does not count as waiting. A claimed file no
+# process holds, left by a session start that died or could not remove
+# it, is the note still waiting.
+HELD: set[Path] = set()
+
 
 class HandoverError(Exception):
     """The note could not be written as asked, with the reason in the message."""
 
 
+class Unanswered(Exception):
+    """Git gave no fact to stand on, with the words the note writes in the fact's place as the message."""
+
+
 @dataclass(frozen=True)
 class Note:
-    """The note as it stands on disk: its whole text, and the branch and the moment its header names, None for each the header does not give."""
+    """The note as it stands on disk: its whole text, and the branch and the moment its header names, None for each the header does not give.
+
+    `again` says it waits under the name a claim gave it, read by a
+    session start before that could not remove it.
+    """
 
     text: str
     branch: Optional[str]
     written: Optional[datetime]
+    again: bool = False
+
+
+@dataclass(frozen=True)
+class Claim:
+    """What the session start took of the note's folder.
+
+    `note` is the note read and `path` the file to remove once the
+    context that carries it is out, which only happens where the note
+    was `taken` aside, and `again` says it is one a session claimed
+    before and could not remove. `waiting` is the one line to say in its
+    place where the file is left as it is, another branch's note, a file
+    the tool never wrote, or one it cannot open, and then `note` is None.
+    """
+
+    note: Optional[Note]
+    path: Path
+    taken: bool
+    again: bool
+    waiting: Optional[str]
+
+
+@dataclass(frozen=True)
+class Reply:
+    """What one git call gave back, its exit code, its output, and the first line of what it said went wrong."""
+
+    code: int
+    out: str
+    err: str
 
 
 def path_of(
@@ -70,29 +149,37 @@ def write(
     replace: bool = False,
     at: Optional[datetime] = None,
 ) -> Note:
-    """Write the note, the tool's record first and the prose under it, in place of the one there.
+    """Write the note, the tool's record first and the prose under it, in place of the tool's note there.
 
     Refused with no prose, since a note with no words is nothing to
-    resume from, with a folder standing in the file's place, and while a
-    note written on another branch waits there, which `replace` writes
-    over on the owner's word.
+    resume from, with a folder in the file's place or a file in the
+    folder's, and with a file there the tool never wrote or cannot read,
+    which `replace` never writes over. A note waiting there for another
+    branch, or for a branch this one cannot be compared with, is refused
+    too, and `replace` writes over that on the owner's word. With no note
+    at the path, a claimed note a session could not remove is the note
+    waiting, judged the same, and the note written takes its place.
     """
-    words = prose.strip()
+    words = trimmed(prose)
     if not words:
-        raise HandoverError("a handover carries words, give them on standard input")
+        raise HandoverError(NO_WORDS)
 
     path = path_of(brain)
-    if store.quietly(path.is_dir):
-        raise HandoverError(FOLDER_IN_THE_WAY)
+    in_the_way = obstacle(path)
+    if in_the_way is not None:
+        raise HandoverError(in_the_way)
 
     project = project_of(brain)
     branch = current_branch(project)
-    standing = read(brain)
-    if standing is not None and not replace and not is_for(note=standing, branch=branch):
-        raise HandoverError(
-            f"a handover written on {standing.branch} at {when(standing.written)} is waiting there "
-            "for a session on that branch, and --replace writes over it"
-        )
+    aside = path.with_name(CLAIMED)
+    waiting = note_in_the_way(path) if os.path.lexists(path) else note_in_the_way(aside)
+    if waiting is not None and not replace:
+        ignore_case = ignore_case_for(note=waiting, branch=branch, project=project)
+        if not names(note=waiting, branch=branch, ignore_case=ignore_case):
+            raise HandoverError(
+                f"a handover written on {waiting.branch} at {when(waiting.written)} is waiting there "
+                "for a session on that branch, and --replace writes over it"
+            )
 
     # the moment in this machine's zone, so the note's lines name the zone the clock line names
     at = (at or clock.now()).astimezone()
@@ -116,7 +203,65 @@ def write(
     path.parent.mkdir(exist_ok=True)
     frontmatter.write_text(path=str(path), text=text)
 
+    # the note just written replaces a claimed one left on disk, which
+    # would otherwise come back as the note waiting once this one goes
+    if os.path.lexists(aside):
+        try:
+            aside.unlink()
+        except OSError as error:
+            raise HandoverError(
+                f"{RELATIVE} is written, and {FOLDER}/{CLAIMED}, the note it replaces, could not be removed, "
+                f"{store.explain(error)}, so delete it by hand"
+            ) from error
+
     return Note(text=text, branch=branch, written=at)
+
+
+def trimmed(
+    prose: str,
+) -> str:
+    """The prose without the blank lines before and after it, every other character as it came, a first line's indentation included."""
+    lines = prose.split("\n")
+    while lines and not lines[0].strip():
+        lines.pop(0)
+
+    while lines and not lines[-1].strip():
+        lines.pop()
+
+    return "\n".join(lines)
+
+
+def obstacle(
+    path: Path,
+) -> Optional[str]:
+    """What stands where the note or its folder goes that the tool never made, in the words that say what to move, or None."""
+    if os.path.lexists(path.parent) and not store.quietly(path.parent.is_dir):
+        return FILE_IN_THE_WAY
+
+    if store.quietly(path.is_dir):
+        return FOLDER_IN_THE_WAY
+
+    return None
+
+
+def note_in_the_way(
+    path: Path,
+) -> Optional[Note]:
+    """The tool's note at the path for a write to judge, or None when no file is there, refused when the file is not one the tool can read as its own."""
+    if not store.readable_file(path):
+        return None
+
+    where = f"{FOLDER}/{path.name}"
+    try:
+        text = opened(path)
+    except OSError as error:
+        raise HandoverError(f"{where} could not be read, {store.explain(error)}, and a note that cannot be read is never written over") from error
+
+    note = note_of(text)
+    if note is None:
+        raise HandoverError(f"{where} holds a file brain handover never wrote, move it into docs/ through brain new or delete it first")
+
+    return note
 
 
 def body(
@@ -126,10 +271,18 @@ def body(
     at: datetime,
     words: str,
 ) -> str:
-    """The note's body: the record the tool reads off the machine, then the session's own words."""
+    """The note's body: the record the tool reads off the machine, the standing word as it stood at the note's moment, then the session's own words."""
+    project = project_of(brain)
+    note = path_of(brain)
     record = [f"- branch {branch} at {head}"]
-    record += uncommitted_lines(project_of(brain))
-    record.append(f"- {autoack.describe(brain=brain)}")
+    record += uncommitted_lines(
+        project=project,
+        notes={
+            note.relative_to(project).as_posix(),
+            note.with_name(CLAIMED).relative_to(project).as_posix(),
+        },
+    )
+    record.append(f"- {autoack.describe(brain=brain, at=at)}")
     record += [f"- {line}" for line in task.describe(brain=brain).split("\n")]
 
     return (
@@ -142,19 +295,37 @@ def body(
 
 def uncommitted_lines(
     project: Path,
+    notes: set[str],
 ) -> list[str]:
-    """The uncommitted files as list lines, one per file with its state, or the one line that says the tree is clean or git is not there."""
-    listing = git(project=project, arguments=["status", "--porcelain", "--untracked-files=all", "-z"])
-    if listing is None:
-        return [f"- uncommitted files, {NO_GIT}"]
+    """The project's uncommitted files as list lines, the first fifty with their state and the rest counted, or the one line for a clean tree or git's silence.
 
-    files = changed_files(listing)
+    Git names every file from the repository's top and covers the whole
+    repository, so a project below the top keeps its own files, named
+    from its own folder, and the note itself, under its own name or the
+    name a claim gives it, `notes` from the project, is left out.
+    """
+    try:
+        prefix = answer(project=project, arguments=["rev-parse", "--show-prefix"]).rstrip("\n")
+        listing = answer(
+            project=project,
+            arguments=["--no-optional-locks", "status", "--porcelain", "--untracked-files=all", "-z"],
+        )
+    except Unanswered as unanswered:
+        return [f"- uncommitted files, {unanswered}"]
+
+    files = [
+        (state, path[len(prefix) :])
+        for state, path in changed_files(listing)
+        if path.startswith(prefix) and path[len(prefix) :] not in notes
+    ]
     if not files:
         return ["- uncommitted files, none, the working tree is clean"]
 
     noun = "file" if len(files) == 1 else "files"
     lines = [f"- uncommitted, {len(files)} {noun}"]
-    lines += [f"  - {path}, {state}" for state, path in files]
+    lines += [f"  - {one_line(path)}, {state}" for state, path in files[:LISTED]]
+    if len(files) > LISTED:
+        lines.append(f"  - and {len(files) - LISTED} more")
 
     return lines
 
@@ -162,7 +333,7 @@ def uncommitted_lines(
 def changed_files(
     porcelain: str,
 ) -> list[tuple[str, str]]:
-    """The state and the path of each entry in a NUL separated porcelain listing, a rename's old name left out."""
+    """The state and the path of each entry in a NUL separated porcelain listing, the old name of a rename or a copy left out."""
     found: list[tuple[str, str]] = []
     tokens = porcelain.split("\0")
     index = 0
@@ -173,110 +344,396 @@ def changed_files(
         if len(entry) < 4:
             continue
 
-        code = entry[0] if entry[0] not in " ?" else entry[1]
-        found.append((STATES.get(code, code), entry[3:]))
-        if entry[0] in "RC":
+        code = entry[:2]
+        found.append((state_of(code), entry[3:]))
+        if code[0] in "RC" or code[1] in "RC":
             index += 1
 
     return found
 
 
+def state_of(
+    code: str,
+) -> str:
+    """The word for a porcelain status pair: a conflict first, then a file gone from the work tree, then what was staged as new, renamed or copied, then the work tree's letter over the index's."""
+    if code in UNMERGED:
+        return STATES["U"]
+
+    if code[1] == "D":
+        return STATES["D"]
+
+    if code[0] in "ARC":
+        return STATES[code[0]]
+
+    letter = code[1] if code[1] != " " else code[0]
+
+    return STATES.get(letter, letter)
+
+
 def current_branch(
     project: Path,
 ) -> str:
-    """The branch the project is on, before its first commit too, HEAD when detached, or the word for a folder git does not answer for."""
-    name = git(project=project, arguments=["symbolic-ref", "--short", "-q", "HEAD"])
-    if name is None:
-        name = git(project=project, arguments=["rev-parse", "--abbrev-ref", "HEAD"])
+    """The branch the project is on, the one a rebase or a bisect in progress works on included, detached where there is none, or the words for what git could not tell."""
+    try:
+        has_commits(project)
+        working = branch_in_progress(project)
+        if working is not None:
+            return working
 
-    return name.strip() if name and name.strip() else NO_GIT
+        reply = git(project=project, arguments=["symbolic-ref", "--short", "-q", "HEAD"])
+    except Unanswered as unanswered:
+        return str(unanswered)
+
+    if reply.code == 0 and reply.out.strip():
+        return reply.out.strip()
+
+    if reply.code == 1 and not reply.err:
+        return DETACHED
+
+    return no_answer(reply)
+
+
+def branch_in_progress(
+    project: Path,
+) -> Optional[str]:
+    """The branch a rebase or a bisect in progress works on, from the files git keeps for it, or None, a detached start included."""
+    folder = project / answer(project=project, arguments=["rev-parse", "--git-dir"]).rstrip("\n")
+
+    for name in ("rebase-merge/head-name", "rebase-apply/head-name"):
+        head_name = file_text(folder / name)
+        if head_name.startswith(HEADS):
+            return head_name[len(HEADS) :]
+
+    started_on = file_text(folder / "BISECT_START")
+    if started_on and OBJECT_NAME.fullmatch(started_on) is None:
+        return started_on[len(HEADS) :] if started_on.startswith(HEADS) else started_on
+
+    return None
+
+
+def file_text(
+    path: Path,
+) -> str:
+    """A small file git keeps, as text without the whitespace around it, or nothing where it cannot be read."""
+    try:
+        return path.read_bytes().decode("utf-8", errors="replace").strip()
+    except OSError:
+        return ""
 
 
 def current_head(
     project: Path,
 ) -> str:
-    """The head's short hash and subject, or what stands in for them where git has none."""
-    head = git(project=project, arguments=["log", "-1", "--format=%h %s"])
-    if head is None:
-        return NO_GIT if git(project=project, arguments=["rev-parse", "--is-inside-work-tree"]) is None else "no commits yet"
+    """The head's short hash and subject on one line, or the words for what stands in for them."""
+    try:
+        has_commits(project)
+        log = answer(
+            project=project,
+            arguments=["log", "-1", "--no-show-signature", "--encoding=UTF-8", "--format=%h %s"],
+        )
+    except Unanswered as unanswered:
+        return str(unanswered)
 
-    return head.strip().split("\n")[0]
+    return one_line(log.split("\n")[0])
+
+
+def has_commits(
+    project: Path,
+) -> None:
+    """Go on where the head names a commit, else stop with the words for a repository with no commits yet, or for what git said."""
+    reply = git(project=project, arguments=["rev-parse", "-q", "--verify", "HEAD"])
+    if reply.code == 0:
+        return
+
+    if reply.code == 1 and not reply.err:
+        raise Unanswered(NO_COMMITS)
+
+    raise Unanswered(no_answer(reply))
+
+
+def ignores_case(
+    project: Path,
+) -> bool:
+    """Whether git takes two spellings of a branch for one ref here, as it does where it set core.ignorecase for a disk that ignores case."""
+    try:
+        reply = git(project=project, arguments=["config", "--type=bool", "--get", "core.ignorecase"])
+    except Unanswered:
+        return False
+
+    return reply.code == 0 and reply.out.strip() == "true"
+
+
+def answer(
+    project: Path,
+    arguments: list[str],
+) -> str:
+    """What git prints for the project, or Unanswered with the words for why it printed nothing to stand on."""
+    reply = git(project=project, arguments=arguments)
+    if reply.code != 0:
+        raise Unanswered(no_answer(reply))
+
+    return reply.out
 
 
 def git(
     project: Path,
     arguments: list[str],
-) -> Optional[str]:
-    """What git prints for the project, or None when git is not there, fails, or the folder is not a repository."""
+    seconds: Optional[int] = GIT_SECONDS,
+) -> Reply:
+    """One git call from the project's root, its output read as UTF-8 with a stray byte replaced and no line ending changed.
+
+    Unanswered with no git where no `.git` sits at the project's root or
+    above it, which is answered without git as the upgrade answers it,
+    or where git is not installed, and with git could not answer where
+    git takes longer than `seconds`, GIT_SECONDS unless the caller says,
+    and None waits as long as git takes.
+    """
+    if not inside_repository(project):
+        raise Unanswered(NO_GIT)
+
     try:
         result = subprocess.run(
             ["git", "-C", str(project), *arguments],
             capture_output=True,
-            text=True,
+            timeout=seconds,
             check=False,
         )
-    except OSError:
-        return None
+    except OSError as error:
+        raise Unanswered(NO_GIT) from error
+    except subprocess.TimeoutExpired as error:
+        raise Unanswered(f"{NO_ANSWER}, it gave no answer in {seconds} seconds") from error
 
-    return result.stdout if result.returncode == 0 else None
+    return Reply(
+        code=result.returncode,
+        out=result.stdout.decode("utf-8", errors="replace"),
+        err=first_line(result.stderr.decode("utf-8", errors="replace")),
+    )
+
+
+def inside_repository(
+    project: Path,
+) -> bool:
+    """Whether a `.git` sits at the project's root or above it, answered without git so no locale and no refusal of git's is in the way."""
+    root = project.resolve()
+
+    return any(store.quietly((folder / ".git").exists) for folder in [root, *root.parents])
+
+
+def no_answer(
+    reply: Reply,
+) -> str:
+    return f"{NO_ANSWER}, {reply.err}" if reply.err else NO_ANSWER
+
+
+def first_line(
+    text: str,
+) -> str:
+    lines = text.strip().splitlines()
+
+    return lines[0].strip() if lines else ""
+
+
+def one_line(
+    text: str,
+) -> str:
+    """The text with each line break and carriage return written as its escape, so it stays one line of the note."""
+    return text.replace("\r", "\\r").replace("\n", "\\n")
 
 
 def read(
     brain: store.Brain,
 ) -> Optional[Note]:
-    """The note on disk, or None when there is none.
+    """The tool's note waiting on disk, unclaimed, or None when there is none, it cannot be opened, or the file there is not the tool's.
 
-    A file whose header the tool cannot read is still the note, since
-    the file goes by the tool's own name in the tool's own folder, and
-    it names no branch and no moment.
+    With no file at the note's path, a claimed note left on disk is the
+    note waiting, as `claim` and `write` judge it, read as one read
+    before, unless a claim of this process holds it, since the session
+    start counts the status after its claim and that note is in the
+    very context the status goes into.
     """
     path = path_of(brain)
+    if os.path.lexists(path):
+        return note_at(path=path, again=False)
+
+    aside = path.with_name(CLAIMED)
+    if aside in HELD:
+        return None
+
+    return note_at(path=aside, again=True)
+
+
+def note_at(
+    path: Path,
+    again: bool,
+) -> Optional[Note]:
     if not store.readable_file(path):
         return None
 
     try:
-        text = frontmatter.load(str(path))
+        return note_of(opened(path), again=again)
+    except OSError:
+        return None
+
+
+def opened(
+    path: Path,
+) -> str:
+    """The file's text as a note is read, UTF-8 with a stray byte replaced and a leading byte order mark dropped, so neither hides the header."""
+    text = path.read_bytes().decode("utf-8", errors="replace")
+
+    return text[len(BYTE_ORDER_MARK) :] if text.startswith(BYTE_ORDER_MARK) else text
+
+
+def note_of(
+    text: str,
+    again: bool = False,
+) -> Optional[Note]:
+    """The tool's note in the text, or None for a file the tool never wrote, one whose header does not read, carries a kind, or lacks the branch or the moment."""
+    try:
+        fields = frontmatter.parse(text).fields()
     except frontmatter.FrontmatterError:
         return None
 
-    try:
-        document = frontmatter.parse(text)
-    except frontmatter.FrontmatterError:
-        return Note(text=text, branch=None, written=None)
+    if "kind" in fields or "branch" not in fields or "written" not in fields:
+        return None
 
     return Note(
         text=text,
-        branch=document.get("branch") or None,
-        written=moment_of(document.get("written")),
+        branch=fields["branch"] or None,
+        written=moment_of(fields["written"]),
+        again=again,
     )
 
 
 def moment_of(
     value: Optional[str],
 ) -> Optional[datetime]:
-    if not value:
+    """The moment a header names in the one shape the tool writes, or None for anything else, so every interpreter the kit runs on reads and refuses the same headers.
+
+    The fraction is filled out to six digits and a Z read as +00:00
+    before `datetime.fromisoformat` sees it, the two forms of that shape
+    the interpreters of the kit's floor read otherwise.
+    """
+    shape = MOMENT.fullmatch(value or "")
+    if shape is None:
         return None
 
+    to_the_second, fraction, offset = shape.groups()
+    fraction = f".{fraction.ljust(6, '0')}" if fraction else ""
+    offset = "+00:00" if offset == "Z" else offset
     try:
-        return datetime.fromisoformat(value)
+        return datetime.fromisoformat(to_the_second + fraction + offset)
     except ValueError:
         return None
 
 
-def is_for(
-    note: Note,
-    branch: str,
-) -> bool:
-    """Whether the note is for a session on this branch, which it is when either side has no branch to compare."""
-    return note.branch is None or note.branch == NO_GIT or branch == NO_GIT or note.branch == branch
-
-
-def remove(
+def claim(
     brain: store.Brain,
-) -> Optional[str]:
-    """Take the note away once it is read, and say why when it cannot be."""
+) -> Optional[Claim]:
+    """Take the note for the session starting, or say in one line why it stays, None when nothing waits.
+
+    The note is renamed aside in one step and read there, so a note
+    written between the read and the removal is never the one removed.
+    A note at the note's path is the latest, written after anything a
+    session claimed, and its rename replaces a claimed one left on disk.
+    With none there, one a session claimed before and could not remove
+    is the note still waiting, read again. Where the rename fails the
+    note is read where it is, and stays for the next session.
+    """
+    path = path_of(brain)
+    if os.path.lexists(path):
+        return judged(brain=brain, path=path, again=False)
+
+    aside = path.with_name(CLAIMED)
+    if os.path.lexists(aside):
+        return judged(brain=brain, path=aside, again=True)
+
+    return None
+
+
+def judged(
+    brain: store.Brain,
+    path: Path,
+    again: bool,
+) -> Claim:
+    """The claim on the file at the path, taken where it is this session's note, else left as it is with the line that says why."""
+    where = path.relative_to(project_of(brain)).as_posix()
     try:
-        path_of(brain).unlink()
+        text = opened(path)
+    except OSError as error:
+        return left(
+            path=path,
+            again=again,
+            waiting=f"The handover in {where} could not be read, {store.explain(error)}, so it is left where it is.",
+        )
+
+    note = note_of(text, again=again)
+    if note is None:
+        return left(
+            path=path,
+            again=again,
+            waiting=f"{where} holds a file brain handover never wrote, left where it is, move it into docs/ through brain new or delete it.",
+        )
+
+    project = project_of(brain)
+    branch = current_branch(project)
+    ignore_case = ignore_case_for(note=note, branch=branch, project=project)
+    if not is_for(note=note, branch=branch, ignore_case=ignore_case):
+        return left(
+            path=path,
+            again=again,
+            waiting=f"A handover written on {note.branch} at {when(note.written)} waits in {where} for a session on that branch, and this one is on {branch}.",
+        )
+
+    if again:
+        HELD.add(path)
+        return Claim(note=note, path=path, taken=True, again=True, waiting=None)
+
+    return taken_aside(path=path, note=note)
+
+
+def taken_aside(
+    path: Path,
+    note: Note,
+) -> Claim:
+    """The note renamed aside and read there, or read where it is when the rename fails, so the next session reads it again."""
+    aside = path.with_name(CLAIMED)
+    try:
+        os.replace(path, aside)
+    except OSError:
+        return Claim(note=note, path=path, taken=False, again=False, waiting=None)
+
+    HELD.add(aside)
+    try:
+        claimed = note_of(opened(aside))
+    except OSError:
+        claimed = None
+
+    return Claim(note=claimed or note, path=aside, taken=True, again=False, waiting=None)
+
+
+def left(
+    path: Path,
+    again: bool,
+    waiting: str,
+) -> Claim:
+    return Claim(note=None, path=path, taken=False, again=again, waiting=waiting)
+
+
+def release(
+    claim: Claim,
+) -> Optional[str]:
+    """Remove the claimed file once the context that carries it is out, and say why when it cannot be. A file not taken aside stays.
+
+    This process lets go of the file either way, so one it could not
+    remove is the note still waiting for the status and the next start.
+    """
+    if not claim.taken:
+        return None
+
+    HELD.discard(claim.path)
+    try:
+        claim.path.unlink()
     except FileNotFoundError:
         return None
     except OSError as error:
@@ -285,33 +742,73 @@ def remove(
     return None
 
 
+def is_for(
+    note: Note,
+    branch: str,
+    ignore_case: bool = False,
+) -> bool:
+    """Whether the note is for a session on this branch.
+
+    A note that names no branch, or one where git did not answer, is for
+    any session, and any note is for a session whose own git did not
+    answer, so a git hiccup never strands a note. Two branch names
+    compare as text, without regard to case where git takes the two
+    spellings for one ref, and a note of a detached head or of a
+    repository with no commits yet is for a session that reads the same.
+    """
+    return silent(branch) or names(note=note, branch=branch, ignore_case=ignore_case)
+
+
+def names(
+    note: Note,
+    branch: str,
+    ignore_case: bool,
+) -> bool:
+    """Whether the note's header leaves it to this branch, naming no branch, one where git did not answer, or this one."""
+    if note.branch is None or silent(note.branch):
+        return True
+
+    if ignore_case and real(note.branch) and real(branch):
+        return note.branch.casefold() == branch.casefold()
+
+    return note.branch == branch
+
+
+def ignore_case_for(
+    note: Note,
+    branch: str,
+    project: Path,
+) -> bool:
+    """Whether the note's branch and this one, differing by case alone, are one ref to git here, which git is asked only then."""
+    if note.branch is None or note.branch == branch or note.branch.casefold() != branch.casefold():
+        return False
+
+    return ignores_case(project)
+
+
+def silent(
+    branch: str,
+) -> bool:
+    """Whether the branch reads as git's silence rather than a branch, no git or git could not answer."""
+    return branch == NO_GIT or branch.startswith(NO_ANSWER)
+
+
+def real(
+    branch: str,
+) -> bool:
+    """Whether the branch is a branch's name, not the words for a detached head, a repository with no commits, or git's silence."""
+    return branch not in (DETACHED, NO_COMMITS) and not silent(branch)
+
+
 def when(
     moment: Optional[datetime],
 ) -> str:
-    """The moment in the clock's words and this machine's zone, or the words for a note that names none."""
-    return clock.words(moment.astimezone()) if moment is not None else "an unknown time"
+    """The moment in the clock's words and this machine's zone, or the words for one the note does not name or this machine's clock cannot place."""
+    if moment is None:
+        return UNKNOWN_TIME
 
-
-def describe(
-    brain: store.Brain,
-) -> Optional[str]:
-    """One line for the status, or None when no note waits."""
-    note = read(brain)
-    if note is None:
-        return None
-
-    return f"waiting, written {when(note.written)} on {note.branch or 'an unknown branch'}"
-
-
-def as_data(
-    brain: store.Brain,
-) -> Optional[dict]:
-    """The note's header for the JSON form of the status, or None when no note waits."""
-    note = read(brain)
-    if note is None:
-        return None
-
-    return {
-        "branch": note.branch,
-        "written": note.written.isoformat() if note.written is not None else None,
-    }
+    try:
+        return clock.words(moment.astimezone())
+    except (OverflowError, ValueError, OSError):
+        # a moment at the calendar's ends, or before 1970 on Windows, has no place on this machine's clock
+        return UNKNOWN_TIME
