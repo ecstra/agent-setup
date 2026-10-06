@@ -124,7 +124,7 @@ class Claim:
 
 @dataclass(frozen=True)
 class Reply:
-    """What one git call gave back, its exit code, its output, and the first line of what it said went wrong."""
+    """What one git call gave back, its exit code, its output, and what it said went wrong, whole."""
 
     code: int
     out: str
@@ -156,9 +156,10 @@ def write(
     folder's, and with a file there the tool never wrote or cannot read,
     which `replace` never writes over. A note waiting there for another
     branch, or for a branch this one cannot be compared with, is refused
-    too, and `replace` writes over that on the owner's word. With no note
-    at the path, a claimed note a session could not remove is the note
-    waiting, judged the same, and the note written takes its place.
+    too in words that name the branch this one reads, and `replace`
+    writes over that on the owner's word. With no note at the path, a
+    claimed note a session could not remove is the note waiting, judged
+    the same, and the note written takes its place.
     """
     words = trimmed(prose)
     if not words:
@@ -178,7 +179,7 @@ def write(
         if not names(note=waiting, branch=branch, ignore_case=ignore_case):
             raise HandoverError(
                 f"a handover written on {waiting.branch} at {when(waiting.written)} is waiting there "
-                "for a session on that branch, and --replace writes over it"
+                f"for a session on that branch while this one is on {branch}, and --replace writes over it"
             )
 
     # the moment in this machine's zone, so the note's lines name the zone the clock line names
@@ -297,12 +298,14 @@ def uncommitted_lines(
     project: Path,
     notes: set[str],
 ) -> list[str]:
-    """The project's uncommitted files as list lines, the first fifty with their state and the rest counted, or the one line for a clean tree or git's silence.
+    """The project's uncommitted files as list lines, the first fifty with their state and the rest counted, or the one line for none or git's silence.
 
     Git names every file from the repository's top and covers the whole
     repository, so a project below the top keeps its own files, named
     from its own folder, and the note itself, under its own name or the
-    name a claim gives it, `notes` from the project, is left out.
+    name a claim gives it, `notes` from the project, is left out. With
+    none of the project's own, the line says whether the working tree
+    is clean or has changes outside the project.
     """
     try:
         prefix = answer(project=project, arguments=["rev-parse", "--show-prefix"]).rstrip("\n")
@@ -313,11 +316,15 @@ def uncommitted_lines(
     except Unanswered as unanswered:
         return [f"- uncommitted files, {unanswered}"]
 
+    changed = changed_files(listing)
     files = [
         (state, path[len(prefix) :])
-        for state, path in changed_files(listing)
+        for state, path in changed
         if path.startswith(prefix) and path[len(prefix) :] not in notes
     ]
+    if not files and any(not path.startswith(prefix) for _, path in changed):
+        return ["- uncommitted files, none in this project, the working tree has changes outside it"]
+
     if not files:
         return ["- uncommitted files, none, the working tree is clean"]
 
@@ -373,22 +380,24 @@ def state_of(
 def current_branch(
     project: Path,
 ) -> str:
-    """The branch the project is on, the one a rebase or a bisect in progress works on included, detached where there is none, or the words for what git could not tell."""
+    """The branch the project is on, else the one a rebase or a bisect in progress works on, detached where there is none, or the words for what git could not tell.
+
+    A head on a branch names it, whatever a rebase or a bisect left on
+    disk, and only a detached head asks what one in progress works on.
+    The branch is named from its full ref without `refs/heads/`, the way
+    the files git keeps for a rebase or a bisect are read, so a branch
+    that shares its name with a tag reads one way in both.
+    """
     try:
         has_commits(project)
-        working = branch_in_progress(project)
-        if working is not None:
-            return working
-
-        reply = git(project=project, arguments=["symbolic-ref", "--short", "-q", "HEAD"])
+        reply = asked(project=project, arguments=["symbolic-ref", "-q", "HEAD"])
+        if reply.code == 1 and not reply.err:
+            return branch_in_progress(project) or DETACHED
     except Unanswered as unanswered:
         return str(unanswered)
 
     if reply.code == 0 and reply.out.strip():
-        return reply.out.strip()
-
-    if reply.code == 1 and not reply.err:
-        return DETACHED
+        return without_heads(reply.out.strip())
 
     return no_answer(reply)
 
@@ -406,9 +415,15 @@ def branch_in_progress(
 
     started_on = file_text(folder / "BISECT_START")
     if started_on and OBJECT_NAME.fullmatch(started_on) is None:
-        return started_on[len(HEADS) :] if started_on.startswith(HEADS) else started_on
+        return without_heads(started_on)
 
     return None
+
+
+def without_heads(
+    ref: str,
+) -> str:
+    return ref[len(HEADS) :] if ref.startswith(HEADS) else ref
 
 
 def file_text(
@@ -441,7 +456,7 @@ def has_commits(
     project: Path,
 ) -> None:
     """Go on where the head names a commit, else stop with the words for a repository with no commits yet, or for what git said."""
-    reply = git(project=project, arguments=["rev-parse", "-q", "--verify", "HEAD"])
+    reply = asked(project=project, arguments=["rev-parse", "-q", "--verify", "HEAD"])
     if reply.code == 0:
         return
 
@@ -456,7 +471,7 @@ def ignores_case(
 ) -> bool:
     """Whether git takes two spellings of a branch for one ref here, as it does where it set core.ignorecase for a disk that ignores case."""
     try:
-        reply = git(project=project, arguments=["config", "--type=bool", "--get", "core.ignorecase"])
+        reply = asked(project=project, arguments=["config", "--type=bool", "--get", "core.ignorecase"])
     except Unanswered:
         return False
 
@@ -468,11 +483,22 @@ def answer(
     arguments: list[str],
 ) -> str:
     """What git prints for the project, or Unanswered with the words for why it printed nothing to stand on."""
-    reply = git(project=project, arguments=arguments)
+    reply = asked(project=project, arguments=arguments)
     if reply.code != 0:
         raise Unanswered(no_answer(reply))
 
     return reply.out
+
+
+def asked(
+    project: Path,
+    arguments: list[str],
+) -> Reply:
+    """One of the handover's own git calls, Unanswered with no git where no `.git` sits at the project's root or above it, which is answered without git as the upgrade answers it."""
+    if not inside_repository(project):
+        raise Unanswered(NO_GIT)
+
+    return git(project=project, arguments=arguments)
 
 
 def git(
@@ -480,17 +506,14 @@ def git(
     arguments: list[str],
     seconds: Optional[int] = GIT_SECONDS,
 ) -> Reply:
-    """One git call from the project's root, its output read as UTF-8 with a stray byte replaced and no line ending changed.
+    """One git call from the folder, its output and its trouble read as UTF-8 with a stray byte replaced and no line ending changed.
 
-    Unanswered with no git where no `.git` sits at the project's root or
-    above it, which is answered without git as the upgrade answers it,
-    or where git is not installed, and with git could not answer where
-    git takes longer than `seconds`, GIT_SECONDS unless the caller says,
-    and None waits as long as git takes.
+    Git itself finds the repository that holds the folder, a bare one
+    included, so the upgrade reads through this what git reads. It is
+    Unanswered with no git where git is not installed, and with git
+    could not answer where git takes longer than `seconds`, GIT_SECONDS
+    unless the caller says, and None waits as long as git takes.
     """
-    if not inside_repository(project):
-        raise Unanswered(NO_GIT)
-
     try:
         result = subprocess.run(
             ["git", "-C", str(project), *arguments],
@@ -506,7 +529,7 @@ def git(
     return Reply(
         code=result.returncode,
         out=result.stdout.decode("utf-8", errors="replace"),
-        err=first_line(result.stderr.decode("utf-8", errors="replace")),
+        err=result.stderr.decode("utf-8", errors="replace").strip(),
     )
 
 
@@ -522,7 +545,9 @@ def inside_repository(
 def no_answer(
     reply: Reply,
 ) -> str:
-    return f"{NO_ANSWER}, {reply.err}" if reply.err else NO_ANSWER
+    said = first_line(reply.err)
+
+    return f"{NO_ANSWER}, {said}" if said else NO_ANSWER
 
 
 def first_line(
@@ -578,8 +603,8 @@ def note_at(
 def opened(
     path: Path,
 ) -> str:
-    """The file's text as a note is read, UTF-8 with a stray byte replaced and a leading byte order mark dropped, so neither hides the header."""
-    text = path.read_bytes().decode("utf-8", errors="replace")
+    """The file's text as a note is read, UTF-8 with a stray byte replaced, a leading byte order mark dropped, and each line ending read as a line break as a text file's is, so none of them hides the header, the CRLF Windows writes the note with among them."""
+    text = path.read_bytes().decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
 
     return text[len(BYTE_ORDER_MARK) :] if text.startswith(BYTE_ORDER_MARK) else text
 
