@@ -302,7 +302,8 @@ def uncommitted_lines(
 
     Git names every file from the repository's top and covers the whole
     repository, so a project below the top keeps its own files, named
-    from its own folder, and the note itself, under its own name or the
+    from its own folder, and a file renamed out of it counts as its own
+    under the name it left. The note itself, under its own name or the
     name a claim gives it, `notes` from the project, is left out. With
     none of the project's own, the line says whether the working tree
     is clean or has changes outside the project.
@@ -316,7 +317,10 @@ def uncommitted_lines(
     except Unanswered as unanswered:
         return [f"- uncommitted files, {unanswered}"]
 
-    changed = changed_files(listing)
+    changed = [
+        (state, path if path.startswith(prefix) or left is None else left)
+        for state, path, left in changed_files(listing)
+    ]
     files = [
         (state, path[len(prefix) :])
         for state, path in changed
@@ -339,9 +343,15 @@ def uncommitted_lines(
 
 def changed_files(
     porcelain: str,
-) -> list[tuple[str, str]]:
-    """The state and the path of each entry in a NUL separated porcelain listing, the old name of a rename or a copy left out."""
-    found: list[tuple[str, str]] = []
+) -> list[tuple[str, str, Optional[str]]]:
+    """The state and the path of each entry in a NUL separated porcelain listing, and the name a renamed file left, None for every other entry.
+
+    The old name of a rename or a copy follows its entry and is never an
+    entry of its own. A renamed file is gone from its old name, while a
+    copy's source stays where it was, with an entry of its own where it
+    changed, so a copy carries None.
+    """
+    found: list[tuple[str, str, Optional[str]]] = []
     tokens = porcelain.split("\0")
     index = 0
 
@@ -352,7 +362,8 @@ def changed_files(
             continue
 
         code = entry[:2]
-        found.append((state_of(code), entry[3:]))
+        left = tokens[index] if "R" in code else None
+        found.append((state_of(code), entry[3:], left))
         if code[0] in "RC" or code[1] in "RC":
             index += 1
 
