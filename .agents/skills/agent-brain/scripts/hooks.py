@@ -185,6 +185,10 @@ FORK = "fork"
 # and past it keeps the whole text in a file of the session's and shows
 # its path with the first 2,000 characters without asking the model to
 # read it, so a longer context asks for that itself, in its first line.
+# It counts them as JavaScript counts a string, in UTF-16 units, where a
+# character past the Basic Multilingual Plane, an emoji among them, is
+# two, and a lone surrogate, which a file name that is not UTF-8 brings
+# in, is one.
 CLAUDE_SHOWS = 10_000
 PAST_WHAT_CLAUDE_SHOWS = (
     f"This context is longer than the {CLAUDE_SHOWS:,} characters Claude Code shows from a hook, "
@@ -227,7 +231,7 @@ def session_start(
         if store.readable_file(chat_style):
             text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
 
-    if agent == "claude" and len(text) > CLAUDE_SHOWS:
+    if agent == "claude" and len(text.encode("utf-16-le", errors="surrogatepass")) // 2 > CLAUDE_SHOWS:
         text = f"{PAST_WHAT_CLAUDE_SHOWS}\n\n" + text
 
     emit_context(agent=agent, text=text, event_name="SessionStart")
