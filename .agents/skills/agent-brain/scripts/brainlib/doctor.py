@@ -841,7 +841,7 @@ def check_links(
                 continue
 
             if resolved is None:
-                said = links.unreached(brain=brain, path=brain.root / link)
+                said = links.handover_reason(brain=brain, reference=link) or "reaches nothing"
                 found.append(Finding(path=where, check="link", message=f"'{link}' {said}"))
             canonical.append(resolved or link)
 

@@ -1319,14 +1319,35 @@ def emit_context(
     and on a prompt, and the JSON object after a tool. Claude Code and
     Gemini CLI take one JSON object naming the event. The text is flushed
     before this returns, so a pipe the agent closed fails here, while the
-    session start still holds the note it claimed, and not at the exit.
+    session start still holds the note it claimed, and standard output
+    is closed then, so the bytes it refused do not fail again at the exit.
     """
-    if agent == "codex" and event_name in CODEX_PLAIN:
-        write_utf8(text + "\n")
-        return
+    try:
+        if agent == "codex" and event_name in CODEX_PLAIN:
+            write_utf8(text + "\n")
+            return
 
-    payload = {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": text}}
-    print(json.dumps(payload), flush=True)
+        payload = {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": text}}
+        print(json.dumps(payload), flush=True)
+    except OSError:
+        let_go_of_standard_output()
+        raise
+
+
+def let_go_of_standard_output() -> None:
+    """Close standard output once its pipe has refused the context, dropping the bytes its buffer still holds.
+
+    The interpreter flushes standard output again at the exit, and the
+    refused bytes would fail a second time there, an ignored error on
+    standard error after the hook's own line and an exit of 120 in place
+    of its 1. A closed stream is never flushed again. The close fails on
+    the same bytes, an error the one already on its way out reports, so
+    that second one is let go.
+    """
+    try:
+        sys.stdout.close()
+    except OSError:
+        return
 
 
 def write_utf8(

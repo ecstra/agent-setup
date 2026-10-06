@@ -27,6 +27,10 @@ REFERENCE_LINK = re.compile(r"^\[[^\]]+\]:[ \t]+(<[^>\n]*>|\S+)", re.MULTILINE)
 SCRATCH_PREFIX = ".putback."
 SCRATCH_SHAPE = re.compile(r"^\.putback\.[A-Za-z0-9_]+$")
 
+# Why a link into the handover folder reaches nothing though a file may
+# stand at its path: the folder's one note is read once and never enters git.
+HANDOVER_REASON = f"reaches nothing, since {schema.HANDOVER_FOLDER}/ holds the one note brain handover writes and no link goes into it"
+
 
 def resolve(
     brain: store.Brain,
@@ -99,13 +103,39 @@ def into_handover(
     return relative is not None and in_handover(brain=brain, relative=relative)
 
 
+def handover_reason(
+    brain: store.Brain,
+    reference: str,
+) -> Optional[str]:
+    """What a header link that reaches nothing says where it names something below the handover folder, or None where the folder is not why.
+
+    The link is read the two ways `resolve` reads a path, from the
+    brain's root and as `find` reads a key through `key_path`, from the
+    project's folder, the repository's top, the disk's root or ~, with
+    slashes or backslashes. A header link reaches a file alone, so one
+    that names the folder itself reaches nothing as any folder does,
+    and the folder's bare name is a key too, a name or a stem two files
+    share or one a removed file carried, which the folder does not
+    explain.
+    """
+    for spelled in (reference, brain.key_path(reference)):
+        if spelled is None:
+            continue
+
+        relative = within(brain=brain, path=brain.root / spelled)
+        if relative is not None and len(Path(relative).parts) > 1 and in_handover(brain=brain, relative=relative):
+            return HANDOVER_REASON
+
+    return None
+
+
 def unreached(
     brain: store.Brain,
     path: Path,
 ) -> str:
     """What a link that reaches nothing says of the path it names, with the reason where the path lies in the handover folder, since a file there can stand on disk and still reach nothing."""
     if into_handover(brain=brain, path=path):
-        return f"reaches nothing, since {schema.HANDOVER_FOLDER}/ holds the one note brain handover writes and no link goes into it"
+        return HANDOVER_REASON
 
     return "reaches nothing"
 
