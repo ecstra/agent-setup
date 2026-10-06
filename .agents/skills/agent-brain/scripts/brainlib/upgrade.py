@@ -880,17 +880,30 @@ def to_agents_folder(
     project: Project,
     report: Report,
 ) -> None:
-    """The layout before 1.0.0 kept the brain in .agent/ and the rules in CLAUDE.md."""
+    """The layout before 1.0.0 kept the brain in .agent/ and the rules in CLAUDE.md.
+
+    A name git gives that the migration cannot reach is refused by name
+    here, before anything moves, and not while the guard lists what the
+    run writes, so the run's own refusals and the check of the two
+    folders come first and a rename is never asked for a migration that
+    does not run.
+    """
     old = project.root / OLD_FOLDER
     if store.quietly(project.brain.exists):
         raise UpgradeError(f"both {OLD_FOLDER}/ and {FOLDER}/ exist, fold one into the other by hand first")
 
     targets = migration_targets(project)
+    if targets.unreachable:
+        raise UpgradeError(
+            f"git names these with a byte that is not UTF-8, so the migration cannot reach them to point them at {FOLDER}/, "
+            "rename them first: " + ", ".join(targets.unreachable)
+        )
+
     move(project=project, old=old, new=project.brain)
     report.done(f"renamed {OLD_FOLDER}/ to {FOLDER}/")
 
     changed = 0
-    for path in targets:
+    for path in targets.files:
         moved = project.brain / path.relative_to(old) if path.is_relative_to(old) else path
         if rewrite_folder_name(moved):
             changed += 1
@@ -899,9 +912,17 @@ def to_agents_folder(
         report.done(f"pointed {changed} files at {FOLDER}/ instead of {OLD_FOLDER}/")
 
 
+@dataclass
+class Targets:
+    """What the folder migration points at the new name, the files it reaches, and the names git gives that reach none, which the migration refuses."""
+
+    files: list[Path]
+    unreachable: list[str]
+
+
 def migration_targets(
     project: Project,
-) -> list[Path]:
+) -> Targets:
     """The files the folder migration points at the new name: every file naming .agent/ that git tracks, sees or ignores, symlinks and the kit's own skill folders left out.
 
     Outside git the root markdown, the ignore file and the brain's own
@@ -909,12 +930,15 @@ def migration_targets(
     two never disagree about what the migration writes into, and a
     file git ignores is refused there rather than half migrated. Git
     is asked for names relative to the project whatever grep.fullName
-    says. A name git prints with a byte that is not UTF-8 reaches no
-    file once read, so outside the kit's skill folders a name holding
-    the replacement character is refused there by name too, rather than
-    left naming the old folder, where git gives it twice or the file at
-    it does not hold the old folder's name as git found. A name holding
-    that character as its own is pointed like any other.
+    says, and each is spelled the way the file system spells it before
+    it is read, so it reaches its file whatever codec this machine
+    names files in. A name git prints with a byte that is not UTF-8
+    reaches no file once read, so outside the kit's skill folders a
+    name holding the replacement character is given back as one the
+    migration cannot reach, rather than left naming the old folder,
+    where git gives it twice or the file at it does not hold the old
+    folder's name as git found. A name holding that character as its
+    own is pointed like any other.
     """
     found = git(
         project=project,
@@ -931,11 +955,12 @@ def migration_targets(
             f"{OLD_FOLDER}/",
         ],
     )
+    unreachable: list[str] = []
     if found is not None and found.code in (0, 1):
         named = Counter(
             entry
             for entry in found.out.split("\0")
-            if entry and not in_skill_folder(project=project, path=project.root / entry)
+            if entry and not in_skill_folder(project=project, path=project.root / on_disk(entry))
         )
         # a name holding the character itself has at it the file git found;
         # one whose byte git's answer replaced has no file there, or one that
@@ -943,26 +968,23 @@ def migration_targets(
         unreachable = sorted(
             entry
             for entry, times in named.items()
-            if REPLACED in entry and (times > 1 or not holds_old_folder(project.root / entry))
+            if REPLACED in entry and (times > 1 or not holds_old_folder(project.root / on_disk(entry)))
         )
-        if unreachable:
-            raise UpgradeError(
-                f"git names these with a byte that is not UTF-8, so the migration cannot reach them to point them at {FOLDER}/, "
-                "rename them first: " + ", ".join(unreachable)
-            )
-
-        paths = [project.root / entry for entry in named]
+        paths = [project.root / on_disk(entry) for entry in named]
     else:
         brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
         paths = [path for path in list_names(project.root) if path.suffix == ".md"]
         paths += [project.root / IGNORE_FILE, *brain_markdown(brain)]
         paths = [path for path in paths if names_old_folder(path)]
 
-    return [
-        path
-        for path in paths
-        if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path)
-    ]
+    return Targets(
+        files=[
+            path
+            for path in paths
+            if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path)
+        ],
+        unreachable=unreachable,
+    )
 
 
 def names_old_folder(
@@ -1171,25 +1193,27 @@ def same_repository(
 
 def ancestry(
     folder: Path,
-) -> set[Union[tuple[int, int], str]]:
+) -> set[Union[tuple[int, int], Path, str]]:
     """The repositories a checkout comes from, its own and each local origin's in turn, then the remote one it names.
 
     Each folder the walk stands in is recorded by its own identity
     before git is asked anything about it, so two clones of one folder
     meet there even when git cannot open it, and then by the identity
     of its git common dir, so a worktree and every spelling of the path
-    read the same. Both are recorded by their real paths as git's
-    answers spell them too, since a path git prints with a byte that is
-    not UTF-8 reaches nothing once read, and has to meet the folder it
-    names by its spelling. A local origin, a file URL or a plain path,
-    is resolved against the folder it was read in. One that is a folder
-    is walked on from, at most ORIGIN_HOPS times and never into a
-    folder already recorded, and one that is not there is recorded by
-    its resolved path as git's answers spell it and ends the walk. An
-    origin that is a remote URL is recorded as the repository it names
-    and ends the walk too.
+    read the same. A path git prints is found on disk through
+    `reached`, so one holding a byte that is not UTF-8 still lands on
+    its folder, and two folders meet by identity alone, never by a
+    spelling that loses such a byte. A local origin, a file URL or a
+    plain path, is resolved against the folder it was read in. One that
+    is a folder is walked on from, at most ORIGIN_HOPS times and never
+    into a folder already recorded, and one that is not there is
+    recorded by its resolved path and ends the walk, as is one whose
+    path git's answer lost a byte of where git cannot open it, since
+    the folder `reached` found may then stand in for one that is gone.
+    An origin that is a remote URL is recorded as the repository it
+    names and ends the walk too.
     """
-    found: set[Union[tuple[int, int], str]] = set()
+    found: set[Union[tuple[int, int], Path, str]] = set()
 
     for _ in range(ORIGIN_HOPS + 1):
         place = identity(folder)
@@ -1197,7 +1221,6 @@ def ancestry(
             return found
 
         found.add(place)
-        found.add(as_git_spells(os.path.realpath(folder)))
 
         here = Project(root=folder)
         common = git(
@@ -1207,12 +1230,14 @@ def ancestry(
         if not answered(common):
             return found
 
-        common_dir = folder / common.out.strip()
-        repository = identity(common_dir)
+        repository = identity(
+            reached(
+                folder=folder,
+                name=common.out.strip(),
+            )
+        )
         if repository is not None:
             found.add(repository)
-
-        found.add(as_git_spells(os.path.realpath(common_dir)))
 
         origin = git(
             project=here,
@@ -1230,8 +1255,8 @@ def ancestry(
             found.add(repository_named(url))
             return found
 
-        if not store.quietly(checkout.is_dir):
-            found.add(as_git_spells(str(checkout)))
+        if not store.quietly(checkout.is_dir) or not origin_opens(project=here, url=url):
+            found.add(checkout)
             return found
 
         folder = checkout
@@ -1239,11 +1264,72 @@ def ancestry(
     return found
 
 
+def origin_opens(
+    project: Project,
+    url: str,
+) -> bool:
+    """Whether git opens the project's local origin, asked only where its path, read with a file URL's escapes decoded as `local_origin` reads it, lost a byte, since git still holds the bytes and the folder `reached` found may stand in for one that is gone."""
+    if REPLACED not in unquote(url):
+        return True
+
+    return answered(
+        git(
+            project=project,
+            arguments=["ls-remote", "origin", "HEAD"],
+        )
+    )
+
+
 def as_git_spells(
     name: str,
 ) -> str:
-    """A name the file system gave, spelled the way git's answers read through the handover's runner, each byte that is not UTF-8 replaced, so a name of the tool's and one git printed compare."""
+    """A name the file system gave, spelled the way git's answers read through the handover's runner, each byte that is not UTF-8 replaced, so a name of the tool's and one git printed compare.
+
+    It takes only a name the file system gave, never one from git's
+    answer, which is spelled so already and may hold what the file
+    system's codec has no byte for.
+    """
     return os.fsencode(name).decode("utf-8", errors="replace")
+
+
+def on_disk(
+    name: str,
+) -> str:
+    """A name from git's answer spelled the way the file system spells it, so it reaches the file whose bytes git printed whatever codec this machine names files in, a byte the runner replaced reaching only a name that holds the replacement character itself."""
+    return os.fsdecode(name.encode("utf-8"))
+
+
+def reached(
+    folder: Path,
+    name: str,
+) -> Path:
+    """Where a path git printed lands on disk, read from `folder` where it is relative.
+
+    Each part is spelled the way the file system spells it. A part
+    holding the replacement character may stand for a byte that is not
+    UTF-8, which the runner could not keep, so it is matched against
+    the names in its folder as git's answers spell them, and taken
+    where one name alone spells so. Where none or several do, the part
+    is read as the runner gave it, which reaches only a name holding
+    that character itself.
+    """
+    path = folder
+    for part in Path(name).parts:
+        alike = spelled_alike(folder=path, part=part) if REPLACED in part else []
+        path = alike[0] if len(alike) == 1 else path / on_disk(part)
+
+    return path
+
+
+def spelled_alike(
+    folder: Path,
+    part: str,
+) -> list[Path]:
+    """The names in the folder that git's answers spell as `part`, none where the folder cannot be listed."""
+    try:
+        return [child for child in folder.iterdir() if as_git_spells(child.name) == part]
+    except OSError:
+        return []
 
 
 def identity(
@@ -1261,13 +1347,18 @@ def identity(
 def is_a_top(
     folder: Path,
 ) -> bool:
-    """Whether the folder is the top of a git repository of its own, which it is where git sees no way up to a top, asked that way for the reason port_root asks it."""
+    """Whether the folder is the top of a work tree of its own, which it is where git says it stands in a work tree and sees no way up to its top.
+
+    Git is asked how far up the top lies rather than where it is, for
+    the reason port_root asks it, and whether it stands in a work tree
+    at all, since a bare repository and a git dir see no way up either.
+    """
     climb = git(
         project=Project(root=folder),
-        arguments=["rev-parse", "--show-cdup"],
+        arguments=["rev-parse", "--is-inside-work-tree", "--show-cdup"],
     )
 
-    return answered(climb) and not climb.out.strip()
+    return answered(climb) and climb.out.splitlines() == ["true", ""]
 
 
 def local_origin(
@@ -1280,7 +1371,9 @@ def local_origin(
     scheme is remote, and text with no scheme is a local path unless a
     colon comes before its first slash, which makes it host:path, a
     drive letter aside. A file URL keeps its percent escapes in the
-    config, `my%20kit` for `my kit`, so they are decoded.
+    config, `my%20kit` for `my kit`, so they are decoded. The path is
+    found on disk through `reached`, since git's answer may have lost a
+    byte of it.
     """
     if url.startswith("file://"):
         named = unquote(url[len("file://") :])
@@ -1295,7 +1388,14 @@ def local_origin(
 
         named = url
 
-    path = Path(os.path.realpath(folder / named))
+    path = Path(
+        os.path.realpath(
+            reached(
+                folder=folder,
+                name=named,
+            )
+        )
+    )
 
     return path.parent if path.name == ".git" else path
 
@@ -1520,14 +1620,19 @@ def kept_in_git(
     project: Project,
     names: list[str],
 ) -> list[str]:
-    """Where git's last commit holds each of these root files, as `HEAD:path` specs from the repository's top, the ones it does not hold left out."""
+    """Where git's last commit holds each of these root files, as `HEAD:path` specs from the repository's top, the ones it does not hold left out.
+
+    The project's place below the top goes back to git as the file
+    system spells it, so git is handed the bytes it printed whatever
+    codec this machine names files in.
+    """
     prefix = git(project=project, arguments=["rev-parse", "--show-prefix"])
     if prefix is None or prefix.code != 0:
         return []
 
     specs: list[str] = []
     for name in names:
-        spec = f"HEAD:{prefix.out.strip()}{name}"
+        spec = f"HEAD:{on_disk(prefix.out.strip())}{name}"
         held = git(project=project, arguments=["rev-parse", "--verify", "--quiet", spec])
         if held is not None and held.code == 0:
             specs.append(spec)
@@ -1831,7 +1936,7 @@ def guarded_paths(
         )
 
     if pending_migrations(project=project, want=kit.version()):
-        paths += [str(path.relative_to(project.root)) for path in migration_targets(project)]
+        paths += [str(path.relative_to(project.root)) for path in migration_targets(project).files]
 
     return paths
 
@@ -1883,9 +1988,10 @@ def refuse_when_dirty(
     no mode, which every git reads and which names the files inside an
     ignored folder when every untracked file is asked for), and the answer
     is matched against the paths without regard to case, so a front
-    door spelled `Agents.md` is seen, and with each byte that is not
-    UTF-8 spelled the way git's answer spells it, so a file of the
-    project's under a kit skill folder named with one is seen too. Git
+    door spelled `Agents.md` is seen, and with each of the paths spelled
+    the way git's answer spells it, each byte that is not UTF-8
+    replaced, so a file of the project's under a kit skill folder named
+    with one is seen too, while git's answer is taken as it reads. Git
     names paths from the repository's root, so the project's place
     below it is put in front of each path first. A repository whose git
     fails is refused too, since nothing would be guarded. A project
@@ -1907,7 +2013,7 @@ def refuse_when_dirty(
 
     raw = prefix.out.strip()
     base = folded(raw)
-    wanted = {base + folded(path): path for path in paths}
+    wanted = {base + folded(as_git_spells(path)): path for path in paths}
     dirty: list[str] = []
     ignored: list[str] = []
     for status, entry in changed_paths(result.out):
@@ -1941,8 +2047,8 @@ def inside_repository(
 def folded(
     path: str,
 ) -> str:
-    """A path as git names it and as this tool names it, made comparable: one spelling of a byte that is not UTF-8, one slash, one case, one Unicode form."""
-    return unicodedata.normalize("NFC", as_git_spells(path).replace("\\", "/")).lower()
+    """A path as git names it and as this tool names it once spelled the way git's answer spells it, made comparable: one slash, one case, one Unicode form."""
+    return unicodedata.normalize("NFC", path.replace("\\", "/")).lower()
 
 
 def same_as_kit(
