@@ -175,7 +175,9 @@ class Brain:
         """
         trouble: list[OSError] = []
 
-        def note(error: OSError) -> None:
+        def note(
+            error: OSError,
+        ) -> None:
             if not isinstance(error, FileNotFoundError):
                 trouble.append(error)
 
@@ -675,5 +677,5 @@ def find_brain(
             return Brain(root=inside)
 
     raise StoreError(
-        "no .agents/ directory here or above, so there is no brain to work on"
+        "no .agents/ directory here or above, so there is no brain to work on",
     )

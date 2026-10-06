@@ -512,7 +512,9 @@ def moved_body(
     folder = path.parent
     spans: list[tuple[int, int]] = []
 
-    def moved(match: re.Match) -> str:
+    def moved(
+        match: re.Match,
+    ) -> str:
         target = bare(match.group(1))
         if sections.in_code(spans=spans, position=match.start()):
             return match.group(0)

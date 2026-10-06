@@ -125,7 +125,7 @@ def update(
                 brain=brain,
                 wanted=frontmatter.parse_list(changes["links"]),
                 existing=entry.document.get_list("links"),
-            )
+            ),
         )
 
     fields = entry.document.fields()

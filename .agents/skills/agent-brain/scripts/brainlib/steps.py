@@ -1252,7 +1252,9 @@ def repointed_list(
     if where is None or has_table(body):
         return body
 
-    def relined(line: re.Match) -> str:
+    def relined(
+        line: re.Match,
+    ) -> str:
         opened = POINTER.match(line.group(2))
         if opened is None or opened.group(1).lower() not in wanted:
             return line.group(0)

@@ -78,7 +78,7 @@ KIT_RULE = re.compile(
             doctor.SKILL_LINKS.as_posix(),
         )
     )
-    + r")/agent-brain/scripts(?:/.*)?\)$"
+    + r")/agent-brain/scripts(?:/.*)?\)$",
 )
 
 # A hook group is the kit's when its command is one of two shapes with
@@ -127,7 +127,7 @@ LAUNCHERS = (
 )
 KIT_HOOK = re.compile(
     r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
-    r'|^python3 -c "(?:' + "|".join(re.escape(text) for text in LAUNCHERS) + r')"(?: [\w.-]+)*$'
+    r'|^python3 -c "(?:' + "|".join(re.escape(text) for text in LAUNCHERS) + r')"(?: [\w.-]+)*$',
 )
 IGNORE_FILE = schema.IGNORE_FILE
 IGNORE_HEADING = "# The agent kit's own ignores."
@@ -593,13 +593,13 @@ def prepare(
             if not kits_copy and skill is None:
                 raise UpgradeError(
                     f"the kit ships a skill named {name} this tool does not know, and {folder}/{schema.SKILLS}/{name} differs "
-                    "from it, so run the upgrade with the project's own tool if a kit wrote that folder, else move it aside first"
+                    "from it, so run the upgrade with the project's own tool if a kit wrote that folder, else move it aside first",
                 )
 
             if not kits_copy:
                 raise UpgradeError(
                     f"the kit now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, "
-                    "move it aside first, or delete it if an interrupted upgrade left it"
+                    "move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
         linked = project.root / doctor.SKILL_LINKS / name
@@ -607,7 +607,7 @@ def prepare(
         if not shipped and own_folder and not store.same_bytes(one=linked / schema.SKILL_FILE, other=kits_own_file):
             raise UpgradeError(
                 f"the kit now ships a skill named {name}, and {doctor.SKILL_LINKS / name} holds a folder of the project's own "
-                "where the kit's skill link goes, move it aside first"
+                "where the kit's skill link goes, move it aside first",
             )
 
         for definition in skill.definitions if skill else ():
@@ -626,7 +626,7 @@ def prepare(
             if not kits_copy:
                 raise UpgradeError(
                     f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, "
-                    "and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it"
+                    "and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
     stamp = kit.version()
