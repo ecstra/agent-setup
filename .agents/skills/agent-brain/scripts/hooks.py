@@ -176,10 +176,20 @@ def locate(
         return None
 
 
-# The one session start that reads the last session's note and leaves
-# it where it is: a fork carries the whole context it was forked from,
-# so the session that wrote the note still holds everything in it.
+# The one session start that leaves the last session's note where it is,
+# since a fork carries the whole context it was forked from and the
+# session that wrote the note still holds everything in it.
 FORK = "fork"
+
+# Claude Code shows up to this many characters of a hook's added context,
+# and past it keeps the whole text in a file of the session's and shows
+# its path with the first 2,000 characters without asking the model to
+# read it, so a longer context asks for that itself, in its first line.
+CLAUDE_SHOWS = 10_000
+PAST_WHAT_CLAUDE_SHOWS = (
+    f"This context is longer than the {CLAUDE_SHOWS:,} characters Claude Code shows from a hook, "
+    "so Claude Code keeps it whole in the file it names here: read that file whole before you go on."
+)
 
 
 def session_start(
@@ -188,14 +198,26 @@ def session_start(
     with_rules: bool,
     source: str = "",
 ) -> int:
-    """The clock, the word, the work and the status, the rules where asked, and the note the last session left, read once.
+    """The clock, the word and the work, the note the last session left, read once, then the status and the rules where asked.
 
-    The note goes in whole and the file goes away, on a start, a resume,
-    a clear and a compaction alike, since each is a session that has to
-    pick up without the last one's head. A note written on another
-    branch is another session's and stays, said in one line.
+    The note goes in whole on a start, a resume, a clear and a compaction
+    alike, since each is a session that has to pick up without the last
+    one's head, and never on a fork. It is claimed before the status is
+    counted, so the status never says a note waits that the same context
+    carries, and it comes right after the clock, the word and the work,
+    ahead of the status and the rules, so it sits at the head of whatever
+    an agent shows of a long context. A context longer than Claude Code
+    shows opens with a line that asks for the file Claude Code keeps it
+    in to be read whole. The claimed file is removed only once the
+    context is out, so a context that fails to go out leaves the file for
+    the next start, which reads it again. A note for another branch, a
+    file the tool never wrote and one it cannot open stay, each said in
+    one line in the note's place.
     """
-    text = the_moment(brain=brain) + "\n\nThe brain, counted from the files right now:\n" + reads.render_status(reads.status(brain=brain))
+    claim = handover.claim(brain=brain) if source != FORK else None
+
+    text = the_moment(brain=brain) + handover_text(claim=claim)
+    text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(reads.status(brain=brain))
     if with_rules:
         rules = brain.root / "SYSTEM.md"
         if store.readable_file(rules):
@@ -205,33 +227,38 @@ def session_start(
         if store.readable_file(chat_style):
             text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
 
-    if source != FORK:
-        text += handover_text(brain)
+    if agent == "claude" and len(text) > CLAUDE_SHOWS:
+        text = f"{PAST_WHAT_CLAUDE_SHOWS}\n\n" + text
 
     emit_context(agent=agent, text=text, event_name="SessionStart")
+
+    # the context has gone out by now, so a file that stays can only be said on standard error
+    if claim is not None and claim.taken:
+        trouble = handover.release(claim=claim)
+        if trouble is not None:
+            print(f"the brain hook put the handover in this session's context and could not remove its file, {trouble}", file=sys.stderr)
+
     return 0
 
 
 def handover_text(
-    brain: store.Brain,
+    claim: Optional[handover.Claim],
 ) -> str:
-    """The last session's note for this session's context, the file removed, or the line about one waiting for another branch, or nothing."""
-    note = handover.read(brain)
-    if note is None:
+    """The claimed note under the words for how it was taken, the one line that says why the file at its path stays, or nothing."""
+    if claim is None:
         return ""
 
-    branch = handover.current_branch(handover.project_of(brain))
-    if not handover.is_for(note=note, branch=branch):
-        return (
-            f"\n\nA handover written on {note.branch} at {handover.when(note.written)} waits in "
-            f".agents/{handover.RELATIVE} for a session on that branch, and this one is on {branch}."
-        )
+    if claim.note is None:
+        return f"\n\n{claim.waiting}"
 
-    trouble = handover.remove(brain)
-    kept = "" if trouble is None else f" It could not be removed, {trouble}, so the next session will read it again."
-    heading = f"The handover the last session left here, read once and now removed.{kept}"
+    if not claim.taken:
+        heading = "The handover the last session left here, read where it is, since it could not be taken aside, and the next session reads it again."
+    elif claim.again:
+        heading = "The handover the last session left here, read before by a session that could not remove it, read again and removed now."
+    else:
+        heading = "The handover the last session left here, read once and now removed."
 
-    return f"\n\n{heading}\n\n{note.text.rstrip()}"
+    return f"\n\n{heading}\n\n{claim.note.text.rstrip()}"
 
 
 def prompt(
@@ -301,10 +328,11 @@ def refusal(
     """Why this write may not touch the brain by hand, or None if it may.
 
     A new brain file, an index, a dotted path, the standing word, the
-    current work, a rename, the header block of an existing file and
-    the rows of its steps table are the tool's. The prose below a
-    header and around the table is the agent's to edit, and doctor
-    reads it afterwards.
+    current work, anything in the handover folder, a rename, the header
+    block of an existing file and the rows of its steps table are the
+    tool's, a delete of the word, the work or a file in the handover
+    folder aside. The prose below a header and around the table is the
+    agent's to edit, and doctor reads it afterwards.
     """
     if touch.moved_from is not None:
         source = entry_path(brain=brain, path=touch.moved_from)
@@ -324,8 +352,10 @@ def refusal(
     if inside.casefold() == task.FILE and not touch.deleted:
         return f"{task.FILE} is the current work, set with brain task on and never written by hand"
 
-    # the note's folder in any case too, for the same reason as the word's name
-    if Path(inside).parts[0].casefold() == handover.FOLDER and not touch.deleted:
+    # the note's folder in any case too, for the same reason as the word's
+    # name, where the brain's own folder, which within names ".", has no part
+    top_folder = Path(inside).parts[:1]
+    if top_folder and top_folder[0].casefold() == handover.FOLDER and not touch.deleted:
         return f"{inside}: {handover.BY_HAND}"
 
     if not markdown_named(path):
@@ -1283,14 +1313,16 @@ def emit_context(
 
     Codex takes plain text on standard output at the start of a session
     and on a prompt, and the JSON object after a tool. Claude Code and
-    Gemini CLI take one JSON object naming the event.
+    Gemini CLI take one JSON object naming the event. The text is flushed
+    before this returns, so a pipe the agent closed fails here, while the
+    session start still holds the note it claimed, and not at the exit.
     """
     if agent == "codex" and event_name in CODEX_PLAIN:
         write_utf8(text + "\n")
         return
 
     payload = {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": text}}
-    print(json.dumps(payload))
+    print(json.dumps(payload), flush=True)
 
 
 def write_utf8(
@@ -1306,6 +1338,7 @@ def write_utf8(
     buffer: Optional[BinaryIO] = getattr(sys.stdout, "buffer", None)
     if buffer is None:
         sys.stdout.write(text)
+        sys.stdout.flush()
         return
 
     sys.stdout.flush()
