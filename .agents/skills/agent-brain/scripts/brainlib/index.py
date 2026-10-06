@@ -231,11 +231,20 @@ def spine_body(
     lines.append(spine_line(brain=brain, kind_name="decision", label="the decision record", counter=count_by_status))
     lines.append(spine_line(brain=brain, kind_name="review", label="code review ledgers", counter=count_by_status))
 
-    lines += ["", "## Memory and handovers", ""]
+    lines += ["", "## Memory and the handover", ""]
     lines.append(spine_line(brain=brain, kind_name="memory", label="project facts", counter=count_plain))
-    lines.append(handover_line(brain))
+    lines.append(HANDOVER_LINE)
 
     return "\n".join(lines) + "\n"
+
+
+# The handover folder's line never changes, since what it holds is one
+# note the tool writes and the session start hook removes, outside git,
+# so counting it would have the spine change under every session.
+HANDOVER_LINE = (
+    f"- {schema.HANDOVER_FOLDER}/, the one note a session leaves for the next, written with brain handover, "
+    f"read once by the session start hook and removed, never in git (spec/{schema.HANDOVER_FOLDER}.md)"
+)
 
 
 def kit_listing(
@@ -244,8 +253,8 @@ def kit_listing(
     """The kit files the spine names, in the order a reader meets them."""
     listing = ["README.md", "house-rules.md", "spec/conventions.md"]
 
-    for kind in schema.KINDS.values():
-        spec = f"spec/{kind.folder}.md"
+    for folder in (*(kind.folder for kind in schema.KINDS.values()), schema.HANDOVER_FOLDER):
+        spec = f"spec/{folder}.md"
         if spec not in listing and store.readable_file(brain.root / spec):
             listing.append(spec)
 
@@ -276,18 +285,6 @@ def spine_line(
     summary = counter(entries) if entries else "empty"
 
     return f"- [{kind.folder}/INDEX.md]({kind.folder}/INDEX.md), {label}: {summary}"
-
-
-def handover_line(
-    brain: store.Brain,
-) -> str:
-    entries = brain.entries_of(schema.kind_named("handover"))
-    if not entries:
-        return "- handover/ is born with its first handoff (spec/handover.md)"
-
-    noun = "handover" if len(entries) == 1 else "handovers"
-
-    return f"- handover/, {len(entries)} {noun}, newest [{entries[-1].name}]({entries[-1].relative})"
 
 
 def count_docs(

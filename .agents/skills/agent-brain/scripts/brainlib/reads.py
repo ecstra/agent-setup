@@ -9,7 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
-from . import doctor, frontmatter, links, schema, store, task
+from . import doctor, frontmatter, handover, links, schema, store, task
 
 
 def version(
@@ -32,7 +32,6 @@ def status(
     findings = doctor.run(brain)
     counts = {kind.name: counted(entries=brain.entries_of(kind), kind=kind) for kind in schema.KINDS.values()}
     reviews = [entry for entry in brain.entries_of(schema.kind_named("review")) if entry.field("status") == "open"]
-    handovers = brain.entries_of(schema.kind_named("handover"))
 
     return {
         "version": version(brain),
@@ -40,7 +39,7 @@ def status(
         "fixable": sum(1 for finding in findings if finding.fixable),
         "counts": counts,
         "open_reviews": [entry.name for entry in reviews],
-        "latest_handover": handovers[-1].relative if handovers else None,
+        "handover": handover.as_data(brain),
         "task": chain_or_none(brain),
         "unreadable": [str(path.relative_to(brain.root)) for path in brain.unreadable],
     }
@@ -87,10 +86,10 @@ def render_status(
     health = "doctor clean" if data["findings"] == 0 else f"doctor {data['findings']} findings, {data['fixable']} fixable"
     lines = [f"kit {data['version']}    {health}"]
 
-    for kind_name in ("plan", "todo", "bug", "decision", "review", "doc", "memory", "handover"):
+    for kind_name in ("plan", "todo", "bug", "decision", "review", "doc", "memory"):
         counts = data["counts"].get(kind_name, {})
         total = sum(counts.values())
-        if kind_name in ("doc", "memory", "handover"):
+        if kind_name in ("doc", "memory"):
             summary = str(total) if total else "none"
         else:
             summary = ", ".join(f"{count} {value}" for value, count in counts.items()) or "none"
@@ -100,13 +99,22 @@ def render_status(
     if data["open_reviews"]:
         lines.append(f"{'reviewing':<10} {', '.join(data['open_reviews'])}")
 
-    if data["latest_handover"]:
-        lines.append(f"{'handover':<10} {data['latest_handover']}")
+    if data["handover"]:
+        lines.append(f"{'handover':<10} {handover_words(data['handover'])}")
 
     if data["unreadable"]:
         lines.append(f"{'unreadable':<10} {', '.join(data['unreadable'])}")
 
     return "\n".join(lines)
+
+
+def handover_words(
+    data: dict,
+) -> str:
+    """The waiting note in words, from the header the status carries, the way the text form shows it."""
+    written = handover.moment_of(data.get("written"))
+
+    return f"waiting, written {handover.when(written)} on {data.get('branch') or 'an unknown branch'}"
 
 
 def rows(

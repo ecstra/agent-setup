@@ -20,6 +20,13 @@ def line(
     at: Optional[datetime] = None,
 ) -> str:
     """One line naming the day, the date, the time and the zone, the way every hook prints it."""
+    return f"now: {words(at)}"
+
+
+def words(
+    at: Optional[datetime] = None,
+) -> str:
+    """The day, the date, the time and the zone of a moment, in the words the clock line uses, for any line that names one."""
     at = at or now()
 
-    return f"now: {at:%A} {at:%Y-%m-%d %H:%M} {at:%Z}"
+    return f"{at:%A} {at:%Y-%m-%d %H:%M} {at:%Z}"

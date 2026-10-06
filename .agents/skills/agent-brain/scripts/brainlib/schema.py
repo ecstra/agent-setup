@@ -303,12 +303,13 @@ KINDS: dict[str, Kind] = {
             Section(title="Findings"),
         ),
     ),
-    "handover": Kind(
-        name="handover",
-        folder="handover",
-        frontmatter_kind="doc",
-    ),
 }
+
+# The folder that holds the one note a session leaves for the next,
+# written by the tool and read once by the session start hook. It is
+# nobody's entry, so the store never lists it and doctor never reads it,
+# and git ignores it like the standing word and the current work.
+HANDOVER_FOLDER = "handover"
 
 # Files the kit owns at the root of .agents/. They carry no project
 # content, so doctor judges them against the kit rather than a kind.

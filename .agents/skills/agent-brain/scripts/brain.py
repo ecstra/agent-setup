@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import autoack, clock, doctor, frontmatter, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
+from brainlib import autoack, clock, doctor, frontmatter, handover, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
 
 REFUSED = 1
 FINDINGS_REMAIN = 2
@@ -68,6 +68,7 @@ def main(
         plans.PlanError,
         steps.StepsError,
         task.TaskError,
+        handover.HandoverError,
         upgrade.UpgradeError,
         autoack.AckError,
         frontmatter.FrontmatterError,
@@ -90,6 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_status(commands)
     add_ack(commands)
     add_task(commands)
+    add_handover(commands)
     add_list(commands)
     add_show(commands)
     add_path(commands)
@@ -251,6 +253,28 @@ def run_task_off(
 ) -> int:
     task.turn_off(brain=brain, everything=args.everything)
     print(task.describe(brain=brain))
+    return 0
+
+
+def add_handover(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser("handover", help="the note for the next session, prose on standard input, in place of the one there")
+    command.add_argument("--replace", action="store_true", help="write over a note a session on another branch left")
+    command.set_defaults(handler=run_handover)
+
+
+def run_handover(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    handover.write(
+        brain=brain,
+        prose=stdin_text(),
+        replace=args.replace,
+    )
+    print(handover.RELATIVE)
+    print("the next session's start hook puts it in front of that session and removes it")
     return 0
 
 

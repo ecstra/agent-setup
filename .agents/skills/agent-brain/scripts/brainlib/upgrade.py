@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Callable, Optional, Protocol, TextIO, Union
 from urllib.parse import unquote
 
-from . import doctor, frontmatter, schema, sections, store, style
+from . import doctor, frontmatter, handover, schema, sections, store, style
 
 FOLDER = ".agents"
 OLD_FOLDER = ".agent"
@@ -643,6 +643,15 @@ def install(
     for kind in schema.KINDS.values():
         (project.brain / kind.folder).mkdir(parents=True, exist_ok=True)
 
+    old_notes = old_handovers(project)
+    if old_notes:
+        report.done(
+            f"{FOLDER}/{handover.FOLDER}/ holds {len(old_notes)} from before this release, which the kit no longer "
+            "reads or lists, since the folder now holds the one note brain handover writes and git ignores it: "
+            + ", ".join(old_notes)
+            + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest"
+        )
+
     for relative in kit.agent_files():
         if relative in prepared.merged:
             merged = merged_config(
@@ -670,6 +679,17 @@ def install(
 
     put(project=project, relative=Path(FOLDER) / VERSION, text=stamp + "\n", report=report, quiet=True)
     report.done(f"stamped {FOLDER}/{VERSION} {stamp}")
+
+
+def old_handovers(
+    project: Project,
+) -> list[str]:
+    """The markdown files in the handover folder that are not the tool's note, by name, which a project filed there before the folder became the tool's."""
+    folder = project.brain / handover.FOLDER
+    if not store.quietly(folder.is_dir):
+        return []
+
+    return sorted(path.name for path in folder.glob("*.md") if path.name != handover.FILE and store.readable_file(path))
 
 
 def check(

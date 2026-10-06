@@ -18,7 +18,10 @@ from typing import Callable, Optional, Union
 
 from . import autoack, frontmatter, index, links, schema, sections, steps, store, style, task, writes
 
-SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, ".worktrees"})
+# The folders the markdown walk never enters: the skills, which follow
+# their own standard, the worktree home, and the handover folder, whose
+# one note is the tool's and sits outside git.
+SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, schema.HANDOVER_FOLDER, ".worktrees"})
 
 # A header block the parser refuses, taken off by its fences alone so
 # the prose under it is still read.

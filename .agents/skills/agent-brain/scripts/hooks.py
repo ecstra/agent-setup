@@ -29,7 +29,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, Union
 
-from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, steps, store, task
+from brainlib import autoack, clock, doctor, frontmatter, handover, links, reads, schema, steps, store, task
 
 BLOCK = 2
 FAILED = 1
@@ -117,7 +117,7 @@ def run(
         return 0
 
     if args.event == "session-start":
-        return session_start(brain=brain, agent=args.agent, with_rules=args.with_rules)
+        return session_start(brain=brain, agent=args.agent, with_rules=args.with_rules, source=str(event.get("source") or ""))
 
     if args.event == "prompt":
         return prompt(brain=brain, agent=args.agent)
@@ -176,11 +176,25 @@ def locate(
         return None
 
 
+# The one session start that reads the last session's note and leaves
+# it where it is: a fork carries the whole context it was forked from,
+# so the session that wrote the note still holds everything in it.
+FORK = "fork"
+
+
 def session_start(
     brain: store.Brain,
     agent: str,
     with_rules: bool,
+    source: str = "",
 ) -> int:
+    """The clock, the word, the work and the status, the rules where asked, and the note the last session left, read once.
+
+    The note goes in whole and the file goes away, on a start, a resume,
+    a clear and a compaction alike, since each is a session that has to
+    pick up without the last one's head. A note written on another
+    branch is another session's and stays, said in one line.
+    """
     text = the_moment(brain=brain) + "\n\nThe brain, counted from the files right now:\n" + reads.render_status(reads.status(brain=brain))
     if with_rules:
         rules = brain.root / "SYSTEM.md"
@@ -191,8 +205,33 @@ def session_start(
         if store.readable_file(chat_style):
             text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
 
+    if source != FORK:
+        text += handover_text(brain)
+
     emit_context(agent=agent, text=text, event_name="SessionStart")
     return 0
+
+
+def handover_text(
+    brain: store.Brain,
+) -> str:
+    """The last session's note for this session's context, the file removed, or the line about one waiting for another branch, or nothing."""
+    note = handover.read(brain)
+    if note is None:
+        return ""
+
+    branch = handover.current_branch(handover.project_of(brain))
+    if not handover.is_for(note=note, branch=branch):
+        return (
+            f"\n\nA handover written on {note.branch} at {handover.when(note.written)} waits in "
+            f".agents/{handover.RELATIVE} for a session on that branch, and this one is on {branch}."
+        )
+
+    trouble = handover.remove(brain)
+    kept = "" if trouble is None else f" It could not be removed, {trouble}, so the next session will read it again."
+    heading = f"The handover the last session left here, read once and now removed.{kept}"
+
+    return f"\n\n{heading}\n\n{note.text.rstrip()}"
 
 
 def prompt(
@@ -284,6 +323,10 @@ def refusal(
 
     if inside.casefold() == task.FILE and not touch.deleted:
         return f"{task.FILE} is the current work, set with brain task on and never written by hand"
+
+    # the note's folder in any case too, for the same reason as the word's name
+    if Path(inside).parts[0].casefold() == handover.FOLDER and not touch.deleted:
+        return f"{inside}: {handover.BY_HAND}"
 
     if not markdown_named(path):
         return None
