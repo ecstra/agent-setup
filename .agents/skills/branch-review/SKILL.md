@@ -116,11 +116,13 @@ the report says what it decided.
 
 ## Before the review
 
-1. Before. The project's gates, every suite, analyzer and build that
-   AGENTS.md section 0 names, are green, and `brain doctor` is clean.
-   The working tree is clean too, since a review reads committed work.
-   Where any of them is not, the review stops before the ledger opens
-   and the agent tells the owner which.
+1. Before. `brain gates` is green, which runs every suite, analyzer
+   and build that AGENTS.md section 0 names under its Gates heading,
+   in order, then `brain check` over the tracked tree and
+   `brain doctor`, and stops at the first red one. The working tree is
+   clean too, since a review reads committed work. Where any of them
+   is not, the review stops before the ledger opens and the agent
+   tells the owner which.
 
    The range is `main...HEAD` unless the owner gave one, and
    `<base>...<head>` stands for it in every command here. The scope is

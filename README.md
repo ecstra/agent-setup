@@ -125,7 +125,9 @@ after it writes nothing.
 >    the general rules cannot know about your project. The gates (the
 >    exact test suites, analyzers, builds, and validators that must be
 >    green before a review), the tooling (how PRs are opened, how the
->    app runs), anything else the general sections do not cover. A
+>    app runs), anything else the general sections do not cover. The
+>    gates go under a heading that reads `### Gates`, one fenced `bash`
+>    block per gate, and `brain gates` runs them in that order. A
 >    project with no gates yet has nothing to put there, so skip it and
 >    add it when the first gate exists.
 
@@ -315,6 +317,8 @@ need to, but the commands are short enough to know.
 | `brain status` | The clock, where your standing word stands, on, held or off, the work the agent is on, then the brain in numbers, what each tracker holds and whether doctor is clean. The session start hook prints this into the agent's context, and two more hooks keep the clock and the work in front of the agent on every prompt and after tool calls, since a model does not know the time on its own and forgets what it was doing. |
 | `brain task on <entry>` | The work the agent is on, one chain at a time from a plan down to the step, which the agent sets before multi step work and moves with `brain task done`, a mark in the entry's own steps table, or which moves of itself when the entry a step points at closes, a refiled one handing the step on to the entry filed in its place. The agent cannot start a second piece of work while one stands, short of `--replace` on your word, and a link falls off the chain when its entry closes. |
 | `brain doctor` and `brain doctor --fix` | Checks every file against its spec, and `--fix` repairs the mechanical slips, a stale index, a link written as a name, a chat style copy that drifted. |
+| `brain check` | Holds the project's own prose and code to the house rules a machine can judge, a dash, a semicolon or a colon outside a list label in markdown, a def or a broken call in Python not stacked one line per argument with a trailing comma, and the branch's commits to one author with no AI attribution. Over the files given or the whole tracked tree, and the hook runs it on every file the agent writes, so a slip is fixed in the same round. |
+| `brain gates` | Runs the gates your section 0 names, in order, stops at the first red one and says which, then runs `brain check` and `brain doctor`. The one command before a review and before a merge. |
 | `brain new`, `brain set`, `brain refile` | Files a plan, a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
 | `brain ledger` | Opens, fills and closes a code review ledger, and `brain ledger report` says where a review stands, counted from the file. |
 | `brain ack on --for 8h` | Your standing word to proceed, for a time or until a task is done, so the agent passes the review's gates that normally wait for you, the house rules name them, and each report says which ack the step ran on. It never starts a review, and the PR and the merge still wait for your ask. `brain ack off` takes it back. |

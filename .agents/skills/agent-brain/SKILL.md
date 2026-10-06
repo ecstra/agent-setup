@@ -6,7 +6,7 @@ description: The one way to file, change, count or check anything in the project
 # The brain tool
 
 One command does everything under `.agents/`. It is plain Python with no
-dependencies, and it runs from anywhere inside the project:
+dependencies, and it runs from anywhere inside the project.
 
 ```bash
 python3 .agents/skills/agent-brain/scripts/brain.py status
@@ -203,12 +203,29 @@ A heredoc, quoted or not, ends at the first line that is its word
 alone, so the word is one no line of the note is, which rules out `EOF`
 once a trap quotes a heredoc of its own.
 
-## Checking the brain
+## Checking the brain, the code and the prose
 
 ```bash
 brain doctor
 brain doctor --fix
+brain check
+brain check src/app.py docs/guide.md
+brain gates
 ```
+
+Doctor reads the brain against its specs. The check reads the
+project's own prose and code against the rules a machine can judge, a
+dash, a semicolon or a colon outside a list item's label in markdown,
+the future import of annotations, a def or a call already broken
+across lines not stacked one per line with a trailing comma in Python,
+and the branch's commits for a co-author line or an AI attribution.
+It reports and never rewrites. With no paths it reads every markdown
+and Python file git tracks, and the hook runs it on every file the
+agent writes, so a slip is fixed in the same round. The gates command
+is the one command before a review and before a merge. It runs the
+gates section 0 names under its Gates heading, one fenced bash block
+each, stops at the first red one and says which, then runs the check
+and doctor.
 
 Doctor reports each defect on its own line, marked `fixable` or `flag`.
 `--fix` repairs the mechanical ones, a stale index, a name that

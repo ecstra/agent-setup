@@ -43,7 +43,7 @@ answers nothing. Every command that takes a key reads it this way.
 | `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input. Both files stay, linked both ways, the old one marked `refiled` with the new one's id in `became`, which every step that pointed at the old one follows, save a step whose own entry the new one's steps point back at, which stays on the old one as skipped while the new one is open and follows once it closes. Refused when a step of the new body points at the old entry, or at an open entry whose steps point back at it at any remove, since the new entry takes the old one's pointers over. |
 | `brain index` | Rebuilds every `INDEX.md` and prints the ones that changed. |
 
-Fields by kind, all passed as flags to `new` or as `field=value` to `set`:
+Fields by kind, all passed as flags to `new` or as `field=value` to `set`.
 
 - bug: `--severity breaks|bug|debt|nit` and `--area` required. `status`
   is open, branched, fixed, wontfix or refiled, `reported` defaults to
@@ -393,6 +393,27 @@ elsewhere is replaced by the right one, and a repair that rewrites a
 file, a stale index or chat style copy, writes a real file in place of
 any link standing there. No other file is removed.
 
+## The check
+
+Doctor reads the brain against its specs. The check reads the project's
+own prose and code against the rules of SYSTEM.md a machine can judge
+without reading for meaning, and it reports, never rewrites, since none
+of these slips has one mechanical repair.
+
+| Command | What it does |
+|---|---|
+| `brain check [paths...] [--json]` | One line per slip, `path:line: message`, then `clean` or the count, exit 2 while any remain. With paths, the files named and every markdown and Python file under a folder named, dotted folders left out, each once, and a path that is not there is refused. With none, every markdown and Python file git tracks in the project, refused in words where git cannot list them, plus the branch's commits. In markdown, line by line with the header block, fenced and indented code, code spans and HTML comments stepped over the way doctor reads a front door, and a URL or a time of day stepped over too: a dash the house style bans, a semicolon, and a colon anywhere but as a list item's label, which is the first colon of an item whose text before it holds no sentence end, so a colon in a heading, mid sentence, after the sentence that opens an item or second in an item is a slip, and a table row takes any. In Python, from the syntax tree: the import of `annotations` from `__future__`, a def whose parameters do not sit one per line below the def's line with a trailing comma after the last, a def with nothing but `self` or `cls` aside, and a call already broken across lines whose arguments do not sit one per line with a trailing comma, a lone generator argument aside since it takes none, and nothing inside a formatted string. A file that does not parse is one slip on its line. The branch's commits, `main..HEAD`, are read for a co-author line and for an AI attribution, each a slip named by the commit, and nothing is said of them outside git, on main itself or with no main branch. In a project the files the kit writes whole are never read, since a slip there is the kit's and the next upgrade writes them back, and the project's `AGENTS.md` is read above the kit's marker alone. The tool's own indexes and the review ledgers are never read either, since the ledger's claims name a file by its line. In the kit's own checkout every file is the work. |
+
+The post write hook runs the check on the file just written, so the
+slip is fixed in the same round, and the gates run it over the whole
+tree before a review and before a merge.
+
+## The gates
+
+| Command | What it does |
+|---|---|
+| `brain gates` | Runs the gates in order, each named on one line, and stops at the first red one, saying which and with what exit code, exit 1. Then runs the check over the tracked tree and doctor over the brain, prints each slip and finding, and exits 2 while either has any, 0 when all is green. The gates are the fenced shell blocks, `bash`, `sh`, `zsh`, `shell` or bare, under a heading that reads `Gates` inside section 0 of the project's `AGENTS.md`, in order, up to the next heading at that level or above, each run from the project's root under bash where the machine has it and under the system shell otherwise, with its output passed straight through. A project that names none is told so, and the check and doctor are its gates. In the kit's own checkout the tool's own tests come first, under the interpreter running the command and, where it is another one, under the system's `/usr/bin/python3`, the floor the kit holds to. |
+
 ## Port and upgrade
 
 Both run from a checkout of the kit, since a project without the tool
@@ -466,7 +487,7 @@ under `handover/` among them, is printed as the disk spells it.
 ## Hooks
 
 `scripts/hooks.py` is what the agents call, with the event JSON on
-standard input:
+standard input.
 
 | Event | What happens |
 |---|---|
@@ -474,7 +495,7 @@ standard input:
 | `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
 | `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Claude Code fires it once after each round of tool calls, Codex and Gemini CLI after each shell call. |
 | `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, anything in the `handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
-| `post-write` | After a write inside `.agents/`, runs doctor and hands its findings back as context. |
+| `post-write` | After a write anywhere in the project, runs the check on the file just written and hands its slips back as context, so they are fixed in the same round, a file the kit writes whole or the tool writes left out as the check leaves it out. After a write inside `.agents/`, runs doctor too and hands its findings back the same way. |
 
 Context goes back as one JSON object naming the event, which all three
 agents read on every event. Codex also takes plain text at the start of

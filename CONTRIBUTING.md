@@ -6,8 +6,8 @@ behavior.
 
 ## The absolutes
 
-- **No commit lands on main directly.** All work rides a branch: one
-  branch, one intent.
+- **No commit lands on main directly.** All work rides a branch, one
+  branch with one intent.
 - **No merge before the branch's code review has closed.** The owner
   calls the timing and the agent runs it, its ledger lives under
   `.agents/reviews/`, and every finding is fixed, or refuted, wontfixed
@@ -17,9 +17,11 @@ behavior.
   rule in AGENTS.md section 0.
 - **Single author, no co-authors, no AI attribution anywhere.** Not in
   commits, not in PR titles or bodies, no generated-with footers.
-- **Gates before review.** Suites, analyzer, builds, validators, and
-  `brain doctor` pass and the working tree is clean before a review
-  starts. Reviewers judge committed, working code and a sound brain.
+- **Gates before review.** `brain gates` is green, which runs every
+  suite, analyzer, build and validator section 0 names, then
+  `brain check` over the tracked tree and `brain doctor`, and the
+  working tree is clean before a review starts. Reviewers judge
+  committed, working code and a sound brain.
 - **Secrets stay out of git.** They live in the gitignored root `.env`
   or in the project's own secret store, never in code, docs, `.agents/`,
   or git history.
