@@ -1,7 +1,11 @@
 <!-- Claude Code reads this file. The rules live in AGENTS.md, which the
-     line below pulls in. Below the marker line, the same one AGENTS.md
-     carries, sit the kit's compaction instructions, which Claude Code
-     reads from this file alone when it compacts a session. -->
+     line below pulls in with its section 0, so the section 0 above the
+     marker line here is the one that line brings in. A project's own
+     rules go in AGENTS.md and never in this file, which the port and
+     the upgrade write whole from the kit. Below the marker, the same
+     line AGENTS.md carries, sit the kit's compaction instructions, kept
+     here since Claude Code's docs put a project's compaction
+     instructions in its CLAUDE.md. -->
 
 @AGENTS.md
 
@@ -9,9 +13,16 @@
 
 # Compact instructions
 
-Keep, in the words they were given, every rule the user gave in chat,
-the work chain and the review's batch as the last hook line printed
-them, the uncommitted files and what each holds, the step in hand and
-the next one, and the traps met. The handover the session wrote with
-`brain handover` beats this summary. The session start hook puts it in
-front of you after the compaction, and you read it before anything else.
+Keep everything section 8.4 of `.agents/SYSTEM.md` has a handover
+carry, the record and the prose alike, as this session last knew each,
+with what each uncommitted file holds and the rules the user gave in
+chat in the words they were given. Keep the prose of the last handover
+the session start hook put in front of this session in its own words,
+and the moment each handover this session read or wrote was written,
+with what the session did after it.
+
+The session start hook puts a handover that waits in front of you after
+the compaction, and you read it before anything else. A handover holds
+as things stood at the moment it was written, so it beats what this
+summary says of the time before that moment, and what this summary
+keeps of the work after it beats the handover.
