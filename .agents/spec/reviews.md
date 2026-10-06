@@ -2,11 +2,11 @@
 name: spec-reviews
 kind: doc
 description: format and lifecycle for .agents/reviews, the code review ledgers
-updated: 2026-09-30
+updated: 2026-10-06
 links: [spec/conventions.md, house-rules.md, spec/bugs.md]
 ---
 
-# Spec: reviews/
+# Spec for reviews/
 
 One folder per code review, named `<yyyy-mm>-<branch-slug>`, born when
 the review runs, permanent once born. The protocol lives in
@@ -28,7 +28,7 @@ body holds three sections.
    for each of the five themes its findings are filed by, each wide
    enough for every finding of its kind. The batch the closing pass
    opens, themed `closing pass`, is not counted.
-3. **Findings**: one block per finding, in the order they were filed:
+3. **Findings**: one block per finding, in the order they were filed.
 
 ```
 ### F-07: <one line claim>

@@ -6,7 +6,7 @@ updated: 2026-10-27
 links: [spec/conventions.md]
 ---
 
-# Spec: handover/
+# Spec for handover/
 
 The note one session leaves for the next, so a session that starts
 after a compaction or any other stop picks up without reconstructing a

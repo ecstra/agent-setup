@@ -2,20 +2,20 @@
 name: spec-todos
 kind: doc
 description: format and lifecycle for .agents/todos, the work tracker
-updated: 2026-09-24
+updated: 2026-10-06
 links: [spec/conventions.md, spec/bugs.md]
 ---
 
-# Spec: todos/
+# Spec for todos/
 
-Work to do: features, changes, chores. One item per file. This is the
-project's single tracker, the agent's and the owner's both, and the agent
-uses it extensively: multi step work gets filed here instead of carried
-in a session's head, so any session can pick it up.
+Work to do, such as features, changes, chores. One item per file. This
+is the project's single tracker, the agent's and the owner's both, and
+the agent uses it extensively. Multi step work gets filed here instead
+of carried in a session's head, so any session can pick it up.
 
 ## Format
 
-Standard frontmatter, `kind: todo`, plus:
+Standard frontmatter, `kind: todo`, plus these.
 
 ```
 status: open | done | dropped | refiled
@@ -26,7 +26,7 @@ done: <YYYY-MM-DD, when closed>
 became: <the id of the bug it was refiled as, written by the refile>
 ```
 
-Body sections:
+Body sections.
 
 ```
 ## What
@@ -56,7 +56,7 @@ own notes to tick, by name.
 ## Lifecycle
 
 Done and dropped items keep their files with status flipped, nothing is
-deleted and nothing grows inline paragraphs: completion notes go in Done
+deleted and nothing grows inline paragraphs. Completion notes go in Done
 when, never appended to What. The INDEX lists every open item one per
 line, grouped by area, and summarizes done, dropped and refiled by area
 with counts (each closed file carries its own description, the id finds

@@ -2,20 +2,20 @@
 name: spec-bugs
 kind: doc
 description: format and lifecycle for .agents/bugs, the defect tracker
-updated: 2026-09-24
+updated: 2026-10-06
 links: [spec/conventions.md, spec/todos.md, spec/reviews.md]
 ---
 
-# Spec: bugs/
+# Spec for bugs/
 
-Defects: the product misbehaving. One bug per file, so status changes
+Defects, the product misbehaving. One bug per file, so status changes
 edit fields instead of growing lines, and the file's git history is the
 bug's history.
 
 ## A bug is not a todo
 
 A bug has evidence of wrong behavior. A todo is work to do. Neither may
-hold the other: a wish filed here is refiled as a todo, a defect filed
+hold the other. A wish filed here is refiled as a todo, a defect filed
 there as a bug, both through `brain refile --kind`. The old file stays,
 marked `refiled`, and the two link to each other. The agent classifies
 on intake without asking, and cross links carry any relationship
@@ -23,7 +23,7 @@ on intake without asking, and cross links carry any relationship
 
 ## Format
 
-Standard frontmatter, `kind: bug`, plus:
+Standard frontmatter, `kind: bug`, plus these.
 
 ```
 status: open | branched | fixed | wontfix | refiled
@@ -39,7 +39,7 @@ body). `wontfix` requires the reason written in the body. `refiled`
 means the file turned out to be a todo, which the tool filed, named in
 `became` and linked here, so a refiled bug always links to a todo.
 
-Body sections, in order:
+Body sections, in order.
 
 ```
 ## Problem

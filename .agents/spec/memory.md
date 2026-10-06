@@ -2,20 +2,20 @@
 name: spec-memory
 kind: doc
 description: format and rules for .agents/memory, project facts learned along the way
-updated: 2026-09-16
+updated: 2026-10-06
 links: [spec/conventions.md]
 ---
 
-# Spec: memory/
+# Spec for memory/
 
-Facts the project taught us that no doc owns: gotchas, settled patterns,
-field lessons, pointers to external truth. One fact per file. If a fact
-grows into real documentation, it graduates into docs/ and the memory
-file is deleted.
+Facts the project taught us that no doc owns, such as gotchas, settled
+patterns, field lessons, pointers to external truth. One fact per file.
+If a fact grows into real documentation, it graduates into docs/ and the
+memory file is deleted.
 
 ## Format
 
-Standard frontmatter, `kind: memory`, plus:
+Standard frontmatter, `kind: memory`, plus this.
 
 ```
 type: project | feedback | reference
@@ -27,7 +27,7 @@ type: project | feedback | reference
 - reference: a pointer to external truth (an upstream issue, a vendor
   doc, a dashboard).
 
-The body is three beats: the fact, why it matters, how to apply it.
+The body is three beats, namely the fact, why it matters, how to apply it.
 
 ## Boundaries, stricter here than anywhere
 

@@ -2,7 +2,7 @@
 name: conventions
 kind: doc
 description: the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
-updated: 2026-10-27
+updated: 2026-10-28
 links: [README.md]
 ---
 
@@ -12,7 +12,7 @@ The shared law. Each folder's own spec adds to this, never contradicts it.
 
 ## Frontmatter
 
-Every markdown file in .agents opens with:
+Every markdown file in .agents opens with this frontmatter.
 
 ```
 ---
@@ -53,13 +53,13 @@ removes.
 
 ## Naming and ids
 
-Files are kebab case. Tracked kinds carry ids: `BUG-###`, `TODO-###`,
+Files are kebab case. Tracked kinds carry ids, namely `BUG-###`, `TODO-###`,
 `DEC-###`, zero padded, assigned as the next free number in that folder,
 never reused. The filename is `<ID>-<short-slug>.md`.
 
 ## Links
 
-Two forms, each with its job:
+Two forms, each with its job.
 
 - Frontmatter `links:` lists paths relative to `.agents/`, such as
   `bugs/BUG-004-token-loop.md`, so an agent opens the file without
@@ -88,10 +88,10 @@ spine may summarize those groups with counts plus the open items.
 index line is `- [name](path), hook` where the hook is the description
 or a shorter cut of it.
 
-The upkeep rule: any change to a file updates its `updated:` date in the
-same commit, and the indexes are rebuilt by the brain tool, never edited
-by hand. The tool owns an index whole, its frontmatter as much as its
-body, and an index that differs from what it builds is a bug that
+The upkeep rule is that any change to a file updates its `updated:` date
+in the same commit, and the indexes are rebuilt by the brain tool, never
+edited by hand. The tool owns an index whole, its frontmatter as much as
+its body, and an index that differs from what it builds is a bug that
 doctor rebuilds.
 
 A brain written before the tool existed reads these rules as its
@@ -104,8 +104,8 @@ is left is fixed by hand through the tool, one finding at a time.
 
 ## Prose
 
-House style: no em-dashes, no semicolons, plain words, colons only as
-list labels. Terse beats complete. A claim about the code names the
+House style means no em-dashes, no semicolons, plain words, colons only
+as list labels. Terse beats complete. A claim about the code names the
 file it is true in, so a sync round can verify it mechanically. Never
 leave a line broken mid sentence or cut mid word, and wrap prose
 naturally or not at all.

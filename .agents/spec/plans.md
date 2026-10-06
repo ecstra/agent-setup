@@ -2,11 +2,11 @@
 name: spec-plans
 kind: doc
 description: format and lifecycle for .agents/plans, a goal with the steps that reach it
-updated: 2026-09-25
+updated: 2026-10-06
 links: [spec/conventions.md, spec/todos.md, spec/bugs.md, spec/reviews.md]
 ---
 
-# Spec: plans/
+# Spec for plans/
 
 Long horizon work. One file per plan, named for the goal, a goal the
 owner and the agent agreed on with the steps that reach it. A plan's
@@ -18,7 +18,7 @@ legal and means "find out".
 
 ## Format
 
-Standard frontmatter, `kind: plan`, plus:
+Standard frontmatter, `kind: plan`, plus these.
 
 ```
 status: open | done | dropped
@@ -27,7 +27,7 @@ born: <YYYY-MM-DD>
 done: <YYYY-MM-DD, when closed>
 ```
 
-Body sections, in order:
+Body sections, in order.
 
 ```
 ## Why
@@ -40,7 +40,7 @@ The table below, the tool's own.
 The check that closes the plan, beyond every step being settled.
 ```
 
-The steps table:
+The steps table.
 
 ```
 | # | Step | Points at | By | Status |
