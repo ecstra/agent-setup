@@ -89,6 +89,27 @@ def in_handover(
     )
 
 
+def into_handover(
+    brain: store.Brain,
+    path: Path,
+) -> bool:
+    """Whether a path a link names lies in the brain's handover folder."""
+    relative = within(brain=brain, path=path)
+
+    return relative is not None and in_handover(brain=brain, relative=relative)
+
+
+def unreached(
+    brain: store.Brain,
+    path: Path,
+) -> str:
+    """What a link that reaches nothing says of the path it names, with the reason where the path lies in the handover folder, since a file there can stand on disk and still reach nothing."""
+    if into_handover(brain=brain, path=path):
+        return f"reaches nothing, since {schema.HANDOVER_FOLDER}/ holds the one note brain handover writes and no link goes into it"
+
+    return "reaches nothing"
+
+
 def is_folder(
     brain: store.Brain,
     top: str,
@@ -168,8 +189,8 @@ def broken_in_body(
     brain: store.Brain,
     path: Path,
     document: frontmatter.Document,
-) -> list[str]:
-    """Markdown links in the prose that do not reach a file from where they stand.
+) -> list[tuple[str, str]]:
+    """Markdown links in the prose that do not reach a file from where they stand, each with what `unreached` says of it.
 
     A body link is relative to its file, so an absolute one is broken
     however the machine it was written on is laid out, and one into the
@@ -177,20 +198,17 @@ def broken_in_body(
     read once and never enters git. A link that starts inside code is
     not a link, while one whose text holds a code span is.
     """
-    found: list[str] = []
+    found: list[tuple[str, str]] = []
 
     for target in body_targets(document.body):
         if "://" in target or target.startswith("#"):
             continue
 
         file_part = target.split("#")[0]
-        if not file_part or Path(file_part).is_absolute() or not store.quietly((path.parent / file_part).exists):
-            found.append(target)
-            continue
-
-        reached = within(brain=brain, path=path.parent / file_part)
-        if reached is not None and in_handover(brain=brain, relative=reached):
-            found.append(target)
+        named = path.parent / file_part
+        missing = not file_part or Path(file_part).is_absolute() or not store.quietly(named.exists)
+        if missing or into_handover(brain=brain, path=named):
+            found.append((target, unreached(brain=brain, path=named)))
 
     return found
 

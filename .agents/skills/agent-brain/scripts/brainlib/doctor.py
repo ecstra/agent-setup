@@ -841,7 +841,8 @@ def check_links(
                 continue
 
             if resolved is None:
-                found.append(Finding(path=where, check="link", message=f"'{link}' reaches nothing"))
+                said = links.unreached(brain=brain, path=brain.root / link)
+                found.append(Finding(path=where, check="link", message=f"'{link}' {said}"))
             canonical.append(resolved or link)
 
         if canonical != current:
@@ -855,9 +856,9 @@ def check_links(
             )
 
     for path, document in documents:
-        for target in links.broken_in_body(brain=brain, path=path, document=document):
+        for target, said in links.broken_in_body(brain=brain, path=path, document=document):
             found.append(
-                Finding(path=relative(brain=brain, path=path), check="link", message=f"body link '{target}' reaches nothing")
+                Finding(path=relative(brain=brain, path=path), check="link", message=f"body link '{target}' {said}")
             )
 
     return found
