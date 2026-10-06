@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import autoack, clock, doctor, frontmatter, handover, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
+from brainlib import autoack, check, clock, doctor, frontmatter, gates, handover, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
 
 REFUSED = 1
 FINDINGS_REMAIN = 2
@@ -69,6 +69,7 @@ def main(
         steps.StepsError,
         task.TaskError,
         handover.HandoverError,
+        check.CheckError,
         upgrade.UpgradeError,
         autoack.AckError,
         frontmatter.FrontmatterError,
@@ -101,6 +102,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_refile(commands)
     add_index(commands)
     add_doctor(commands)
+    add_check(commands)
+    add_gates(commands)
     add_steps(commands)
     add_ledger(commands)
     add_port(commands)
@@ -544,6 +547,59 @@ def run_doctor(
         print("clean" if not found else f"{len(found)} findings")
 
     return FINDINGS_REMAIN if found else 0
+
+
+def add_check(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser(
+        "check",
+        help="the house rules a machine can check, over the files given or the whole tracked tree, and the branch's commits",
+        description=(
+            "the house rules a machine can check: a dash, a semicolon or a colon outside a list item's label in the prose of "
+            "a markdown file, the future import of annotations, a def or a broken call not stacked one per line with a "
+            "trailing comma in a Python file, over the files given or, with none, the whole tracked tree and the branch's "
+            "commits against main, read for a co-author line or an AI attribution"
+        ),
+    )
+    command.add_argument("paths", nargs="*", help="files or folders to check, none for every markdown and Python file git tracks")
+    command.add_argument("--json", action="store_true")
+    command.set_defaults(handler=run_check)
+
+
+def run_check(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    slips = check.run(
+        project=brain.root.parent,
+        paths=[Path(given) for given in args.paths],
+    )
+    if args.json:
+        print(json.dumps([{"path": slip.path, "line": slip.line, "message": slip.message} for slip in slips], indent=2))
+    else:
+        for slip in slips:
+            print(slip.text())
+        print("clean" if not slips else f"{len(slips)} findings")
+
+    return FINDINGS_REMAIN if slips else 0
+
+
+def add_gates(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser("gates", help="the gates section 0 names, in order, stopping at the first red, then check and doctor")
+    command.set_defaults(handler=run_gates)
+
+
+def run_gates(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    return gates.run(
+        project=brain.root.parent,
+        brain=brain,
+    )
 
 
 def add_steps(

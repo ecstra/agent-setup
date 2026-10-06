@@ -30,7 +30,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, Union
 
-from brainlib import autoack, clock, doctor, frontmatter, handover, links, reads, schema, steps, store, task
+from brainlib import autoack, check, clock, doctor, frontmatter, handover, links, reads, schema, steps, store, task
 
 BLOCK = 2
 FAILED = 1
@@ -1112,16 +1112,40 @@ def post_write(
     event: dict,
     agent: str,
 ) -> int:
-    inside = [touch for touch in touches(event=event, agent=agent) if is_inside(brain=brain, path=touch.path)]
+    """After a write, the check over the file just written and, inside the brain, doctor over the whole of it, each handed back as context so the slip is fixed in the same round."""
+    touched = touches(event=event, agent=agent)
+    parts: list[str] = []
+
+    slips = [slip for touch in touched if not touch.deleted and in_project(brain=brain, path=touch.path) for slip in check.check_file(project=brain.root.parent, path=touch.path)]
+    if slips:
+        parts.append("brain check after that write:\n" + "\n".join(slip.text() for slip in slips))
+
+    inside = [touch for touch in touched if is_inside(brain=brain, path=touch.path)]
     findings = doctor.run(brain) if inside else []
-    if not findings:
+    if findings:
+        lines = [finding.line() for finding in findings]
+        parts.append("brain doctor after that write:\n" + "\n".join(lines) + "\nRun brain doctor --fix for the fixable ones.")
+
+    if not parts:
         emit_nothing(agent)
         return 0
 
-    lines = [finding.line() for finding in findings]
-    text = "brain doctor after that write:\n" + "\n".join(lines) + "\nRun brain doctor --fix for the fixable ones."
-    emit_context(agent=agent, text=text, event_name=AFTER_WRITE.get(agent, "PostToolUse"))
+    emit_context(agent=agent, text="\n\n".join(parts), event_name=AFTER_WRITE.get(agent, "PostToolUse"))
     return 0
+
+
+def in_project(
+    brain: store.Brain,
+    path: Path,
+) -> bool:
+    """Whether the file sits under the project and is there to read, the one kind of file the check reads after a write."""
+    root = Path(os.path.normpath(str(brain.root.parent)))
+    try:
+        Path(os.path.normpath(str(path))).relative_to(root)
+    except ValueError:
+        return False
+
+    return store.readable_file(path)
 
 
 def is_inside(
@@ -1168,7 +1192,7 @@ def touches(
                     old_string=text_field(tool_input=tool_input, key="old_string"),
                     new_string=text_field(tool_input=tool_input, key="new_string"),
                     replace_all=replaces_more_than_one(tool_input),
-                )
+                ),
             )
 
     return found
@@ -1256,7 +1280,7 @@ def patch_touches(
                     path=path,
                     content="" if action == "Add File" else None,
                     deleted=action == "Delete File",
-                )
+                ),
             )
             updating = len(found) - 1 if action == "Update File" else None
             adding = len(found) - 1 if action == "Add File" else None
