@@ -14,7 +14,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import tempfile
 import unicodedata
 from collections import Counter
@@ -438,10 +437,10 @@ def port_root(
 ) -> Path:
     """Where a port lands without `--project`: the top of the git repository around `start`, else `start` itself, never the home folder."""
     top = git(project=Project(root=start), arguments=["rev-parse", "--show-toplevel"])
-    if top is None or top.returncode != 0:
+    if top is None or top.code != 0:
         return never_home(root=start.resolve(), start=start)
 
-    return never_home(root=Path(top.stdout.strip()).resolve(), start=start)
+    return never_home(root=Path(top.out.strip()).resolve(), start=start)
 
 
 def upgrade_root(
@@ -684,12 +683,43 @@ def install(
 def old_handovers(
     project: Project,
 ) -> list[str]:
-    """The markdown files in the handover folder that are not the tool's note, by name, which a project filed there before the folder became the tool's."""
+    """The notes a project filed in the handover folder before the folder became the tool's, by their paths in it.
+
+    One is any markdown file there, nested too, that is not the tool's
+    note, so a doc filed as handover.md before this release is named
+    with the rest. None is moved or removed.
+    """
     folder = project.brain / handover.FOLDER
     if not store.quietly(folder.is_dir):
         return []
 
-    return sorted(path.name for path in folder.glob("*.md") if path.name != handover.FILE and store.readable_file(path))
+    return sorted(
+        path.relative_to(folder).as_posix()
+        for path in folder.rglob("*.md")
+        if store.readable_file(path) and not tools_note(path=path, note=folder / handover.FILE)
+    )
+
+
+def tools_note(
+    path: Path,
+    note: Path,
+) -> bool:
+    """Whether the file is the note brain handover writes, the one at the note's path whose header carries a branch and a moment and no kind.
+
+    The file is read the way the session start reads the note, as UTF-8
+    with a stray byte replaced and a byte order mark dropped, so the two
+    never disagree on whose it is.
+    """
+    if not store.quietly(lambda: path.samefile(note)):
+        return False
+
+    try:
+        text = path.read_bytes().decode("utf-8", errors="replace").removeprefix(BOM)
+        fields = frontmatter.parse(text).fields()
+    except (OSError, frontmatter.FrontmatterError):
+        return False
+
+    return "kind" not in fields and "branch" in fields and "written" in fields
 
 
 def check(
@@ -804,7 +834,7 @@ def candidates(
         project=project,
         arguments=["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"],
     )
-    if listed is None or listed.returncode != 0:
+    if listed is None or listed.code != 0:
         found = [
             path.name
             for path in sorted(project.root.glob("*.md"))
@@ -818,7 +848,7 @@ def candidates(
 
         return found
 
-    files = [Path(entry) for entry in listed.stdout.split("\0") if entry]
+    files = [Path(entry) for entry in listed.out.split("\0") if entry]
     found = [str(path) for path in files if len(path.parts) == 1 and path.name.lower() not in kept and not path.name.startswith(".")]
     counts: dict[str, int] = {}
     for path in files:
@@ -883,8 +913,8 @@ def migration_targets(
             f"{OLD_FOLDER}/",
         ],
     )
-    if found is not None and found.returncode in (0, 1):
-        paths = [project.root / entry for entry in found.stdout.split("\0") if entry]
+    if found is not None and found.code in (0, 1):
+        paths = [project.root / entry for entry in found.out.split("\0") if entry]
     else:
         brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
         paths = [path for path in list_names(project.root) if path.suffix == ".md"]
@@ -1040,7 +1070,7 @@ def move(
         project=project,
         arguments=["mv", "-f", str(old.relative_to(project.root)), str(new.relative_to(project.root))],
     )
-    if moved is not None and moved.returncode == 0:
+    if moved is not None and moved.code == 0:
         return
 
     if old.name.lower() == new.name.lower() and old.parent == new.parent:
@@ -1125,7 +1155,7 @@ def ancestry(
         if not answered(common):
             return found
 
-        repository = identity(folder / common.stdout.strip())
+        repository = identity(folder / common.out.strip())
         if repository is not None:
             found.add(repository)
 
@@ -1136,7 +1166,7 @@ def ancestry(
         if not answered(origin):
             return found
 
-        url = origin.stdout.strip()
+        url = origin.out.strip()
         checkout = local_origin(
             folder=folder,
             url=url,
@@ -1175,7 +1205,7 @@ def is_a_top(
         arguments=["rev-parse", "--show-toplevel"],
     )
 
-    return answered(top) and store.quietly(lambda: Path(top.stdout.strip()).samefile(folder))
+    return answered(top) and store.quietly(lambda: Path(top.out.strip()).samefile(folder))
 
 
 def local_origin(
@@ -1242,25 +1272,32 @@ def repository_named(
 
 
 def answered(
-    result: Optional["subprocess.CompletedProcess[str]"],
+    result: Optional[handover.Reply],
 ) -> bool:
     """Whether git ran and succeeded."""
-    return result is not None and result.returncode == 0
+    return result is not None and result.code == 0
 
 
 def git(
     project: Project,
     arguments: list[str],
-) -> Optional["subprocess.CompletedProcess[str]"]:
-    """Run git in the project, or None when git is not there to run."""
+) -> Optional[handover.Reply]:
+    """Run git in the project through the handover's runner, or None when git is not there to run or no repository holds the project.
+
+    Its output is UTF-8 with a stray byte replaced and its trouble the
+    first line git gave, so `brain upgrade` and `brain handover` read a
+    call alike. It waits as long as git takes, where the session start
+    gives up after GIT_SECONDS, since the migration's grep reads every
+    file git sees and a call cut short would leave files naming the old
+    folder as they were.
+    """
     try:
-        return subprocess.run(
-            ["git", "-C", str(project.root), *arguments],
-            capture_output=True,
-            text=True,
-            check=False,
+        return handover.git(
+            project=project.root,
+            arguments=arguments,
+            seconds=None,
         )
-    except OSError:
+    except handover.Unanswered:
         return None
 
 
@@ -1422,14 +1459,14 @@ def kept_in_git(
 ) -> list[str]:
     """Where git's last commit holds each of these root files, as `HEAD:path` specs from the repository's top, the ones it does not hold left out."""
     prefix = git(project=project, arguments=["rev-parse", "--show-prefix"])
-    if prefix is None or prefix.returncode != 0:
+    if prefix is None or prefix.code != 0:
         return []
 
     specs: list[str] = []
     for name in names:
-        spec = f"HEAD:{prefix.stdout.strip()}{name}"
+        spec = f"HEAD:{prefix.out.strip()}{name}"
         held = git(project=project, arguments=["rev-parse", "--verify", "--quiet", spec])
-        if held is not None and held.returncode == 0:
+        if held is not None and held.code == 0:
             specs.append(spec)
 
     return specs
@@ -1799,16 +1836,16 @@ def refuse_when_dirty(
         return
 
     result = git(project=project, arguments=["status", "--porcelain", "--untracked-files=all", "--ignored", "-z"])
-    if prefix.returncode != 0 or result is None or result.returncode != 0:
-        words = (prefix.stderr if prefix.returncode != 0 else (result.stderr if result else "")).strip()
+    if prefix.code != 0 or result is None or result.code != 0:
+        words = (prefix.err if prefix.code != 0 else (result.err if result else "")).strip()
         raise UpgradeError(f"git could not read the working tree, so nothing is guarded: {words}")
 
-    raw = prefix.stdout.strip()
+    raw = prefix.out.strip()
     base = folded(raw)
     wanted = {base + folded(path): path for path in paths}
     dirty: list[str] = []
     ignored: list[str] = []
-    for status, entry in changed_paths(result.stdout):
+    for status, entry in changed_paths(result.out):
         path = wanted.get(folded(entry))
         if path is None or (status in ("??", "!!") and same_as_kit(kit=kit, project=project, relative=path)):
             continue

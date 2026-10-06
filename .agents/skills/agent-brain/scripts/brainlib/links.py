@@ -13,7 +13,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from . import frontmatter, sections, store
+from . import frontmatter, schema, sections, store
 
 # The two ways markdown writes a link: inline, `[text](target)`, and by
 # reference, `[label]: target` on a line of its own. Group 1 is the
@@ -60,17 +60,53 @@ def inside(
 
     An absolute path replaces the root when joined, and `..` climbs out
     of it, so both are checked against the root before anything is read.
-    A dotted path is nobody's entry, so a link to one reaches nothing.
+    A dotted path is nobody's entry, so a link to one reaches nothing,
+    and so is a path into the handover folder, whose one note is read
+    once and removed and never enters git.
     """
     if not reference:
         return None
 
     candidate = brain.root / reference
     relative = within(brain=brain, path=candidate)
-    if relative is None or store.hidden(Path(relative)):
+    if relative is None or store.hidden(Path(relative)) or in_handover(brain=brain, relative=relative):
         return None
 
     return candidate
+
+
+def in_handover(
+    brain: store.Brain,
+    relative: str,
+) -> bool:
+    """Whether a path relative to the brain lies in the handover folder, spelled in any case the disk takes for it."""
+    parts = Path(relative).parts
+
+    return bool(parts) and is_folder(
+        brain=brain,
+        top=parts[0],
+        folder=schema.HANDOVER_FOLDER,
+    )
+
+
+def is_folder(
+    brain: store.Brain,
+    top: str,
+    folder: str,
+) -> bool:
+    """Whether `top`, the first part of a path in the brain as it is spelled, is the brain's `folder` on disk.
+
+    A disk that ignores case reaches the folder by any casing of its
+    name, so another casing is the folder where the disk says the two
+    are one, and another folder where they are two.
+    """
+    if top == folder:
+        return True
+
+    if top.casefold() != folder.casefold():
+        return False
+
+    return store.quietly(lambda: (brain.root / top).samefile(brain.root / folder))
 
 
 def within(
@@ -129,15 +165,17 @@ def backlinks(
 
 
 def broken_in_body(
+    brain: store.Brain,
     path: Path,
     document: frontmatter.Document,
 ) -> list[str]:
     """Markdown links in the prose that do not reach a file from where they stand.
 
     A body link is relative to its file, so an absolute one is broken
-    however the machine it was written on is laid out. A link that
-    starts inside code is not a link, while one whose text holds a code
-    span is.
+    however the machine it was written on is laid out, and one into the
+    handover folder is broken however long the note waits, since it is
+    read once and never enters git. A link that starts inside code is
+    not a link, while one whose text holds a code span is.
     """
     found: list[str] = []
 
@@ -147,6 +185,11 @@ def broken_in_body(
 
         file_part = target.split("#")[0]
         if not file_part or Path(file_part).is_absolute() or not store.quietly((path.parent / file_part).exists):
+            found.append(target)
+            continue
+
+        reached = within(brain=brain, path=path.parent / file_part)
+        if reached is not None and in_handover(brain=brain, relative=reached):
             found.append(target)
 
     return found

@@ -45,4 +45,4 @@ rather than this one.
 ## Memory and the handover
 
 - [memory/INDEX.md](memory/INDEX.md), project facts: empty
-- handover/, the one note a session leaves for the next, written with brain handover, read once by the session start hook and removed, never in git (spec/handover.md)
+- handover/, where brain handover writes the one note a session leaves for the next, which the session start hook reads once and removes, a note git ignores (spec/handover.md)

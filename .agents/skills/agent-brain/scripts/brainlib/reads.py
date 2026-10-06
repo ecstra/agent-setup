@@ -39,9 +39,24 @@ def status(
         "fixable": sum(1 for finding in findings if finding.fixable),
         "counts": counts,
         "open_reviews": [entry.name for entry in reviews],
-        "handover": handover.as_data(brain),
+        "handover": waiting_handover(brain=brain),
         "task": chain_or_none(brain),
         "unreadable": [str(path.relative_to(brain.root)) for path in brain.unreadable],
+    }
+
+
+def waiting_handover(
+    brain: store.Brain,
+) -> Optional[dict]:
+    """The waiting note for the status, its branch and its moment, None for each its header does not give, and whether a session start read it before and could not remove it, or None when no note waits."""
+    note = handover.read(brain=brain)
+    if note is None:
+        return None
+
+    return {
+        "branch": note.branch,
+        "written": note.written.isoformat() if note.written is not None else None,
+        "again": note.again,
     }
 
 
@@ -111,10 +126,13 @@ def render_status(
 def handover_words(
     data: dict,
 ) -> str:
-    """The waiting note in words, from the header the status carries, the way the text form shows it."""
+    """The waiting note in words, from the header the status carries, the one place the status's sentence is built."""
     written = handover.moment_of(data.get("written"))
+    words = f"waiting, written {handover.when(written)} on {data.get('branch') or 'an unknown branch'}"
+    if not data.get("again"):
+        return words
 
-    return f"waiting, written {handover.when(written)} on {data.get('branch') or 'an unknown branch'}"
+    return f"{words}, read before by a session start that could not remove it"
 
 
 def rows(

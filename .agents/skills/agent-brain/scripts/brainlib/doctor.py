@@ -168,8 +168,9 @@ def markdown_files(
 
     A file that is neither is a stray, reported once by its own check
     rather than measured against rules written for something else. The
-    style and hygiene scans read every file regardless, since a pasted
-    secret is most likely in exactly the file nobody filed.
+    style and hygiene scans read every file the walk takes, filed or
+    not, since a pasted secret is most likely in exactly the file nobody
+    filed.
     """
     accounted = brain.known()
 
@@ -180,12 +181,16 @@ def all_markdown(
     brain: store.Brain,
     with_skills: bool = False,
 ) -> list[Path]:
-    """Every markdown file under the brain, the rulebook and dotfiles excepted, the skills only when asked.
+    """Every markdown file under the brain, the rulebook, dotfiles and the folders in SKIP_DIRS excepted, the skills only when asked.
 
     The skills folder is the tool's own, its files follow the Agent
     Skills standard rather than the specs, so only the prose and
-    boundary checks (style and hygiene) read them.
+    boundary checks (style and hygiene) read them. A skipped folder is
+    known by the folder on disk rather than by the spelling, so where
+    the disk ignores case `Handover/` is the handover folder and stays
+    unread like it.
     """
+    skipped = [folder for folder in SKIP_DIRS if not (with_skills and folder == schema.SKILLS)]
     found: list[Path] = []
 
     for path in sorted(brain.root.rglob("*.md")):
@@ -194,7 +199,7 @@ def all_markdown(
         if store.hidden(relative_path):
             continue
 
-        if parts[0] in SKIP_DIRS and not (with_skills and parts[0] == schema.SKILLS):
+        if any(links.is_folder(brain=brain, top=parts[0], folder=folder) for folder in skipped):
             continue
 
         if path.name in schema.NO_FRONTMATTER and len(parts) == 1:
@@ -850,7 +855,7 @@ def check_links(
             )
 
     for path, document in documents:
-        for target in links.broken_in_body(path=path, document=document):
+        for target in links.broken_in_body(brain=brain, path=path, document=document):
             found.append(
                 Finding(path=relative(brain=brain, path=path), check="link", message=f"body link '{target}' reaches nothing")
             )
@@ -910,7 +915,7 @@ def write_index(
 def check_style(
     brain: store.Brain,
 ) -> list[Finding]:
-    """The prose rules over every file but the indexes.
+    """The prose rules over every file the walk takes but the indexes.
 
     An index is the tool's rendering of other files' header values and
     of the folders they sit in, checked at their source by the fields

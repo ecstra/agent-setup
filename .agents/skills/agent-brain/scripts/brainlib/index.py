@@ -242,8 +242,8 @@ def spine_body(
 # note the tool writes and the session start hook removes, outside git,
 # so counting it would have the spine change under every session.
 HANDOVER_LINE = (
-    f"- {schema.HANDOVER_FOLDER}/, the one note a session leaves for the next, written with brain handover, "
-    f"read once by the session start hook and removed, never in git (spec/{schema.HANDOVER_FOLDER}.md)"
+    f"- {schema.HANDOVER_FOLDER}/, where brain handover writes the one note a session leaves for the next, "
+    f"which the session start hook reads once and removes, a note git ignores (spec/{schema.HANDOVER_FOLDER}.md)"
 )
 
 

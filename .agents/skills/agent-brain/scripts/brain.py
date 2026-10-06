@@ -274,7 +274,10 @@ def run_handover(
         replace=args.replace,
     )
     print(handover.RELATIVE)
-    print("the next session's start hook puts it in front of that session and removes it")
+    print(
+        "the session start hook puts it in front of the next session on this branch, "
+        "or on any branch where git named none, and removes it, a fork aside"
+    )
     return 0
 
 
