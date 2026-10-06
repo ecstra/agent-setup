@@ -109,10 +109,12 @@ all.
 - No machine paths, no user personal facts. Project truth only.
 - What git ignores here is the one exception, since it never enters
   the repo. That is the tool's own local state, two dotted files at
-  the root of the brain that are never listed, indexed, checked or
-  written by hand. `.ack` holds the owner's standing word to proceed
-  with its end, and `.task` holds the current work as a chain from the
+  the root of the brain and one folder, never listed, indexed, checked
+  or written by hand. `.ack` holds the owner's standing word to proceed
+  with its end, `.task` holds the current work as a chain from the
   plan down to the step the agent is on, one chain at a time, set with
-  `brain task on`. Beside them sit the write in flight the tool makes
-  each through, Python's cache beside the tool, and the worktree home
-  the rules allow.
+  `brain task on`, and `handover/` holds the one note a session leaves
+  for the next, written with `brain handover` and read once by the
+  session start hook, per [spec/handover.md](handover.md). Beside them
+  sit the write in flight the tool makes each through, Python's cache
+  beside the tool, and the worktree home the rules allow.

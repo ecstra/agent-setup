@@ -1,6 +1,6 @@
 ---
 name: agent-brain
-description: The one way to file, change, count or check anything in the project's .agents/ brain. Use it to file a plan, a todo, a bug, a decision, a doc or a memory, to set the work the agent is on and mark its steps, to run a review ledger, to retitle a file, or to check the brain. Never write a brain file by hand.
+description: The one way to file, change, count or check anything in the project's .agents/ brain. Use it to file a plan, a todo, a bug, a decision, a doc or a memory, to set the work the agent is on and mark its steps, to run a review ledger, to leave the note for the next session, to retitle a file, or to check the brain. Never write a brain file by hand.
 ---
 
 # The brain tool
@@ -78,9 +78,9 @@ EOF
 ```
 
 The same shape files a todo (`--area`, `--by`), a decision (`--area`),
-a memory (`--type project|feedback|reference`), a doc (`--category`), a
-handover, or a review. Each kind's required headings are in its spec
-under `.agents/spec/`, and the tool names the one that is missing.
+a memory (`--type project|feedback|reference`), a doc (`--category`),
+or a review. Each kind's required headings are in its spec under
+`.agents/spec/`, and the tool names the one that is missing.
 
 A plan is a goal with the steps that reach it, and the steps are a
 table the tool keeps, on a plan always and on a todo or a bug whose
@@ -175,6 +175,32 @@ brain task on TODO-015
 brain task done
 brain task off
 ```
+
+## The handover
+
+Before a compaction, before a session ends mid task, and when work
+passes on, leave the note for the next session. The tool records the
+branch and its head, the uncommitted files, the standing word and the
+work chain with the review's batch, and the prose on standard input
+says the rest, which is what is verified against what is merely
+written, the step in hand and the next one, the traps met, and the
+rules the owner gave in chat. The session start hook puts the note in
+front of the next session and removes it, so it is read once, and its
+facts beat a compaction's summary.
+
+```bash
+brain handover <<'EOF'
+Verified: batch 3 is fixed and its tests pass on both interpreters.
+Written, not verified: the docs of the closing round.
+Next: the hunt over the round's code, then the last pass.
+Traps: the second interpreter's tests run from scripts/ only.
+From chat: no PR until the owner asks, ack all until the ledger closes.
+EOF
+```
+
+One note at a time. A second write on the same branch replaces it, and
+one left by a session on another branch stays until `--replace` on the
+owner's word. Nothing in `handover/` is written by hand.
 
 ## Checking the brain
 

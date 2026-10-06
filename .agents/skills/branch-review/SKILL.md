@@ -305,8 +305,8 @@ the report says what it decided.
     own. Once both are quiet the gates run, and each is one commit.
     Nothing hunts the last pass.
 
-    Records, which are decisions, handovers, memory, bugs and closed
-    ledgers, stay as they were written, and in a project so do the files
+    Records, which are decisions, memory, bugs and closed ledgers,
+    stay as they were written, and in a project so do the files
     the kit writes whole. The docs writers own every other doc of the
     project, the review's own paper aside.
 

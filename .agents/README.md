@@ -39,7 +39,9 @@ the repo root when the project keeps one, agents read this.
   per file, the steps a table the tool keeps.
 - `decisions/`: decisions taken and why, one per file.
 - `reviews/`: one folder per code review, the ledger inside.
-- `handover/`: session handoffs, born with its first file.
+- `handover/`: the one note a session leaves for the next, written
+  with `brain handover`, read once by the session start hook and
+  removed, ignored by git like `.ack` and `.task` below.
 - `skills/`: the kit's skills. `agent-brain` is the brain tool, the one
   way anything here is filed, changed, counted or checked, and
   `branch-review` is the code review the agent runs on the owner's

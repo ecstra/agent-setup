@@ -25,7 +25,7 @@ written record of what the project knows.
 | `AGENTS.md` | The front door every agent reads. It points at the rulebook, and it holds your project's own rules when you have some. |
 | `CLAUDE.md` and `GEMINI.md` | A line or two each, pulling in `AGENTS.md` and, for Gemini, its chat style, because Claude Code and Gemini CLI look for their own filename. |
 | `.agents/SYSTEM.md` | The rulebook. How to write code, how to talk to you, where docs go, how a branch gets reviewed, how git is used. |
-| `.agents/` | The project's memory. Docs, plans, todos, bugs, decisions, review ledgers, handovers, and small facts the agent learns. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
+| `.agents/` | The project's memory. Docs, plans, todos, bugs, decisions, review ledgers, and small facts the agent learns, plus the note one session leaves for the next, which never enters git. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
 | `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
 | `.agents/skills/branch-review/` | The code review, run on your word. Finder sub agents in parallel, each over a slice of the branch or the whole of it as its angle reads, the findings filed in a ledger, then fixer sub agents in parallel, one per group of files, each group checked by verifiers and each round swept by hunters until clean, and a report that says where things stand first. |
 | `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
@@ -315,6 +315,7 @@ need to, but the commands are short enough to know.
 | `brain new`, `brain set`, `brain refile` | Files a plan, a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
 | `brain ledger` | Opens, fills and closes a code review ledger, and `brain ledger report` says where a review stands, counted from the file. |
 | `brain ack on --for 8h` | Your standing word to proceed, for a time or until a task is done, so the agent passes the review's gates that normally wait for you, the house rules name them, and each report says which ack the step ran on. It never starts a review, and the PR and the merge still wait for your ask. `brain ack off` takes it back. |
+| `brain handover` | The note one session leaves for the next, written before a compaction, before a session ends mid task or when work passes on. The tool records the branch, the uncommitted files, your standing word and the work the agent is on, and the agent's own words say what is verified, what comes next and the traps. The session start hook puts it in front of the next session and removes it, so it is read once, and it never enters git. |
 | `brain port` and `brain upgrade` | The two commands above, run from a kit checkout against your project. |
 
 The full contract, every flag and every refusal, is in
@@ -394,16 +395,17 @@ land.
 │   ├── INDEX.md
 │   └── 2026-09-feat-billing/
 │       └── ledger.md
-└── handover/
-    └── billing-cutover.md
+└── handover/             the note for the next session, never in git
+    └── handover.md
 ```
 
 The trackers, the docs library, and memory each carry an `INDEX.md`
 listing what is inside, and `.agents/INDEX.md` at the top names each
 of those folders with its counts. `spec/` and `handover/` carry none,
-the spine covers both.
-`handover/` stays empty until a session hands work over, so a fresh
-clone has no such folder until then.
+the spine covers both. `handover/` holds the one note a session leaves
+for the next, written with `brain handover` and read once by the next
+session's start hook, and git ignores it, so a fresh clone has no such
+folder.
 
 ## Where to read next
 
