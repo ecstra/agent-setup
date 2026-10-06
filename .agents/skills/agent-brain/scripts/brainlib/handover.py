@@ -71,6 +71,10 @@ STATES: dict[str, str] = {
     "T": "type changed",
 }
 
+# the word for a file renamed out of a project below the top, listed
+# under the name it left, which is where the file was and no longer is
+MOVED_OUT = "moved out of the project"
+
 # the pairs git's status gives a file a merge left in conflict, whatever the letters say alone
 UNMERGED = frozenset({"DD", "AU", "UD", "UA", "DU", "AA", "UU"})
 
@@ -303,10 +307,12 @@ def uncommitted_lines(
     Git names every file from the repository's top and covers the whole
     repository, so a project below the top keeps its own files, named
     from its own folder, and a file renamed out of it counts as its own
-    under the name it left. The note itself, under its own name or the
-    name a claim gives it, `notes` from the project, is left out. With
-    none of the project's own, the line says whether the working tree
-    is clean or has changes outside the project.
+    under the name it left, moved out of the project where git calls it
+    renamed, beside any file that stands at that name now. The note
+    itself, under its own name or the name a claim gives it, `notes`
+    from the project, is left out, and a file that left one of those
+    names is not the note. With none of the project's own, the line says
+    whether the working tree is clean or has changes outside the project.
     """
     try:
         prefix = answer(project=project, arguments=["rev-parse", "--show-prefix"]).rstrip("\n")
@@ -317,16 +323,19 @@ def uncommitted_lines(
     except Unanswered as unanswered:
         return [f"- uncommitted files, {unanswered}"]
 
-    changed = [
-        (state, path if path.startswith(prefix) or left is None else left)
-        for state, path, left in changed_files(listing)
+    changed = changed_files(listing)
+    owned = [
+        own_file(
+            state=state,
+            path=path,
+            left=left,
+            prefix=prefix,
+            notes=notes,
+        )
+        for state, path, left in changed
     ]
-    files = [
-        (state, path[len(prefix) :])
-        for state, path in changed
-        if path.startswith(prefix) and path[len(prefix) :] not in notes
-    ]
-    if not files and any(not path.startswith(prefix) for _, path in changed):
+    files = [file for file in owned if file is not None]
+    if not files and any(not path.startswith(prefix) for _, path, _ in changed):
         return ["- uncommitted files, none in this project, the working tree has changes outside it"]
 
     if not files:
@@ -339,6 +348,29 @@ def uncommitted_lines(
         lines.append(f"  - and {len(files) - LISTED} more")
 
     return lines
+
+
+def own_file(
+    state: str,
+    path: str,
+    left: Optional[str],
+    prefix: str,
+    notes: set[str],
+) -> Optional[tuple[str, str]]:
+    """One entry of git's listing as the project's own file, its state and its name from the project's folder, or None for the note and for a file that never stood in the project.
+
+    The note is judged by the name a file stands at, and a file renamed
+    out of the project by the name it left, so a file that left the
+    note's names is never taken for the note.
+    """
+    if path.startswith(prefix):
+        name = path[len(prefix) :]
+        return None if name in notes else (state, name)
+
+    if left is None or not left.startswith(prefix):
+        return None
+
+    return (MOVED_OUT if state == STATES["R"] else state, left[len(prefix) :])
 
 
 def changed_files(
@@ -505,11 +537,22 @@ def asked(
     project: Path,
     arguments: list[str],
 ) -> Reply:
-    """One of the handover's own git calls, Unanswered with no git where no `.git` sits at the project's root or above it, which is answered without git as the upgrade answers it."""
+    """One of the handover's own git calls, Unanswered with no git where no `.git` sits at the project's root or above it, which is answered without git as the upgrade answers it.
+
+    A byte of the output that is not UTF-8 reads as the replacement
+    character, so the note, the status and the context never hold the
+    surrogate escape the shared runner keeps it as.
+    """
     if not inside_repository(project):
         raise Unanswered(NO_GIT)
 
-    return git(project=project, arguments=arguments)
+    reply = git(project=project, arguments=arguments)
+
+    return Reply(
+        code=reply.code,
+        out=reply.out.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace"),
+        err=reply.err,
+    )
 
 
 def git(
@@ -517,10 +560,11 @@ def git(
     arguments: list[str],
     seconds: Optional[int] = GIT_SECONDS,
 ) -> Reply:
-    """One git call from the folder, its output and its trouble read as UTF-8 with a stray byte replaced and no line ending changed.
+    """One git call from the folder, its output read as UTF-8 with a byte that is not UTF-8 kept as a surrogate escape, its trouble with such a byte replaced, and no line ending changed.
 
     Git itself finds the repository that holds the folder, a bare one
-    included, so the upgrade reads through this what git reads. It is
+    included, so the upgrade reads through this what git reads, and the
+    bytes of a path git printed come back from the output's text. It is
     Unanswered with no git where git is not installed, and with git
     could not answer where git takes longer than `seconds`, GIT_SECONDS
     unless the caller says, and None waits as long as git takes.
@@ -539,7 +583,7 @@ def git(
 
     return Reply(
         code=result.returncode,
-        out=result.stdout.decode("utf-8", errors="replace"),
+        out=result.stdout.decode("utf-8", errors="surrogateescape"),
         err=result.stderr.decode("utf-8", errors="replace").strip(),
     )
 
