@@ -220,6 +220,11 @@ class Report:
     def render(self) -> str:
         return "\n".join(self.lines) + "\n" + self.tail()
 
+    @property
+    def codec(self) -> str:
+        """The codec the stream writes the lines in, whose bytes are what a person pastes from them, UTF-8 for a report kept as text."""
+        return self.out.encoding if self.out is not None and self.out.encoding else "utf-8"
+
 
 @dataclass
 class Kit:
@@ -643,7 +648,7 @@ def install(
         if put(project=project, relative=Path(name), text=front_doors[name], report=report):
             replaced.append(name if found is None else found.name)
 
-    kept = kept_in_git(project=project, names=replaced)
+    kept = kept_in_git(project=project, names=replaced, codec=report.codec)
     if kept is not None:
         report.done(kept)
 
@@ -854,9 +859,12 @@ def candidates(
     files one by one and deeper ones counted by their top folder, with
     docs/ marked as the one the rules let a project keep. Outside git,
     the root markdown and the usual folder names. The report prints the
-    list, so each name is spelled as the refusals spell one, a byte that
-    is not UTF-8 replaced, and two folders named apart by such a byte
-    are counted apart.
+    list, so a name from git's answer is spelled as the refusals spell
+    one, a byte that is not UTF-8 replaced, and two folders named apart
+    by such a byte are counted apart, while a name from the disk's
+    listing keeps the characters this machine's file name codec gave it,
+    and only a byte that codec has no character for is spelled the way
+    a refusal spells it.
     """
     kept = {name.lower() for name in (*ROOT_FILES, "README.md", "CODEOWNERS", "LICENSE.md", "CHANGELOG.md", "SECURITY.md")}
     listed = git(
@@ -865,7 +873,7 @@ def candidates(
     )
     if listed is None or listed.code != 0:
         found = [
-            readable(as_git_spells(path.name))
+            readable(path.name)
             for path in sorted(project.root.glob("*.md"))
             if path.name.lower() not in kept and not path.name.startswith(".")
         ]
@@ -1563,21 +1571,24 @@ def without(
 def kept_in_git(
     project: Project,
     names: list[str],
+    codec: str,
 ) -> Optional[str]:
     """The report's line on where git's last commit holds these root files, a `git show` command a person can paste for each, or None where it holds none of them.
 
     The project's place below the top goes back to git as the file
     system spells it, so git is handed the bytes it printed whatever
     codec this machine names files in, and where this machine cannot
-    spell it, nothing is said. A command names its file from the
-    repository's top, so it runs anywhere in the repository, quoted for
-    a shell where the path holds a space or another character a shell
-    reads. Git takes no path quoted in its own way, and a place whose
-    name holds what nobody can type, a byte that is not UTF-8 or a
-    character that does not print, has no spelling a shell hands git
-    whole everywhere, so there the line names the folder as git prints
-    it and says why, and each command names its file from that folder
-    as `./`, a path git reads from where it runs.
+    spell it, nothing is said. A person pastes the bytes the report's
+    stream wrote, so a command spells its path in `codec`, the codec the
+    report is written in, and names its file from the repository's top,
+    so it runs anywhere in the repository, quoted for a shell where the
+    path holds a space or another character a shell reads. Git takes no
+    path quoted in its own way, and a place whose name holds what cannot
+    be typed there, a byte that codec writes no character for or writes
+    back as another, or a character that does not print, has no spelling
+    a shell hands git whole, so there the line names the folder as git
+    prints it and says why, and each command names its file from that
+    folder as `./`, a path git reads from where it runs.
     """
     prefix = git(project=project, arguments=["rev-parse", "--show-prefix"])
     if prefix is None or prefix.code != 0:
@@ -1597,8 +1608,9 @@ def kept_in_git(
     if not held:
         return None
 
-    if printed.isprintable():
-        return "the old ones are still in git: " + ", ".join(f"git show {shlex.quote(f'HEAD:{printed}{name}')}" for name in held)
+    written = as_written(name=printed, codec=codec)
+    if written is not None and written.isprintable():
+        return "the old ones are still in git: " + ", ".join(f"git show {shlex.quote(f'HEAD:{written}{name}')}" for name in held)
 
     return (
         f"the old ones are still in git, in the folder git prints as {as_git_prints(printed)}, whose name holds a byte "
@@ -2014,7 +2026,7 @@ def inside_repository(
 def readable(
     name: str,
 ) -> str:
-    """A name spelled the way git's answers read through the runner, as a refusal or the report prints it, a byte that is not UTF-8 replaced as the handover's own calls replace it."""
+    """A name as a refusal or the report prints it, git's answer as it reads through the runner or a name as the disk's listing spells it, each byte held as a surrogate escape read as UTF-8 and one that is not UTF-8 replaced, as the handover's own calls replace it, and every other character left as it is."""
     return name.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace")
 
 
@@ -2032,6 +2044,20 @@ def as_git_prints(
             quoted += chr(byte)
 
     return f'"{quoted}"'
+
+
+def as_written(
+    name: str,
+    codec: str,
+) -> Optional[str]:
+    """A name from git's answer spelled so a stream in `codec` writes the very bytes git printed, or None where no text does, the codec having no character for one of them or writing one back as another."""
+    held = name.encode("utf-8", errors="surrogateescape")
+    try:
+        spelled = held.decode(codec)
+    except UnicodeDecodeError:
+        return None
+
+    return spelled if spelled.encode(codec) == held else None
 
 
 def folded(
