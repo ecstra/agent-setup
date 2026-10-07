@@ -47,6 +47,12 @@ LISTED = 50
 # answer, so a hung git never holds up a session start or a write
 GIT_SECONDS = 10
 
+# what git is asked for whether it takes two spellings that differ by case
+# alone for one, by the record through the handover's runner and by the
+# upgrade's git show line through the upgrade's, each reply read by
+# `case_flag_of` so the two never read the flag apart
+CASE_FLAG = ("config", "--type=bool", "--get", "core.ignorecase")
+
 BYTE_ORDER_MARK = "\ufeff"
 HEADS = "refs/heads/"
 
@@ -546,12 +552,19 @@ def has_commits(
 def ignores_case(
     project: Path,
 ) -> bool:
-    """Whether git takes two spellings that differ by case alone for one here, a branch's two for one ref and a path's two for one file, as it does where it set core.ignorecase for a disk that ignores case."""
+    """Whether git takes two spellings that differ by case alone for one here, a branch's two for one ref and a path's two for one file, as it does where it set core.ignorecase for a disk that ignores case, asked through the handover's own runner, so no `.git` at the project's root or above it, or a git that gives no answer in GIT_SECONDS, reads as no."""
     try:
-        reply = asked(project=project, arguments=["config", "--type=bool", "--get", "core.ignorecase"])
+        reply = asked(project=project, arguments=list(CASE_FLAG))
     except Unanswered:
         return False
 
+    return case_flag_of(reply)
+
+
+def case_flag_of(
+    reply: Reply,
+) -> bool:
+    """Whether git's reply to CASE_FLAG says it takes two spellings that differ by case alone for one, the one reading of the flag, which a caller that asks through a runner of its own hands its reply to."""
     return reply.code == 0 and reply.out.strip() == "true"
 
 

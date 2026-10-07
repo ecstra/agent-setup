@@ -1585,11 +1585,13 @@ def kept_in_git(
     which git lists from the project's folder, since git finds a path in
     a commit by its exact spelling. A name the commit holds in another
     case is matched without regard to case only where git takes two
-    cases of a path for one file, as the handover's record reads
-    core.ignorecase through `handover.ignores_case`, so the line and the
-    record never read the flag apart, and git is asked for it once and
-    only where such a name is held. Git sets the flag for a disk that
-    ignores case, so a rename in case alone there is named, and
+    cases of a path for one file, as core.ignorecase says. The flag is
+    asked through this module's `git`, which lets git find the repository
+    the line lists HEAD from and waits as long as git takes, once and
+    only where such a name is held, and git's reply is read by
+    `handover.case_flag_of`, as the handover's record reads its own, so
+    the line and the record never read the flag apart. Git sets the flag
+    for a disk that ignores case, so a rename in case alone there is named, and
     elsewhere a file of the commit's spelling is another file the run
     left alone, and is not named. The disk is not asked, since a mount
     may number each spelling of one file apart. A command
@@ -1616,7 +1618,11 @@ def kept_in_git(
     printed = prefix.out.rstrip("\n")
     entries = [entry for entry in listed.out.split("\0") if entry]
     in_another_case = {name: [entry for entry in entries if folded(entry) == folded(name)] for name in names if name not in entries}
-    ignore_case = any(in_another_case.values()) and handover.ignores_case(project=project.root)
+    ignore_case = False
+    if any(in_another_case.values()):
+        flag = git(project=project, arguments=list(handover.CASE_FLAG))
+        ignore_case = flag is not None and handover.case_flag_of(flag)
+
     held: list[str] = []
     for name in names:
         if name in entries:
