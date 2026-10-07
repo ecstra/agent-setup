@@ -19,7 +19,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Optional
 
 from . import autoack, clock, frontmatter, schema, store, task
@@ -311,11 +311,12 @@ def uncommitted_lines(
     renamed, beside any file that stands at that name now. The note
     itself, under its own name or the name a claim gives it, `notes`
     from the project, is left out, and a file that left one of those
-    names is not the note. Where git ignores case, a path that spells the
-    project's folder or one of the note's names in another casing is
-    theirs, as it is to git. With none of the project's own, the line
-    says whether the working tree is clean or has changes outside the
-    project.
+    names is not the note. A path that spells the project's folder or one
+    of the note's names in another casing is theirs on a disk that takes
+    two casings for one, whatever git's core.ignorecase says, a note's
+    name the disk no longer holds included. With none of the project's
+    own, the line says whether the working tree is clean or has changes
+    outside the project.
     """
     try:
         prefix = answer(project=project, arguments=["rev-parse", "--show-prefix"]).rstrip("\n")
@@ -326,7 +327,10 @@ def uncommitted_lines(
     except Unanswered as unanswered:
         return [f"- uncommitted files, {unanswered}"]
 
-    ignore_case = ignores_case(project)
+    top = top_of(
+        project=project,
+        prefix=prefix,
+    )
     changed = changed_files(listing)
     owned = [
         own_file(
@@ -335,12 +339,12 @@ def uncommitted_lines(
             left=left,
             prefix=prefix,
             notes=notes,
-            ignore_case=ignore_case,
+            top=top,
         )
         for state, path, left in changed
     ]
     files = [file for file in owned if file is not None]
-    if not files and any(from_project(path=path, prefix=prefix, ignore_case=ignore_case) is None for _, path, _ in changed):
+    if not files and any(from_project(path=path, prefix=prefix, top=top) is None for _, path, _ in changed):
         return ["- uncommitted files, none in this project, the working tree has changes outside it"]
 
     if not files:
@@ -361,22 +365,23 @@ def own_file(
     left: Optional[str],
     prefix: str,
     notes: set[str],
-    ignore_case: bool,
+    top: Path,
 ) -> Optional[tuple[str, str]]:
     """One entry of git's listing as the project's own file, its state and its name from the project's folder, or None for the note and for a file that never stood in the project.
 
     The note is judged by the name a file stands at, and a file renamed
     out of the project by the name it left, so a file that left the
     note's names is never taken for the note. Each path is matched to
-    the project's folder and the note's names as git matches them,
-    without regard to case where `ignore_case` says git ignores it.
+    the project's folder from `top`, the repository's top on disk, and
+    to the note's names, another casing of either being theirs on a disk
+    that takes two casings for one.
     """
-    name = from_project(path=path, prefix=prefix, ignore_case=ignore_case)
+    name = from_project(path=path, prefix=prefix, top=top)
     if name is not None:
-        is_note = any(same_path(one=name, other=note, ignore_case=ignore_case) for note in notes)
+        is_note = any(same_path(base=top / prefix, one=name, other=note) for note in notes)
         return None if is_note else (state, name)
 
-    former = None if left is None else from_project(path=left, prefix=prefix, ignore_case=ignore_case)
+    former = None if left is None else from_project(path=left, prefix=prefix, top=top)
     if former is None:
         return None
 
@@ -386,22 +391,63 @@ def own_file(
 def from_project(
     path: str,
     prefix: str,
-    ignore_case: bool,
+    top: Path,
 ) -> Optional[str]:
-    """A path git names from the repository's top, named from the project's folder instead, the folder being `prefix` from the top, or None for a path outside it."""
-    if not same_path(one=path[: len(prefix)], other=prefix, ignore_case=ignore_case):
+    """A path git names from the repository's top, named from the project's folder instead, the folder being `prefix` from `top`, or None for a path outside it."""
+    if not same_path(base=top, one=path[: len(prefix)], other=prefix):
         return None
 
     return path[len(prefix) :]
 
 
 def same_path(
+    base: Path,
     one: str,
     other: str,
-    ignore_case: bool,
 ) -> bool:
-    """Whether git takes the two paths for one, the same text, or the same but for case where git ignores case."""
-    return one == other or (ignore_case and one.casefold() == other.casefold())
+    """Whether two paths from the folder `base` name one place, the same text, or the same but for case on a disk that takes two casings of a name for one.
+
+    The disk alone says whether it ignores case. Git's core.ignorecase
+    says what the disk did where git made the repository and stays with
+    a checkout copied to another disk, and git's own pathspec matches
+    case exactly on any disk. The disk is asked of the deepest part of
+    `other` that is there, since the file a path names can be gone, as a
+    note is once a session start has claimed and removed it, and with
+    nothing of `other` there the two are only the same text.
+    """
+    if one == other:
+        return True
+
+    if one.casefold() != other.casefold():
+        return False
+
+    names = PurePosixPath(other).parts
+    for depth in range(len(names), 0, -1):
+        there = base.joinpath(*names[:depth])
+        if there.name.swapcase() != there.name and store.quietly(there.exists):
+            return reached_in_another_casing(there)
+
+    return False
+
+
+def reached_in_another_casing(
+    path: Path,
+) -> bool:
+    """Whether the disk reaches the path, which is there, by another casing of its name, as a disk that ignores case does and one that minds case never does, a folder of that name beside it included."""
+    other_casing = path.with_name(path.name.swapcase())
+
+    return store.quietly(lambda: path.samefile(other_casing))
+
+
+def top_of(
+    project: Path,
+    prefix: str,
+) -> Path:
+    """The repository's top on disk, the folder `prefix`, as git prints it, names the project's folder from."""
+    depth = len(PurePosixPath(prefix).parts)
+    folder = project.resolve()
+
+    return folder.parents[depth - 1] if depth else folder
 
 
 def changed_files(
@@ -543,7 +589,7 @@ def has_commits(
 def ignores_case(
     project: Path,
 ) -> bool:
-    """Whether git takes two spellings that differ by case alone for one here, a branch's two for one ref and a path's two for one file, as it does where it set core.ignorecase for a disk that ignores case."""
+    """Whether git takes two spellings of a branch for one ref here, as it does where it set core.ignorecase for a disk that ignores case."""
     try:
         reply = asked(project=project, arguments=["config", "--type=bool", "--get", "core.ignorecase"])
     except Unanswered:
