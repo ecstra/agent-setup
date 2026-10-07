@@ -1422,15 +1422,6 @@ def git(
         return None
 
 
-def ignores_case(
-    project: Project,
-) -> bool:
-    """Whether git takes two spellings of a path that differ by case alone for one file here, as it does where core.ignorecase is true, which git sets for a disk that ignores case, the flag read as the handover's record reads it."""
-    flag = git(project=project, arguments=["config", "--type=bool", "--get", "core.ignorecase"])
-
-    return answered(flag) and flag.out.strip() == "true"
-
-
 @dataclass
 class Zero:
     """The project's own rules as they go under the kit's title, and the report line saying where they came from."""
@@ -1594,11 +1585,14 @@ def kept_in_git(
     which git lists from the project's folder, since git finds a path in
     a commit by its exact spelling. A name the commit holds in another
     case is matched without regard to case only where git takes two
-    cases of a path for one file, as core.ignorecase says, which git
-    sets for a disk that ignores case, so a rename in case alone there
-    is named, and elsewhere a file of the commit's spelling is another
-    file the run left alone, and is not named. The disk is not asked,
-    since a mount may number each spelling of one file apart. A command
+    cases of a path for one file, as the handover's record reads
+    core.ignorecase through `handover.ignores_case`, so the line and the
+    record never read the flag apart, and git is asked for it once and
+    only where such a name is held. Git sets the flag for a disk that
+    ignores case, so a rename in case alone there is named, and
+    elsewhere a file of the commit's spelling is another file the run
+    left alone, and is not named. The disk is not asked, since a mount
+    may number each spelling of one file apart. A command
     names its file from the repository's top, so it runs anywhere in the
     repository, its place spelled by `as_written` for `codec`, the codec
     the report is written in, and quoted for a shell where the path
@@ -1621,15 +1615,14 @@ def kept_in_git(
 
     printed = prefix.out.rstrip("\n")
     entries = [entry for entry in listed.out.split("\0") if entry]
+    in_another_case = {name: [entry for entry in entries if folded(entry) == folded(name)] for name in names if name not in entries}
+    ignore_case = any(in_another_case.values()) and handover.ignores_case(project=project.root)
     held: list[str] = []
     for name in names:
         if name in entries:
             held.append(name)
-            continue
-
-        alike = [entry for entry in entries if folded(entry) == folded(name)]
-        if alike and ignores_case(project):
-            held.append(alike[0])
+        elif ignore_case and in_another_case[name]:
+            held.append(in_another_case[name][0])
 
     if not held:
         return None
