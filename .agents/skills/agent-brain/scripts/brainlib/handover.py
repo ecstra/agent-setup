@@ -19,7 +19,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Optional
 
 from . import autoack, clock, frontmatter, schema, store, task
@@ -311,26 +311,25 @@ def uncommitted_lines(
     renamed, beside any file that stands at that name now. The note
     itself, under its own name or the name a claim gives it, `notes`
     from the project, is left out, and a file that left one of those
-    names is not the note. A path that spells the project's folder or one
-    of the note's names in another casing is theirs on a disk that takes
-    two casings for one, whatever git's core.ignorecase says, a note's
-    name the disk no longer holds included. With none of the project's
-    own, the line says whether the working tree is clean or has changes
-    outside the project.
+    names is not the note. Where git ignores case, a path that spells the
+    project's folder or one of the note's names in another casing is
+    theirs, as it is to git. The paths and the prefix are compared as git
+    printed them, a byte that is not UTF-8 kept as the shared runner's
+    escape, so two folders git names apart by such a byte stay apart, and
+    the escape is replaced only in the line written. With none of the
+    project's own, the line says whether the working tree is clean or has
+    changes outside the project.
     """
     try:
-        prefix = answer(project=project, arguments=["rev-parse", "--show-prefix"]).rstrip("\n")
-        listing = answer(
+        prefix = printed(project=project, arguments=["rev-parse", "--show-prefix"]).rstrip("\n")
+        listing = printed(
             project=project,
             arguments=["--no-optional-locks", "status", "--porcelain", "--untracked-files=all", "-z"],
         )
     except Unanswered as unanswered:
         return [f"- uncommitted files, {unanswered}"]
 
-    top = top_of(
-        project=project,
-        prefix=prefix,
-    )
+    ignore_case = ignores_case(project)
     changed = changed_files(listing)
     owned = [
         own_file(
@@ -339,12 +338,12 @@ def uncommitted_lines(
             left=left,
             prefix=prefix,
             notes=notes,
-            top=top,
+            ignore_case=ignore_case,
         )
         for state, path, left in changed
     ]
     files = [file for file in owned if file is not None]
-    if not files and any(from_project(path=path, prefix=prefix, top=top) is None for _, path, _ in changed):
+    if not files and any(from_project(path=path, prefix=prefix, ignore_case=ignore_case) is None for _, path, _ in changed):
         return ["- uncommitted files, none in this project, the working tree has changes outside it"]
 
     if not files:
@@ -352,7 +351,7 @@ def uncommitted_lines(
 
     noun = "file" if len(files) == 1 else "files"
     lines = [f"- uncommitted, {len(files)} {noun}"]
-    lines += [f"  - {one_line(path)}, {state}" for state, path in files[:LISTED]]
+    lines += [f"  - {one_line(replaced(path))}, {state}" for state, path in files[:LISTED]]
     if len(files) > LISTED:
         lines.append(f"  - and {len(files) - LISTED} more")
 
@@ -365,23 +364,22 @@ def own_file(
     left: Optional[str],
     prefix: str,
     notes: set[str],
-    top: Path,
+    ignore_case: bool,
 ) -> Optional[tuple[str, str]]:
     """One entry of git's listing as the project's own file, its state and its name from the project's folder, or None for the note and for a file that never stood in the project.
 
     The note is judged by the name a file stands at, and a file renamed
     out of the project by the name it left, so a file that left the
     note's names is never taken for the note. Each path is matched to
-    the project's folder from `top`, the repository's top on disk, and
-    to the note's names, another casing of either being theirs on a disk
-    that takes two casings for one.
+    the project's folder and the note's names as git matches them,
+    without regard to case where `ignore_case` says git ignores it.
     """
-    name = from_project(path=path, prefix=prefix, top=top)
+    name = from_project(path=path, prefix=prefix, ignore_case=ignore_case)
     if name is not None:
-        is_note = any(same_path(base=top / prefix, one=name, other=note) for note in notes)
+        is_note = any(same_path(one=name, other=note, ignore_case=ignore_case) for note in notes)
         return None if is_note else (state, name)
 
-    former = None if left is None else from_project(path=left, prefix=prefix, top=top)
+    former = None if left is None else from_project(path=left, prefix=prefix, ignore_case=ignore_case)
     if former is None:
         return None
 
@@ -391,63 +389,22 @@ def own_file(
 def from_project(
     path: str,
     prefix: str,
-    top: Path,
+    ignore_case: bool,
 ) -> Optional[str]:
-    """A path git names from the repository's top, named from the project's folder instead, the folder being `prefix` from `top`, or None for a path outside it."""
-    if not same_path(base=top, one=path[: len(prefix)], other=prefix):
+    """A path git names from the repository's top, named from the project's folder instead, the folder being `prefix` from the top, or None for a path outside it."""
+    if not same_path(one=path[: len(prefix)], other=prefix, ignore_case=ignore_case):
         return None
 
     return path[len(prefix) :]
 
 
 def same_path(
-    base: Path,
     one: str,
     other: str,
+    ignore_case: bool,
 ) -> bool:
-    """Whether two paths from the folder `base` name one place, the same text, or the same but for case on a disk that takes two casings of a name for one.
-
-    The disk alone says whether it ignores case. Git's core.ignorecase
-    says what the disk did where git made the repository and stays with
-    a checkout copied to another disk, and git's own pathspec matches
-    case exactly on any disk. The disk is asked of the deepest part of
-    `other` that is there, since the file a path names can be gone, as a
-    note is once a session start has claimed and removed it, and with
-    nothing of `other` there the two are only the same text.
-    """
-    if one == other:
-        return True
-
-    if one.casefold() != other.casefold():
-        return False
-
-    names = PurePosixPath(other).parts
-    for depth in range(len(names), 0, -1):
-        there = base.joinpath(*names[:depth])
-        if there.name.swapcase() != there.name and store.quietly(there.exists):
-            return reached_in_another_casing(there)
-
-    return False
-
-
-def reached_in_another_casing(
-    path: Path,
-) -> bool:
-    """Whether the disk reaches the path, which is there, by another casing of its name, as a disk that ignores case does and one that minds case never does, a folder of that name beside it included."""
-    other_casing = path.with_name(path.name.swapcase())
-
-    return store.quietly(lambda: path.samefile(other_casing))
-
-
-def top_of(
-    project: Path,
-    prefix: str,
-) -> Path:
-    """The repository's top on disk, the folder `prefix`, as git prints it, names the project's folder from."""
-    depth = len(PurePosixPath(prefix).parts)
-    folder = project.resolve()
-
-    return folder.parents[depth - 1] if depth else folder
+    """Whether git takes the two paths for one, the same text, or the same but for case where git ignores case."""
+    return one == other or (ignore_case and one.casefold() == other.casefold())
 
 
 def changed_files(
@@ -589,7 +546,7 @@ def has_commits(
 def ignores_case(
     project: Path,
 ) -> bool:
-    """Whether git takes two spellings of a branch for one ref here, as it does where it set core.ignorecase for a disk that ignores case."""
+    """Whether git takes two spellings that differ by case alone for one here, a branch's two for one ref and a path's two for one file, as it does where it set core.ignorecase for a disk that ignores case."""
     try:
         reply = asked(project=project, arguments=["config", "--type=bool", "--get", "core.ignorecase"])
     except Unanswered:
@@ -602,8 +559,16 @@ def answer(
     project: Path,
     arguments: list[str],
 ) -> str:
-    """What git prints for the project, or Unanswered with the words for why it printed nothing to stand on."""
-    reply = asked(project=project, arguments=arguments)
+    """What git prints for the project, a byte that is not UTF-8 read as the replacement character, or Unanswered with the words for why it printed nothing to stand on."""
+    return replaced(printed(project=project, arguments=arguments))
+
+
+def printed(
+    project: Path,
+    arguments: list[str],
+) -> str:
+    """What git prints for the project as the shared runner gives it, a byte that is not UTF-8 kept as a surrogate escape, or Unanswered with the words for why it printed nothing to stand on."""
+    reply = git_here(project=project, arguments=arguments)
     if reply.code != 0:
         raise Unanswered(no_answer(reply))
 
@@ -620,16 +585,31 @@ def asked(
     character, so the note, the status and the context never hold the
     surrogate escape the shared runner keeps it as.
     """
-    if not inside_repository(project):
-        raise Unanswered(NO_GIT)
-
-    reply = git(project=project, arguments=arguments)
+    reply = git_here(project=project, arguments=arguments)
 
     return Reply(
         code=reply.code,
-        out=reply.out.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace"),
+        out=replaced(reply.out),
         err=reply.err,
     )
+
+
+def git_here(
+    project: Path,
+    arguments: list[str],
+) -> Reply:
+    """One of the handover's own git calls as the shared runner gives it, Unanswered with no git where no `.git` sits at the project's root or above it, which is answered without git as the upgrade answers it."""
+    if not inside_repository(project):
+        raise Unanswered(NO_GIT)
+
+    return git(project=project, arguments=arguments)
+
+
+def replaced(
+    text: str,
+) -> str:
+    """The text with each surrogate escape the shared runner keeps for a byte that is not UTF-8 read as the replacement character."""
+    return text.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace")
 
 
 def git(
