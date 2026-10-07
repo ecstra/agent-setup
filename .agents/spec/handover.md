@@ -1,56 +1,112 @@
 ---
 name: spec-handover
 kind: doc
-description: the one note a session leaves for the next in .agents/handover, written by the tool, read once by the session start hook, never in git
-updated: 2026-10-06
+description: the one note a session leaves for the next in .agents/handover, which brain handover writes and the session start hook reads once and removes
+updated: 2026-10-07
 links: [spec/conventions.md]
 ---
 
 # Spec: handover/
 
-The note one session leaves for the next, so a session that starts after
-a compaction, a restart or a pause picks up without reconstructing a
-head. The folder holds one file, `handover.md`, and git ignores the
+The note one session leaves for the next, so a session that starts
+after a compaction or any other stop picks up without reconstructing a
+head. The folder holds one note, `handover.md`, which a session start
+renames `handover.md.reading` while it holds it. Git ignores the
 folder, since the note belongs to one machine and one stretch of work,
-like `.ack` and `.task` beside it. The store never lists it and doctor
-never reads it.
+like `.ack` and `.task` beside it, so no note reaches another machine
+or another person. The store never lists it and doctor never reads it.
 
 ## Who writes it
 
 `brain handover`, and nothing else. The tool writes the header, the
-branch, the head and the moment, then the record it can read off the
-machine, the branch at its head, the uncommitted files each with its
-state, the standing word and the current work chain with the review's
-batch, and passes the prose from standard input through under that. The
-prose says what the tool cannot read: what is verified against what is
-merely written, the step in hand and the next one, the traps met, and
-the rules the owner gave in chat. A note with no words is refused, and a
-write by hand anywhere in the folder is refused by the hook.
+branch, the head and the moment, then the record it reads off the
+machine, the branch at its head, the uncommitted files, the first fifty
+each with its state and the rest counted in one line, the standing word
+as it stood at the note's moment, and the current work chain with the
+review's batch, read as the note is written since a chain has no clock.
+Under that it passes the prose from standard input through, less the
+blank lines before and after it. The prose says what the tool cannot
+read, which is what is verified against what is merely written, the
+step in hand and the next one, the traps met, and the rules the owner
+gave in chat. A note with no words is refused, and a write by hand
+anywhere in the folder is refused by the hook.
 
 A second `brain handover` on the same branch replaces the note, so the
-note is always the latest. One left by a session on another branch is
-kept, and `--replace` writes over it on the owner's word.
+note is always the latest. A checkout holds one note, so one left for
+another branch blocks the write until `--replace` writes over it on the
+owner's word. A note that names no branch, or whose branch reads
+`no git` or `git could not answer`, is replaced like this branch's,
+while a session whose own branch reads `detached`, `no commits yet`,
+`no git` or `git could not answer` is refused over a note that names a
+branch. A file at the note's path the tool never wrote or cannot read
+is never written over.
 
 ## Who reads it
 
-The session start hook, in every agent that runs one, on a start, a
-resume, a clear and a compaction. It puts the note whole into the
-session's context and removes the file, so a note is read once. A fork
-leaves it, since a fork carries the context it came from. A note
-written on another branch is left where it is and named in one line,
-which lets two sessions work on one repository. The note's facts beat a
-compaction's summary.
+The session start hook, in every agent that runs one, on every session
+start but a fork, which carries the context it came from, a compaction
+included in Claude Code and Codex. Gemini CLI fires no hook after a
+compression, so there the note reaches only the next session that
+starts. The hook renames the note aside and reads it there, puts it
+whole into the session's context ahead of the status and the rules,
+and removes the file once the context is out, so a note is read once
+and a note written meanwhile is never the one removed.
+
+A note is for a session on the branch it names, and one written on a
+detached head or before the first commit for a session that stands the
+same way. Two branch names compare as written, or without regard to
+case where git's `core.ignorecase` takes both spellings for one ref. A
+note that names no branch, or whose branch reads `no git` or
+`git could not answer`, is for any session, and any note is for a
+session whose own branch reads either, so a git hiccup never strands
+one. A note written on another branch is left where it is and named in
+one line, which lets sessions on different branches share a checkout,
+while a second session on the same branch, a headless run included,
+takes the note from the session that wrote it. An agent that runs no
+hook reads the file itself once `brain status` says a note waits for
+its branch, `handover.md`, or `handover.md.reading` where the status
+says it was read before, and deletes it once read, the one change the
+hook lets through in the folder.
+
+A note the hook cannot rename is read where it is and stays for the
+next session. A claimed file the hook cannot remove is the note still
+waiting, which `brain status` counts as read before and the next start
+reads again, saying so, as long as no newer note sits at
+`handover.md`. Two session starts at once in one checkout both get the
+note, the second reading the first's claimed file as one read before.
+
+A note holds as things stood at its moment, so it beats a compaction's
+summary on the time before that moment, and what the summary keeps of
+the work after it beats the note.
 
 ## When
 
-Before a compaction the agent runs by hand or sees coming, before a
-session ends mid task, and when work passes to another session. A
-session that resumed from a note and pauses again writes a new one.
+A session writes the note whenever its work stops mid task or passes
+to another session, and a compaction it sees coming as the context
+nears its limit is such a stop. A compaction the owner runs by hand
+starts at once, with no turn for the agent to write it, so a note
+reaches the session after it only where the owner asked for one first.
+A session that resumed from a note and pauses again writes a new one,
+carrying forward whatever of the old note still holds, the traps and
+the rules from chat above all, since the old note is gone once read.
 
 ## What it never is
 
 Documentation. What a note knows that outlives the session goes into
-docs/, memory/ or a todo through the tool, and the note dies with its
-reading. Notes filed in this folder before this rule, as docs with a
-header block, are the project's to move or delete, and the upgrade
-names them once.
+the brain through `brain new`, and the note dies with its reading.
+Notes filed in this folder before this rule, any markdown file there,
+nested too, that is not the tool's note, are the project's to move or
+delete, and the upgrade names them on every run while they remain.
+Nothing in the tool lists, shows, checks, moves or removes one, and the
+session start and `brain handover` leave one at the note's own path
+where it is and say so.
+
+## Limits
+
+The tool's git calls keep the environment they are given, so one run
+from inside a git hook reads that hook's `GIT_DIR`. Run from inside a
+brain that is a symlink, the tool finds the brain at the link's target,
+so the note and the git its record reads are the target's. A
+`core.ignorecase` set wrong for the disk makes the tool take two
+spellings of a branch or a path for one where the disk keeps them
+apart, or for two where it folds them.

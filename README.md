@@ -23,7 +23,7 @@ written record of what the project knows.
 | File | In plain terms |
 |---|---|
 | `AGENTS.md` | The front door every agent reads. It points at the rulebook, and it holds your project's own rules when you have some. |
-| `CLAUDE.md` and `GEMINI.md` | A line or two each, pulling in `AGENTS.md` and, for Gemini, its chat style, because Claude Code and Gemini CLI look for their own filename. |
+| `CLAUDE.md` and `GEMINI.md` | Short files that pull in `AGENTS.md`, because Claude Code and Gemini CLI look for their own filename. `GEMINI.md` adds its chat style, and `CLAUDE.md` carries the instructions Claude Code compacts a session by, which ask it to keep what a handover carries and the rules you gave in chat, in your words. The port and the upgrade write both whole, so your own rules go in `AGENTS.md`. |
 | `.agents/SYSTEM.md` | The rulebook. How to write code, how to talk to you, where docs go, how a branch gets reviewed, how git is used. |
 | `.agents/` | The project's memory. Docs, plans, todos, bugs, decisions, review ledgers, and small facts the agent learns, plus the note one session leaves for the next, which never enters git. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
 | `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
@@ -274,11 +274,14 @@ The upgrade replaces what is the kit's and leaves what is yours.
   line of your `.gitignore`.
 - Rebuilt: the indexes, by the doctor run at the end, never edited.
 
-It works on the nearest folder at or above you that carries a brain, refuses a
-kit older than the one you are on, refuses while a file it would replace
-holds uncommitted work, and names each root file it replaces with where
-git keeps the old one. Run it on its own branch and read the diff. Or
-hand your agent this.
+It works on the nearest folder at or above you that carries a brain,
+refuses a kit older than the one you are on, refuses while a file it
+would replace holds uncommitted work, and names each root file it
+replaces with where git keeps the old one. Notes an older release kept
+in `.agents/handover/` stay where they are, and since the kit no longer
+reads them, the upgrade names them on every run for you to move into
+`docs/` or `memory/` through `brain new`, or delete. Run it on its own
+branch and read the diff. Or hand your agent this.
 
 ```text
 The agent kit at https://forge.example.com/example/agent-setup has a new
@@ -315,7 +318,7 @@ need to, but the commands are short enough to know.
 | `brain new`, `brain set`, `brain refile` | Files a plan, a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
 | `brain ledger` | Opens, fills and closes a code review ledger, and `brain ledger report` says where a review stands, counted from the file. |
 | `brain ack on --for 8h` | Your standing word to proceed, for a time or until a task is done, so the agent passes the review's gates that normally wait for you, the house rules name them, and each report says which ack the step ran on. It never starts a review, and the PR and the merge still wait for your ask. `brain ack off` takes it back. |
-| `brain handover` | The note one session leaves for the next, written before a compaction, before a session ends mid task or when work passes on. The tool records the branch, the uncommitted files, your standing word and the work the agent is on, and the agent's own words say what is verified, what comes next and the traps. The session start hook puts it in front of the next session and removes it, so it is read once, and it never enters git. |
+| `brain handover` | The note a session leaves for the next when it passes work on or stops mid task, at its end or before a compaction. The tool records the branch, the uncommitted files, your standing word and the work the agent is on, and the agent's own words say what is verified and what comes next, with the traps it met and the rules you gave in chat. The session start hook puts it in front of the next session on that branch, a fork in Claude Code aside, and removes it, so it is read once, and it never enters git. Gemini CLI runs no session start after a compression, so there the note waits for the next session you open. |
 | `brain port` and `brain upgrade` | The two commands above, run from a kit checkout against your project. |
 
 The full contract, every flag and every refusal, is in
@@ -402,10 +405,10 @@ land.
 The trackers, the docs library, and memory each carry an `INDEX.md`
 listing what is inside, and `.agents/INDEX.md` at the top names each
 of those folders with its counts. `spec/` and `handover/` carry none,
-the spine covers both. `handover/` holds the one note a session leaves
-for the next, written with `brain handover` and read once by the next
-session's start hook, and git ignores it, so a fresh clone has no such
-folder.
+the spine covers both. `handover/` holds the note `brain handover`
+writes for the next session, which that session's start hook reads once
+and removes. Git ignores the folder, so a fresh clone has none, unless
+notes from an older release are still tracked there.
 
 ## Where to read next
 

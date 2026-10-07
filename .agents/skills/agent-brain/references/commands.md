@@ -14,7 +14,7 @@ the entry written all the same.
 | Command | What it answers |
 |---|---|
 | `brain version` | The kit version this project carries, from `.agents/VERSION`. |
-| `brain status [--json]` | The clock, the standing word and the current work first, then version, doctor health, counts per tracker, open reviews, the note waiting for the next session with the branch it was written on and when, unreadable files. The JSON form carries all of that but the clock and the word, the note under `handover`, which is null when none waits, and the chain under `task`, which is null when the file does not read as a chain. |
+| `brain status [--json]` | The clock, the standing word and the current work first, then version, doctor health, counts per tracker, open reviews, the note waiting for the next session with the branch it was written on and when, unreadable files. A claimed note a session start could not remove, `handover/handover.md.reading`, is the note waiting while none sits at `handover/handover.md`, and its line says it was read before. The JSON form carries all of that but the clock and the word, the note under `handover`, null when none waits, else its `branch` and its `written` moment, each null where the header gives none, and `again`, true for a note read before, and the chain under `task`, which is null when the file does not read as a chain. The `latest_handover` key and the `handover` count of 1.4.0 are gone. |
 | `brain ack` | The clock and where the owner's standing word to proceed stands, off, held, or on with what is left of it and what ends it. |
 | `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. The kinds are bug, decision, doc, memory, plan, review and todo. |
 | `brain show <key> [--meta]` | The whole file, or with `--meta` its frontmatter only. |
@@ -37,7 +37,7 @@ answers nothing. Every command that takes a key reads it this way.
 
 | Command | What it does |
 |---|---|
-| `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry. Prose on standard input. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`. |
+| `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry. Prose on standard input. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`, a path into `handover/` included, since no link goes into the folder whose one note is read once. |
 | `brain set <key> field=value ...` | Changes fields, checks values and dates, applies the lifecycle rules, stamps `updated`. |
 | `brain refile <key> --title T` | Renames for a new title. The id stays, every link follows. |
 | `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input. Both files stay, linked both ways, the old one marked `refiled` with the new one's id in `became`, which every step that pointed at the old one follows, save a step whose own entry the new one's steps point back at, which stays on the old one as skipped while the new one is open and follows once it closes. Refused when a step of the new body points at the old entry, or at an open entry whose steps point back at it at any remove, since the new entry takes the old one's pointers over. |
@@ -181,16 +181,38 @@ read once.
 
 | Command | What it does |
 |---|---|
-| `brain handover [--replace]` | Writes `handover/handover.md` from the prose on standard input, in place of the note there. The header carries the branch, the head and the moment. The body opens with the record the tool reads off the machine, the branch at its head with the commit's subject, the uncommitted files one per line with their state, modified, added, deleted, renamed or untracked, the standing word as `brain ack` prints it and the current work as `brain task` prints it, then the prose as it came, trimmed at both ends. Outside git the branch and the head read `no git`, a repository with no commit yet says so, and a detached head is named `HEAD`. Refused with no words on standard input, with a folder standing in the file's place, and while a note written on another branch waits there, which `--replace` writes over. A second note on the same branch replaces the first without a word. The folder is made on the first write and git ignores it, so the note never enters the repo. |
+| `brain handover [--replace]` | Writes `handover/handover.md` from the prose on standard input, in place of the note there. The header carries the branch, the head and the moment. The body opens with the record the tool reads off the machine, the branch at its head with the commit's subject, the uncommitted files, the standing word as `brain ack` prints it at the note's moment and the current work as `brain task` prints it, then the prose as it came, less the blank lines before and after it, so a first line's indentation and a last line's trailing spaces stay. The uncommitted files are listed one per line with their state, modified, added, deleted, renamed, copied, type changed, unmerged or untracked, git's own letter for any other, the first fifty and then one line, `and N more`, for the rest. A project below its repository's top lists only its own files, named from its own folder, a file renamed out of it reading `moved out of the project` under the name it left, and the note itself is left out. A path or a subject that holds a line break or a carriage return is written with it escaped, so each stays one line. A detached head reads as the branch a rebase or a bisect in progress works on, else `detached`. The branch and the head read `no git` where git is not installed or no `.git` stands at the project's root or above it, `no commits yet` in a repository with none, and `git could not answer` with the first line git gave where it refuses the repository, or with the seconds it waited where git gives no answer in 10. Refused with no words on standard input, with a folder standing in the file's place or a file standing where its folder goes, and over a file at the note's path the tool never wrote or cannot read, which `--replace` never writes over. A note waiting there is replaced without a word when it names this session's branch, as the session start compares them, names no branch, or names `no git` or `git could not answer`. Any other is refused with its branch and its moment, which `--replace` writes over on the owner's word, so a session whose own branch reads `detached`, `no commits yet`, `no git` or `git could not answer` is refused over a note that names a branch. With no note at the path, a claimed note a session start could not remove, `handover/handover.md.reading`, is the note waiting, judged the same, and the write removes it once the new note is in place. A checkout holds one note, made on the first write in a folder git ignores, so it never enters the repo and never reaches another machine. The tool's git calls keep the environment they are given, so one run from inside a git hook reads that hook's `GIT_DIR`. |
 
-The session start hook reads the note on a start, a resume, a clear
-and a compaction, never on a fork, and takes the file away once it is
-in the context. A note that names another branch than the one checked
-out is left where it is, and the hook says so in one line, as
-`brain status` does while one waits. A note the hook cannot remove is
-still read, and the hook says the next session will read it again.
-Nothing in `handover/` is written by hand, and the hook refuses the
-write, a delete aside.
+The session start hook takes the note on every session start but a
+fork, which the event's `source` names, a compaction included in Claude
+Code and Codex, while Gemini CLI fires no hook after a compression, so
+there the note reaches only the next session that starts. It renames
+the note to `handover/handover.md.reading` in one step, reads it there
+and removes that file once the context is out, so a note written
+meanwhile is never the one removed. A note is for a session on the
+branch it names, and one written on a detached head or before the
+first commit for a session that stands the same way. Two branch names
+compare as written, or without regard to case where git's
+`core.ignorecase` is true, since git then takes both spellings for one
+ref, and the record compares paths the same way, a flag set wrong for
+the disk followed all the same. A note that names no branch, or whose
+branch reads `no git` or `git could not answer`, is for any session,
+and so is every note for a session whose own branch reads either. A
+note for another branch is left where it is and named in one line, as
+`brain status` names it while it waits, and so are a file at the
+note's path the tool never wrote and one the hook cannot open. Where
+the rename fails, the note is read where it is, and the context says
+the next session reads it again. Where the removal fails, the hook says
+so on standard error alone, since the context is out, and the next
+start reads that file again under words that say it was read before
+and removes it, as long as no newer note sits at
+`handover/handover.md`. A second session on the same branch, a
+headless run included, takes the note from the session that wrote it,
+and two session starts at once in one checkout both get it, the second
+reading the first's claimed file as one read before. Run from inside a
+brain that is a symlink, the tool finds the brain at the link's target,
+so the note is the target's. Nothing in `handover/` is written by hand,
+and the hook refuses the write, a delete aside.
 
 ## The steps
 
@@ -269,39 +291,40 @@ it is.
 | `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill links, the front doors' imports and what a write left behind. |
 | `brain doctor --fix` | Applies every fixable repair, in passes until a pass changes nothing, then reports what is left. A repair that fails is reported as a flag with the reason. |
 
-Doctor checks that nothing was left behind by an interrupted write,
-that there are no stray files, meaning every markdown file under
-`.agents/` is either an entry the store lists or a file the kit owns,
-frontmatter present and complete, `updated` a real date, names
-matching filenames and unique, kind matching folder, fields and values
-against the spec, required headings, the lifecycle rules, filename
-patterns kept and no id carried twice, links that resolve, links
-written as paths with each file once, body links that resolve, the
-steps tables as the steps section says, indexes current, no dashes or
-semicolons in prose, no machine paths, nothing shaped like a secret,
-the version stamp a version, the chat style copies for Codex and
-Gemini CLI matching the Claude Code one where the project keeps those
-agents' folders, and the skill links Claude Code needs, one per skill
-the kit ships and one per skill folder the project keeps, each of
-which must reach its skill rather than point at nothing or be a plain
-file. It reports too a real folder copy of a kit skill that fell
-behind the brain's, a dangling link doctor once made for a project
-skill since gone from the brain, and a skills folder it cannot list.
-It reads the front doors, `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`,
-the way each agent reads its `@` imports. Claude Code reads `CLAUDE.md`
-and `AGENTS.md` while the project keeps a `.claude/` folder, and Gemini
-CLI reads `GEMINI.md` and `AGENTS.md` while the project keeps a
-`.gemini/` folder. A front door is judged once for each agent
-that reads it, `AGENTS.md` by Claude Code's rules when the project
-keeps neither folder, and a front door that is a link to `AGENTS.md` is
-read once, as that file. Both agents find code the same way, in a fence
-of backticks or tildes, closed or not, in an indented block, which is a
-line four columns in from the margin where no paragraph is open, the
-margin inside a list item being where its text starts, or in a span,
-which a backtick after a backslash never opens. A comment opened at the
-start of a line runs to its `-->` or to the end of the file, and a
-fence inside it opens nothing. Claude Code skips HTML comments too,
-while Gemini CLI reads them raw.
+Doctor checks that nothing was left behind by an interrupted write, that
+there are no stray files, meaning every markdown file under `.agents/`
+outside `handover/`, which doctor never reads under any casing the disk
+takes for it, is either an entry the store lists or a file the kit owns,
+frontmatter present and complete, `updated` a real date, names matching
+filenames and unique, kind matching folder, fields and values against
+the spec, required headings, the lifecycle rules, filename patterns kept
+and no id carried twice, links that resolve, links written as paths with
+each file once, body links that resolve, a link of either kind into
+`handover/` reported as reaching nothing even while the note is there,
+the steps tables as the steps section says, indexes current, no dashes
+or semicolons in prose, no machine paths, nothing shaped like a secret,
+the version stamp a version, the chat style copies for Codex and Gemini
+CLI matching the Claude Code one where the project keeps those agents'
+folders, and the skill links Claude Code needs, one per skill the kit
+ships and one per skill folder the project keeps, each of which must
+reach its skill rather than point at nothing or be a plain file. It
+reports too a real folder copy of a kit skill that fell behind the
+brain's, a dangling link doctor once made for a project skill since gone
+from the brain, and a skills folder it cannot list. It reads the front
+doors, `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`, the way each agent
+reads its `@` imports. Claude Code reads `CLAUDE.md` and `AGENTS.md`
+while the project keeps a `.claude/` folder, and Gemini CLI reads
+`GEMINI.md` and `AGENTS.md` while the project keeps a `.gemini/` folder.
+A front door is judged once for each agent that reads it, `AGENTS.md` by
+Claude Code's rules when the project keeps neither folder, and a front
+door that is a link to `AGENTS.md` is read once, as that file. Both
+agents find code the same way, in a fence of backticks or tildes, closed
+or not, in an indented block, which is a line four columns in from the
+margin where no paragraph is open, the margin inside a list item being
+where its text starts, or in a span, which a backtick after a backslash
+never opens. A comment opened at the start of a line runs to its `-->`
+or to the end of the file, and a fence inside it opens nothing. Claude
+Code skips HTML comments too, while Gemini CLI reads them raw.
 
 In both agents an `@` at the start or after whitespace opens an import
 whose path runs to the next whitespace. Claude Code reads the lexer's
@@ -401,16 +424,14 @@ and `--project` has to name a folder that is there.
 | Command | What it does |
 |---|---|
 | `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain, which means the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, Claude Code's with the rules under `permissions.deny` that refuse reading the kit's code, by the brain's path and by the skill link's, an earlier spelling of the kit's replaced and the project's own rules kept, the review's sub agent definitions, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`, the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
-| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Refuses without a brain, refuses while a file it would replace holds uncommitted work, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills` or in `.claude/skills` where the link goes, and a project stamped before a sub agent definition shipped that keeps a file of its own under that definition's name, each definition counted from its own release since a skill gains them later, until the folder or file is moved aside. A folder or a file the kit itself wrote is known by its bytes and passes. |
+| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Refuses without a brain, refuses while a file it would replace holds uncommitted work, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills` or in `.claude/skills` where the link goes, and a project stamped before a sub agent definition shipped that keeps a file of its own under that definition's name, each definition counted from its own release since a skill gains them later, until the folder or file is moved aside. A folder or a file the kit itself wrote is known by its bytes and passes. Refuses too a project that is the kit itself, or a worktree or a clone of it, since that is where the tool's code is the work. It knows one by the folder under any spelling, or where the two folders, each the top of its own work tree, meet on walking back through their local origins, at most eight clones and a bare repository among them, to a folder or a remote repository both come from, so a kit vendored inside a project's repository, or a project folder inside the kit's, is no clone of it. The walk asks git only `rev-parse` and `remote get-url`, so it opens no transport and runs no command a walked folder's config names. It reaches a folder whose name holds a byte that is not UTF-8 on every POSIX file system, while such a path on Windows, and under a locale that is not UTF-8 a name outside its codec, is taken as not there, and a clone the walk misses that way is upgraded as any project is, the kit's files written over its copies of them under the refusal over uncommitted work. The walk is built for git 2.28 or later. Every run names, while they remain, the notes a project filed under `handover/` before the folder became the tool's, any markdown file there, nested too, that is not the tool's note, one at the note's own path whose header is not the tool's included, and says to move what still matters into `docs/` or `memory/` through `brain new` and delete the rest. From then on nothing in the tool lists, shows, checks, moves or removes one, and the session start and `brain handover` leave one at the note's own path where it is and say so. |
 
 What is the project's stays the project's, which is everything under
 `.agents/` that is not the kit's, section 0, `README.md`, `CODEOWNERS`,
 and any hook or setting of its own in the agent folders. Section 0
 ends at the comment line in `AGENTS.md` that says where the kit's
 words start, so it is found the same way whatever a release says after
-that line. The run refuses to install the kit onto itself, or onto a
-worktree or a clone of it, since that is where the tool's code is the
-work. In a file the first release wrote, before that line
+that line. In a file the first release wrote, before that line
 existed, it ends where that release's opening paragraph stood, and
 that paragraph is history, so it never moves. The kit's earlier hook
 groups are replaced under every event, told apart by a command that is
@@ -419,20 +440,43 @@ project's own that calls the script bare counts as the kit's and goes
 with them, while a group that wraps that call, or calls a copy kept
 elsewhere, is the project's and stays, and an event left with no group
 stays as an empty list. A rename goes through git where git tracks the
-file, so the move shows as one, and a root file the kit replaces is
-named in the report along with where git keeps the old one. The exit
-code is doctor's, 0 clean and 2 while findings remain, and those are
-the project's own prose to put right. A finding in a file the install
-writes whole is the kit's to fix, printed apart and never counted,
-since the install replaces that file every time. Such a file is a skill
-the kit ships, the brain's own `SYSTEM.md`, `README.md` or
-`house-rules.md`, a spec, the version stamp `VERSION`, or a file copied
-into the agent folders, which is a sub agent definition, the chat style
-source or one of its copies. An import slip in `CLAUDE.md`, in
-`GEMINI.md` or in the kit's words of `AGENTS.md` below its marker line
-counts the same way. The tool ships without its own tests, and the chat
-style copies in `.codex/` and `.gemini/` are the doctor's to make from
-the source in `.claude/output-styles/`.
+file, so the move shows as one. The exit code is doctor's, 0 clean and
+2 while findings remain, and those are the project's own prose to put
+right. A finding in a file the install writes whole is the kit's to
+fix, printed apart and never counted, since the install replaces that
+file every time. Such a file is a skill the kit ships, the brain's own
+`SYSTEM.md`, `README.md` or `house-rules.md`, a spec, the version stamp
+`VERSION`, or a file copied into the agent folders, which is a sub
+agent definition, the chat style source or one of its copies. An import
+slip in `CLAUDE.md`, in `GEMINI.md` or in the kit's words of
+`AGENTS.md` below its marker line counts the same way. The tool ships
+without its own tests, and the chat style copies in `.codex/` and
+`.gemini/` are the doctor's to make from the source in
+`.claude/output-styles/`.
+
+A root file the kit replaces is named in the report with a `git show`
+command for each old one the last commit holds, the file named as that
+commit holds it, a name in another case matched only where git's
+`core.ignorecase` is true, a flag set wrong for the disk followed all
+the same. Each command names its file from the repository's top, quoted
+for a POSIX shell where it needs it, and spelled so the bytes the
+report's stream writes for it are the bytes git holds, or on Windows,
+where git takes a command's characters, as git prints it. Where the
+project's folder has no such spelling, its name holding a byte that is
+not UTF-8, a character that does not print or one the stream's codec
+cannot carry, the line names the folder as git prints a path it quotes,
+in double quotes with its bytes escaped the way git escapes them, a byte
+outside ASCII as an octal escape such as `\351`, and gives each command
+as `git show HEAD:./<name>`, to run from that folder. A stream whose
+codec is not ASCII compatible, UTF-16 or UTF-32, gets that form for
+every folder, the top's included, under a line that says to run it from
+the project's folder. A command pasted into `cmd.exe` is not quoted for
+that shell, and a terminal that reads the stream in another code page
+than the stream's may hand git other bytes. The refusal over uncommitted
+work and the list of what is left to file show a name from git's answer
+with the replacement character in place of a byte that is not UTF-8, and
+a name the disk gave, an old note under `handover/` among them, is
+printed as the disk spells it.
 
 ## Hooks
 
@@ -441,7 +485,7 @@ standard input:
 
 | Event | What happens |
 |---|---|
-| `session-start` | Prints the clock, the standing word, the current work and `brain status` into the agent's context. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy, for an agent that does not expand imports. Then the note the last session left in `handover/handover.md`, whole, and the file is removed, on a start, a resume, a clear and a compaction alike, which the event's `source` names, a fork aside, since a fork carries the context it came from. A note written on another branch is left where it is and named in one line. |
+| `session-start` | Prints into the agent's context the clock, the standing word and the current work, then the note the last session left in `handover/handover.md`, whole under a line that says how it was taken, or the one line that says why a file there stays, then `brain status`, counted once the note is taken, so it never counts as waiting a note this start took. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy after those, for an agent that does not expand imports. The note is taken on every start the event's `source` names but a fork, since a fork carries the context it came from, and the handover section above says how. A Claude Code context past the 10,000 characters Claude Code shows from a hook opens with a line that asks the model to read whole the file Claude Code keeps it in, and the shipped Codex config sets `additionalContextLimit` to 0 on the session start, so Codex takes the context whole. |
 | `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
 | `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Claude Code fires it once after each round of tool calls, Codex and Gemini CLI after each shell call. |
 | `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, anything in the `handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |

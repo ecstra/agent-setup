@@ -39,9 +39,14 @@ The examples below shorten that to `brain`. Every flag is listed in
 
 ## When a session starts
 
-The hook prints `brain status` when a session opens. If it did not, run
-it. Every number in it is counted from the files at that moment, so
-trust it over anything remembered.
+The hook prints `brain status` when a session opens, after the note the
+last session left where one waits for it. Every number in it is counted
+from the files at that moment, so trust it over anything remembered. If
+the hook did not run, run `brain status`, and where it says a handover
+waits on this branch, read `.agents/handover/handover.md` yourself, or
+`handover.md.reading` beside it where the status says it was read
+before, since no command shows it, then delete the file as the hook
+would, the one change the hook lets through in that folder.
 
 ```bash
 brain status
@@ -178,29 +183,41 @@ brain task off
 
 ## The handover
 
-Before a compaction, before a session ends mid task, and when work
-passes on, leave the note for the next session. The tool records the
-branch and its head, the uncommitted files, the standing word and the
-work chain with the review's batch, and the prose on standard input
-says the rest, which is what is verified against what is merely
-written, the step in hand and the next one, the traps met, and the
-rules the owner gave in chat. The session start hook puts the note in
-front of the next session and removes it, so it is read once, and its
-facts beat a compaction's summary.
+Leave the note for the next session whenever work stops mid task or
+passes to another session, and treat a compaction you see coming as
+the context nears its limit as such a stop. A compaction the owner runs
+by hand starts with no turn for you, so a note reaches the session
+after it only where the owner asked for one first. Gemini CLI runs no
+hook after a compression, so there a note written before one, asked
+for or not, waits for the next session that starts.
+[spec/handover.md](../../spec/handover.md) says what the tool records
+and what the prose on standard input carries, and the reference gives
+every refusal. The session start hook puts the note in front of the
+next session and removes it, so it is read once. A note holds as
+things stood when it was written, so it beats a compaction's summary on
+the time before that moment, and what the summary keeps of the work
+after it beats the note.
 
 ```bash
-brain handover <<'EOF'
+brain handover <<'END_OF_NOTE'
 Verified: batch 3 is fixed and its tests pass on both interpreters.
 Written, not verified: the docs of the closing round.
 Next: the hunt over the round's code, then the last pass.
 Traps: the second interpreter's tests run from scripts/ only.
 From chat: no PR until the owner asks, ack all until the ledger closes.
-EOF
+END_OF_NOTE
 ```
 
-One note at a time. A second write on the same branch replaces it, and
-one left by a session on another branch stays until `--replace` on the
-owner's word. Nothing in `handover/` is written by hand.
+A heredoc, quoted or not, ends at the first line that is its word
+alone, so the word is one no line of the note is, which rules out `EOF`
+once a trap quotes a heredoc of its own.
+
+One note per checkout. A second write replaces the note of this
+session's branch, or one whose branch git could not name, and one left
+for another branch stays until `--replace` on the owner's word. The
+reference says which note a session start takes, a detached head and
+git's silence among the cases. Nothing in `handover/` is written by
+hand.
 
 ## Checking the brain
 
