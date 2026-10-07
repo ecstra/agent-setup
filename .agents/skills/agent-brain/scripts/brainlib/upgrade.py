@@ -1294,6 +1294,20 @@ def identity(
     return found.st_dev, found.st_ino
 
 
+def one_entry(
+    one: Optional[Path],
+    other: Path,
+) -> bool:
+    """Whether two spellings reach one entry of the disk, as two cases of a name do on a disk that ignores case, a symlink taken as itself and not as what it points at, false where either reaches nothing or `one` has no spelling here."""
+    if one is None:
+        return False
+
+    try:
+        return os.path.samestat(os.lstat(one), os.lstat(other))
+    except (OSError, ValueError):
+        return False
+
+
 def is_a_top(
     folder: Path,
 ) -> bool:
@@ -1582,19 +1596,26 @@ def kept_in_git(
     """The report's line on where git's last commit holds these root files, a `git show` command a person can paste for each, or None where it holds none of them.
 
     Each file is named as the commit holds it in the project's place,
-    which git lists from the project's folder, matched without regard
-    to case where the disk spells it otherwise, as the guard matches a
-    front door, since git finds a path in a commit by its exact
-    spelling. A command names its file from the repository's top, so it
-    runs anywhere in the repository, its place spelled by `as_written`
-    for `codec`, the codec the report is written in, and quoted for a
-    shell where the path holds a space or another character a shell
-    reads. Git takes no path quoted in its own way, and a place whose
-    name holds a byte that is not UTF-8, a character that does not
-    print, or one that codec cannot carry to git has no spelling a
-    shell hands git whole, so there the line names the folder as git
-    prints it and says why, and each command names its file from that
-    folder as `./`, a path git reads from where it runs.
+    which git lists from the project's folder, since git finds a path in
+    a commit by its exact spelling. A name the commit holds in another
+    case is matched without regard to case, as the guard matches a front
+    door, only where the disk spells the file otherwise, which is where
+    the disk reaches the commit's spelling and the replaced file's as one
+    entry, as after a rename in case alone on a disk that ignores case.
+    On a disk that tells case apart a file of the commit's spelling is
+    another file the run left alone, and is not named. A command names
+    its file from the repository's top, so it runs anywhere in the
+    repository, its place spelled by `as_written` for `codec`, the codec
+    the report is written in, and quoted for a shell where the path
+    holds a space or another character a shell reads. Git takes no path
+    quoted in its own way, and a place whose name holds a byte that is
+    not UTF-8, a character that does not print, or one that codec cannot
+    carry to git has no spelling a shell hands git whole, nor has any
+    place where the codec writes the command's own letters as no shell
+    reads them, UTF-16 for one, so the commands are checked whole. There
+    the line names the folder as git prints it and says why, and each
+    command names its file from that folder as `./`, a path git reads
+    from where it runs.
     """
     prefix = git(project=project, arguments=["rev-parse", "--show-prefix"])
     listed = git(project=project, arguments=["ls-tree", "-z", "--name-only", "HEAD"])
@@ -1605,20 +1626,28 @@ def kept_in_git(
     entries = [entry for entry in listed.out.split("\0") if entry]
     held: list[str] = []
     for name in names:
-        alike = [entry for entry in entries if folded(entry) == folded(name)]
+        if name in entries:
+            held.append(name)
+            continue
+
+        replaced = project.root / name
+        alike = [entry for entry in entries if folded(entry) == folded(name) and one_entry(one=reached(folder=project.root, printed=entry), other=replaced)]
         if alike:
-            held.append(name if name in alike else alike[0])
+            held.append(alike[0])
 
     if not held:
         return None
 
-    written = as_written(name=printed, codec=codec)
+    written = as_written(text=printed, codec=codec)
     if written is not None and written.isprintable() and printed.isprintable():
-        return "the old ones are still in git: " + ", ".join(f"git show {shlex.quote(f'HEAD:{written}{name}')}" for name in held)
+        commands = ", ".join(f"git show {shlex.quote(f'HEAD:{written}{name}')}" for name in held)
+        meant = ", ".join(f"git show {shlex.quote(f'HEAD:{printed}{name}')}" for name in held)
+        if as_written(text=meant, codec=codec) == commands:
+            return "the old ones are still in git: " + commands
 
     return (
-        f"the old ones are still in git, in the folder git prints as {as_git_prints(printed)}, whose name holds a byte "
-        "that cannot be typed, so from that folder: " + ", ".join(f"git show {shlex.quote(f'HEAD:./{name}')}" for name in held)
+        f"the old ones are still in git, in the folder git prints as {as_git_prints(printed)}, whose name a command "
+        "pasted from this report cannot spell, so from that folder: " + ", ".join(f"git show {shlex.quote(f'HEAD:./{name}')}" for name in held)
     )
 
 
@@ -2056,28 +2085,31 @@ def as_git_prints(
 
 
 def as_written(
-    name: str,
+    text: str,
     codec: str,
 ) -> Optional[str]:
-    """A name from git's answer spelled so a command a person pastes from a stream in `codec` hands git the name it printed, or None where no text does, the codec having no character for one of them or writing one back as another.
+    """Text from git's answer, a name or a whole command, spelled so what a stream in `codec` writes for it in the middle of a line reaches git as what git printed, or None where no text does, the codec having no character for a byte or writing one back as another.
 
-    On POSIX the pasted command reaches git as the bytes the stream
-    wrote, so the name is the text `codec` writes as the bytes git
-    printed. On Windows git takes the command's characters, so the name
-    is git's own text, where `codec` writes it and reads it back as that
-    text. A byte order mark a codec writes at a stream's start is no
-    part of a line in the middle, so it is left out of the round trip.
+    On POSIX a pasted command reaches git as the bytes the stream wrote,
+    so the text is the one `codec` writes as the bytes git printed. On
+    Windows git takes the command's characters, so the text is git's
+    own, where `codec` writes it and reads it back as that text. A byte
+    order mark a codec writes at a stream's start is no part of a line
+    in the middle, so it is left out of the round trip, and one the text
+    holds stays in it. A name spelled alone says nothing of the command
+    around it, which a codec such as UTF-16 writes as no shell reads, so
+    a command is checked whole.
     """
     if GIT_TAKES_CHARACTERS:
         try:
-            read_back = name.encode(codec).decode(codec)
+            read_back = text.encode(codec).decode(codec)
         except UnicodeError:
             return None
 
-        return name if read_back == name else None
+        return text if read_back == text else None
 
     mark = "".encode(codec)
-    held = mark + name.encode("utf-8", errors="surrogateescape")
+    held = mark + text.encode("utf-8", errors="surrogateescape")
     try:
         spelled = held.decode(codec)
         written = spelled.encode(codec)
