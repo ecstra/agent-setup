@@ -489,7 +489,10 @@ def path_links(
     for reference in references:
         path = links.canonical(brain=brain, reference=reference)
         if path is None:
-            said = links.handover_reason(brain=brain, reference=reference) or "reaches nothing inside .agents/"
+            said = links.handover_reason(
+                brain=brain,
+                reference=reference,
+            ) or "reaches nothing inside .agents/"
             raise WriteError(f"link '{reference}' {said}")
 
         if path not in found:

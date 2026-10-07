@@ -27,8 +27,8 @@ REFERENCE_LINK = re.compile(r"^\[[^\]]+\]:[ \t]+(<[^>\n]*>|\S+)", re.MULTILINE)
 SCRATCH_PREFIX = ".putback."
 SCRATCH_SHAPE = re.compile(r"^\.putback\.[A-Za-z0-9_]+$")
 
-# Why a link into the handover folder reaches nothing though a file may
-# stand at its path: the folder's one note is read once and never enters git.
+# A link into the handover folder reaches nothing though a file may stand
+# at its path, since the folder's one note is read once and never enters git.
 HANDOVER_REASON = f"reaches nothing, since {schema.HANDOVER_FOLDER}/ holds the one note brain handover writes and no link goes into it"
 
 
@@ -73,7 +73,13 @@ def inside(
 
     candidate = brain.root / reference
     relative = within(brain=brain, path=candidate)
-    if relative is None or store.hidden(Path(relative)) or in_handover(brain=brain, relative=relative):
+    if relative is None or store.hidden(relative=Path(relative)):
+        return None
+
+    if in_handover(
+        brain=brain,
+        relative=relative,
+    ):
         return None
 
     return candidate
@@ -98,9 +104,17 @@ def into_handover(
     path: Path,
 ) -> bool:
     """Whether a path a link names lies in the brain's handover folder."""
-    relative = within(brain=brain, path=path)
+    relative: Optional[str] = within(
+        brain=brain,
+        path=path,
+    )
+    if relative is None:
+        return False
 
-    return relative is not None and in_handover(brain=brain, relative=relative)
+    return in_handover(
+        brain=brain,
+        relative=relative,
+    )
 
 
 def handover_reason(
@@ -118,12 +132,21 @@ def handover_reason(
     share or one a removed file carried, which the folder does not
     explain.
     """
-    for spelled in (reference, brain.key_path(reference)):
+    for spelled in (reference, brain.key_path(key=reference)):
         if spelled is None:
             continue
 
-        relative = within(brain=brain, path=brain.root / spelled)
-        if relative is not None and len(Path(relative).parts) > 1 and in_handover(brain=brain, relative=relative):
+        relative: Optional[str] = within(
+            brain=brain,
+            path=brain.root / spelled,
+        )
+        if relative is None or len(Path(relative).parts) <= 1:
+            continue
+
+        if in_handover(
+            brain=brain,
+            relative=relative,
+        ):
             return HANDOVER_REASON
 
     return None
@@ -134,7 +157,10 @@ def unreached(
     path: Path,
 ) -> str:
     """What a link that reaches nothing says of the path it names, with the reason where the path lies in the handover folder, since a file there can stand on disk and still reach nothing."""
-    if into_handover(brain=brain, path=path):
+    if into_handover(
+        brain=brain,
+        path=path,
+    ):
         return HANDOVER_REASON
 
     return "reaches nothing"
@@ -157,7 +183,7 @@ def is_folder(
     if top.casefold() != folder.casefold():
         return False
 
-    return store.quietly(lambda: (brain.root / top).samefile(brain.root / folder))
+    return store.quietly(question=lambda: (brain.root / top).samefile(other_path=brain.root / folder))
 
 
 def within(
@@ -235,10 +261,17 @@ def broken_in_body(
             continue
 
         file_part = target.split("#")[0]
-        named = path.parent / file_part
-        missing = not file_part or Path(file_part).is_absolute() or not store.quietly(named.exists)
-        if missing or into_handover(brain=brain, path=named):
-            found.append((target, unreached(brain=brain, path=named)))
+        named_path = path.parent / file_part
+        missing = not file_part or Path(file_part).is_absolute() or not store.quietly(question=named_path.exists)
+        if missing or into_handover(
+            brain=brain,
+            path=named_path,
+        ):
+            said = unreached(
+                brain=brain,
+                path=named_path,
+            )
+            found.append((target, said))
 
     return found
 

@@ -258,7 +258,7 @@ class Brain:
         the ledger.md every review is, is refused with the paths named,
         rather than answered with whichever came first.
         """
-        path: Optional[str] = self.key_path(key)
+        path: Optional[str] = self.key_path(key=key)
         if path is None:
             return None
 
@@ -292,14 +292,14 @@ class Brain:
         parts: list[str] = key.replace(
             "\\",
             "/",
-        ).split("/")
+        ).split(sep="/")
         brain_folders: list[int] = [index for index, part in enumerate(parts[:-1]) if part == self.root.name]
         if not brain_folders:
             return "/".join(parts)
 
         brain_folder: int = brain_folders[-1]
         in_front: str = "".join(f"{part}/" for part in parts[:brain_folder])
-        if in_front and not self.is_this_project(in_front):
+        if in_front and not self.is_this_project(folder=in_front):
             return None
 
         return "/".join(parts[brain_folder + 1 :])

@@ -259,8 +259,15 @@ def run_task_off(
 def add_handover(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("handover", help="the note for the next session, prose on standard input, in place of the one there")
-    command.add_argument("--replace", action="store_true", help="write over a note a session on another branch left")
+    command = commands.add_parser(
+        name="handover",
+        help="the note for the next session, prose on standard input, in place of the one there",
+    )
+    command.add_argument(
+        "--replace",
+        action="store_true",
+        help="write over a note a session on another branch left",
+    )
     command.set_defaults(handler=run_handover)
 
 
@@ -276,7 +283,7 @@ def run_handover(
     print(handover.RELATIVE)
     print(
         "the session start hook puts it in front of the next session on this branch, "
-        "or on any branch where git named none, and removes it, a fork aside"
+        "or on any branch where git named none, and removes it, a fork aside",
     )
     return 0
 

@@ -18,9 +18,9 @@ from typing import Callable, Optional, Union
 
 from . import autoack, frontmatter, index, links, schema, sections, steps, store, style, task, writes
 
-# The folders the markdown walk never enters: the skills, which follow
-# their own standard, the worktree home, and the handover folder, whose
-# one note is the tool's and sits outside git.
+# The markdown walk never enters the skills, which follow their own
+# standard, the worktree home, or the handover folder, whose one note is
+# the tool's and sits outside git.
 SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, schema.HANDOVER_FOLDER, ".worktrees"})
 
 # A header block the parser refuses, taken off by its fences alone so
@@ -190,7 +190,7 @@ def all_markdown(
     the disk ignores case `Handover/` is the handover folder and stays
     unread like it.
     """
-    skipped = [folder for folder in SKIP_DIRS if not (with_skills and folder == schema.SKILLS)]
+    skipped_folders = [folder for folder in SKIP_DIRS if not (with_skills and folder == schema.SKILLS)]
     found: list[Path] = []
 
     for path in sorted(brain.root.rglob("*.md")):
@@ -199,7 +199,14 @@ def all_markdown(
         if store.hidden(relative_path):
             continue
 
-        if any(links.is_folder(brain=brain, top=parts[0], folder=folder) for folder in skipped):
+        if any(
+            links.is_folder(
+                brain=brain,
+                top=parts[0],
+                folder=folder,
+            )
+            for folder in skipped_folders
+        ):
             continue
 
         if path.name in schema.NO_FRONTMATTER and len(parts) == 1:
@@ -841,8 +848,17 @@ def check_links(
                 continue
 
             if resolved is None:
-                said = links.handover_reason(brain=brain, reference=link) or "reaches nothing"
-                found.append(Finding(path=where, check="link", message=f"'{link}' {said}"))
+                said = links.handover_reason(
+                    brain=brain,
+                    reference=link,
+                ) or "reaches nothing"
+                found.append(
+                    Finding(
+                        path=where,
+                        check="link",
+                        message=f"'{link}' {said}",
+                    ),
+                )
             canonical.append(resolved or link)
 
         if canonical != current:
@@ -856,9 +872,20 @@ def check_links(
             )
 
     for path, document in documents:
-        for target, said in links.broken_in_body(brain=brain, path=path, document=document):
+        for target, said in links.broken_in_body(
+            brain=brain,
+            path=path,
+            document=document,
+        ):
             found.append(
-                Finding(path=relative(brain=brain, path=path), check="link", message=f"body link '{target}' {said}")
+                Finding(
+                    path=relative(
+                        brain=brain,
+                        path=path,
+                    ),
+                    check="link",
+                    message=f"body link '{target}' {said}",
+                ),
             )
 
     return found

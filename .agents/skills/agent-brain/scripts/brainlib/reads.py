@@ -115,7 +115,7 @@ def render_status(
         lines.append(f"{'reviewing':<10} {', '.join(data['open_reviews'])}")
 
     if data["handover"]:
-        lines.append(f"{'handover':<10} {handover_words(data['handover'])}")
+        lines.append(f"{'handover':<10} {handover_words(data=data['handover'])}")
 
     if data["unreadable"]:
         lines.append(f"{'unreadable':<10} {', '.join(data['unreadable'])}")
@@ -127,8 +127,8 @@ def handover_words(
     data: dict,
 ) -> str:
     """The waiting note in words, from the header the status carries, the one place the status's sentence is built."""
-    written = handover.moment_of(data.get("written"))
-    words = f"waiting, written {handover.when(written)} on {data.get('branch') or 'an unknown branch'}"
+    written = handover.moment_of(value=data.get("written"))
+    words = f"waiting, written {handover.when(moment=written)} on {data.get('branch') or 'an unknown branch'}"
     if not data.get("again"):
         return words
 

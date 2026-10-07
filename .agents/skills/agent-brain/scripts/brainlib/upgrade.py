@@ -469,11 +469,17 @@ def port_root(
     whatever bytes the folders' names hold and needs no spelling for
     the disk.
     """
-    climb = git(project=Project(root=start), arguments=["rev-parse", "--show-cdup"])
+    climb: Optional[handover.Reply] = git(
+        project=Project(root=start),
+        arguments=["rev-parse", "--show-cdup"],
+    )
     if climb is None or climb.code != 0:
         return never_home(root=start.resolve(), start=start)
 
-    return never_home(root=(start / climb.out.strip()).resolve(), start=start)
+    return never_home(
+        root=(start / climb.out.strip()).resolve(),
+        start=start,
+    )
 
 
 def upgrade_root(
@@ -654,9 +660,13 @@ def install(
         if put(project=project, relative=Path(name), text=front_doors[name], report=report):
             replaced.append(name if found is None else found.name)
 
-    kept = kept_in_git(project=project, names=replaced, codec=report.codec)
+    kept: Optional[str] = kept_in_git(
+        project=project,
+        names=replaced,
+        codec=report.codec,
+    )
     if kept is not None:
-        report.done(kept)
+        report.done(text=kept)
 
     shipped = [Path(FOLDER) / relative for relative in kit.brain_files() if relative.name != VERSION]
     written = sum(copy(kit=kit, project=project, relative=relative) for relative in shipped)
@@ -675,13 +685,13 @@ def install(
     for kind in schema.KINDS.values():
         (project.brain / kind.folder).mkdir(parents=True, exist_ok=True)
 
-    old_notes = old_handovers(project)
+    old_notes = old_handovers(project=project)
     if old_notes:
         report.done(
             f"{FOLDER}/{handover.FOLDER}/ holds {len(old_notes)} from before this release, which the kit no longer "
             "reads or lists, since the folder now holds the one note brain handover writes and git ignores it: "
             + ", ".join(old_notes)
-            + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest"
+            + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest",
         )
 
     for relative in kit.agent_files():
@@ -723,14 +733,23 @@ def old_handovers(
     with the rest. None is moved or removed.
     """
     folder = project.brain / handover.FOLDER
-    if not store.quietly(folder.is_dir):
+    if not store.quietly(question=folder.is_dir):
         return []
 
-    return sorted(
-        path.relative_to(folder).as_posix()
-        for path in folder.rglob("*.md")
-        if store.readable_file(path) and is_old_note(path=path, note=folder / handover.FILE)
-    )
+    note = folder / handover.FILE
+    found: list[str] = []
+    for path in folder.rglob("*.md"):
+        if not store.readable_file(path=path):
+            continue
+
+        is_old = is_old_note(
+            path=path,
+            note=note,
+        )
+        if is_old:
+            found.append(path.relative_to(folder).as_posix())
+
+    return sorted(found)
 
 
 def is_old_note(
@@ -748,15 +767,15 @@ def is_old_note(
     and brain handover both leave it in place as a note that could not
     be read, so it is never named as one to delete.
     """
-    if not store.quietly(lambda: path.samefile(note)):
+    if not store.quietly(question=lambda: path.samefile(note)):
         return True
 
     try:
-        text = handover.opened(path)
+        text = handover.opened(path=path)
     except OSError:
         return False
 
-    return handover.note_of(text) is None
+    return handover.note_of(text=text) is None
 
 
 def check(
@@ -892,7 +911,7 @@ def candidates(
         return found
 
     files = [Path(entry) for entry in listed.out.split("\0") if entry]
-    found = [readable(str(path)) for path in files if len(path.parts) == 1 and path.name.lower() not in kept and not path.name.startswith(".")]
+    found = [readable(name=str(path)) for path in files if len(path.parts) == 1 and path.name.lower() not in kept and not path.name.startswith(".")]
     counts: dict[str, int] = {}
     for path in files:
         if len(path.parts) > 1 and not any(part.startswith(".") for part in path.parts):
@@ -901,7 +920,7 @@ def candidates(
     for folder, count in sorted(counts.items()):
         noun = "markdown file" if count == 1 else "markdown files"
         note = ", may stay per the rules, linked into the brain" if folder == "docs" else ""
-        found.append(f"{readable(folder)}/ ({count} {noun}{note})")
+        found.append(f"{readable(name=folder)}/ ({count} {noun}{note})")
 
     return found
 
@@ -960,7 +979,7 @@ def migration_targets(
         ],
     )
     if found is not None and found.code in (0, 1):
-        named = [on_disk(entry) for entry in found.out.split("\0") if entry]
+        named = [on_disk(name=entry) for entry in found.out.split("\0") if entry]
         paths = [project.root / name for name in named if name is not None]
     else:
         brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
@@ -1210,11 +1229,11 @@ def ancestry(
         if not answered(common):
             return found
 
-        common_dir = reached(
+        common_dir: Optional[Path] = reached(
             folder=folder,
             printed=common.out.strip(),
         )
-        repository = None if common_dir is None else identity(common_dir)
+        repository = None if common_dir is None else identity(path=common_dir)
         if repository is not None:
             found.add(repository)
 
@@ -1234,7 +1253,7 @@ def ancestry(
             found.add(repository_named(url))
             return found
 
-        if not isinstance(checkout, Path) or not store.quietly(checkout.is_dir):
+        if not isinstance(checkout, Path) or not store.quietly(question=checkout.is_dir):
             found.add(checkout)
             return found
 
@@ -1248,7 +1267,7 @@ def reached(
     printed: str,
 ) -> Optional[Path]:
     """Where a path git printed lands on disk, read from `folder` where it is relative, or None where this machine cannot spell it for its disk."""
-    name = on_disk(printed)
+    name: Optional[str] = on_disk(name=printed)
 
     return None if name is None else folder / name
 
@@ -1261,7 +1280,10 @@ def as_git_spells(
     It takes only a name the file system gave, which `os.fsencode` turns
     back into its bytes whatever codec this machine names files in.
     """
-    return os.fsencode(name).decode("utf-8", errors="surrogateescape")
+    return os.fsencode(name).decode(
+        encoding="utf-8",
+        errors="surrogateescape",
+    )
 
 
 def on_disk(
@@ -1277,7 +1299,12 @@ def on_disk(
     does not catch, ends here.
     """
     try:
-        return os.fsdecode(name.encode("utf-8", errors="surrogateescape"))
+        return os.fsdecode(
+            name.encode(
+                encoding="utf-8",
+                errors="surrogateescape",
+            ),
+        )
     except UnicodeError:
         return None
 
@@ -1303,12 +1330,12 @@ def is_a_top(
     the reason port_root asks it, and whether it stands in a work tree
     at all, since a bare repository and a git dir see no way up either.
     """
-    climb = git(
+    climb: Optional[handover.Reply] = git(
         project=Project(root=folder),
         arguments=["rev-parse", "--is-inside-work-tree", "--show-cdup"],
     )
 
-    return answered(climb) and climb.out.splitlines() == ["true", ""]
+    return answered(result=climb) and climb.out.splitlines() == ["true", ""]
 
 
 def local_origin(
@@ -1330,7 +1357,10 @@ def local_origin(
     is the URL as git printed it.
     """
     if url.startswith("file://"):
-        named = unquote(url[len("file://") :], errors="surrogateescape")
+        named = unquote(
+            string=url[len("file://") :],
+            errors="surrogateescape",
+        )
     elif "://" in url:
         return None
     else:
@@ -1342,7 +1372,7 @@ def local_origin(
 
         named = url
 
-    checkout = reached(
+    checkout: Optional[Path] = reached(
         folder=folder,
         printed=named,
     )
@@ -1611,17 +1641,23 @@ def kept_in_git(
     project's folder.
     """
     prefix = git(project=project, arguments=["rev-parse", "--show-prefix"])
-    listed = git(project=project, arguments=["ls-tree", "-z", "--name-only", "HEAD"])
-    if not answered(prefix) or not answered(listed):
+    listed: Optional[handover.Reply] = git(
+        project=project,
+        arguments=["ls-tree", "-z", "--name-only", "HEAD"],
+    )
+    if not answered(result=prefix) or not answered(result=listed):
         return None
 
     printed = prefix.out.rstrip("\n")
     entries = [entry for entry in listed.out.split("\0") if entry]
-    in_another_case = {name: [entry for entry in entries if folded(entry) == folded(name)] for name in names if name not in entries}
+    in_another_case = {name: [entry for entry in entries if folded(path=entry) == folded(path=name)] for name in names if name not in entries}
     ignore_case = False
     if any(in_another_case.values()):
-        flag = git(project=project, arguments=list(handover.CASE_FLAG))
-        ignore_case = flag is not None and handover.case_flag_of(flag)
+        flag: Optional[handover.Reply] = git(
+            project=project,
+            arguments=list(handover.CASE_FLAG),
+        )
+        ignore_case = flag is not None and handover.case_flag_of(reply=flag)
 
     held: list[str] = []
     for name in names:
@@ -1633,19 +1669,30 @@ def kept_in_git(
     if not held:
         return None
 
-    written = as_written(text=printed, codec=codec)
+    written: Optional[str] = as_written(
+        text=printed,
+        codec=codec,
+    )
     if written is not None and written.isprintable() and printed.isprintable():
         commands = ", ".join(f"git show {shlex.quote(f'HEAD:{written}{name}')}" for name in held)
         meant = ", ".join(f"git show {shlex.quote(f'HEAD:{printed}{name}')}" for name in held)
-        if as_written(text=meant, codec=codec) == commands:
+        meant_written: Optional[str] = as_written(
+            text=meant,
+            codec=codec,
+        )
+        if meant_written == commands:
             return "the old ones are still in git: " + commands
 
     from_folder = ", ".join(f"git show {shlex.quote(f'HEAD:./{name}')}" for name in held)
-    if as_written(text=from_folder, codec=codec) != from_folder:
+    from_folder_written: Optional[str] = as_written(
+        text=from_folder,
+        codec=codec,
+    )
+    if from_folder_written != from_folder:
         return "the old ones are still in git, run from the project's folder: " + from_folder
 
     return (
-        f"the old ones are still in git, in the folder git prints as {as_git_prints(printed)}, whose name a command "
+        f"the old ones are still in git, in the folder git prints as {as_git_prints(name=printed)}, whose name a command "
         "pasted from this report cannot spell, so from that folder: " + from_folder
     )
 
@@ -1946,7 +1993,10 @@ def guarded_paths(
         )
 
     if pending_migrations(project=project, want=kit.version()):
-        paths += [str(path.relative_to(project.root)) for path in migration_targets(project)]
+        targets = migration_targets(
+            project=project,
+        )
+        paths += [str(path.relative_to(project.root)) for path in targets]
 
     return paths
 
@@ -2024,16 +2074,16 @@ def refuse_when_dirty(
 
     raw = prefix.out.rstrip("\n")
     base = folded(raw)
-    wanted = {base + folded(as_git_spells(path)): path for path in paths}
+    wanted = {base + folded(path=as_git_spells(name=path)): path for path in paths}
     dirty: list[str] = []
     ignored: list[str] = []
-    for status, entry in changed_paths(result.out):
+    for status, entry in changed_paths(porcelain=result.out):
         path = wanted.get(folded(entry))
         if path is None or (status in ("??", "!!") and same_as_kit(kit=kit, project=project, relative=path)):
             continue
 
-        shown = entry[len(raw) :] if folded(entry[: len(raw)]) == base else as_git_spells(path)
-        (ignored if status == "!!" else dirty).append(readable(shown))
+        shown = entry[len(raw) :] if folded(path=entry[: len(raw)]) == base else as_git_spells(name=path)
+        (ignored if status == "!!" else dirty).append(readable(name=shown))
 
     reasons: list[str] = []
     if dirty:
@@ -2064,7 +2114,15 @@ def readable(
     never a name the disk gave, which on Windows may hold a lone
     surrogate of its own.
     """
-    return name.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace")
+    git_bytes = name.encode(
+        encoding="utf-8",
+        errors="surrogateescape",
+    )
+
+    return git_bytes.decode(
+        encoding="utf-8",
+        errors="replace",
+    )
 
 
 def as_git_prints(
@@ -2072,7 +2130,11 @@ def as_git_prints(
 ) -> str:
     """A name from git's answer in double quotes as git prints a path it quotes, every byte outside printable ASCII escaped, so a person reads the bytes git holds, one that is not UTF-8 too."""
     quoted = ""
-    for byte in name.encode("utf-8", errors="surrogateescape"):
+    git_bytes = name.encode(
+        encoding="utf-8",
+        errors="surrogateescape",
+    )
+    for byte in git_bytes:
         if byte in GIT_ESCAPES:
             quoted += GIT_ESCAPES[byte]
         elif byte < 0x20 or byte >= 0x7F:
@@ -2108,7 +2170,10 @@ def as_written(
         return text if read_back == text else None
 
     mark = "".encode(codec)
-    held = mark + text.encode("utf-8", errors="surrogateescape")
+    held = mark + text.encode(
+        encoding="utf-8",
+        errors="surrogateescape",
+    )
     try:
         spelled = held.decode(codec)
         written = spelled.encode(codec)

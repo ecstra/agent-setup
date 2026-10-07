@@ -242,8 +242,8 @@ def spine_body(
 # note the tool writes and the session start hook removes, outside git,
 # so counting it would have the spine change under every session.
 HANDOVER_LINE = (
-    f"- {schema.HANDOVER_FOLDER}/, where brain handover writes the one note a session leaves for the next, "
-    f"which the session start hook reads once and removes, a note git ignores (spec/{schema.HANDOVER_FOLDER}.md)"
+    f"- {schema.HANDOVER_FOLDER}/, the one note brain handover leaves for the next session, "
+    f"which the session start hook reads once and removes (spec/{schema.HANDOVER_FOLDER}.md)"
 )
 
 
@@ -252,8 +252,10 @@ def kit_listing(
 ) -> list[str]:
     """The kit files the spine names, in the order a reader meets them."""
     listing = ["README.md", "house-rules.md", "spec/conventions.md"]
+    folders = [kind.folder for kind in schema.KINDS.values()]
+    folders.append(schema.HANDOVER_FOLDER)
 
-    for folder in (*(kind.folder for kind in schema.KINDS.values()), schema.HANDOVER_FOLDER):
+    for folder in folders:
         spec = f"spec/{folder}.md"
         if spec not in listing and store.readable_file(brain.root / spec):
             listing.append(spec)

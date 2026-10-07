@@ -20,7 +20,7 @@ def line(
     at: Optional[datetime] = None,
 ) -> str:
     """One line naming the day, the date, the time and the zone, the way every hook prints it."""
-    return f"now: {words(at)}"
+    return f"now: {words(at=at)}"
 
 
 def words(

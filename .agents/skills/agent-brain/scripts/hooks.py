@@ -117,7 +117,12 @@ def run(
         return 0
 
     if args.event == "session-start":
-        return session_start(brain=brain, agent=args.agent, with_rules=args.with_rules, source=str(event.get("source") or ""))
+        return session_start(
+            brain=brain,
+            agent=args.agent,
+            with_rules=args.with_rules,
+            source=str(event.get("source") or ""),
+        )
 
     if args.event == "prompt":
         return prompt(brain=brain, agent=args.agent)
@@ -200,7 +205,7 @@ def session_start(
     brain: store.Brain,
     agent: str,
     with_rules: bool,
-    source: str = "",
+    source: str,
 ) -> int:
     """The clock, the word and the work, the note the last session left, read once, then the status and the rules where asked.
 
@@ -218,10 +223,10 @@ def session_start(
     file the tool never wrote and one it cannot open stay, each said in
     one line in the note's place.
     """
-    claim = handover.claim(brain=brain) if source != FORK else None
+    claim: Optional[handover.Claim] = handover.claim(brain=brain) if source != FORK else None
 
     text = the_moment(brain=brain) + handover_text(claim=claim)
-    text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(reads.status(brain=brain))
+    text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(data=reads.status(brain=brain))
     if with_rules:
         rules = brain.root / "SYSTEM.md"
         if store.readable_file(rules):
@@ -231,16 +236,24 @@ def session_start(
         if store.readable_file(chat_style):
             text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
 
-    if agent == "claude" and len(text.encode("utf-16-le", errors="surrogatepass")) // 2 > CLAUDE_SHOWS:
+    if agent == "claude" and len(
+        text.encode(
+            encoding="utf-16-le",
+            errors="surrogatepass",
+        ),
+    ) // 2 > CLAUDE_SHOWS:
         text = f"{PAST_WHAT_CLAUDE_SHOWS}\n\n" + text
 
     emit_context(agent=agent, text=text, event_name="SessionStart")
 
     # the context has gone out by now, so a file that stays can only be said on standard error
     if claim is not None and claim.taken:
-        trouble = handover.release(claim=claim)
+        trouble: Optional[str] = handover.release(claim=claim)
         if trouble is not None:
-            print(f"the brain hook put the handover in this session's context and could not remove its file, {trouble}", file=sys.stderr)
+            print(
+                f"the brain hook put the handover in this session's context and could not remove its file, {trouble}",
+                file=sys.stderr,
+            )
 
     return 0
 
@@ -1324,11 +1337,14 @@ def emit_context(
     """
     try:
         if agent == "codex" and event_name in CODEX_PLAIN:
-            write_utf8(text + "\n")
+            write_utf8(text=text + "\n")
             return
 
         payload = {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": text}}
-        print(json.dumps(payload), flush=True)
+        print(
+            json.dumps(obj=payload),
+            flush=True,
+        )
     except OSError:
         let_go_of_standard_output()
         raise
