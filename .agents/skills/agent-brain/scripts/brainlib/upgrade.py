@@ -1294,20 +1294,6 @@ def identity(
     return found.st_dev, found.st_ino
 
 
-def one_entry(
-    one: Optional[Path],
-    other: Path,
-) -> bool:
-    """Whether two spellings reach one entry of the disk, as two cases of a name do on a disk that ignores case, a symlink taken as itself and not as what it points at, false where either reaches nothing or `one` has no spelling here."""
-    if one is None:
-        return False
-
-    try:
-        return os.path.samestat(os.lstat(one), os.lstat(other))
-    except (OSError, ValueError):
-        return False
-
-
 def is_a_top(
     folder: Path,
 ) -> bool:
@@ -1434,6 +1420,15 @@ def git(
         )
     except handover.Unanswered:
         return None
+
+
+def ignores_case(
+    project: Project,
+) -> bool:
+    """Whether git takes two spellings of a path that differ by case alone for one file here, as it does where core.ignorecase is true, which git sets for a disk that ignores case, the flag read as the handover's record reads it."""
+    flag = git(project=project, arguments=["config", "--type=bool", "--get", "core.ignorecase"])
+
+    return answered(flag) and flag.out.strip() == "true"
 
 
 @dataclass
@@ -1598,24 +1593,26 @@ def kept_in_git(
     Each file is named as the commit holds it in the project's place,
     which git lists from the project's folder, since git finds a path in
     a commit by its exact spelling. A name the commit holds in another
-    case is matched without regard to case, as the guard matches a front
-    door, only where the disk spells the file otherwise, which is where
-    the disk reaches the commit's spelling and the replaced file's as one
-    entry, as after a rename in case alone on a disk that ignores case.
-    On a disk that tells case apart a file of the commit's spelling is
-    another file the run left alone, and is not named. A command names
-    its file from the repository's top, so it runs anywhere in the
+    case is matched without regard to case only where git takes two
+    cases of a path for one file, as core.ignorecase says, which git
+    sets for a disk that ignores case, so a rename in case alone there
+    is named, and elsewhere a file of the commit's spelling is another
+    file the run left alone, and is not named. The disk is not asked,
+    since a mount may number each spelling of one file apart. A command
+    names its file from the repository's top, so it runs anywhere in the
     repository, its place spelled by `as_written` for `codec`, the codec
     the report is written in, and quoted for a shell where the path
     holds a space or another character a shell reads. Git takes no path
     quoted in its own way, and a place whose name holds a byte that is
     not UTF-8, a character that does not print, or one that codec cannot
-    carry to git has no spelling a shell hands git whole, nor has any
-    place where the codec writes the command's own letters as no shell
-    reads them, UTF-16 for one, so the commands are checked whole. There
-    the line names the folder as git prints it and says why, and each
+    carry to git has no spelling a shell hands git whole, so there the
+    line names the folder as git prints it and says why, and each
     command names its file from that folder as `./`, a path git reads
-    from where it runs.
+    from where it runs. The commands are checked whole, since a codec
+    that writes their own letters as no shell reads them, UTF-16 for
+    one, carries no command from any place, the top's included, and
+    there the line says only to run the `./` commands from the
+    project's folder.
     """
     prefix = git(project=project, arguments=["rev-parse", "--show-prefix"])
     listed = git(project=project, arguments=["ls-tree", "-z", "--name-only", "HEAD"])
@@ -1630,9 +1627,8 @@ def kept_in_git(
             held.append(name)
             continue
 
-        replaced = project.root / name
-        alike = [entry for entry in entries if folded(entry) == folded(name) and one_entry(one=reached(folder=project.root, printed=entry), other=replaced)]
-        if alike:
+        alike = [entry for entry in entries if folded(entry) == folded(name)]
+        if alike and ignores_case(project):
             held.append(alike[0])
 
     if not held:
@@ -1645,9 +1641,13 @@ def kept_in_git(
         if as_written(text=meant, codec=codec) == commands:
             return "the old ones are still in git: " + commands
 
+    from_folder = ", ".join(f"git show {shlex.quote(f'HEAD:./{name}')}" for name in held)
+    if as_written(text=from_folder, codec=codec) != from_folder:
+        return "the old ones are still in git, run from the project's folder: " + from_folder
+
     return (
         f"the old ones are still in git, in the folder git prints as {as_git_prints(printed)}, whose name a command "
-        "pasted from this report cannot spell, so from that folder: " + ", ".join(f"git show {shlex.quote(f'HEAD:./{name}')}" for name in held)
+        "pasted from this report cannot spell, so from that folder: " + from_folder
     )
 
 
