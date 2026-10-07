@@ -13,12 +13,13 @@ import codecs
 import json
 import os
 import re
+import shlex
 import shutil
 import tempfile
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Callable, Optional, Protocol, TextIO, Union
 from urllib.parse import unquote
 
@@ -127,6 +128,21 @@ BOM = codecs.BOM_UTF8.decode("utf-8")
 # a carriage return with or without a newline after it, the line ends
 # text mode reads as a newline
 OTHER_LINE_ENDS = re.compile(r"\r\n?")
+# the bytes of a path git prints by a letter when it quotes the path
+# under its default core.quotePath, the quote and the backslash
+# escaped, every other byte below a space, DEL and every byte past
+# ASCII going as three octal digits
+GIT_ESCAPES = {
+    0x07: "\\a",
+    0x08: "\\b",
+    0x09: "\\t",
+    0x0A: "\\n",
+    0x0B: "\\v",
+    0x0C: "\\f",
+    0x0D: "\\r",
+    0x22: '\\"',
+    0x5C: "\\\\",
+}
 
 # The project's own section, whatever it was called before, takes the
 # heading the rulebook names. In the kit's AGENTS.md it ends at the
@@ -627,9 +643,9 @@ def install(
         if put(project=project, relative=Path(name), text=front_doors[name], report=report):
             replaced.append(name if found is None else found.name)
 
-    specs = kept_in_git(project=project, names=replaced)
-    if specs:
-        report.done("the old ones are still in git: " + ", ".join(f"git show {spec}" for spec in specs))
+    kept = kept_in_git(project=project, names=replaced)
+    if kept is not None:
+        report.done(kept)
 
     shipped = [Path(FOLDER) / relative for relative in kit.brain_files() if relative.name != VERSION]
     written = sum(copy(kit=kit, project=project, relative=relative) for relative in shipped)
@@ -837,7 +853,10 @@ def candidates(
     dot folders, the brain and the agent folders among them, the root
     files one by one and deeper ones counted by their top folder, with
     docs/ marked as the one the rules let a project keep. Outside git,
-    the root markdown and the usual folder names.
+    the root markdown and the usual folder names. The report prints the
+    list, so each name is spelled as the refusals spell one, a byte that
+    is not UTF-8 replaced, and two folders named apart by such a byte
+    are counted apart.
     """
     kept = {name.lower() for name in (*ROOT_FILES, "README.md", "CODEOWNERS", "LICENSE.md", "CHANGELOG.md", "SECURITY.md")}
     listed = git(
@@ -846,7 +865,7 @@ def candidates(
     )
     if listed is None or listed.code != 0:
         found = [
-            path.name
+            readable(as_git_spells(path.name))
             for path in sorted(project.root.glob("*.md"))
             if path.name.lower() not in kept and not path.name.startswith(".")
         ]
@@ -859,7 +878,7 @@ def candidates(
         return found
 
     files = [Path(entry) for entry in listed.out.split("\0") if entry]
-    found = [str(path) for path in files if len(path.parts) == 1 and path.name.lower() not in kept and not path.name.startswith(".")]
+    found = [readable(str(path)) for path in files if len(path.parts) == 1 and path.name.lower() not in kept and not path.name.startswith(".")]
     counts: dict[str, int] = {}
     for path in files:
         if len(path.parts) > 1 and not any(part.startswith(".") for part in path.parts):
@@ -868,7 +887,7 @@ def candidates(
     for folder, count in sorted(counts.items()):
         noun = "markdown file" if count == 1 else "markdown files"
         note = ", may stay per the rules, linked into the brain" if folder == "docs" else ""
-        found.append(f"{folder}/ ({count} {noun}{note})")
+        found.append(f"{readable(folder)}/ ({count} {noun}{note})")
 
     return found
 
@@ -1138,7 +1157,7 @@ def same_repository(
 
 def ancestry(
     folder: Path,
-) -> set[Union[tuple[int, int], Path, str]]:
+) -> set[Union[tuple[int, int], PurePath, str]]:
     """The repositories a checkout comes from, its own and each local origin's in turn, then the remote one it names.
 
     Each folder the walk stands in is recorded by its own identity
@@ -1153,13 +1172,14 @@ def ancestry(
     too, at most ORIGIN_HOPS times and never into a folder already
     recorded, and one that is not there is recorded by its resolved
     path and ends the walk, as is one this machine cannot spell for its
-    disk, by the URL git printed. An origin that is a remote URL is
+    disk, by the path resolved from the text git printed, or by that
+    text where no path can be made. An origin that is a remote URL is
     recorded as the repository it names and ends the walk too. Git is
     asked only `rev-parse` and `remote get-url`, which read the
     repository and its config, so no transport the owner may refuse is
     opened and no command a walked folder's config names runs.
     """
-    found: set[Union[tuple[int, int], Path, str]] = set()
+    found: set[Union[tuple[int, int], PurePath, str]] = set()
 
     for _ in range(ORIGIN_HOPS + 1):
         place = identity(folder)
@@ -1200,7 +1220,7 @@ def ancestry(
             found.add(repository_named(url))
             return found
 
-        if isinstance(checkout, str) or not store.quietly(checkout.is_dir):
+        if not isinstance(checkout, Path) or not store.quietly(checkout.is_dir):
             found.add(checkout)
             return found
 
@@ -1280,8 +1300,8 @@ def is_a_top(
 def local_origin(
     folder: Path,
     url: str,
-) -> Union[None, Path, str]:
-    """The folder a local origin names, resolved against the folder it was read in with its `.git` taken off, the URL as git printed it where this machine cannot spell that folder for its disk, or None for a remote URL.
+) -> Union[None, PurePath, str]:
+    """The folder a local origin names, resolved against the folder it was read in with its `.git` taken off, or None for a remote URL.
 
     Git's own rule tells them apart: a file URL is local, any other
     scheme is remote, and text with no scheme is a local path unless a
@@ -1289,6 +1309,11 @@ def local_origin(
     drive letter aside. A file URL keeps its percent escapes in the
     config, `my%20kit` for `my kit`, so they are decoded to the bytes
     they stand for, one that is not UTF-8 kept as the runner keeps it.
+    The folder is a Path where this machine spells it for its disk. Where
+    it cannot, the folder is the PurePath resolved from the text itself,
+    which reaches nothing on this disk and compares the way this
+    machine compares folders, and where not even that can be made, it
+    is the URL as git printed it.
     """
     if url.startswith("file://"):
         named = unquote(url[len("file://") :], errors="surrogateescape")
@@ -1307,11 +1332,11 @@ def local_origin(
         folder=folder,
         printed=named,
     )
-    if checkout is None:
-        return url
-
     try:
-        path = Path(os.path.realpath(checkout))
+        if checkout is None:
+            path = PurePath(os.path.realpath(folder / named))
+        else:
+            path = Path(os.path.realpath(checkout))
     except ValueError:
         return url
 
@@ -1538,30 +1563,47 @@ def without(
 def kept_in_git(
     project: Project,
     names: list[str],
-) -> list[str]:
-    """Where git's last commit holds each of these root files, as `HEAD:path` specs from the repository's top, the ones it does not hold left out.
+) -> Optional[str]:
+    """The report's line on where git's last commit holds these root files, a `git show` command a person can paste for each, or None where it holds none of them.
 
     The project's place below the top goes back to git as the file
     system spells it, so git is handed the bytes it printed whatever
     codec this machine names files in, and where this machine cannot
-    spell it, no spec is given.
+    spell it, nothing is said. A command names its file from the
+    repository's top, so it runs anywhere in the repository, quoted for
+    a shell where the path holds a space or another character a shell
+    reads. Git takes no path quoted in its own way, and a place whose
+    name holds what nobody can type, a byte that is not UTF-8 or a
+    character that does not print, has no spelling a shell hands git
+    whole everywhere, so there the line names the folder as git prints
+    it and says why, and each command names its file from that folder
+    as `./`, a path git reads from where it runs.
     """
     prefix = git(project=project, arguments=["rev-parse", "--show-prefix"])
     if prefix is None or prefix.code != 0:
-        return []
+        return None
 
-    place = on_disk(prefix.out.strip())
+    printed = prefix.out.strip()
+    place = on_disk(printed)
     if place is None:
-        return []
+        return None
 
-    specs: list[str] = []
+    held: list[str] = []
     for name in names:
-        spec = f"HEAD:{place}{name}"
-        held = git(project=project, arguments=["rev-parse", "--verify", "--quiet", spec])
-        if held is not None and held.code == 0:
-            specs.append(spec)
+        found = git(project=project, arguments=["rev-parse", "--verify", "--quiet", f"HEAD:{place}{name}"])
+        if found is not None and found.code == 0:
+            held.append(name)
 
-    return specs
+    if not held:
+        return None
+
+    if printed.isprintable():
+        return "the old ones are still in git: " + ", ".join(f"git show {shlex.quote(f'HEAD:{printed}{name}')}" for name in held)
+
+    return (
+        f"the old ones are still in git, in the folder git prints as {as_git_prints(printed)}, whose name holds a byte "
+        "that cannot be typed, so from that folder: " + ", ".join(f"git show {shlex.quote(f'HEAD:./{name}')}" for name in held)
+    )
 
 
 def with_section_zero(
@@ -1972,8 +2014,24 @@ def inside_repository(
 def readable(
     name: str,
 ) -> str:
-    """A name spelled the way git's answers read through the runner, as a refusal prints it, a byte that is not UTF-8 replaced as the handover's own calls replace it."""
+    """A name spelled the way git's answers read through the runner, as a refusal or the report prints it, a byte that is not UTF-8 replaced as the handover's own calls replace it."""
     return name.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace")
+
+
+def as_git_prints(
+    name: str,
+) -> str:
+    """A name from git's answer in double quotes as git prints a path it quotes, every byte outside printable ASCII escaped, so a person reads the bytes git holds, one that is not UTF-8 too."""
+    quoted = ""
+    for byte in name.encode("utf-8", errors="surrogateescape"):
+        if byte in GIT_ESCAPES:
+            quoted += GIT_ESCAPES[byte]
+        elif byte < 0x20 or byte >= 0x7F:
+            quoted += f"\\{byte:03o}"
+        else:
+            quoted += chr(byte)
+
+    return f'"{quoted}"'
 
 
 def folded(
