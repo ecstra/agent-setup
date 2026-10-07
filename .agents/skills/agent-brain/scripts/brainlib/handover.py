@@ -311,8 +311,11 @@ def uncommitted_lines(
     renamed, beside any file that stands at that name now. The note
     itself, under its own name or the name a claim gives it, `notes`
     from the project, is left out, and a file that left one of those
-    names is not the note. With none of the project's own, the line says
-    whether the working tree is clean or has changes outside the project.
+    names is not the note. Where git ignores case, a path that spells the
+    project's folder or one of the note's names in another casing is
+    theirs, as it is to git. With none of the project's own, the line
+    says whether the working tree is clean or has changes outside the
+    project.
     """
     try:
         prefix = answer(project=project, arguments=["rev-parse", "--show-prefix"]).rstrip("\n")
@@ -323,6 +326,7 @@ def uncommitted_lines(
     except Unanswered as unanswered:
         return [f"- uncommitted files, {unanswered}"]
 
+    ignore_case = ignores_case(project)
     changed = changed_files(listing)
     owned = [
         own_file(
@@ -331,11 +335,12 @@ def uncommitted_lines(
             left=left,
             prefix=prefix,
             notes=notes,
+            ignore_case=ignore_case,
         )
         for state, path, left in changed
     ]
     files = [file for file in owned if file is not None]
-    if not files and any(not path.startswith(prefix) for _, path, _ in changed):
+    if not files and any(from_project(path=path, prefix=prefix, ignore_case=ignore_case) is None for _, path, _ in changed):
         return ["- uncommitted files, none in this project, the working tree has changes outside it"]
 
     if not files:
@@ -356,21 +361,47 @@ def own_file(
     left: Optional[str],
     prefix: str,
     notes: set[str],
+    ignore_case: bool,
 ) -> Optional[tuple[str, str]]:
     """One entry of git's listing as the project's own file, its state and its name from the project's folder, or None for the note and for a file that never stood in the project.
 
     The note is judged by the name a file stands at, and a file renamed
     out of the project by the name it left, so a file that left the
-    note's names is never taken for the note.
+    note's names is never taken for the note. Each path is matched to
+    the project's folder and the note's names as git matches them,
+    without regard to case where `ignore_case` says git ignores it.
     """
-    if path.startswith(prefix):
-        name = path[len(prefix) :]
-        return None if name in notes else (state, name)
+    name = from_project(path=path, prefix=prefix, ignore_case=ignore_case)
+    if name is not None:
+        is_note = any(same_path(one=name, other=note, ignore_case=ignore_case) for note in notes)
+        return None if is_note else (state, name)
 
-    if left is None or not left.startswith(prefix):
+    former = None if left is None else from_project(path=left, prefix=prefix, ignore_case=ignore_case)
+    if former is None:
         return None
 
-    return (MOVED_OUT if state == STATES["R"] else state, left[len(prefix) :])
+    return (MOVED_OUT if state == STATES["R"] else state, former)
+
+
+def from_project(
+    path: str,
+    prefix: str,
+    ignore_case: bool,
+) -> Optional[str]:
+    """A path git names from the repository's top, named from the project's folder instead, the folder being `prefix` from the top, or None for a path outside it."""
+    if not same_path(one=path[: len(prefix)], other=prefix, ignore_case=ignore_case):
+        return None
+
+    return path[len(prefix) :]
+
+
+def same_path(
+    one: str,
+    other: str,
+    ignore_case: bool,
+) -> bool:
+    """Whether git takes the two paths for one, the same text, or the same but for case where git ignores case."""
+    return one == other or (ignore_case and one.casefold() == other.casefold())
 
 
 def changed_files(
@@ -512,7 +543,7 @@ def has_commits(
 def ignores_case(
     project: Path,
 ) -> bool:
-    """Whether git takes two spellings of a branch for one ref here, as it does where it set core.ignorecase for a disk that ignores case."""
+    """Whether git takes two spellings that differ by case alone for one here, a branch's two for one ref and a path's two for one file, as it does where it set core.ignorecase for a disk that ignores case."""
     try:
         reply = asked(project=project, arguments=["config", "--type=bool", "--get", "core.ignorecase"])
     except Unanswered:
