@@ -28,6 +28,14 @@ CLOSED_BUG = ("fixed", "wontfix", "refiled")
 SPINE_DESCRIPTION = "the spine of the agent directory, what exists and where"
 SPINE_LINKS = ("README.md", "spec/conventions.md", "house-rules.md")
 
+# The handover folder's line never changes, since the folder holds one
+# note that the session start hook removes, so counting it would have
+# the spine change under every session.
+HANDOVER_LINE = (
+    f"- {schema.HANDOVER_FOLDER}/, the one note brain handover leaves for the next session, "
+    f"which the session start hook reads once and removes (spec/{schema.HANDOVER_FOLDER}.md)"
+)
+
 
 def build(
     brain: store.Brain,
@@ -51,9 +59,6 @@ def build(
         )
 
     for kind in schema.KINDS.values():
-        if not kind.indexed:
-            continue
-
         path = brain.root / kind.folder / "INDEX.md"
         wanted[path] = render_index(
             brain=brain,
@@ -236,15 +241,6 @@ def spine_body(
     lines.append(HANDOVER_LINE)
 
     return "\n".join(lines) + "\n"
-
-
-# The handover folder's line never changes, since what it holds is one
-# note the tool writes and the session start hook removes, outside git,
-# so counting it would have the spine change under every session.
-HANDOVER_LINE = (
-    f"- {schema.HANDOVER_FOLDER}/, the one note brain handover leaves for the next session, "
-    f"which the session start hook reads once and removes (spec/{schema.HANDOVER_FOLDER}.md)"
-)
 
 
 def kit_listing(
@@ -618,9 +614,9 @@ def reviews_body(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-# The body writer for each kind that carries an INDEX.md. A kind marked
-# indexed in the schema needs an entry here, and a test holds the two
-# tables together.
+# The body writer for each kind, every one of which carries an INDEX.md.
+# A kind added to the schema needs an entry here, and a test holds the
+# two tables together.
 RENDERERS: dict[str, Callable[..., str]] = {
     "doc": docs_body,
     "memory": memory_body,

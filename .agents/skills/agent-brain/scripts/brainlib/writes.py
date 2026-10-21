@@ -510,7 +510,7 @@ def opening_fields(
 ) -> dict[str, str]:
     return {
         "name": name,
-        "kind": kind.kind_value,
+        "kind": kind.name,
         "description": description,
         "updated": stamp,
         "links": frontmatter.render_list(links),

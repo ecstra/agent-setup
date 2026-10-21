@@ -283,7 +283,8 @@ def run_handover(
     print(handover.RELATIVE)
     print(
         "the session start hook puts it in front of the next session on this branch, "
-        "or on any branch where git named none, and removes it, a fork aside",
+        "or one that stands the same way on a detached head or before the first commit, "
+        "or any session where git could not answer for it or for this one, and removes it, a fork aside",
     )
     return 0
 

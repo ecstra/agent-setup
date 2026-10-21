@@ -18,9 +18,10 @@ from typing import Callable, Optional, Union
 
 from . import autoack, frontmatter, index, links, schema, sections, steps, store, style, task, writes
 
-# The markdown walk never enters the skills, which follow their own
-# standard, the worktree home, or the handover folder, whose one note is
-# the tool's and sits outside git.
+# The folders the markdown walk leaves out. It never enters the worktree
+# home or the handover folder, whose one note is the tool's and sits
+# outside git, and it enters the skills, which follow their own standard,
+# only where a scan asks for them.
 SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, schema.HANDOVER_FOLDER, ".worktrees"})
 
 # A header block the parser refuses, taken off by its fences alone so
@@ -181,16 +182,19 @@ def all_markdown(
     brain: store.Brain,
     with_skills: bool = False,
 ) -> list[Path]:
-    """Every markdown file under the brain, the rulebook, dotfiles and the folders in SKIP_DIRS excepted, the skills only when asked.
+    """Every markdown file under the brain but the rulebook and what the walk skips, the skills only when asked.
 
-    The skills folder is the tool's own, its files follow the Agent
-    Skills standard rather than the specs, so only the prose and
-    boundary checks (style and hygiene) read them. A skipped folder is
-    known by the folder on disk rather than by the spelling, so where
-    the disk ignores case `Handover/` is the handover folder and stays
-    unread like it.
+    The walk skips a dotted path and the folders in SKIP_DIRS. The
+    skills folder is the tool's own, its files follow the Agent Skills
+    standard rather than the specs, so only the prose and boundary
+    checks (style and hygiene) read them. A skipped folder is known by
+    its name as `links.names_folder` reads it, so where git takes two
+    spellings that differ by case alone for one file, or gives no answer
+    for its flag, `Handover/` is the handover folder and stays unread
+    like it, and git is asked once per such spelling.
     """
     skipped_folders = [folder for folder in SKIP_DIRS if not (with_skills and folder == schema.SKILLS)]
+    skipped_by_top: dict[str, bool] = {}
     found: list[Path] = []
 
     for path in sorted(brain.root.rglob("*.md")):
@@ -199,14 +203,18 @@ def all_markdown(
         if store.hidden(relative_path):
             continue
 
-        if any(
-            links.is_folder(
-                brain=brain,
-                top=parts[0],
-                folder=folder,
+        top: str = parts[0]
+        if top not in skipped_by_top:
+            skipped_by_top[top] = any(
+                links.names_folder(
+                    brain=brain,
+                    top=top,
+                    folder=folder,
+                )
+                for folder in skipped_folders
             )
-            for folder in skipped_folders
-        ):
+
+        if skipped_by_top[top]:
             continue
 
         if path.name in schema.NO_FRONTMATTER and len(parts) == 1:
@@ -513,7 +521,7 @@ def check_kinds(
 
     for entry in brain.entries():
         actual = entry.document.get("kind")
-        if not actual or actual == entry.kind.kind_value:
+        if not actual or actual == entry.kind.name:
             continue
 
         found.append(
@@ -851,7 +859,7 @@ def check_links(
                 said = links.handover_reason(
                     brain=brain,
                     reference=link,
-                ) or "reaches nothing"
+                ) or links.REACHES_NOTHING
                 found.append(
                     Finding(
                         path=where,

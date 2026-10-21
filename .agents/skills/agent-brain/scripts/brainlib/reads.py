@@ -6,6 +6,7 @@ files as they are right now.
 """
 
 from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -49,7 +50,7 @@ def waiting_handover(
     brain: store.Brain,
 ) -> Optional[dict]:
     """The waiting note for the status, its branch and its moment, None for each its header does not give, and whether a session start read it before and could not remove it, or None when no note waits."""
-    note = handover.read(brain=brain)
+    note: Optional[handover.Note] = handover.read(brain=brain)
     if note is None:
         return None
 
@@ -115,7 +116,7 @@ def render_status(
         lines.append(f"{'reviewing':<10} {', '.join(data['open_reviews'])}")
 
     if data["handover"]:
-        lines.append(f"{'handover':<10} {handover_words(data=data['handover'])}")
+        lines.append(f"{'handover':<10} {handover_words(waiting=data['handover'])}")
 
     if data["unreadable"]:
         lines.append(f"{'unreadable':<10} {', '.join(data['unreadable'])}")
@@ -124,12 +125,12 @@ def render_status(
 
 
 def handover_words(
-    data: dict,
+    waiting: dict,
 ) -> str:
     """The waiting note in words, from the header the status carries, the one place the status's sentence is built."""
-    written = handover.moment_of(value=data.get("written"))
-    words = f"waiting, written {handover.when(moment=written)} on {data.get('branch') or 'an unknown branch'}"
-    if not data.get("again"):
+    written: Optional[datetime] = handover.moment_of(value=waiting.get("written"))
+    words = f"waiting, written {handover.when(moment=written)} on {waiting.get('branch') or 'an unknown branch'}"
+    if not waiting.get("again"):
         return words
 
     return f"{words}, read before by a session start that could not remove it"

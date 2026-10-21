@@ -72,24 +72,15 @@ class Kind:
     fields: tuple[Field, ...] = ()
     sections: tuple[Section, ...] = ()
     id_prefix: str = ""
-    frontmatter_kind: str = ""
     rules: tuple[Rule, ...] = ()
     # The fields `brain list` shows beside the id, and the description of
-    # the folder's INDEX.md, empty for a folder that carries none.
+    # the folder's INDEX.md.
     columns: tuple[str, ...] = ()
     index_description: str = ""
 
     @property
-    def kind_value(self) -> str:
-        return self.frontmatter_kind or self.name
-
-    @property
     def has_ids(self) -> bool:
         return bool(self.id_prefix)
-
-    @property
-    def indexed(self) -> bool:
-        return bool(self.index_description)
 
 
 COMMON_FIELDS: tuple[Field, ...] = (
@@ -430,7 +421,7 @@ NO_FRONTMATTER: tuple[str, ...] = ("SYSTEM.md",)
 
 # The folders that carry their own INDEX.md, per spec/conventions.md,
 # read off the kinds so the table lives in one place.
-INDEXED_FOLDERS: tuple[str, ...] = tuple(kind.folder for kind in KINDS.values() if kind.indexed)
+INDEXED_FOLDERS: tuple[str, ...] = tuple(kind.folder for kind in KINDS.values())
 
 # The files the kit writes at the top of a project: the front doors every
 # agent reads first, the contributing note and the ignore file.
