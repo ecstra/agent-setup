@@ -191,10 +191,10 @@ def all_markdown(
     its name as `links.names_folder` reads it, so where git takes two
     spellings that differ by case alone for one file, or gives no answer
     for its flag, `Handover/` is the handover folder and stays unread
-    like it, and git is asked once per such spelling.
+    like it, and git is asked once per run, as `links.case_flag` keeps
+    its answer.
     """
     skipped_folders = [folder for folder in SKIP_DIRS if not (with_skills and folder == schema.SKILLS)]
-    skipped_by_top: dict[str, bool] = {}
     found: list[Path] = []
 
     for path in sorted(brain.root.rglob("*.md")):
@@ -203,18 +203,14 @@ def all_markdown(
         if store.hidden(relative_path):
             continue
 
-        top: str = parts[0]
-        if top not in skipped_by_top:
-            skipped_by_top[top] = any(
-                links.names_folder(
-                    brain=brain,
-                    top=top,
-                    folder=folder,
-                )
-                for folder in skipped_folders
+        if any(
+            links.names_folder(
+                brain=brain,
+                top=parts[0],
+                folder=folder,
             )
-
-        if skipped_by_top[top]:
+            for folder in skipped_folders
+        ):
             continue
 
         if path.name in schema.NO_FRONTMATTER and len(parts) == 1:

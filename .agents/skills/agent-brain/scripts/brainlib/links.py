@@ -35,6 +35,11 @@ SCRATCH_SHAPE = re.compile(r"^\.putback\.[A-Za-z0-9_]+$")
 REACHES_NOTHING = "reaches nothing"
 HANDOVER_REASON = f"{REACHES_NOTHING}, since {schema.HANDOVER_FOLDER}/ holds the one note brain handover writes and no link goes into it"
 
+# What git said of its case flag for each project this run asked about,
+# kept for the run the way handover model R6 parses the flag once, so a
+# doctor run over many links starts two git processes at most.
+CASE_FLAGS: dict[Path, Optional[bool]] = {}
+
 
 def resolve(
     brain: store.Brain,
@@ -181,30 +186,27 @@ def names_folder(
 def case_flag(
     brain: store.Brain,
 ) -> Optional[bool]:
-    """Whether git takes two spellings that differ by case alone for one file here, its reply read by `handover.case_flag_of`, or None where git gives no answer, outside git, with no git installed, past its limit or in a repository it refuses.
-
-    Git answers the flag with an exit 0 and its word, or with an exit 1
-    in a repository it opens, which is its no. Every other exit is no
-    answer, the fatal line of a worktree whose repository is gone or of
-    a config git cannot parse among them.
-    """
+    """Whether git takes two spellings that differ by case alone for one file here, or None where git gives no answer, outside git, with no git installed, past its limit or in a repository it refuses, asked once per run for the project and the answer kept in CASE_FLAGS."""
     project: Path = handover.project_of(brain=brain)
-    try:
-        reply: handover.Reply = handover.asked(
-            project=project,
-            arguments=list(handover.CASE_FLAG),
-        )
-    except handover.Unanswered:
-        return None
+    if project not in CASE_FLAGS:
+        CASE_FLAGS[project] = asked_case_flag(project=project)
 
-    if reply.code == 0:
-        return handover.case_flag_of(reply=reply)
+    return CASE_FLAGS[project]
 
-    if reply.code != 1:
-        return None
 
-    # a repository git refuses for its ownership answers the read with the
-    # same silent exit 1 as an unset flag, so git is asked whether it opens one
+def asked_case_flag(
+    project: Path,
+) -> Optional[bool]:
+    """What git says of its case flag for the project, its reply read by `handover.case_flag_of`, or None where it gives no answer.
+
+    Git is asked first whether it opens a repository here, since one it
+    refuses, for its ownership among other reasons, or a `.git` it takes
+    for none, still answers the flag's read from the global and system
+    config, with an exit 0 where `~/.gitconfig` sets the flag. In a
+    repository git opens, the read answers with an exit 0 and its word,
+    or with an exit 1, which is its no. Every other exit is no answer,
+    the fatal line of a config git cannot parse among them.
+    """
     try:
         opened: handover.Reply = handover.asked(
             project=project,
@@ -214,6 +216,17 @@ def case_flag(
         return None
 
     if opened.code != 0:
+        return None
+
+    try:
+        reply: handover.Reply = handover.asked(
+            project=project,
+            arguments=list(handover.CASE_FLAG),
+        )
+    except handover.Unanswered:
+        return None
+
+    if reply.code not in (0, 1):
         return None
 
     return handover.case_flag_of(reply=reply)
@@ -287,11 +300,14 @@ def broken_in_body(
     read once and never enters git. A body link may name a folder, so
     one to the handover folder itself gives the folder as its reason,
     and `handover_reason` says why a header link to it reaches nothing
-    as one to any folder does. A target is a URL, so its percent escapes
-    are read as the characters they stand for, a byte that is not UTF-8
-    as the surrogate escape Python names such a file by. A link that
-    starts inside code is not a link, while one whose text holds a code
-    span is.
+    as one to any folder does. A target is a URL, so it names the bytes
+    its characters are in UTF-8 with each percent escape read as the
+    byte it stands for, and the file it reaches is the one named with
+    those bytes, spelled for the disk as `handover.on_disk` spells a name
+    whatever codec this machine names files in, so a link reaches
+    nothing where this machine has no name for its bytes, as Windows has
+    none for a byte that is not UTF-8. A link that starts inside code is
+    not a link, while one whose text holds a code span is.
     """
     found: list[tuple[str, str]] = []
 
@@ -308,7 +324,8 @@ def broken_in_body(
             brain=brain,
             path=named_path,
         )
-        missing: bool = not file_part or Path(file_part).is_absolute() or not store.quietly(question=named_path.exists)
+        spelled: Optional[str] = handover.on_disk(name=file_part)
+        missing: bool = not file_part or Path(file_part).is_absolute() or spelled is None or not store.quietly(question=(path.parent / spelled).exists)
         if not missing and not into_the_folder:
             continue
 

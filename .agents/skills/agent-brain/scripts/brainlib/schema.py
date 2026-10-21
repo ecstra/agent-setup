@@ -69,14 +69,15 @@ class Kind:
 
     name: str
     folder: str
+    # The description of the folder's INDEX.md, which every kind's folder
+    # carries, so a kind is made with one.
+    index_description: str
     fields: tuple[Field, ...] = ()
     sections: tuple[Section, ...] = ()
     id_prefix: str = ""
     rules: tuple[Rule, ...] = ()
-    # The fields `brain list` shows beside the id, and the description of
-    # the folder's INDEX.md.
+    # The fields `brain list` shows beside the id.
     columns: tuple[str, ...] = ()
-    index_description: str = ""
 
     @property
     def has_ids(self) -> bool:
