@@ -1224,16 +1224,17 @@ def ancestry(
     whatever bytes their names hold. A local origin, a file URL or a
     plain path, is resolved against the folder it was read in and looked
     for as git's clone looks for a local repository, by
-    `as_git_clone_finds`, and the folder that finds is walked on from, a
-    bare repository too, at most ORIGIN_HOPS times and never into a
-    folder already recorded. One no folder answers is recorded by its
-    resolved path and ends the walk, as is one this machine cannot spell
-    for its disk, by the path resolved from the text git printed, or by
-    that text where no path can be made. An origin that is a remote URL
-    is recorded as the repository it names and ends the walk too. Git is
-    asked only `rev-parse` and `remote get-url`, which read the
-    repository and its config, so no transport the owner may refuse is
-    opened and no command a walked folder's config names runs.
+    `as_git_clone_finds`, and the walk goes on from the repository found,
+    in its work tree where it has one, a bare repository too, at most
+    ORIGIN_HOPS times and never into a folder already recorded. One
+    where git finds no repository is recorded by its resolved path and
+    ends the walk, as is one this machine cannot spell for its disk, by
+    the path resolved from the text git printed, or by that text where
+    no path can be made. An origin that is a remote URL is recorded as
+    the repository it names and ends the walk too. Git is asked only
+    `rev-parse` and `remote get-url`, which read the repository and its
+    config, so no transport the owner may refuse is opened and no
+    command a walked folder's config names runs.
     """
     found: set[Union[tuple[int, int], PurePath, str]] = set()
 
@@ -1280,12 +1281,12 @@ def ancestry(
             found.add(checkout)
             return found
 
-        repository_folder: Optional[Path] = as_git_clone_finds(path=checkout)
-        if repository_folder is None:
+        origin_folder: Optional[Path] = as_git_clone_finds(path=checkout)
+        if origin_folder is None:
             found.add(checkout)
             return found
 
-        folder = repository_folder
+        folder = origin_folder
 
     return found
 
@@ -1293,11 +1294,18 @@ def ancestry(
 def as_git_clone_finds(
     path: Path,
 ) -> Optional[Path]:
-    """The folder git's clone takes a local origin's path for, the first of the path with `/.git` after it, the path as it stands, the path with `.git/.git` after it and the path with `.git` after it that is a folder, or None where none is.
+    """Where the walk stands in the repository git's clone and fetch take a local origin's path for, or None where git takes none.
 
     Git records a clone's origin as the path it was given, so a clone
     of a bare `hub.git` made by the name `hub` names an origin that is
-    not there under that name.
+    not there under that name. Git tries the path with `/.git` after it,
+    the path as it stands, the path with `.git/.git` after it and the
+    path with `.git` after it, and takes the first that is a repository,
+    passing over a plain folder. The walk stands in that one with a
+    trailing `/.git` dropped, the work tree where there is one, since
+    git resolves a relative origin from there when it fetches, and opens
+    there a repository its owner's config keeps it from opening from
+    inside the `.git` folder.
     """
     candidates: tuple[Path, ...] = (
         path / ".git",
@@ -1306,10 +1314,30 @@ def as_git_clone_finds(
         Path(f"{path}.git"),
     )
     for candidate in candidates:
-        if store.quietly(question=candidate.is_dir):
-            return candidate
+        if is_a_repository(path=candidate):
+            return candidate.parent if candidate.name == ".git" else candidate
 
     return None
+
+
+def is_a_repository(
+    path: Path,
+) -> bool:
+    """Whether git takes the path for a repository, a folder holding `HEAD`, `objects` and `refs`, or a file whose first line starts `gitdir: `, which names the git dir of a worktree or of a checkout that keeps it apart."""
+    if store.quietly(question=path.is_dir):
+        return all(store.quietly(question=(path / name).exists) for name in ("HEAD", "objects", "refs"))
+
+    gitfile = b"gitdir: "
+    try:
+        with open(
+            file=path,
+            mode="rb",
+        ) as handle:
+            first: bytes = handle.read(len(gitfile))
+    except (OSError, ValueError):
+        return False
+
+    return first == gitfile
 
 
 def reached(
