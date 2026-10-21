@@ -14,6 +14,7 @@ path the tool never wrote is the project's own, and the tool neither
 claims nor writes over it.
 """
 
+import functools
 import os
 import re
 import stat
@@ -22,7 +23,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from . import autoack, clock, frontmatter, schema, store, task
 
@@ -202,7 +203,7 @@ def write(
         ignore_case: bool = ignore_case_for(
             note=waiting_note,
             branch=branch,
-            project=project,
+            case_flag=asked_once(project=project),
         )
         for_this_branch: bool = waits_for(
             note=waiting_note,
@@ -305,7 +306,9 @@ def obstacle(
 
     A folder at the claimed name would hold the note's rename aside and
     the write's removal of the claimed note it replaces, so it is
-    refused before anything is written.
+    refused before anything is written. A link there holds neither,
+    since the rename and the removal each take the link away and leave
+    what it leads to, so it is judged as anything else at that name is.
     """
     if os.path.lexists(path.parent) and not store.quietly(question=path.parent.is_dir):
         return FILE_IN_THE_WAY
@@ -314,7 +317,8 @@ def obstacle(
         return FOLDER_IN_THE_WAY
 
     claimed: Path = path.with_name(name=CLAIMED_NAME)
-    if store.quietly(question=claimed.is_dir):
+    linked: bool = store.quietly(question=claimed.is_symlink)
+    if not linked and store.quietly(question=claimed.is_dir):
         return CLAIMED_FOLDER_IN_THE_WAY
 
     return None
@@ -673,7 +677,10 @@ def file_text(
     """A small file git keeps, as text without the whitespace around it, or nothing where git keeps none.
 
     One that stands where this process cannot read it is Unanswered with
-    the reason, since then what git keeps there is not known.
+    the reason, since then what git keeps there is not known. The reason
+    names the file by its path, which may hold a line break or a byte
+    that is not UTF-8, so it goes into the note as git's own words do,
+    such a byte read as the replacement character and the line kept one.
     """
     try:
         kept: bytes = path.read_bytes()
@@ -681,7 +688,9 @@ def file_text(
         return ""
     except OSError as error:
         why: str = store.explain(error=error)
-        raise Unanswered(f"{NO_ANSWER}, {why}") from error
+        readable: str = replaced(text=why)
+        on_one_line: str = one_line(text=readable)
+        raise Unanswered(f"{NO_ANSWER}, {on_one_line}") from error
 
     return kept.decode(
         encoding="utf-8",
@@ -1080,13 +1089,14 @@ def claim(
     The note is renamed aside in one step, then read and judged again
     there, so a file written at the note's path between the first read
     and the rename is taken only where it is this session's note too,
-    and a note written between the read and the removal is never the one
-    removed. A note at the note's path is the latest, written after
-    anything a session claimed, and its rename replaces a claimed one
-    left on disk. With none there, one a session claimed before and
-    could not remove is the note still waiting, read again, and with
-    neither the claim is None. Where the rename fails the note is read
-    where it is with the reason, and stays for the next session.
+    and goes back to the note's path otherwise, and a note written
+    between the read and the removal is never the one removed. A note
+    at the note's path is the latest, written after anything a session
+    claimed, and its rename replaces a claimed one left on disk. With
+    none there, one a session claimed before and could not remove is
+    the note still waiting, read again, and with neither the claim is
+    None. Where the rename fails the note is read where it is with the
+    reason, and stays for the next session.
     """
     path: Path = path_of(brain=brain)
     if os.path.lexists(path):
@@ -1112,12 +1122,16 @@ def judged(
     path: Path,
     again: bool,
     branch: Optional[str] = None,
+    case_flag: Optional[Callable[[], bool]] = None,
 ) -> Claim:
     """The claim on the file at the path, taken where it is this session's note, else left as it is with the line that says why.
 
     `branch` is the session's, asked of git here unless the caller has
-    asked it already. A note at the note's path goes aside to be taken,
-    and one under the claimed name is taken where it is.
+    asked it already, and `case_flag` gives git's case flag, asked of
+    git once for the whole claim however many files the claim judges,
+    and only where a note's branch differs from the session's by case
+    alone. A note at the note's path goes aside to be taken, and one
+    under the claimed name is taken where it is.
     """
     project: Path = project_of(brain=brain)
     where: str = path.relative_to(project).as_posix()
@@ -1143,15 +1157,16 @@ def judged(
         )
 
     session_branch: str = current_branch(project=project) if branch is None else branch
-    ignore_case: bool = ignore_case_for(
+    flag: Callable[[], bool] = asked_once(project=project) if case_flag is None else case_flag
+    one_ref_for_git: bool = ignore_case_for(
         note=note,
         branch=session_branch,
-        project=project,
+        case_flag=flag,
     )
     for_this_session: bool = is_for(
         note=note,
         branch=session_branch,
-        ignore_case=ignore_case,
+        ignore_case=one_ref_for_git,
     )
     if not for_this_session:
         waiting_since: str = when(moment=note.written)
@@ -1167,6 +1182,7 @@ def judged(
             path=path,
             note=note,
             branch=session_branch,
+            case_flag=flag,
         )
 
     HELD_PATHS.add(path)
@@ -1186,13 +1202,21 @@ def taken_aside(
     path: Path,
     note: Note,
     branch: str,
+    case_flag: Callable[[], bool],
 ) -> Claim:
-    """The note renamed aside, then judged again there as the file the rename moved, or read where it is with the reason when the rename fails, so the next session reads it again.
+    """The note renamed aside, then judged again there as the first read was judged, or read where it is with the reason when the rename fails, so the next session reads it again.
 
+    Every judge of the claim takes the session's branch the first read
+    took and the one answer `case_flag` gives for git's case flag, so
+    git is asked that at most once, by whichever judge first needs it.
     A file written at the note's path after the first read is the one
-    the rename moves, so where it is not this session's note, or cannot
-    be read, it is left under the claimed name with the line that says
-    why, and the next start reads it as the note still waiting.
+    the rename moves. Where it is not this session's note, or cannot be
+    read, it goes back to the note's path and is said as a file found
+    there is, since the session start leaves such a file where it found
+    it. Where something stands at the note's path again by then, it
+    stays under the claimed name with the line that says why, and so it
+    does where the move back fails, with the reason, and the next start
+    reads it as the note still waiting.
     """
     aside: Path = path.with_name(name=CLAIMED_NAME)
     try:
@@ -1211,11 +1235,36 @@ def taken_aside(
             trouble=trouble,
         )
 
-    return judged(
+    moved: Claim = judged(
         brain=brain,
         path=aside,
         again=False,
         branch=branch,
+        case_flag=case_flag,
+    )
+    if moved.taken or os.path.lexists(path):
+        return moved
+
+    try:
+        os.replace(
+            src=aside,
+            dst=path,
+        )
+    except OSError as error:
+        why: str = store.explain(error=error)
+        where: str = path.relative_to(project_of(brain=brain)).as_posix()
+        return left(
+            path=aside,
+            again=False,
+            waiting=f"{moved.waiting} It stays there, since it could not go back to {where}, {why}.",
+        )
+
+    return judged(
+        brain=brain,
+        path=path,
+        again=False,
+        branch=branch,
+        case_flag=case_flag,
     )
 
 
@@ -1298,13 +1347,20 @@ def waits_for(
 def ignore_case_for(
     note: Note,
     branch: str,
-    project: Path,
+    case_flag: Callable[[], bool],
 ) -> bool:
-    """Whether the note's branch and this one, differing by case alone, are one ref to git here, which git is asked only then."""
+    """Whether the note's branch and this one, differing by case alone, are one ref to git here, `case_flag` giving git's case flag, which is asked only then."""
     if note.branch is None or note.branch == branch or note.branch.casefold() != branch.casefold():
         return False
 
-    return ignores_case(project=project)
+    return case_flag()
+
+
+def asked_once(
+    project: Path,
+) -> Callable[[], bool]:
+    """Git's case flag for the project as `ignores_case` reads it, asked of git the first time it is wanted and given from that answer after, so one claim asks git at most once however many files it judges."""
+    return functools.cache(lambda: ignores_case(project=project))
 
 
 def silent(
