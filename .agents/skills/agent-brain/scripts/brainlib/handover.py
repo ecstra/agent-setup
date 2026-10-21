@@ -16,9 +16,11 @@ tool neither claims nor writes over it.
 
 import os
 import re
+import stat
+import string
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -36,6 +38,7 @@ DETACHED = "detached"
 UNKNOWN_TIME = "an unknown time"
 NO_WORDS = "a handover carries words, give them on standard input"
 FOLDER_IN_THE_WAY = f"{RELATIVE} is a folder the tool never made, move it away by hand"
+CLAIMED_FOLDER_IN_THE_WAY = f"{FOLDER}/{CLAIMED_NAME} is a folder the tool never made, move it away by hand"
 FILE_IN_THE_WAY = f"{FOLDER} is a file the tool never made, where the note's folder goes, move it away by hand"
 BY_HAND = f"{FOLDER}/ holds the one note brain handover writes for the next session, read and removed by the session start hook, and nothing there is written by hand"
 
@@ -62,8 +65,14 @@ OBJECT_NAME_SHAPE = re.compile(pattern=r"[0-9a-f]{40}|[0-9a-f]{64}")
 
 # the one shape the tool writes a moment in, to the second, a fraction of
 # one to six digits, then an offset or a Z, since the interpreters of the
-# kit's floor and ceiling read different sets of ISO forms
-MOMENT_SHAPE = re.compile(pattern=r"([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,6}))?([+-][0-9]{2}:[0-9]{2}|Z)")
+# kit's floor and ceiling read different sets of ISO forms, the ceiling
+# taking hour 24 for the next day's midnight and both taking an offset's
+# minutes past 59 for more hours, so an hour runs to 23 and a minute to 59
+MOMENT_SHAPE = re.compile(pattern=r"([0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9])(?:\.([0-9]{1,6}))?([+-](?:[01][0-9]|2[0-3]):[0-5][0-9]|Z)")
+
+# git folds the case of ASCII letters alone where core.ignorecase is
+# true, so to git's listing É and é stay two paths
+ASCII_LOWER: dict[int, int] = str.maketrans(string.ascii_uppercase, string.ascii_lowercase)
 
 WORD_FOR_STATUS_LETTER: dict[str, str] = {
     "?": "untracked",
@@ -161,14 +170,15 @@ def write(
     """Write the note, the tool's record first and the prose under it, in place of the tool's note there.
 
     Refused with no prose, since a note with no words is nothing to
-    resume from, with a folder in the file's place or a file in the
-    folder's, and with a file there the tool never wrote or cannot read,
-    which `replace` never writes over. A note waiting there for another
-    branch, or for a branch this one cannot be compared with, is refused
-    too in words that name the branch this one reads, and `replace`
-    writes over that on the owner's word. With no note at the path, a
-    claimed note a session could not remove is the note waiting, judged
-    the same, and the note written takes its place.
+    resume from, with a folder in the file's place or in the place of
+    the name a claim gives it, or a file in the folder's, and with
+    whatever stands at the path that the tool never wrote or cannot read
+    as a file, which `replace` never writes over. A note waiting there
+    for another branch, or for a branch this one cannot be compared
+    with, is refused too in words that name the branch this one reads,
+    and `replace` writes over that on the owner's word. With nothing at
+    the path, a claimed note a session could not remove is the note
+    waiting, judged the same, and the note written takes its place.
     """
     words = trimmed(prose=prose)
     if not words:
@@ -203,12 +213,13 @@ def write(
 
     # the moment in this machine's zone, so the note's lines name the zone the clock line names
     at = (at or clock.now()).astimezone()
+    written = to_the_minute(moment=at)
     head = current_head(project=project)
     document = frontmatter.Document(
         lines=[
             f"branch: {branch}",
             f"head: {head}",
-            f"written: {at.isoformat()}",
+            f"written: {written.isoformat()}",
         ],
         body=body(
             brain=brain,
@@ -240,7 +251,24 @@ def write(
     return Note(
         text=text,
         branch=branch,
-        written=at,
+        written=written,
+    )
+
+
+def to_the_minute(
+    moment: datetime,
+) -> datetime:
+    """The same moment with its zone's offset cut to whole minutes, the most an ISO offset holds, and the zone's name kept, so a zone whose offset has seconds still writes the one shape `moment_of` reads."""
+    offset: timedelta = moment.utcoffset() or timedelta(0)
+    whole_minutes = timedelta(minutes=int(offset / timedelta(minutes=1)))
+    if whole_minutes == offset:
+        return moment
+
+    return moment.astimezone(
+        tz=timezone(
+            offset=whole_minutes,
+            name=moment.tzname(),
+        ),
     )
 
 
@@ -261,12 +289,20 @@ def trimmed(
 def obstacle(
     path: Path,
 ) -> Optional[str]:
-    """What stands where the note or its folder goes that the tool never made, in the words that say what to move, or None."""
+    """What stands where the note, the name a claim gives it or their folder goes that the tool never made, in the words that say what to move, or None.
+
+    A folder at the claimed name would hold the note's rename aside and
+    the write's removal of the claimed note it replaces, so it is
+    refused before anything is written.
+    """
     if os.path.lexists(path.parent) and not store.quietly(question=path.parent.is_dir):
         return FILE_IN_THE_WAY
 
     if store.quietly(question=path.is_dir):
         return FOLDER_IN_THE_WAY
+
+    if store.quietly(question=path.with_name(name=CLAIMED_NAME).is_dir):
+        return CLAIMED_FOLDER_IN_THE_WAY
 
     return None
 
@@ -274,8 +310,8 @@ def obstacle(
 def note_in_the_way(
     path: Path,
 ) -> Optional[Note]:
-    """The tool's note at the path for a write to judge, or None when no file is there, refused when the file is not one the tool can read as its own."""
-    if not store.readable_file(path=path):
+    """The tool's note at the path for a write to judge, or None when nothing stands there, refused when what stands there is not a file the tool can read as its own, a link that leads nowhere and a FIFO among them."""
+    if not os.path.lexists(path):
         return None
 
     where = f"{FOLDER}/{path.name}"
@@ -331,7 +367,7 @@ def uncommitted_lines(
     project: Path,
     notes: set[str],
 ) -> list[str]:
-    """The project's uncommitted files as list lines, the first fifty with their state and the rest counted, or the one line for none or git's silence.
+    """The project's uncommitted files as list lines, the first MOST_FILES_NAMED with their state and the rest counted, or the one line for none or git's silence.
 
     Git names every file from the repository's top and covers the whole
     repository, so a project below the top keeps its own files, named
@@ -341,13 +377,14 @@ def uncommitted_lines(
     itself, under its own name or the name a claim gives it, `notes`
     from the project, is left out, and a file that left one of those
     names is not the note. Where git ignores case, a path that spells the
-    project's folder or one of the note's names in another casing is
-    theirs, as it is to git. The paths and the prefix are compared as git
-    printed them, a byte that is not UTF-8 kept as the shared runner's
-    escape, so two folders git names apart by such a byte stay apart, and
-    the escape is replaced only in the line written. With none of the
-    project's own, the line says whether the working tree is clean or has
-    changes outside the project.
+    project's folder or one of the note's names with an ASCII letter in
+    another case is theirs, as it is to git, and one that differs in any
+    other letter is another path. The paths and the prefix are compared
+    as git printed them, a byte that is not UTF-8 kept as the shared
+    runner's escape, so two folders git names apart by such a byte stay
+    apart, and the escape is replaced only in the line written. With none
+    of the project's own, the line says whether the working tree is clean
+    or has changes outside the project.
     """
     try:
         prefix = printed(
@@ -414,7 +451,8 @@ def own_file(
     out of the project by the name it left, so a file that left the
     note's names is never taken for the note. Each path is matched to
     the project's folder and the note's names as git matches them,
-    without regard to case where `ignore_case` says git ignores it.
+    without regard to an ASCII letter's case where `ignore_case` says git
+    ignores it.
     """
     name: Optional[str] = from_project(
         path=path,
@@ -473,8 +511,8 @@ def same_path(
     other: str,
     ignore_case: bool,
 ) -> bool:
-    """Whether git takes the two paths for one, the same text, or the same but for case where git ignores case."""
-    return one == other or (ignore_case and one.casefold() == other.casefold())
+    """Whether git takes the two paths for one, folding only the case git folds where it ignores case, an ASCII letter's."""
+    return one == other or (ignore_case and one.translate(ASCII_LOWER) == other.translate(ASCII_LOWER))
 
 
 def changed_files(
@@ -509,7 +547,7 @@ def changed_files(
 def state_of(
     code: str,
 ) -> str:
-    """The word for a porcelain status pair, read as a conflict first, then a file gone from the work tree, then what was staged as new, renamed or copied, then the work tree's letter over the index's."""
+    """The word for a porcelain status pair, the one state of the two letters that tells the next session most about the file."""
     if code in UNMERGED:
         return WORD_FOR_STATUS_LETTER["U"]
 
@@ -535,8 +573,9 @@ def current_branch(
     A head on a branch names it, whatever a rebase or a bisect left on
     disk, and only a detached head asks what one in progress works on.
     The branch is named from its full ref without `refs/heads/`, the way
-    the files git keeps for a rebase or a bisect are read, so a branch
-    that shares its name with a tag reads one way in both.
+    a rebase's file is read and the name a bisect's file already holds,
+    so a branch that shares its name with a tag, or whose own name starts
+    with `refs/heads/`, reads one way in all three.
     """
     try:
         has_commits(project=project)
@@ -559,12 +598,26 @@ def current_branch(
 def branch_in_progress(
     project: Path,
 ) -> Optional[str]:
-    """The branch a rebase or a bisect in progress works on, from the files git keeps for it, or None, a detached start included."""
-    folder = project / answer(
-        project=project,
-        arguments=["rev-parse", "--git-dir"],
-    ).rstrip("\n")
+    """The branch a rebase or a bisect in progress works on, from the files git keeps for it, or None, a detached start included.
 
+    The files are looked for in the folder `rev-parse --git-dir` names,
+    spelled for the disk by `on_disk` from the bytes git printed, so a
+    git dir named with a byte that is not UTF-8, or with a name this
+    machine's file name codec spells apart from UTF-8, is the folder git
+    meant, and one this machine cannot spell is not reached. A rebase
+    keeps the branch's full ref, and a bisect the name without
+    `refs/heads/`, or the commit's full name for a detached start.
+    """
+    git_dir: Optional[str] = on_disk(
+        name=printed(
+            project=project,
+            arguments=["rev-parse", "--git-dir"],
+        ).rstrip("\n"),
+    )
+    if git_dir is None:
+        return None
+
+    folder = project / git_dir
     for name in ("rebase-merge/head-name", "rebase-apply/head-name"):
         head_name = file_text(path=folder / name)
         if head_name.startswith(BRANCH_REF_PREFIX):
@@ -572,7 +625,7 @@ def branch_in_progress(
 
     started_on = file_text(path=folder / "BISECT_START")
     if started_on and OBJECT_NAME_SHAPE.fullmatch(string=started_on) is None:
-        return branch_name_of(ref=started_on)
+        return started_on
 
     return None
 
@@ -586,14 +639,18 @@ def branch_name_of(
 def file_text(
     path: Path,
 ) -> str:
-    """A small file git keeps, as text without the whitespace around it, or nothing where it cannot be read."""
+    """A small file git keeps, as text without the whitespace around it, or nothing where git keeps none, and Unanswered with the reason where one stands that this process cannot read, since then what git keeps there is not known."""
     try:
-        return path.read_bytes().decode(
-            encoding="utf-8",
-            errors="replace",
-        ).strip()
-    except OSError:
+        kept = path.read_bytes()
+    except FileNotFoundError:
         return ""
+    except OSError as error:
+        raise Unanswered(f"{NO_ANSWER}, {store.explain(error=error)}") from error
+
+    return kept.decode(
+        encoding="utf-8",
+        errors="replace",
+    ).strip()
 
 
 def current_head(
@@ -728,6 +785,27 @@ def replaced(
     )
 
 
+def on_disk(
+    name: str,
+) -> Optional[str]:
+    """A name from the shared runner's text spelled the way the file system spells it, so it reaches the file whose bytes git printed whatever codec this machine names files in, or None where this machine cannot spell it.
+
+    The text's UTF-8 bytes with the runner's escapes restored are the
+    bytes git printed. Windows names files in UTF-16 and has no name for
+    a byte that is not UTF-8, so there such a name reaches nothing, and
+    the UnicodeError, a ValueError brain.py does not catch, ends here.
+    """
+    try:
+        return os.fsdecode(
+            name.encode(
+                encoding="utf-8",
+                errors="surrogateescape",
+            ),
+        )
+    except UnicodeError:
+        return None
+
+
 def git(
     project: Path,
     arguments: list[str],
@@ -787,9 +865,8 @@ def no_answer(
 def first_line(
     text: str,
 ) -> str:
-    lines = text.strip().splitlines()
-
-    return lines[0].strip() if lines else ""
+    """The first line of what git said, cut at the line feed git ends each line with and nowhere else, a carriage return in it written as its escape so the note's line stays one."""
+    return one_line(text=text.strip().split(sep="\n")[0].strip())
 
 
 def one_line(
@@ -852,7 +929,16 @@ def note_at(
 def opened(
     path: Path,
 ) -> str:
-    """The file's text as a note is read, UTF-8 with a stray byte replaced, a leading byte order mark dropped, and each line ending read as a line break as a text file's is, so none of them hides the header, the CRLF Windows writes the note with among them."""
+    """The file's text as a note is read, UTF-8 with a stray byte replaced, a leading byte order mark dropped, and each line ending read as a line break as a text file's is, so none of them hides the header, the CRLF Windows writes the note with among them.
+
+    What stands at the path that is not a file, a folder, a FIFO or a
+    device, is refused with an OSError before it is opened, since a FIFO
+    or a device would hold the read up, and a link that leads nowhere
+    raises as the system names it.
+    """
+    if not stat.S_ISREG(os.stat(path).st_mode):
+        raise OSError(None, "Not a file", str(path))
+
     decoded = path.read_bytes().decode(
         encoding="utf-8",
         errors="replace",
@@ -924,13 +1010,16 @@ def claim(
 ) -> Optional[Claim]:
     """Take the note for the session starting, or say in one line why it stays, None when nothing waits.
 
-    The note is renamed aside in one step and read there, so a note
-    written between the read and the removal is never the one removed.
-    A note at the note's path is the latest, written after anything a
-    session claimed, and its rename replaces a claimed one left on disk.
-    With none there, one a session claimed before and could not remove
-    is the note still waiting, read again. Where the rename fails the
-    note is read where it is, and stays for the next session.
+    The note is renamed aside in one step, then read and judged again
+    there, so a file written at the note's path between the first read
+    and the rename is taken only where it is this session's note too,
+    and a note written between the read and the removal is never the one
+    removed. A note at the note's path is the latest, written after
+    anything a session claimed, and its rename replaces a claimed one
+    left on disk. With none there, one a session claimed before and
+    could not remove is the note still waiting, read again. Where the
+    rename fails the note is read where it is, and stays for the next
+    session.
     """
     path = path_of(brain=brain)
     if os.path.lexists(path):
@@ -955,9 +1044,16 @@ def judged(
     brain: store.Brain,
     path: Path,
     again: bool,
+    branch: Optional[str] = None,
 ) -> Claim:
-    """The claim on the file at the path, taken where it is this session's note, else left as it is with the line that says why."""
-    where = path.relative_to(project_of(brain=brain)).as_posix()
+    """The claim on the file at the path, taken where it is this session's note, else left as it is with the line that says why.
+
+    `branch` is the session's, asked of git here unless the caller has
+    asked it already. A note at the note's path goes aside to be taken,
+    and one under the claimed name is taken where it is.
+    """
+    project = project_of(brain=brain)
+    where = path.relative_to(project).as_posix()
     try:
         text = opened(path=path)
     except OSError as error:
@@ -978,46 +1074,56 @@ def judged(
             waiting=f"{where} holds a file brain handover never wrote, left where it is, move it into docs/ through brain new or delete it.",
         )
 
-    project = project_of(brain=brain)
-    branch = current_branch(project=project)
+    session_branch = current_branch(project=project) if branch is None else branch
     ignore_case = ignore_case_for(
         note=note,
-        branch=branch,
+        branch=session_branch,
         project=project,
     )
     for_this_session = is_for(
         note=note,
-        branch=branch,
+        branch=session_branch,
         ignore_case=ignore_case,
     )
     if not for_this_session:
         return left(
             path=path,
             again=again,
-            waiting=f"A handover written on {note.branch} at {when(moment=note.written)} waits in {where} for a session on that branch, and this one is on {branch}.",
+            waiting=f"A handover written on {note.branch} at {when(moment=note.written)} waits in {where} for a session on that branch, and this one is on {session_branch}.",
         )
 
-    if again:
-        HELD_PATHS.add(path)
-        return Claim(
-            note=note,
+    if path.name != CLAIMED_NAME:
+        return taken_aside(
+            brain=brain,
             path=path,
-            taken=True,
-            again=True,
-            waiting=None,
+            note=note,
+            branch=session_branch,
         )
 
-    return taken_aside(
-        path=path,
+    HELD_PATHS.add(path)
+
+    return Claim(
         note=note,
+        path=path,
+        taken=True,
+        again=again,
+        waiting=None,
     )
 
 
 def taken_aside(
+    brain: store.Brain,
     path: Path,
     note: Note,
+    branch: str,
 ) -> Claim:
-    """The note renamed aside and read there, or read where it is when the rename fails, so the next session reads it again."""
+    """The note renamed aside, then judged again there as the file the rename moved, or read where it is when the rename fails, so the next session reads it again.
+
+    A file written at the note's path after the first read is the one
+    the rename moves, so where it is not this session's note, or cannot
+    be read, it is left under the claimed name with the line that says
+    why, and the next start reads it as the note still waiting.
+    """
     aside = path.with_name(name=CLAIMED_NAME)
     try:
         os.replace(
@@ -1033,18 +1139,11 @@ def taken_aside(
             waiting=None,
         )
 
-    HELD_PATHS.add(aside)
-    try:
-        claimed: Optional[Note] = note_of(text=opened(path=aside))
-    except OSError:
-        claimed = None
-
-    return Claim(
-        note=claimed or note,
+    return judged(
+        brain=brain,
         path=aside,
-        taken=True,
         again=False,
-        waiting=None,
+        branch=branch,
     )
 
 
