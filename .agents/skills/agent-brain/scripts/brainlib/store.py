@@ -614,13 +614,19 @@ def explain(
 ) -> str:
     """The error as one plain line, an OS error without the machine's path.
 
-    A KeyError prints its key in quotes, which is the key that was
-    looked up and not found, so it reads as that.
+    An OS error over two paths, a rename's or a link's, names both, the
+    first to the second, since the one in the way may be either, a
+    folder standing at the second or a first that is gone. A KeyError
+    prints its key in quotes, which is the key that was looked up and
+    not found, so it reads as that.
     """
     if isinstance(error, OSError) and error.filename:
         reason = error.strerror or type(error).__name__
+        paths: str = near(os.fsdecode(error.filename))
+        if error.filename2:
+            paths += f" to {near(os.fsdecode(error.filename2))}"
 
-        return f"{reason}: {near(os.fsdecode(error.filename))}"
+        return f"{reason}: {paths}"
 
     if isinstance(error, KeyError):
         key = error.args[0] if error.args else "a key"
