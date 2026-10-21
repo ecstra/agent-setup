@@ -272,7 +272,7 @@ def handover_text(
         return f"\n\n{claim.waiting}"
 
     if not claim.taken:
-        heading = "The handover the last session left here, read where it is, since it could not be taken aside, and the next session reads it again."
+        heading = f"The handover the last session left here, read where it is, since it could not be taken aside, {claim.trouble}, and the next session reads it again."
     elif claim.again:
         heading = "The handover the last session left here, read before by a session that could not remove it, read again, its file to be removed when this context is out."
     else:
