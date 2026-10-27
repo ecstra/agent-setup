@@ -44,6 +44,13 @@ NOT_SHIPPED = ("settings.local.json",)
 # clones a person keeps.
 ORIGIN_HOPS = 8
 
+# The two of the variables `git rev-parse --local-env-vars` lists that
+# carry the config the owner gives in command scope, through `git -c` or
+# GIT_CONFIG_COUNT with its keys and values, which git's own
+# prepare_other_repo_env keeps when it runs a command in another
+# repository, so the walk keeps them too.
+COMMAND_SCOPE_CONFIG = frozenset({"GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT"})
+
 # The kit's code is never read by hand in a project, since the skill
 # sheet and its reference say what every command does, so the port
 # writes Claude Code the rules that refuse the read, which hold Edit
@@ -1201,16 +1208,63 @@ def same_repository(
     Each folder has to be the top of its own repository first, since a
     kit vendored as plain files inside a project's repository, or a
     project folder inside the kit's, shares a `.git` and its origin
-    without being a checkout of the kit.
+    without being a checkout of the kit. Every git call of the walk runs
+    without the variables that name a repository for git, asked of git
+    once for the run, so a `GIT_DIR` or a `GIT_WORK_TREE` a git hook
+    exported never answers for a folder the walk asks about, while the
+    config the owner gives in command scope still holds.
     """
-    if not is_a_top(kit.root) or not is_a_top(project.root):
+    unset: frozenset[str] = repository_variables(folder=kit.root)
+    kit_is_a_top: bool = is_a_top(
+        folder=kit.root,
+        unset=unset,
+    )
+    project_is_a_top: bool = is_a_top(
+        folder=project.root,
+        unset=unset,
+    )
+    if not kit_is_a_top or not project_is_a_top:
         return False
 
-    return not ancestry(kit.root).isdisjoint(ancestry(project.root))
+    kits: set[Union[tuple[int, int], PurePath, str]] = ancestry(
+        folder=kit.root,
+        unset=unset,
+    )
+    projects: set[Union[tuple[int, int], PurePath, str]] = ancestry(
+        folder=project.root,
+        unset=unset,
+    )
+
+    return not kits.isdisjoint(projects)
+
+
+def repository_variables(
+    folder: Path,
+) -> frozenset[str]:
+    """The variables through which git takes the repository it works in from its caller, as `git rev-parse --local-env-vars` lists them, the two that carry config in command scope aside, asked from the folder in this process's own environment, or none where git gives no answer.
+
+    Git hands a hook its repository through them, `GIT_DIR` and
+    `GIT_WORK_TREE` among them, and takes them out itself where it runs
+    a command in another repository, so the walk does the same. It keeps
+    COMMAND_SCOPE_CONFIG, as git keeps it there, so a `safe.directory` or
+    a `safe.bareRepository` the owner gives through `git -c` or
+    `GIT_CONFIG_COUNT` still holds for every git the walk runs.
+    """
+    listed: Optional[handover.Reply] = git(
+        project=Project(root=folder),
+        arguments=["rev-parse", "--local-env-vars"],
+    )
+    if not answered(result=listed):
+        return frozenset()
+
+    names: list[str] = listed.out.split()
+
+    return frozenset(names) - COMMAND_SCOPE_CONFIG
 
 
 def ancestry(
     folder: Path,
+    unset: frozenset[str],
 ) -> set[Union[tuple[int, int], PurePath, str]]:
     """The repositories a checkout comes from, its own and each local origin's in turn, then the remote one it names.
 
@@ -1227,7 +1281,13 @@ def ancestry(
     `as_git_clone_finds`, and the walk goes into the first that is a
     folder, in its work tree where it has one, a bare repository too, at
     most ORIGIN_HOPS times and never into a folder already recorded, so
-    git's answer there decides whether it goes on. One no folder answers
+    git's answer there decides whether it goes on. Git is asked there
+    under a ceiling at the folder's resolved parent, so it answers for
+    that folder or not at all, and never for a repository above it, a
+    monorepo that took a nested checkout's files in or a project
+    holding an emptied submodule, and every call runs without the
+    variables `unset` names, so neither does git answer for the
+    repository a hook runs in. One no folder answers
     is recorded by its resolved path and ends the walk, as is one this
     machine cannot spell for its disk, by the path resolved from the
     text git printed, or by that text where no path can be made. An
@@ -1238,6 +1298,8 @@ def ancestry(
     command a walked folder's config names runs.
     """
     found: set[Union[tuple[int, int], PurePath, str]] = set()
+    # the starting folder is a top by is_a_top, so git finds its own repository there with no ceiling
+    ceiling: Optional[Path] = None
 
     for _ in range(ORIGIN_HOPS + 1):
         place = identity(folder)
@@ -1250,6 +1312,8 @@ def ancestry(
         common = git(
             project=here,
             arguments=["rev-parse", "--git-common-dir"],
+            ceiling=ceiling,
+            unset=unset,
         )
         if not answered(common):
             return found
@@ -1265,6 +1329,8 @@ def ancestry(
         origin = git(
             project=here,
             arguments=["remote", "get-url", "origin"],
+            ceiling=ceiling,
+            unset=unset,
         )
         if not answered(origin):
             return found
@@ -1288,6 +1354,9 @@ def ancestry(
             return found
 
         folder = origin_folder
+        # git stands in the folder a link leads to, so its parent is the ceiling
+        resolved: Path = Path(os.path.realpath(origin_folder))
+        ceiling = resolved.parent
 
     return found
 
@@ -1362,17 +1431,21 @@ def identity(
 
 def is_a_top(
     folder: Path,
+    unset: frozenset[str],
 ) -> bool:
     """Whether the folder is the top of a work tree of its own, which it is where git says it stands in a work tree and sees no way up to its top.
 
     Git is asked how far up the top lies rather than where it is, so
     its answer is held against no steps at all and never spelled for
     the disk, and whether it stands in a work tree at all, since a bare
-    repository and a git dir see no way up either.
+    repository and a git dir see no way up either. It is asked without
+    the variables `unset` names, so it answers for the folder and not
+    for a repository a hook's GIT_DIR or GIT_WORK_TREE names.
     """
     climb: Optional[handover.Reply] = git(
         project=Project(root=folder),
         arguments=["rev-parse", "--is-inside-work-tree", "--show-cdup"],
+        unset=unset,
     )
 
     return answered(result=climb) and climb.out.splitlines() == ["true", ""]
@@ -1485,14 +1558,21 @@ def answered(
 def git(
     project: Project,
     arguments: list[str],
+    ceiling: Optional[Path] = None,
+    unset: frozenset[str] = frozenset(),
 ) -> Optional[handover.Reply]:
     """Run git in the project through the handover's runner, or None when git is not installed.
 
     Git itself finds the repository that holds the project, a bare one
-    included. Its output is UTF-8 with a byte that is not UTF-8 kept as
-    a surrogate escape, so a path git printed reaches its file through
-    `handover.on_disk`, and its trouble is git's words whole with such a
-    byte replaced, as the shared runner gives them, of which the
+    included, and where `ceiling` is given it never climbs into that
+    folder to look, so a ceiling at the project's parent has git answer
+    for the project's folder alone. The variables `unset` names are
+    taken out of the environment it runs in, which the walk does so a
+    hook's GIT_DIR never answers in place of the folder it asks about.
+    Its output is UTF-8 with a byte that is not UTF-8 kept as a
+    surrogate escape, so a path git printed reaches its file through
+    `handover.on_disk`, and its trouble is git's words whole with such
+    a byte replaced, as the shared runner gives them, of which the
     handover's note keeps the first line alone. It waits as long as git
     takes, where the handover's own calls, the session start's and
     brain handover's, give up after GIT_SECONDS, since the migration's
@@ -1504,6 +1584,8 @@ def git(
             project=project.root,
             arguments=arguments,
             seconds=None,
+            ceiling=ceiling,
+            unset=unset,
         )
     except handover.Unanswered:
         return None

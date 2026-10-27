@@ -57,7 +57,13 @@ GIT_SECONDS = 10
 CASE_FLAG = ("config", "--type=bool", "--get", "core.ignorecase")
 
 BYTE_ORDER_MARK = "\ufeff"
+REPLACEMENT_CHARACTER = "\ufffd"
 BRANCH_REF_PREFIX = "refs/heads/"
+
+# a lone surrogate outside U+DC80 to U+DCFF, where the shared runner's
+# escapes for a byte that is not UTF-8 lie, so one with no byte to give
+# back, as a name on Windows can hold
+NOT_AN_ESCAPE: re.Pattern[str] = re.compile(pattern=r"[\ud800-\udc7f\udd00-\udfff]")
 
 # a bisect started on a detached head keeps the commit's full name where
 # a branch's name would be
@@ -678,9 +684,10 @@ def file_text(
 
     One that stands where this process cannot read it is Unanswered with
     the reason, since then what git keeps there is not known. The reason
-    names the file by its path, which may hold a line break or a byte
-    that is not UTF-8, so it goes into the note as git's own words do,
-    such a byte read as the replacement character and the line kept one.
+    names the file by its path, which may hold a line break, a byte
+    that is not UTF-8 or, on Windows, a lone surrogate, so it goes into
+    the note as git's own words do, such a byte or surrogate read as the
+    replacement character and the line kept one.
     """
     try:
         kept: bytes = path.read_bytes()
@@ -826,8 +833,12 @@ def git_here(
 def replaced(
     text: str,
 ) -> str:
-    """The text with each surrogate escape the shared runner keeps for a byte that is not UTF-8 read as the replacement character."""
-    git_printed: bytes = text.encode(
+    """The text with each surrogate escape the shared runner keeps for a byte that is not UTF-8 read as the replacement character, and so every other lone surrogate, which a name on Windows can hold and which stands for no byte."""
+    escapes_alone: str = NOT_AN_ESCAPE.sub(
+        repl=REPLACEMENT_CHARACTER,
+        string=text,
+    )
+    git_printed: bytes = escapes_alone.encode(
         encoding="utf-8",
         errors="surrogateescape",
     )
@@ -862,22 +873,35 @@ def git(
     project: Path,
     arguments: list[str],
     seconds: Optional[int] = GIT_SECONDS,
+    ceiling: Optional[Path] = None,
+    unset: frozenset[str] = frozenset(),
 ) -> Reply:
     """One git call from the folder, its output read as UTF-8 with a byte that is not UTF-8 kept as a surrogate escape and no line ending changed, and its trouble read with such a byte replaced.
 
     Git itself finds the repository that holds the folder, a bare one
     included, so the upgrade reads through this what git reads, and the
-    bytes of a path git printed come back from the output's text. It is
-    Unanswered with no git where git is not installed, and with git
-    could not answer where git takes longer than `seconds`, which is
+    bytes of a path git printed come back from the output's text. Where
+    `ceiling` is given, git runs with GIT_CEILING_DIRECTORIES naming it,
+    so its search for the repository never climbs into that folder, and
+    a ceiling that is the folder's parent has git answer for the folder
+    itself or not at all. The variables `unset` names are taken out of
+    the environment git runs in, which otherwise is this process's own.
+    It is Unanswered with no git where git is not installed, and with
+    git could not answer where git takes longer than `seconds`, which is
     GIT_SECONDS unless the caller says, and where it is None waits as
     long as git takes.
     """
+    environment: Optional[dict[str, str]] = environment_for(
+        ceiling=ceiling,
+        unset=unset,
+    )
+
     try:
         result: subprocess.CompletedProcess[bytes] = subprocess.run(
             ["git", "-C", str(project), *arguments],
             capture_output=True,
             timeout=seconds,
+            env=environment,
             check=False,
         )
     except OSError as error:
@@ -899,6 +923,25 @@ def git(
         out=output,
         err=said,
     )
+
+
+def environment_for(
+    ceiling: Optional[Path],
+    unset: frozenset[str],
+) -> Optional[dict[str, str]]:
+    """The environment one git call runs in, None for this process's own where the call keeps it whole, else that one without the variables `unset` names and with GIT_CEILING_DIRECTORIES naming the ceiling where one is given."""
+    if ceiling is None and not unset:
+        return None
+
+    environment: dict[str, str] = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in unset
+    }
+    if ceiling is not None:
+        environment["GIT_CEILING_DIRECTORIES"] = str(ceiling)
+
+    return environment
 
 
 def inside_repository(
@@ -1095,7 +1138,8 @@ def claim(
     claimed, and its rename replaces a claimed one left on disk. With
     none there, one a session claimed before and could not remove is
     the note still waiting, read again, and with neither the claim is
-    None. Where the rename fails the note is read where it is with the
+    None, as it is where the file found is gone by the time it is read.
+    Where the rename fails the note is read where it is with the
     reason, and stays for the next session.
     """
     path: Path = path_of(brain=brain)
@@ -1123,21 +1167,26 @@ def judged(
     again: bool,
     branch: Optional[str] = None,
     case_flag: Optional[Callable[[], bool]] = None,
-) -> Claim:
-    """The claim on the file at the path, taken where it is this session's note, else left as it is with the line that says why.
+) -> Optional[Claim]:
+    """The claim on the file at the path, taken where it is this session's note, else left as it is with the line that says why, or None where nothing stands at the path by the time it is read.
 
     `branch` is the session's, asked of git here unless the caller has
     asked it already, and `case_flag` gives git's case flag, asked of
     git once for the whole claim however many files the claim judges,
     and only where a note's branch differs from the session's by case
     alone. A note at the note's path goes aside to be taken, and one
-    under the claimed name is taken where it is.
+    under the claimed name is taken where it is. A file gone since the
+    claim found it, renamed by another start or removed by a write, has
+    no line to say, while a link that leads nowhere still stands there.
     """
     project: Path = project_of(brain=brain)
     where: str = path.relative_to(project).as_posix()
     try:
         text: str = opened(path=path)
     except OSError as error:
+        if isinstance(error, FileNotFoundError) and not os.path.lexists(path):
+            return None
+
         why: str = store.explain(error=error)
         return left(
             path=path,
@@ -1203,7 +1252,7 @@ def taken_aside(
     note: Note,
     branch: str,
     case_flag: Callable[[], bool],
-) -> Claim:
+) -> Optional[Claim]:
     """The note renamed aside, then judged again there as the first read was judged, or read where it is with the reason when the rename fails, so the next session reads it again.
 
     Every judge of the claim takes the session's branch the first read
@@ -1216,7 +1265,11 @@ def taken_aside(
     it. Where something stands at the note's path again by then, it
     stays under the claimed name with the line that says why, and so it
     does where the move back fails, with the reason, and the next start
-    reads it as the note still waiting.
+    reads it as the note still waiting. Where the file the rename moved
+    is gone by its second judge or by its move back, removed by a write
+    that took its place, there is nothing to move back, and what the
+    note's path holds then is judged as a file found there is, the claim
+    None where it holds nothing.
     """
     aside: Path = path.with_name(name=CLAIMED_NAME)
     try:
@@ -1235,23 +1288,30 @@ def taken_aside(
             trouble=trouble,
         )
 
-    moved: Claim = judged(
+    moved: Optional[Claim] = judged(
         brain=brain,
         path=aside,
         again=False,
         branch=branch,
         case_flag=case_flag,
     )
+    if moved is None:
+        return judged(
+            brain=brain,
+            path=path,
+            again=False,
+            branch=branch,
+            case_flag=case_flag,
+        )
+
     if moved.taken or os.path.lexists(path):
         return moved
 
-    try:
-        os.replace(
-            src=aside,
-            dst=path,
-        )
-    except OSError as error:
-        why: str = store.explain(error=error)
+    why: Optional[str] = put_back(
+        aside=aside,
+        path=path,
+    )
+    if why is not None:
         where: str = path.relative_to(project_of(brain=brain)).as_posix()
         return left(
             path=aside,
@@ -1266,6 +1326,24 @@ def taken_aside(
         branch=branch,
         case_flag=case_flag,
     )
+
+
+def put_back(
+    aside: Path,
+    path: Path,
+) -> Optional[str]:
+    """Move the file renamed aside back to the note's path, and say why where it cannot go. One gone from the claimed name has nothing to move back, so it gives no words either."""
+    try:
+        os.replace(
+            src=aside,
+            dst=path,
+        )
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        return store.explain(error=error)
+
+    return None
 
 
 def left(
