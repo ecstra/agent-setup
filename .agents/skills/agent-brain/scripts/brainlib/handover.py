@@ -1138,9 +1138,12 @@ def claim(
     claimed, and its rename replaces a claimed one left on disk. With
     none there, one a session claimed before and could not remove is
     the note still waiting, read again, and with neither the claim is
-    None, as it is where the file found is gone by the time it is read.
-    Where the rename fails the note is read where it is with the
-    reason, and stays for the next session.
+    None. A claimed note left on disk and gone by the time it is read
+    was removed by a write that wrote the note's path first, so what
+    stands there then is judged as a file found there is, and a note
+    found at the note's path and gone by then gives no claim. Where the
+    rename fails the note is read where it is with the reason, and
+    stays for the next session.
     """
     path: Path = path_of(brain=brain)
     if os.path.lexists(path):
@@ -1151,14 +1154,22 @@ def claim(
         )
 
     aside: Path = path.with_name(name=CLAIMED_NAME)
-    if os.path.lexists(aside):
-        return judged(
-            brain=brain,
-            path=aside,
-            again=True,
-        )
+    if not os.path.lexists(aside):
+        return None
 
-    return None
+    leftover: Optional[Claim] = judged(
+        brain=brain,
+        path=aside,
+        again=True,
+    )
+    if leftover is not None:
+        return leftover
+
+    return judged(
+        brain=brain,
+        path=path,
+        again=False,
+    )
 
 
 def judged(
