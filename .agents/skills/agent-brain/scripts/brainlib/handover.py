@@ -1139,11 +1139,12 @@ def claim(
     none there, one a session claimed before and could not remove is
     the note still waiting, read again, and with neither the claim is
     None. A claimed note left on disk and gone by the time it is read
-    was removed by a write that wrote the note's path first, so what
-    stands there then is judged as a file found there is, and a note
-    found at the note's path and gone by then gives no claim. Where the
-    rename fails the note is read where it is with the reason, and
-    stays for the next session.
+    was removed by a write, which wrote the note's path first, by
+    another start's release or its move back, or by hand, so what the
+    note's path holds then is judged as a file found there is, the claim
+    None where it holds nothing, and a note found at the note's path and
+    gone by then gives no claim. Where the rename fails the note is read
+    where it is with the reason, and stays for the next session.
     """
     path: Path = path_of(brain=brain)
     if os.path.lexists(path):
@@ -1181,14 +1182,17 @@ def judged(
 ) -> Optional[Claim]:
     """The claim on the file at the path, taken where it is this session's note, else left as it is with the line that says why, or None where nothing stands at the path by the time it is read.
 
-    `branch` is the session's, asked of git here unless the caller has
-    asked it already, and `case_flag` gives git's case flag, asked of
-    git once for the whole claim however many files the claim judges,
-    and only where a note's branch differs from the session's by case
-    alone. A note at the note's path goes aside to be taken, and one
-    under the claimed name is taken where it is. A file gone since the
-    claim found it, renamed by another start or removed by a write, has
-    no line to say, while a link that leads nowhere still stands there.
+    `branch` is the session's, given by a caller that has asked git for
+    it already, or else asked of git here once the file reads as a
+    note, so a file gone by its read costs the claim no ask, and
+    `case_flag` gives git's case flag, asked of git once for the whole
+    claim however many files the claim judges, and only where a note's
+    branch differs from the session's by case alone. A note at the
+    note's path goes aside to be taken, and one under the claimed name
+    is taken where it is. A file gone since the claim found it, renamed
+    or removed by another start, removed by a write or deleted by hand,
+    has no line to say, while a link that leads nowhere still stands
+    there.
     """
     project: Path = project_of(brain=brain)
     where: str = path.relative_to(project).as_posix()
@@ -1278,9 +1282,10 @@ def taken_aside(
     does where the move back fails, with the reason, and the next start
     reads it as the note still waiting. Where the file the rename moved
     is gone by its second judge or by its move back, removed by a write
-    that took its place, there is nothing to move back, and what the
-    note's path holds then is judged as a file found there is, the claim
-    None where it holds nothing.
+    that took its place, by another start's release or its move back,
+    or by hand, there is nothing to move back, and what the note's path
+    holds then is judged as a file found there is, the claim None where
+    it holds nothing.
     """
     aside: Path = path.with_name(name=CLAIMED_NAME)
     try:
