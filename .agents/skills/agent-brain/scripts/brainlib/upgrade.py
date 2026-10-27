@@ -492,7 +492,7 @@ def port_root(
 
     top: Optional[Path] = reached(
         folder=start_resolved,
-        printed=climb.out.removesuffix("\n"),
+        printed=climb.output.removesuffix("\n"),
     )
     if top is None:
         return never_home(
@@ -933,7 +933,7 @@ def candidates(
 
         return found
 
-    files: list[Path] = [Path(entry) for entry in listed.out.split("\0") if entry]
+    files: list[Path] = [Path(entry) for entry in listed.output.split("\0") if entry]
     found: list[str] = []
     counts: dict[str, int] = {}
     for path in files:
@@ -1007,7 +1007,7 @@ def migration_targets(
         ],
     )
     if found is not None and found.code in (0, 1):
-        named: list[Optional[str]] = [handover.on_disk(name=entry) for entry in found.out.split("\0") if entry]
+        named: list[Optional[str]] = [handover.on_disk(name=entry) for entry in found.output.split("\0") if entry]
         paths: list[Path] = [project.root / name for name in named if name is not None]
     else:
         brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
@@ -1257,7 +1257,7 @@ def repository_variables(
     if not answered(result=listed):
         return frozenset()
 
-    names: list[str] = listed.out.split()
+    names: list[str] = listed.output.split()
 
     return frozenset(names) - COMMAND_SCOPE_CONFIG
 
@@ -1320,7 +1320,7 @@ def ancestry(
 
         common_dir: Optional[Path] = reached(
             folder=folder,
-            printed=common.out.removesuffix("\n"),
+            printed=common.output.removesuffix("\n"),
         )
         repository: Optional[tuple[int, int]] = None if common_dir is None else identity(path=common_dir)
         if repository is not None:
@@ -1335,7 +1335,7 @@ def ancestry(
         if not answered(origin):
             return found
 
-        url: str = origin.out.removesuffix("\n")
+        url: str = origin.output.removesuffix("\n")
         checkout = local_origin(
             folder=folder,
             url=url,
@@ -1448,7 +1448,7 @@ def is_a_top(
         unset=unset,
     )
 
-    return answered(result=climb) and climb.out.splitlines() == ["true", ""]
+    return answered(result=climb) and climb.output.splitlines() == ["true", ""]
 
 
 def local_origin(
@@ -1792,8 +1792,8 @@ def git_show_line(
     if not answered(result=prefix) or not answered(result=listed):
         return None
 
-    place: str = prefix.out.rstrip("\n")
-    entries: list[str] = [entry for entry in listed.out.split("\0") if entry]
+    place: str = prefix.output.rstrip("\n")
+    entries: list[str] = [entry for entry in listed.output.split("\0") if entry]
 
     in_another_case: dict[str, list[str]] = {}
     for name in names:
@@ -1804,7 +1804,7 @@ def git_show_line(
     if any(in_another_case.values()):
         flag_reply: Optional[handover.Reply] = git(
             project=project,
-            arguments=list(handover.CASE_FLAG),
+            arguments=list(handover.CASE_FLAG_QUESTION),
         )
         ignore_case = flag_reply is not None and handover.case_flag_of(reply=flag_reply)
 
@@ -2254,15 +2254,15 @@ def refuse_when_dirty(
     )
     for reply in (prefix, tree_status):
         if reply is None or reply.code != 0:
-            words: str = "" if reply is None else reply.err
+            words: str = "" if reply is None else reply.trouble
             raise UpgradeError(f"git could not read the working tree, so nothing is guarded: {words}")
 
-    place: str = prefix.out.rstrip("\n")
+    place: str = prefix.output.rstrip("\n")
     place_folded: str = folded(place)
     wanted: dict[str, str] = {place_folded + folded(path=as_git_spells(name=path)): path for path in paths}
     dirty: list[str] = []
     ignored: list[str] = []
-    for status, entry in changed_paths(porcelain=tree_status.out):
+    for status, entry in changed_paths(porcelain=tree_status.output):
         path = wanted.get(folded(entry))
         if path is None or (status in ("??", "!!") and same_as_kit(kit=kit, project=project, relative=path)):
             continue

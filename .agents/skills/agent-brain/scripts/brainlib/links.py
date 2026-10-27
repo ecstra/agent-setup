@@ -208,7 +208,7 @@ def asked_case_flag(
     the fatal line of a config git cannot parse among them.
     """
     try:
-        opened: handover.Reply = handover.asked(
+        opened: handover.Reply = handover.readable_reply(
             project=project,
             arguments=["rev-parse", "--git-dir"],
         )
@@ -219,9 +219,9 @@ def asked_case_flag(
         return None
 
     try:
-        reply: handover.Reply = handover.asked(
+        reply: handover.Reply = handover.readable_reply(
             project=project,
-            arguments=list(handover.CASE_FLAG),
+            arguments=list(handover.CASE_FLAG_QUESTION),
         )
     except handover.Unanswered:
         return None

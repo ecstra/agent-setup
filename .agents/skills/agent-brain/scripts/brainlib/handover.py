@@ -54,7 +54,7 @@ GIT_SECONDS = 10
 # what git is asked for whether it takes two spellings that differ by case
 # alone for one, whichever runner asks it, each reply read by
 # `case_flag_of` so no caller reads the flag apart from another
-CASE_FLAG = ("config", "--type=bool", "--get", "core.ignorecase")
+CASE_FLAG_QUESTION = ("config", "--type=bool", "--get", "core.ignorecase")
 
 BYTE_ORDER_MARK = "\ufeff"
 REPLACEMENT_CHARACTER = "\ufffd"
@@ -154,8 +154,8 @@ class Reply:
     """What one git call gave back, its exit code and its two streams, what it printed and what it said went wrong, whole."""
 
     code: int
-    out: str
-    err: str
+    output: str
+    trouble: str
 
 
 def path_of(
@@ -419,11 +419,11 @@ def uncommitted_lines(
     or has changes outside the project.
     """
     try:
-        prefix: str = printed(
+        prefix: str = exact_output(
             project=project,
             arguments=["rev-parse", "--show-prefix"],
         ).rstrip("\n")
-        listing: str = printed(
+        listing: str = exact_output(
             project=project,
             arguments=["--no-optional-locks", "status", "--porcelain", "--untracked-files=all", "-z"],
         )
@@ -627,16 +627,16 @@ def current_branch(
     """
     try:
         has_commits(project=project)
-        reply: Reply = asked(
+        reply: Reply = readable_reply(
             project=project,
             arguments=["symbolic-ref", "-q", "HEAD"],
         )
-        if reply.code == 1 and not reply.err:
+        if reply.code == 1 and not reply.trouble:
             return branch_in_progress(project=project) or DETACHED
     except Unanswered as unanswered:
         return str(unanswered)
 
-    full_ref: str = reply.out.strip()
+    full_ref: str = reply.output.strip()
     if reply.code != 0 or not full_ref:
         return no_answer(reply=reply)
 
@@ -656,7 +656,7 @@ def branch_in_progress(
     keeps the branch's full ref, and a bisect the name without
     `refs/heads/`, or the commit's full name for a detached start.
     """
-    git_dir_printed: str = printed(
+    git_dir_printed: str = exact_output(
         project=project,
         arguments=["rev-parse", "--git-dir"],
     ).rstrip("\n")
@@ -711,7 +711,7 @@ def current_head(
     """The head's short hash and subject on one line, or the words for what stands in for them."""
     try:
         has_commits(project=project)
-        log: str = answer(
+        log: str = readable_output(
             project=project,
             arguments=["log", "-1", "--no-show-signature", "--encoding=UTF-8", "--format=%h %s"],
         )
@@ -727,14 +727,14 @@ def has_commits(
     project: Path,
 ) -> None:
     """Go on where the head names a commit, else stop with the words for a repository with no commits yet, or for what git said."""
-    reply: Reply = asked(
+    reply: Reply = readable_reply(
         project=project,
         arguments=["rev-parse", "-q", "--verify", "HEAD"],
     )
     if reply.code == 0:
         return
 
-    if reply.code == 1 and not reply.err:
+    if reply.code == 1 and not reply.trouble:
         raise Unanswered(NO_COMMITS)
 
     in_the_facts_place: str = no_answer(reply=reply)
@@ -746,9 +746,9 @@ def ignores_case(
 ) -> bool:
     """Whether git takes two spellings that differ by case alone for one here, a branch's two for one ref and a path's two for one file, as it does where it set core.ignorecase for a disk that ignores case, asked through the handover's own runner, so no `.git` at the project's root or above it, or a git that gives no answer in GIT_SECONDS, reads as no."""
     try:
-        reply: Reply = asked(
+        reply: Reply = readable_reply(
             project=project,
-            arguments=list(CASE_FLAG),
+            arguments=list(CASE_FLAG_QUESTION),
         )
     except Unanswered:
         return False
@@ -759,16 +759,16 @@ def ignores_case(
 def case_flag_of(
     reply: Reply,
 ) -> bool:
-    """Whether git's reply to CASE_FLAG says it takes two spellings that differ by case alone for one, the one reading of the flag, which a caller that asks through a runner of its own hands its reply to."""
-    return reply.code == 0 and reply.out.strip() == "true"
+    """Whether git's reply to CASE_FLAG_QUESTION says it takes two spellings that differ by case alone for one, the one reading of the flag, which a caller that asks through a runner of its own hands its reply to."""
+    return reply.code == 0 and reply.output.strip() == "true"
 
 
-def answer(
+def readable_output(
     project: Path,
     arguments: list[str],
 ) -> str:
     """What git prints for the project, a byte that is not UTF-8 read as the replacement character, or Unanswered with the words for why it printed nothing to stand on."""
-    output: str = printed(
+    output: str = exact_output(
         project=project,
         arguments=arguments,
     )
@@ -776,12 +776,12 @@ def answer(
     return replaced(text=output)
 
 
-def printed(
+def exact_output(
     project: Path,
     arguments: list[str],
 ) -> str:
     """What git prints for the project as the shared runner gives it, a byte that is not UTF-8 kept as a surrogate escape, or Unanswered with the words for why it printed nothing to stand on."""
-    reply: Reply = git_here(
+    reply: Reply = exact_reply(
         project=project,
         arguments=arguments,
     )
@@ -789,10 +789,10 @@ def printed(
         in_the_facts_place: str = no_answer(reply=reply)
         raise Unanswered(in_the_facts_place)
 
-    return reply.out
+    return reply.output
 
 
-def asked(
+def readable_reply(
     project: Path,
     arguments: list[str],
 ) -> Reply:
@@ -802,21 +802,21 @@ def asked(
     character, so no text the handover gives a person holds the
     surrogate escape the shared runner keeps it as.
     """
-    reply: Reply = git_here(
+    reply: Reply = exact_reply(
         project=project,
         arguments=arguments,
     )
 
-    readable: str = replaced(text=reply.out)
+    readable: str = replaced(text=reply.output)
 
     return Reply(
         code=reply.code,
-        out=readable,
-        err=reply.err,
+        output=readable,
+        trouble=reply.trouble,
     )
 
 
-def git_here(
+def exact_reply(
     project: Path,
     arguments: list[str],
 ) -> Reply:
@@ -898,7 +898,7 @@ def git(
 
     try:
         result: subprocess.CompletedProcess[bytes] = subprocess.run(
-            ["git", "-C", str(project), *arguments],
+            args=["git", "-C", str(project), *arguments],
             capture_output=True,
             timeout=seconds,
             env=environment,
@@ -920,8 +920,8 @@ def git(
 
     return Reply(
         code=result.returncode,
-        out=output,
-        err=said,
+        output=output,
+        trouble=said,
     )
 
 
@@ -960,7 +960,7 @@ def inside_repository(
 def no_answer(
     reply: Reply,
 ) -> str:
-    said: str = first_line(text=reply.err)
+    said: str = first_line(text=reply.trouble)
 
     return f"{NO_ANSWER}, {said}" if said else NO_ANSWER
 
