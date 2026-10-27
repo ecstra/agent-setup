@@ -318,7 +318,7 @@ need to, but the commands are short enough to know.
 | `brain new`, `brain set`, `brain refile` | Files a plan, a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
 | `brain ledger` | Opens, fills and closes a code review ledger, and `brain ledger report` says where a review stands, counted from the file. |
 | `brain ack on --for 8h` | Your standing word to proceed, for a time or until a task is done, so the agent passes the review's gates that normally wait for you, the house rules name them, and each report says which ack the step ran on. It never starts a review, and the PR and the merge still wait for your ask. `brain ack off` takes it back. |
-| `brain handover` | The note a session leaves for the next when it passes work on or stops mid task, at its end or before a compaction. The tool records the branch, the uncommitted files, your standing word and the work the agent is on, and the agent's own words say what is verified and what comes next, with the traps it met and the rules you gave in chat. The session start hook puts it in front of the next session on that branch, a fork in Claude Code aside, and removes it, so it is read once, and it never enters git. Gemini CLI runs no session start after a compression, so there the note waits for the next session you open. |
+| `brain handover` | The note a session leaves for the next when it passes work on or stops mid task, kept on this machine and never in git. Section 8.4 of [`.agents/SYSTEM.md`](.agents/SYSTEM.md) says when the agent writes one and why to ask for one before you compact a session yourself. |
 | `brain port` and `brain upgrade` | The two commands above, run from a kit checkout against your project. |
 
 The full contract, every flag and every refusal, is in
@@ -405,10 +405,10 @@ land.
 The trackers, the docs library, and memory each carry an `INDEX.md`
 listing what is inside, and `.agents/INDEX.md` at the top names each
 of those folders with its counts. `spec/` and `handover/` carry none,
-the spine covers both. `handover/` holds the note `brain handover`
-writes for the next session, which that session's start hook reads once
-and removes. Git ignores the folder, so a fresh clone has none, unless
-notes from an older release are still tracked there.
+the spine covers both. `handover/` holds the note for the next
+session, which [`spec/handover.md`](.agents/spec/handover.md) governs.
+Git ignores the folder, so a fresh clone has none, unless notes from
+an older release are still tracked there.
 
 ## Where to read next
 

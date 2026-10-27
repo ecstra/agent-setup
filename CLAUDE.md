@@ -1,11 +1,7 @@
-<!-- Claude Code reads this file. The rules live in AGENTS.md, which the
-     line below pulls in with its section 0, so the section 0 above the
-     marker line here is the one that line brings in. A project's own
-     rules go in AGENTS.md and never in this file, which the port and
-     the upgrade write whole from the kit. Below the marker, the same
-     line AGENTS.md carries, sit the kit's compaction instructions, kept
-     here since Claude Code's docs put a project's compaction
-     instructions in its CLAUDE.md. -->
+<!-- Claude Code reads this file. A project's own rules go in AGENTS.md,
+     which the line below pulls in, and the kit's compaction
+     instructions sit below the marker line, per rule 10.4 of
+     .agents/SYSTEM.md. -->
 
 @AGENTS.md
 

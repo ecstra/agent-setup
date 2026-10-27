@@ -2,7 +2,7 @@
 name: conventions
 kind: doc
 description: the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
-updated: 2026-10-07
+updated: 2026-10-27
 links: [README.md]
 ---
 
@@ -47,7 +47,9 @@ replaces whole once the stamp says the kit shipped them, and refuses
 to write over while the stamp says the project had them first.
 `handover/` holds the one note `brain handover` writes, whose header
 carries its own keys, `branch`, `head` and `written`, per
-[spec/handover.md](handover.md), and doctor reads nothing in it.
+[spec/handover.md](handover.md). Doctor reads no file in it and
+reports only the leftover of an interrupted write there, which `--fix`
+removes.
 
 ## Naming and ids
 
@@ -103,10 +105,10 @@ is left is fixed by hand through the tool, one finding at a time.
 ## Prose
 
 House style: no em-dashes, no semicolons, plain words, colons only as
-list labels. Terse beats complete. A claim about the code names the file
-it is true in, so a sync round can verify it mechanically. Never leave a
-line broken mid sentence or cut mid word: wrap prose naturally or not at
-all.
+list labels. Terse beats complete. A claim about the code names the
+file it is true in, so a sync round can verify it mechanically. Never
+leave a line broken mid sentence or cut mid word, and wrap prose
+naturally or not at all.
 
 ## Boundaries
 
@@ -120,8 +122,7 @@ all.
   `.ack` holds the owner's standing word to proceed with its end,
   `.task` holds the current work as a chain from the plan down to the
   step the agent is on, one chain at a time, set with `brain task on`,
-  and `handover/` holds the one note a session leaves for the next,
-  which `brain handover` writes and the session start hook reads once
-  and removes, per [spec/handover.md](handover.md). Beside them sit the
-  write in flight the tool makes each through, Python's cache beside
-  the tool, and the worktree home the rules allow.
+  and `handover/` holds the note for the next session, per
+  [spec/handover.md](handover.md). Beside them sit the write in flight
+  the tool makes each through, Python's cache beside the tool, and the
+  worktree home the rules allow.
