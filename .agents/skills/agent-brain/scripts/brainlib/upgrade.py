@@ -49,7 +49,7 @@ ORIGIN_HOPS = 8
 # GIT_CONFIG_COUNT with its keys and values, which git's own
 # prepare_other_repo_env keeps when it runs a command in another
 # repository, so the walk keeps them too.
-COMMAND_SCOPE_CONFIG = frozenset({"GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT"})
+COMMAND_SCOPE_CONFIG: frozenset[str] = frozenset({"GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT"})
 
 # The kit's code is never read by hand in a project, since the skill
 # sheet and its reference say what every command does, so the port
@@ -920,7 +920,7 @@ def candidates(
         arguments=["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"],
     )
     if listed is None or listed.code != 0:
-        found = [
+        found: list[str] = [
             path.name
             for path in sorted(project.root.glob("*.md"))
             if path.name.lower() not in kept and not path.name.startswith(".")
@@ -934,7 +934,7 @@ def candidates(
         return found
 
     files: list[Path] = [Path(entry) for entry in listed.output.split("\0") if entry]
-    found: list[str] = []
+    found = []
     counts: dict[str, int] = {}
     for path in files:
         if any(part.startswith(".") for part in path.parts):
@@ -1226,16 +1226,16 @@ def same_repository(
     if not kit_is_a_top or not project_is_a_top:
         return False
 
-    kits: set[Union[tuple[int, int], PurePath, str]] = ancestry(
+    kit_ancestry: set[Union[tuple[int, int], PurePath, str]] = ancestry(
         folder=kit.root,
         unset=unset,
     )
-    projects: set[Union[tuple[int, int], PurePath, str]] = ancestry(
+    project_ancestry: set[Union[tuple[int, int], PurePath, str]] = ancestry(
         folder=project.root,
         unset=unset,
     )
 
-    return not kits.isdisjoint(projects)
+    return not kit_ancestry.isdisjoint(project_ancestry)
 
 
 def repository_variables(

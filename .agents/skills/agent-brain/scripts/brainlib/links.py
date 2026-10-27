@@ -32,8 +32,8 @@ SCRATCH_SHAPE = re.compile(r"^\.putback\.[A-Za-z0-9_]+$")
 # and a write give where the link goes into the handover folder, since a
 # file may stand at that path and the folder's one note still never
 # enters git.
-REACHES_NOTHING = "reaches nothing"
-HANDOVER_REASON = f"{REACHES_NOTHING}, since {schema.HANDOVER_FOLDER}/ holds the one note brain handover writes and no link goes into it"
+REACHES_NOTHING: str = "reaches nothing"
+HANDOVER_REASON: str = f"{REACHES_NOTHING}, since {schema.HANDOVER_FOLDER}/ holds the one note brain handover writes and no link goes into it"
 
 # What git said of its case flag for each project this run asked about,
 # kept for the run the way handover model R6 parses the flag once, so a
@@ -219,17 +219,17 @@ def asked_case_flag(
         return None
 
     try:
-        reply: handover.Reply = handover.readable_reply(
+        flag_reply: handover.Reply = handover.readable_reply(
             project=project,
             arguments=list(handover.CASE_FLAG_QUESTION),
         )
     except handover.Unanswered:
         return None
 
-    if reply.code not in (0, 1):
+    if flag_reply.code not in (0, 1):
         return None
 
-    return handover.case_flag_of(reply=reply)
+    return handover.case_flag_of(reply=flag_reply)
 
 
 def within(
