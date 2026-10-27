@@ -228,6 +228,7 @@ def write(
     here: datetime = given.astimezone()
     written: datetime = to_the_minute(moment=here)
     written_text: str = written.isoformat()
+
     head: str = current_head(project=project)
     note_body: str = body(
         brain=brain,
@@ -533,16 +534,16 @@ def from_project(
     ignore_case: bool,
 ) -> Optional[str]:
     """A path git names from the repository's top, named from the project's folder instead, the folder being `prefix` from the top, or None for a path outside it."""
-    length: int = len(prefix)
+    prefix_length: int = len(prefix)
     in_the_folder: bool = same_path(
-        one=path[:length],
+        one=path[:prefix_length],
         other=prefix,
         ignore_case=ignore_case,
     )
     if not in_the_folder:
         return None
 
-    return path[length:]
+    return path[prefix_length:]
 
 
 def same_path(
@@ -1072,8 +1073,8 @@ def note_of(
 ) -> Optional[Note]:
     """The tool's note in the text, or None for a file the tool never wrote, whose header is not the tool's, which carries no kind and names both the branch and the moment."""
     try:
-        header: frontmatter.Document = frontmatter.parse(text=text)
-        fields: dict[str, str] = header.fields()
+        document: frontmatter.Document = frontmatter.parse(text=text)
+        fields: dict[str, str] = document.fields()
     except frontmatter.FrontmatterError:
         return None
 
@@ -1221,11 +1222,11 @@ def judged(
         )
 
     session_branch: str = current_branch(project=project) if branch is None else branch
-    flag: Callable[[], bool] = asked_once(project=project) if case_flag is None else case_flag
+    shared_case_flag: Callable[[], bool] = asked_once(project=project) if case_flag is None else case_flag
     one_ref_for_git: bool = ignore_case_for(
         note=note,
         branch=session_branch,
-        case_flag=flag,
+        case_flag=shared_case_flag,
     )
     for_this_session: bool = is_for(
         note=note,
@@ -1246,7 +1247,7 @@ def judged(
             path=path,
             note=note,
             branch=session_branch,
-            case_flag=flag,
+            case_flag=shared_case_flag,
         )
 
     HELD_PATHS.add(path)
