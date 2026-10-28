@@ -2,7 +2,7 @@
 name: agent-readme
 kind: doc
 description: what the .agents directory is and how a cold agent boots from it
-updated: 2026-09-24
+updated: 2026-10-27
 links: [INDEX.md, spec/conventions.md, house-rules.md]
 ---
 
@@ -39,7 +39,9 @@ the repo root when the project keeps one, agents read this.
   per file, the steps a table the tool keeps.
 - `decisions/`: decisions taken and why, one per file.
 - `reviews/`: one folder per code review, the ledger inside.
-- `handover/`: session handoffs, born with its first file.
+- `handover/`: the note for the next session, which
+  [spec/handover.md](spec/handover.md) governs. Git ignores it like
+  `.ack` and `.task` below.
 - `skills/`: the kit's skills. `agent-brain` is the brain tool, the one
   way anything here is filed, changed, counted or checked, and
   `branch-review` is the code review the agent runs on the owner's

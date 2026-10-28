@@ -21,6 +21,7 @@ three agents honour.
 """
 
 import argparse
+import errno
 import json
 import os
 import re
@@ -29,7 +30,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, Union
 
-from brainlib import autoack, clock, doctor, frontmatter, links, reads, schema, steps, store, task
+from brainlib import autoack, clock, doctor, frontmatter, handover, links, reads, schema, steps, store, task
 
 BLOCK = 2
 FAILED = 1
@@ -117,7 +118,12 @@ def run(
         return 0
 
     if args.event == "session-start":
-        return session_start(brain=brain, agent=args.agent, with_rules=args.with_rules)
+        return session_start(
+            brain=brain,
+            agent=args.agent,
+            with_rules=args.with_rules,
+            source=str(event.get("source") or ""),
+        )
 
     if args.event == "prompt":
         return prompt(brain=brain, agent=args.agent)
@@ -176,12 +182,53 @@ def locate(
         return None
 
 
+# The one session start that leaves the last session's note where it is,
+# since a fork carries the whole context it was forked from and the
+# session that wrote the note still holds everything in it.
+FORK = "fork"
+
+# Claude Code shows up to this many characters of a hook's added context,
+# and past it keeps the whole text in a file of the session's and shows
+# its path with the first 2,000 characters without asking the model to
+# read it, so a longer context asks for that itself, in its first line.
+# It counts them as JavaScript counts a string, in UTF-16 units, where a
+# character past the Basic Multilingual Plane, an emoji among them, is
+# two, and a lone surrogate, which a file name that is not UTF-8 brings
+# in, is one.
+CLAUDE_SHOWS = 10_000
+PAST_WHAT_CLAUDE_SHOWS = (
+    f"This context is longer than the {CLAUDE_SHOWS:,} characters Claude Code shows from a hook, "
+    "so Claude Code keeps it whole in the file it names here. Read that file whole before you go on."
+)
+
+
 def session_start(
     brain: store.Brain,
     agent: str,
     with_rules: bool,
+    source: str,
 ) -> int:
-    text = the_moment(brain=brain) + "\n\nThe brain, counted from the files right now:\n" + reads.render_status(reads.status(brain=brain))
+    """The clock, the word and the work, the note the last session left, read once, then the status and the rules where asked.
+
+    The note goes in whole on a start, a resume, a clear and a compaction
+    alike, since each is a session that has to pick up without the last
+    one's head, and never on a fork. It is claimed before the status is
+    counted, so the status says a note waits that the same context
+    carries only where the next session reads it too, a note read in
+    place since it could not be taken aside. It comes right after the
+    clock, the word and the work, ahead of the status and the rules, so
+    it sits at the head of whatever an agent shows of a long context. A
+    context longer than Claude Code shows opens with a line that asks
+    for the file Claude Code keeps it in to be read whole. The claimed
+    file is removed only once the context is out, so a context that
+    fails to go out leaves the file for the next start, which reads it
+    again. A note for another branch, a file the tool never wrote and
+    one it cannot open stay, each said in one line in the note's place.
+    """
+    claim: Optional[handover.Claim] = handover.claim(brain=brain) if source != FORK else None
+
+    text = the_moment(brain=brain) + handover_text(claim=claim)
+    text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(data=reads.status(brain=brain))
     if with_rules:
         rules = brain.root / "SYSTEM.md"
         if store.readable_file(rules):
@@ -191,8 +238,47 @@ def session_start(
         if store.readable_file(chat_style):
             text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
 
+    length_in_utf16_units: int = len(
+        text.encode(
+            encoding="utf-16-le",
+            errors="surrogatepass",
+        ),
+    ) // 2
+    if agent == "claude" and length_in_utf16_units > CLAUDE_SHOWS:
+        text = f"{PAST_WHAT_CLAUDE_SHOWS}\n\n" + text
+
     emit_context(agent=agent, text=text, event_name="SessionStart")
+
+    # the context has gone out by now, so a file that stays can only be said on standard error
+    if claim is not None and claim.taken:
+        trouble: Optional[str] = handover.release(claim=claim)
+        if trouble is not None:
+            print(
+                f"the brain hook put the handover in this session's context and could not remove its file, {trouble}",
+                file=sys.stderr,
+            )
+
     return 0
+
+
+def handover_text(
+    claim: Optional[handover.Claim],
+) -> str:
+    """The claimed note under the words for how it was taken, the one line that says why the file at its path stays, or nothing."""
+    if claim is None:
+        return ""
+
+    if claim.note is None:
+        return f"\n\n{claim.waiting}"
+
+    if not claim.taken:
+        heading = f"The handover the last session left here, read where it is, since it could not be taken aside, {claim.trouble}, and the next session reads it again."
+    elif claim.again:
+        heading = "The handover the last session left here, read before by a session that could not remove it, read again, its file to be removed when this context is out."
+    else:
+        heading = "The handover the last session left here, read once, its file to be removed when this context is out."
+
+    return f"\n\n{heading}\n\n{claim.note.text.rstrip()}"
 
 
 def prompt(
@@ -262,10 +348,11 @@ def refusal(
     """Why this write may not touch the brain by hand, or None if it may.
 
     A new brain file, an index, a dotted path, the standing word, the
-    current work, a rename, the header block of an existing file and
-    the rows of its steps table are the tool's. The prose below a
-    header and around the table is the agent's to edit, and doctor
-    reads it afterwards.
+    current work, anything in the handover folder, a rename, the header
+    block of an existing file and the rows of its steps table are the
+    tool's, a delete of the word, the work or a file in the handover
+    folder aside. The prose below a header and around the table is the
+    agent's to edit, and doctor reads it afterwards.
     """
     if touch.moved_from is not None:
         source = entry_path(brain=brain, path=touch.moved_from)
@@ -284,6 +371,13 @@ def refusal(
 
     if inside.casefold() == task.FILE and not touch.deleted:
         return f"{task.FILE} is the current work, set with brain task on and never written by hand"
+
+    # the note's folder in any case too, for the same reason as the word's
+    # name, where the brain's own folder, which within names ".", has no part
+    parts_inside: tuple[str, ...] = Path(inside).parts
+    top_folder: str = parts_inside[0] if parts_inside else ""
+    if top_folder.casefold() == handover.FOLDER and not touch.deleted:
+        return f"{inside}: {handover.BY_HAND}"
 
     if not markdown_named(path):
         return None
@@ -1240,14 +1334,49 @@ def emit_context(
 
     Codex takes plain text on standard output at the start of a session
     and on a prompt, and the JSON object after a tool. Claude Code and
-    Gemini CLI take one JSON object naming the event.
+    Gemini CLI take one JSON object naming the event. The text is flushed
+    before this returns, so a pipe the agent closed fails here, while the
+    session start still holds the note it claimed, and standard output
+    is closed then, so the bytes it refused do not fail again at the exit.
+    A hook started with its standard output closed has none, where print
+    writes nothing without a word, so that fails here too, as a write to
+    the closed descriptor would.
     """
-    if agent == "codex" and event_name in CODEX_PLAIN:
-        write_utf8(text + "\n")
-        return
+    if sys.stdout is None:
+        raise OSError(
+            errno.EBADF,
+            os.strerror(errno.EBADF),
+        )
 
-    payload = {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": text}}
-    print(json.dumps(payload))
+    try:
+        if agent == "codex" and event_name in CODEX_PLAIN:
+            write_utf8(text=text + "\n")
+            return
+
+        payload = {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": text}}
+        print(
+            json.dumps(obj=payload),
+            flush=True,
+        )
+    except OSError:
+        let_go_of_standard_output()
+        raise
+
+
+def let_go_of_standard_output() -> None:
+    """Close standard output once its pipe has refused the context, dropping the bytes its buffer still holds.
+
+    The interpreter flushes standard output again at the exit, and the
+    refused bytes would fail a second time there, an ignored error on
+    standard error after the hook's own line and an exit of 120 in place
+    of its 1. A closed stream is never flushed again. The close fails on
+    the same bytes, an error the one already on its way out reports, so
+    that second one is let go.
+    """
+    try:
+        sys.stdout.close()
+    except OSError:
+        return
 
 
 def write_utf8(
@@ -1256,17 +1385,25 @@ def write_utf8(
     """Put text on standard output as UTF-8 bytes, under the text layer, so the locale's encoding never gets a say.
 
     The rulebook carries characters a Windows code page cannot encode,
-    and the agent reads the pipe as UTF-8 whatever the locale. A byte
-    layer that is not there, a text stream handed in by a test, takes
-    the text as it is.
+    and the agent reads the pipe as UTF-8 whatever the locale. A lone
+    surrogate, which a file name that is not UTF-8 brings into the
+    status, has no UTF-8 bytes, so it goes out as its escape, the way
+    brain.py writes such a name. A byte layer that is not there, a text
+    stream handed in by a test, takes the text as it is.
     """
     buffer: Optional[BinaryIO] = getattr(sys.stdout, "buffer", None)
     if buffer is None:
         sys.stdout.write(text)
+        sys.stdout.flush()
         return
 
     sys.stdout.flush()
-    buffer.write(text.encode("utf-8"))
+    buffer.write(
+        text.encode(
+            encoding="utf-8",
+            errors="backslashreplace",
+        ),
+    )
     buffer.flush()
 
 

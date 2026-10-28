@@ -69,27 +69,19 @@ class Kind:
 
     name: str
     folder: str
+    # The description of the folder's INDEX.md, which every kind's folder
+    # carries, so a kind is made with one.
+    index_description: str
     fields: tuple[Field, ...] = ()
     sections: tuple[Section, ...] = ()
     id_prefix: str = ""
-    frontmatter_kind: str = ""
     rules: tuple[Rule, ...] = ()
-    # The fields `brain list` shows beside the id, and the description of
-    # the folder's INDEX.md, empty for a folder that carries none.
+    # The fields `brain list` shows beside the id.
     columns: tuple[str, ...] = ()
-    index_description: str = ""
-
-    @property
-    def kind_value(self) -> str:
-        return self.frontmatter_kind or self.name
 
     @property
     def has_ids(self) -> bool:
         return bool(self.id_prefix)
-
-    @property
-    def indexed(self) -> bool:
-        return bool(self.index_description)
 
 
 COMMON_FIELDS: tuple[Field, ...] = (
@@ -303,12 +295,13 @@ KINDS: dict[str, Kind] = {
             Section(title="Findings"),
         ),
     ),
-    "handover": Kind(
-        name="handover",
-        folder="handover",
-        frontmatter_kind="doc",
-    ),
 }
+
+# The folder that holds the one note a session leaves for the next,
+# written by the tool and read once by the session start hook. It is
+# nobody's entry, so the store never lists it and doctor never reads it,
+# and git ignores it like the standing word and the current work.
+HANDOVER_FOLDER = "handover"
 
 # Files the kit owns at the root of .agents/. They carry no project
 # content, so doctor judges them against the kit rather than a kind.
@@ -429,7 +422,7 @@ NO_FRONTMATTER: tuple[str, ...] = ("SYSTEM.md",)
 
 # The folders that carry their own INDEX.md, per spec/conventions.md,
 # read off the kinds so the table lives in one place.
-INDEXED_FOLDERS: tuple[str, ...] = tuple(kind.folder for kind in KINDS.values() if kind.indexed)
+INDEXED_FOLDERS: tuple[str, ...] = tuple(kind.folder for kind in KINDS.values())
 
 # The files the kit writes at the top of a project: the front doors every
 # agent reads first, the contributing note and the ignore file.

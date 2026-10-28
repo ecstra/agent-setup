@@ -28,6 +28,14 @@ CLOSED_BUG = ("fixed", "wontfix", "refiled")
 SPINE_DESCRIPTION = "the spine of the agent directory, what exists and where"
 SPINE_LINKS = ("README.md", "spec/conventions.md", "house-rules.md")
 
+# The handover folder's line never changes, since the folder holds one
+# note that the session start hook removes, so counting it would have
+# the spine change under every session.
+HANDOVER_LINE = (
+    f"- {schema.HANDOVER_FOLDER}/, the one note brain handover leaves for the next session, "
+    f"which the session start hook reads once and removes (spec/{schema.HANDOVER_FOLDER}.md)"
+)
+
 
 def build(
     brain: store.Brain,
@@ -51,9 +59,6 @@ def build(
         )
 
     for kind in schema.KINDS.values():
-        if not kind.indexed:
-            continue
-
         path = brain.root / kind.folder / "INDEX.md"
         wanted[path] = render_index(
             brain=brain,
@@ -231,9 +236,9 @@ def spine_body(
     lines.append(spine_line(brain=brain, kind_name="decision", label="the decision record", counter=count_by_status))
     lines.append(spine_line(brain=brain, kind_name="review", label="code review ledgers", counter=count_by_status))
 
-    lines += ["", "## Memory and handovers", ""]
+    lines += ["", "## Memory and the handover", ""]
     lines.append(spine_line(brain=brain, kind_name="memory", label="project facts", counter=count_plain))
-    lines.append(handover_line(brain))
+    lines.append(HANDOVER_LINE)
 
     return "\n".join(lines) + "\n"
 
@@ -243,9 +248,11 @@ def kit_listing(
 ) -> list[str]:
     """The kit files the spine names, in the order a reader meets them."""
     listing = ["README.md", "house-rules.md", "spec/conventions.md"]
+    folders = [kind.folder for kind in schema.KINDS.values()]
+    folders.append(schema.HANDOVER_FOLDER)
 
-    for kind in schema.KINDS.values():
-        spec = f"spec/{kind.folder}.md"
+    for folder in folders:
+        spec = f"spec/{folder}.md"
         if spec not in listing and store.readable_file(brain.root / spec):
             listing.append(spec)
 
@@ -276,18 +283,6 @@ def spine_line(
     summary = counter(entries) if entries else "empty"
 
     return f"- [{kind.folder}/INDEX.md]({kind.folder}/INDEX.md), {label}: {summary}"
-
-
-def handover_line(
-    brain: store.Brain,
-) -> str:
-    entries = brain.entries_of(schema.kind_named("handover"))
-    if not entries:
-        return "- handover/ is born with its first handoff (spec/handover.md)"
-
-    noun = "handover" if len(entries) == 1 else "handovers"
-
-    return f"- handover/, {len(entries)} {noun}, newest [{entries[-1].name}]({entries[-1].relative})"
 
 
 def count_docs(
@@ -619,9 +614,9 @@ def reviews_body(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-# The body writer for each kind that carries an INDEX.md. A kind marked
-# indexed in the schema needs an entry here, and a test holds the two
-# tables together.
+# The body writer for each kind, every one of which carries an INDEX.md.
+# A kind added to the schema needs an entry here, and a test holds the
+# two tables together.
 RENDERERS: dict[str, Callable[..., str]] = {
     "doc": docs_body,
     "memory": memory_body,

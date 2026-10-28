@@ -12,8 +12,9 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Optional
+from urllib.parse import unquote
 
-from . import frontmatter, sections, store
+from . import frontmatter, handover, schema, sections, store
 
 # The two ways markdown writes a link: inline, `[text](target)`, and by
 # reference, `[label]: target` on a line of its own. Group 1 is the
@@ -26,6 +27,18 @@ REFERENCE_LINK = re.compile(r"^\[[^\]]+\]:[ \t]+(<[^>\n]*>|\S+)", re.MULTILINE)
 # one left by an interrupted run is found and nothing else is touched.
 SCRATCH_PREFIX = ".putback."
 SCRATCH_SHAPE = re.compile(r"^\.putback\.[A-Za-z0-9_]+$")
+
+# What doctor says of a link that reaches nothing, and the reason doctor
+# and a write give where the link goes into the handover folder, since a
+# file may stand at that path and the folder's one note still never
+# enters git.
+REACHES_NOTHING: str = "reaches nothing"
+HANDOVER_REASON: str = f"{REACHES_NOTHING}, since {schema.HANDOVER_FOLDER}/ holds the one note brain handover writes and no link goes into it"
+
+# What git said of its case flag for each project this run asked about,
+# kept for the run the way handover model R6 parses the flag once, so a
+# doctor run over many links starts two git processes at most.
+CASE_FLAGS: dict[Path, Optional[bool]] = {}
 
 
 def resolve(
@@ -60,17 +73,163 @@ def inside(
 
     An absolute path replaces the root when joined, and `..` climbs out
     of it, so both are checked against the root before anything is read.
-    A dotted path is nobody's entry, so a link to one reaches nothing.
+    A dotted path is nobody's entry, so a link to one reaches nothing,
+    and so is a path into the handover folder, whose one note never
+    enters git.
     """
     if not reference:
         return None
 
     candidate = brain.root / reference
     relative = within(brain=brain, path=candidate)
-    if relative is None or store.hidden(Path(relative)):
+    if relative is None or store.hidden(relative=Path(relative)):
+        return None
+
+    if in_handover(
+        brain=brain,
+        path=candidate,
+    ):
         return None
 
     return candidate
+
+
+def in_handover(
+    brain: store.Brain,
+    path: Path,
+) -> bool:
+    """Whether a path a link names lies in the brain's handover folder, the folder's name in any spelling `names_folder` takes for it."""
+    relative: Optional[str] = within(
+        brain=brain,
+        path=path,
+    )
+    if relative is None:
+        return False
+
+    # the brain's own folder, which `within` names ".", has no first part
+    parts: tuple[str, ...] = Path(relative).parts
+    if not parts:
+        return False
+
+    return names_folder(
+        brain=brain,
+        top=parts[0],
+        folder=schema.HANDOVER_FOLDER,
+    )
+
+
+def handover_reason(
+    brain: store.Brain,
+    reference: str,
+) -> Optional[str]:
+    """What a header link that reaches nothing says where it names something below the handover folder, or None where the folder is not why.
+
+    The link is read the two ways `resolve` reads a path, from the
+    brain's root and as `find` reads a key through `key_path`, from the
+    project's folder, the repository's top, the disk's root or ~, with
+    slashes or backslashes. A header link reaches a file alone, so one
+    that names the folder itself reaches nothing as any folder does,
+    and the folder's bare name is a key too, a name or a stem two files
+    share or one a removed file carried, which the folder does not
+    explain.
+    """
+    for spelled in (reference, brain.key_path(key=reference)):
+        if spelled is None:
+            continue
+
+        named_path: Path = brain.root / spelled
+        relative: Optional[str] = within(
+            brain=brain,
+            path=named_path,
+        )
+        if relative is None or len(Path(relative).parts) <= 1:
+            continue
+
+        if in_handover(
+            brain=brain,
+            path=named_path,
+        ):
+            return HANDOVER_REASON
+
+    return None
+
+
+def names_folder(
+    brain: store.Brain,
+    top: str,
+    folder: str,
+) -> bool:
+    """Whether `top`, the first part of a path in the brain as it is spelled, names the brain's `folder`.
+
+    Another casing of the folder's name names it where git takes two
+    spellings that differ by case alone for one file here, and a second
+    folder where git tells them apart, so the disk is never asked. Where
+    git gives no answer for its flag, outside git, past its limit or in a
+    repository it refuses, another casing names the handover folder and
+    no other, the way the pre write hook folds that name, since a link
+    refused there under another casing loses nothing and one let in
+    would reach the note.
+    """
+    if top == folder:
+        return True
+
+    if top.casefold() != folder.casefold():
+        return False
+
+    git_folds_case: Optional[bool] = case_flag(brain=brain)
+    if git_folds_case is None:
+        return folder == schema.HANDOVER_FOLDER
+
+    return git_folds_case
+
+
+def case_flag(
+    brain: store.Brain,
+) -> Optional[bool]:
+    """Whether git takes two spellings that differ by case alone for one file here, or None where git gives no answer, outside git, with no git installed, past its limit or in a repository it refuses, asked once per run for the project and the answer kept in CASE_FLAGS."""
+    project: Path = handover.project_of(brain=brain)
+    if project not in CASE_FLAGS:
+        CASE_FLAGS[project] = asked_case_flag(project=project)
+
+    return CASE_FLAGS[project]
+
+
+def asked_case_flag(
+    project: Path,
+) -> Optional[bool]:
+    """What git says of its case flag for the project, its reply read by `handover.case_flag_of`, or None where it gives no answer.
+
+    Git is asked first whether it opens a repository here, since one it
+    refuses, for its ownership among other reasons, or a `.git` it takes
+    for none, still answers the flag's read from the global and system
+    config, with an exit 0 where `~/.gitconfig` sets the flag. In a
+    repository git opens, the read answers with an exit 0 and its word,
+    or with an exit 1, which is its no. Every other exit is no answer,
+    the fatal line of a config git cannot parse among them.
+    """
+    try:
+        opened: handover.Reply = handover.readable_reply(
+            project=project,
+            arguments=["rev-parse", "--git-dir"],
+        )
+    except handover.Unanswered:
+        return None
+
+    if opened.code != 0:
+        return None
+
+    try:
+        flag_reply: handover.Reply = handover.readable_reply(
+            project=project,
+            arguments=list(handover.CASE_FLAG_QUESTION),
+        )
+    except handover.Unanswered:
+        return None
+
+    if flag_reply.code not in (0, 1):
+        return None
+
+    return handover.case_flag_of(reply=flag_reply)
 
 
 def within(
@@ -129,25 +288,49 @@ def backlinks(
 
 
 def broken_in_body(
+    brain: store.Brain,
     path: Path,
     document: frontmatter.Document,
-) -> list[str]:
-    """Markdown links in the prose that do not reach a file from where they stand.
+) -> list[tuple[str, str]]:
+    """Markdown links in the prose that do not reach a file or a folder from where they stand, each with what doctor says of it.
 
     A body link is relative to its file, so an absolute one is broken
-    however the machine it was written on is laid out. A link that
-    starts inside code is not a link, while one whose text holds a code
-    span is.
+    however the machine it was written on is laid out, and one into the
+    handover folder is broken however long the note waits, since it is
+    read once and never enters git. A body link may name a folder, so
+    one to the handover folder itself gives the folder as its reason,
+    and `handover_reason` says why a header link to it reaches nothing
+    as one to any folder does. A target is a URL, so it names the bytes
+    its characters are in UTF-8 with each percent escape read as the
+    byte it stands for, and the file it reaches is the one named with
+    those bytes, spelled for the disk as `handover.on_disk` spells a name
+    whatever codec this machine names files in, so a link reaches
+    nothing where this machine has no name for its bytes, as Windows has
+    none for a byte that is not UTF-8. A link that starts inside code is
+    not a link, while one whose text holds a code span is.
     """
-    found: list[str] = []
+    found: list[tuple[str, str]] = []
 
     for target in body_targets(document.body):
         if "://" in target or target.startswith("#"):
             continue
 
-        file_part = target.split("#")[0]
-        if not file_part or Path(file_part).is_absolute() or not store.quietly((path.parent / file_part).exists):
-            found.append(target)
+        file_part: str = unquote(
+            string=target.split("#")[0],
+            errors="surrogateescape",
+        )
+        named_path: Path = path.parent / file_part
+        into_the_folder: bool = in_handover(
+            brain=brain,
+            path=named_path,
+        )
+        spelled: Optional[str] = handover.on_disk(name=file_part)
+        missing: bool = not file_part or Path(file_part).is_absolute() or spelled is None or not store.quietly(question=(path.parent / spelled).exists)
+        if not missing and not into_the_folder:
+            continue
+
+        said: str = HANDOVER_REASON if into_the_folder else REACHES_NOTHING
+        found.append((target, said))
 
     return found
 

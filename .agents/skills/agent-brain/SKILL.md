@@ -1,6 +1,6 @@
 ---
 name: agent-brain
-description: The one way to file, change, count or check anything in the project's .agents/ brain. Use it to file a plan, a todo, a bug, a decision, a doc or a memory, to set the work the agent is on and mark its steps, to run a review ledger, to retitle a file, or to check the brain. Never write a brain file by hand.
+description: The one way to file, change, count or check anything in the project's .agents/ brain. Use it to file a plan, a todo, a bug, a decision, a doc or a memory, to set the work the agent is on and mark its steps, to run a review ledger, to leave the note for the next session, to retitle a file, or to check the brain. Never write a brain file by hand.
 ---
 
 # The brain tool
@@ -39,9 +39,13 @@ The examples below shorten that to `brain`. Every flag is listed in
 
 ## When a session starts
 
-The hook prints `brain status` when a session opens. If it did not, run
-it. Every number in it is counted from the files at that moment, so
-trust it over anything remembered.
+The hook prints `brain status` when a session opens, after the note the
+last session left where one waits for it. Every number in it is counted
+from the files at that moment, so trust it over anything remembered. If
+the hook did not run, run `brain status`, and where it names a handover
+waiting, [spec/handover.md](../../spec/handover.md) says whether the
+note is this session's and which file holds it. Read that file yourself,
+since no command shows it, then do with it what the spec says.
 
 ```bash
 brain status
@@ -78,9 +82,9 @@ EOF
 ```
 
 The same shape files a todo (`--area`, `--by`), a decision (`--area`),
-a memory (`--type project|feedback|reference`), a doc (`--category`), a
-handover, or a review. Each kind's required headings are in its spec
-under `.agents/spec/`, and the tool names the one that is missing.
+a memory (`--type project|feedback|reference`), a doc (`--category`),
+or a review. Each kind's required headings are in its spec under
+`.agents/spec/`, and the tool names the one that is missing.
 
 A plan is a goal with the steps that reach it, and the steps are a
 table the tool keeps, on a plan always and on a todo or a bug whose
@@ -175,6 +179,29 @@ brain task on TODO-015
 brain task done
 brain task off
 ```
+
+## The handover
+
+SYSTEM.md section 8.4 says when a session leaves the note for the next
+one and how the note weighs against a compaction's summary, and
+[spec/handover.md](../../spec/handover.md) says what the note holds, the
+tool's record and the prose on standard input, and which session start
+takes it. The reference gives every refusal, and `--replace`, which
+writes over a note left for another branch, is the owner's call.
+
+```bash
+brain handover <<'END_OF_NOTE'
+Verified: batch 3 is fixed and its tests pass on both interpreters.
+Written, not verified: the docs of the closing round.
+Next: the hunt over the round's code, then the last pass.
+Traps: the second interpreter's tests run from scripts/ only.
+From chat: no PR until the owner asks, ack all until the ledger closes.
+END_OF_NOTE
+```
+
+A heredoc, quoted or not, ends at the first line that is its word
+alone, so the word is one no line of the note is, which rules out `EOF`
+once a trap quotes a heredoc of its own.
 
 ## Checking the brain
 

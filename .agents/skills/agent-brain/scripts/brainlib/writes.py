@@ -483,13 +483,17 @@ def path_links(
     brain: store.Brain,
     references: list[str],
 ) -> list[str]:
-    """Every link in path form, each once, refused when one reaches nothing in the brain."""
+    """Every link in path form, each once, refused when one reaches nothing in the brain, one to something below the handover folder, however the store reads its path, with the folder named as the reason, since a file there stands inside the brain and still reaches nothing."""
     found: list[str] = []
 
     for reference in references:
         path = links.canonical(brain=brain, reference=reference)
         if path is None:
-            raise WriteError(f"link '{reference}' reaches nothing inside .agents/")
+            said = links.handover_reason(
+                brain=brain,
+                reference=reference,
+            ) or "reaches nothing inside .agents/"
+            raise WriteError(f"link '{reference}' {said}")
 
         if path not in found:
             found.append(path)
@@ -506,7 +510,7 @@ def opening_fields(
 ) -> dict[str, str]:
     return {
         "name": name,
-        "kind": kind.kind_value,
+        "kind": kind.name,
         "description": description,
         "updated": stamp,
         "links": frontmatter.render_list(links),

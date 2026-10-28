@@ -2,7 +2,7 @@
 name: conventions
 kind: doc
 description: the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
-updated: 2026-09-24
+updated: 2026-10-27
 links: [README.md]
 ---
 
@@ -35,8 +35,8 @@ inside it is fine and nothing is ever quoted. A list sits on its key's
 line as `[a, b]`. The brain tool writes headers this way and refuses to
 read one written any other way, naming the line and the fix.
 
-Two places sit outside this rule. `SYSTEM.md` carries no frontmatter at
-all, since it is the rulebook and an agent takes it exactly as it
+Three places sit outside this rule. `SYSTEM.md` carries no frontmatter
+at all, since it is the rulebook and an agent takes it exactly as it
 stands. `skills/` holds the kit's skills, and its files follow the
 Agent Skills standard rather than this spec, so doctor holds them to
 the prose and boundary rules below and to nothing in this section. A
@@ -45,6 +45,11 @@ SKILL.md that doctor links for Claude Code, under any name but the
 kit's own, `agent-brain` and `branch-review`, which the upgrade
 replaces whole once the stamp says the kit shipped them, and refuses
 to write over while the stamp says the project had them first.
+`handover/` holds the one note `brain handover` writes, whose header
+carries its own keys, `branch`, `head` and `written`, per
+[spec/handover.md](handover.md). Doctor reads no file in it and
+reports only the leftover of an interrupted write there, which `--fix`
+removes.
 
 ## Naming and ids
 
@@ -65,7 +70,10 @@ Two forms, each with its job:
   files in .agents and to project files both. A link that does not
   resolve is a bug.
 
-Every frontmatter link reaches a file that exists. Something worth
+Every frontmatter link reaches a file that exists. No link of either
+form goes into `handover/`, whose one note is read once and never
+enters git, so doctor reports one there as reaching nothing even while
+the note stands, and `brain new --link` refuses it. Something worth
 writing is a todo, not a dangling link.
 
 ## Indexes
@@ -97,10 +105,10 @@ is left is fixed by hand through the tool, one finding at a time.
 ## Prose
 
 House style: no em-dashes, no semicolons, plain words, colons only as
-list labels. Terse beats complete. A claim about the code names the file
-it is true in, so a sync round can verify it mechanically. Never leave a
-line broken mid sentence or cut mid word: wrap prose naturally or not at
-all.
+list labels. Terse beats complete. A claim about the code names the
+file it is true in, so a sync round can verify it mechanically. Never
+leave a line broken mid sentence or cut mid word, and wrap prose
+naturally or not at all.
 
 ## Boundaries
 
@@ -109,10 +117,12 @@ all.
 - No machine paths, no user personal facts. Project truth only.
 - What git ignores here is the one exception, since it never enters
   the repo. That is the tool's own local state, two dotted files at
-  the root of the brain that are never listed, indexed, checked or
-  written by hand. `.ack` holds the owner's standing word to proceed
-  with its end, and `.task` holds the current work as a chain from the
-  plan down to the step the agent is on, one chain at a time, set with
-  `brain task on`. Beside them sit the write in flight the tool makes
-  each through, Python's cache beside the tool, and the worktree home
-  the rules allow.
+  the root of the brain and one folder, never listed, counted, checked
+  or written by hand, the spine naming the folder and nothing in it.
+  `.ack` holds the owner's standing word to proceed with its end,
+  `.task` holds the current work as a chain from the plan down to the
+  step the agent is on, one chain at a time, set with `brain task on`,
+  and `handover/` holds the note for the next session, per
+  [spec/handover.md](handover.md). Beside them sit the write in flight
+  the tool makes each through, Python's cache beside the tool, and the
+  worktree home the rules allow.

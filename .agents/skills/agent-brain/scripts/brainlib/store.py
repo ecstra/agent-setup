@@ -250,33 +250,20 @@ class Brain:
     ) -> Optional[Entry]:
         """Resolve a key to one entry, or to nothing when no file answers to it.
 
-        A key is an id, a name, or a path to the file with slashes or
-        backslashes. The path may start in the brain, in the project's
-        folder, at the top of the git repository or at the root of the
-        disk. Everything up to the last brain folder in it is dropped
-        before the lookup, once what stood in front of that folder is
-        known to lead to this project, and a path into another
-        project's brain is found nowhere.
+        A key is an id, a name, or a path to the file, looked up as
+        `key_path` reads it, so a path into another project's brain is
+        found nowhere.
 
         A key that fits more than one file, a stem two kinds share or
         the ledger.md every review is, is refused with the paths named,
         rather than answered with whichever came first.
         """
-        parts: list[str] = key.replace(
-            "\\",
-            "/",
-        ).split("/")
-        brain_folders: list[int] = [index for index, part in enumerate(parts[:-1]) if part == self.root.name]
-        if brain_folders:
-            brain_folder: int = brain_folders[-1]
-            in_front: str = "".join(f"{part}/" for part in parts[:brain_folder])
-            if in_front and not self.is_this_project(in_front):
-                return None
-
-            parts = parts[brain_folder + 1 :]
+        path: Optional[str] = self.key_path(key=key)
+        if path is None:
+            return None
 
         found = self.by_key().get(
-            "/".join(parts),
+            path,
             [],
         )
         if len(found) > 1:
@@ -284,6 +271,38 @@ class Brain:
             raise Ambiguous(f"'{key}' names {len(found)} files, use the path: {paths}")
 
         return found[0] if found else None
+
+    def key_path(
+        self,
+        key: str,
+    ) -> Optional[str]:
+        """The key as `find` looks it up, or None when it is a path into another project's brain.
+
+        The one reading of a key's path, so a caller that asks where a
+        key points reads it the way the lookup does. A path may be
+        written with slashes or backslashes, and may start in the brain,
+        in the project's folder, at the top of the git repository, at
+        the root of the disk or at ~. Its backslashes become slashes,
+        and everything up to the last brain folder in it is dropped once
+        what stood in front of that folder is known to lead to this
+        project. A key with no brain folder in it, an id, a name or a
+        path from the brain, comes back with its backslashes turned and
+        nothing else.
+        """
+        parts: list[str] = key.replace(
+            "\\",
+            "/",
+        ).split(sep="/")
+        brain_folders: list[int] = [index for index, part in enumerate(parts[:-1]) if part == self.root.name]
+        if not brain_folders:
+            return "/".join(parts)
+
+        brain_folder: int = brain_folders[-1]
+        in_front: str = "".join(f"{part}/" for part in parts[:brain_folder])
+        if in_front and not self.is_this_project(folder=in_front):
+            return None
+
+        return "/".join(parts[brain_folder + 1 :])
 
     def is_this_project(
         self,
@@ -351,7 +370,7 @@ class Brain:
         if self.keyed is None:
             keyed: dict[str, list[Entry]] = {}
             for entry in self.entries():
-                # `find` turns a key's backslashes to slashes, so on Windows only this spelling of the path can match it
+                # `key_path` turns a key's backslashes to slashes, so on Windows only this spelling of the path can match it
                 with_slashes: str = entry.path.relative_to(entry.root).as_posix()
                 keys = {entry.identifier, entry.name, entry.relative, with_slashes, entry.path.stem} - {None}
                 # a review's file is its folder's ledger, so the folder's name answers for it as a plan's stem does
@@ -595,13 +614,19 @@ def explain(
 ) -> str:
     """The error as one plain line, an OS error without the machine's path.
 
-    A KeyError prints its key in quotes, which is the key that was
-    looked up and not found, so it reads as that.
+    An OS error over two paths, a rename's or a link's, names both, the
+    first to the second, since the one in the way may be either, a
+    folder standing at the second or a first that is gone. A KeyError
+    prints its key in quotes, which is the key that was looked up and
+    not found, so it reads as that.
     """
     if isinstance(error, OSError) and error.filename:
         reason = error.strerror or type(error).__name__
+        paths: str = near(os.fsdecode(error.filename))
+        if error.filename2:
+            paths += f" to {near(os.fsdecode(error.filename2))}"
 
-        return f"{reason}: {near(os.fsdecode(error.filename))}"
+        return f"{reason}: {paths}"
 
     if isinstance(error, KeyError):
         key = error.args[0] if error.args else "a key"
