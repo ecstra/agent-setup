@@ -1109,17 +1109,35 @@ def post_write(
 ) -> int:
     """After a write, the check over the file just written and, inside the brain, doctor over the whole of it, each handed back as context so the slip is fixed in the same round.
 
-    Where doctor cannot read the brain, its error goes in words in its
-    place, and the hook still answers with exit 0, since the agent says
-    the context to the person, and an exit 1 would show the person the
-    error and lose the slips, so a broken brain never hides one.
+    A file the check did not judge, one whose attributes git cannot read
+    or one the interpreter running the check cannot parse, is named in a
+    part of its own after the slips, since neither is a slip of the
+    file's. Where doctor cannot read the brain, its error goes in words
+    in its place, and the hook still answers with exit 0, since the agent
+    says the context to the person, and an exit 1 would show the person
+    the error and lose the slips, so a broken brain never hides one.
     """
     touched = touches(event=event, agent=agent)
     parts: list[str] = []
 
-    slips = [slip for touch in touched if not touch.deleted and in_project(brain=brain, path=touch.path) for slip in check.check_file(project=brain.root.parent, path=touch.path)]
+    checks: list[check.Checked] = [
+        check.check_file(
+            project=brain.root.parent,
+            path=touch.path,
+        )
+        for touch in touched
+        if not touch.deleted and in_project(
+            brain=brain,
+            path=touch.path,
+        )
+    ]
+    slips: list[check.Slip] = [slip for checked in checks for slip in checked.slips]
     if slips:
         parts.append("brain check after that write:\n" + "\n".join(slip.text() for slip in slips))
+
+    notes: list[str] = [note for checked in checks for note in checked.notes]
+    if notes:
+        parts.append("brain check did not judge after that write:\n" + "\n".join(notes))
 
     inside = [touch for touch in touched if is_inside(brain=brain, path=touch.path)]
     doctor_part: Optional[str] = doctor_after(brain) if inside else None
