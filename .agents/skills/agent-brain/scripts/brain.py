@@ -617,13 +617,19 @@ def say_slips_in(
     brain: store.Brain,
     path: Path,
 ) -> None:
-    """The check over a file the tool just wrote the agent's words into, said after the write, since a write the shell makes reaches no post write hook."""
-    slips = check.check_file(
+    """The check over a file the tool just wrote the agent's words into, said after the write, since a write the shell makes reaches no post write hook, each note, such as the file not checked where git cannot read the attributes, on standard error, since a note is no slip an edit of the file can put right."""
+    checked = check.check_file(
         project=brain.root.parent,
         path=path,
     )
-    if slips:
-        print("brain check after that write:\n" + "\n".join(slip.text() for slip in slips))
+    for note in checked.notes:
+        print(
+            note,
+            file=sys.stderr,
+        )
+
+    if checked.slips:
+        print("brain check after that write:\n" + "\n".join(slip.text() for slip in checked.slips))
 
 
 def add_gates(
