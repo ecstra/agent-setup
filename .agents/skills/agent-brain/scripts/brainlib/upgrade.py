@@ -1654,16 +1654,37 @@ def section_zero_in(
     section it was given whatever the kit's own words say now. In one
     the first kit wrote, before the marker, it ends where that kit's
     words stood. Anywhere else it runs to the next `#` or `##` heading
-    outside code. Code never ends it, so a `## ` or a quoted marker
-    inside a fenced block stays in it.
+    outside code and HTML comments. Code never ends it, so a `## ` or a
+    quoted marker inside a fence of backticks or tildes, or an indented
+    block, stays in it, and a heading inside a comment is no heading,
+    neither the section's own nor the one that would end it.
     """
-    heading = next((match for match in sections.heading_matches(text) if match.group(1).startswith("0.")), None)
+    code = sections.code_spans(text)
+    hidden = code + sections.comment_spans(
+        text=text,
+        spans=code,
+    )
+    found = (
+        match
+        for match in sections.heading_matches(text)
+        if match.group(1).startswith("0.")
+        and not sections.in_code(
+            spans=hidden,
+            position=match.start(),
+        )
+    )
+    heading = next(found, None)
     if heading is None:
         return None
 
     end = first_outside_code(text=text, pattern=MARK, start=heading.end())
     if end == -1:
-        end = sections.heading_after(body=text, start=heading.end(), depth=2)
+        end = sections.heading_after(
+            body=text,
+            start=heading.end(),
+            depth=2,
+            spans=hidden,
+        )
         words = first_outside_code(text=text, pattern=FIRST_KIT, start=heading.end(), end=end)
         if words != -1:
             end = words
