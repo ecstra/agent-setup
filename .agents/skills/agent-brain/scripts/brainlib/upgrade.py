@@ -1654,10 +1654,14 @@ def section_zero_in(
     section it was given whatever the kit's own words say now. In one
     the first kit wrote, before the marker, it ends where that kit's
     words stood. Anywhere else it runs to the next `#` or `##` heading
-    outside code and HTML comments. Code never ends it, so a `## ` or a
-    quoted marker inside a fence of backticks or tildes, or an indented
-    block, stays in it, and a heading inside a comment is no heading,
-    neither the section's own nor the one that would end it.
+    outside code and HTML comments. Where no marker stands outside code,
+    the marker on a line of its own still ends it, since that line is
+    the kit's boundary, so a fence the project left open above it closes
+    there and the kit's words never read as the project's. Code ends it
+    nowhere else, so a `## ` or a marker quoted inside a fence of
+    backticks or tildes, or an indented block, above the marker stays in
+    it, and a heading inside a comment is no heading, neither the
+    section's own nor the one that would end it.
     """
     code = sections.code_spans(text)
     hidden = code + sections.comment_spans(
@@ -1685,6 +1689,17 @@ def section_zero_in(
             depth=2,
             spans=hidden,
         )
+        alone = re.compile(
+            pattern=rf"^[ \t]*{re.escape(KIT_MARK)}[ \t]*\r?$",
+            flags=re.MULTILINE,
+        ).search(
+            string=text,
+            pos=heading.end(),
+            endpos=end,
+        )
+        if alone is not None:
+            end = alone.start()
+
         words = first_outside_code(text=text, pattern=FIRST_KIT, start=heading.end(), end=end)
         if words != -1:
             end = words

@@ -32,6 +32,10 @@ GATES_WORD = re.compile(
 )
 SET_LINE = re.compile(r"^set(?:[ \t]|$)")
 
+# A link or an image, by an inline target or a reference label, which a
+# heading shows by its text alone.
+LINK = re.compile(r"!?\[([^\]]*)\](?:\([^)]*\)|\[[^\]]*\])")
+
 # The shell an info string's first word picks, and the flags each runs a
 # block under, the ones GitHub Actions gives a `shell: bash` step, so a
 # failing line or a failing stage of a pipeline turns the gate red as it
@@ -270,9 +274,10 @@ def section_gates(
 ) -> Named:
     """The gates under each Gates heading of section 0 in AGENTS.md, in order, with a line for each block no gate runs and one for each heading that holds no gate.
 
-    A heading or a block inside code or an HTML comment is neither, and
-    each Gates heading runs to the next heading at its level or above,
-    or to the end of section 0.
+    A heading or a block inside code or an HTML comment is neither, a
+    heading holds the word gates only in the text it shows, and each
+    Gates heading runs to the next heading at its level or above, or to
+    the end of section 0.
     """
     door = project / "AGENTS.md"
     if not store.readable_file(door):
@@ -288,32 +293,15 @@ def section_gates(
         return Named()
 
     blocks = sections.blocks_of(zero)
-    comments = sections.comment_spans(zero)
-    headings = [
-        heading
-        for heading in blocks.headings
-        if not sections.in_code(
-            spans=comments,
-            position=heading.start,
-        )
-    ]
-    fences = [
-        fence
-        for fence in blocks.fences
-        if not sections.in_code(
-            spans=comments,
-            position=fence.start,
-        )
-    ]
 
     taken: list[sections.Fence] = []
     empty: list[str] = []
-    for heading in headings:
-        if not GATES_WORD.search(heading.text):
+    for heading in blocks.headings:
+        if not GATES_WORD.search(shown(heading.text)):
             continue
 
-        end = next((later.start for later in headings if later.start > heading.start and later.level <= heading.level), len(zero))
-        under = [fence for fence in fences if heading.end <= fence.start < end]
+        end = next((later.start for later in blocks.headings if later.start > heading.start and later.level <= heading.level), len(zero))
+        under = [fence for fence in blocks.fences if heading.end <= fence.start < end]
         if not any(shell_of(fence) is not None and commands_of(fence) for fence in under):
             empty.append(f"the heading {heading.text} holds no gate, and {GATE_SHAPE}")
 
@@ -362,6 +350,38 @@ def section_gates(
     )
 
 
+def shown(
+    text: str,
+) -> str:
+    """The heading's text as markdown shows it, with no HTML comment and no tag, and a link or an image by its text alone, so a word in a comment, an attribute or a link's target never makes a Gates heading."""
+    bare = sections.blanked(
+        text=text,
+        spans=sections.comment_spans(text),
+    )
+    kept: list[str] = []
+    cursor = 0
+    for start, end in sections.code_spans(bare):
+        kept.append(unlinked(bare[cursor:start]))
+        kept.append(bare[start:end])
+        cursor = end
+    kept.append(unlinked(bare[cursor:]))
+
+    return "".join(kept)
+
+
+def unlinked(
+    text: str,
+) -> str:
+    """The text with each link and image by its text alone and no HTML tag."""
+    return check.TAG.sub(
+        repl="",
+        string=LINK.sub(
+            repl=r"\1",
+            string=text,
+        ),
+    )
+
+
 def shell_of(
     fence: sections.Fence,
 ) -> Optional[str]:
@@ -393,6 +413,10 @@ def run_gate(
 ) -> int:
     """Run one gate in its folder with its output passed straight through, and hand back its exit code, negative where a signal killed it."""
     argv = list(gate.argv) or shell_line(gate)
+
+    # the gate writes to this process's streams straight, and stderr writes the complaint's line at once, so the name line the caller printed leaves the buffer first
+    sys.stdout.flush()
+    sys.stderr.flush()
     if not argv:
         print(
             f"this gate is a {gate.shell} block and no {gate.shell} is on the path, so it needs one to run",
@@ -400,9 +424,6 @@ def run_gate(
         )
         return 1
 
-    # the gate writes to this process's streams straight, so the name line the caller printed leaves the buffer first
-    sys.stdout.flush()
-    sys.stderr.flush()
     try:
         completed = subprocess.run(
             args=argv,
