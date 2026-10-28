@@ -4,11 +4,13 @@ Claude Code, Codex and Gemini CLI each call this with their own event
 JSON on standard input and the event name as the first argument. Five
 events matter, the start of a session, each prompt the owner sends, a
 tick after the agent's tool calls, a write that is about to create a
-file inside .agents/, and a write that just landed there. The session
-start, the prompt and the tick carry the clock, since a model does not
-know the time and forgets what it was told, where the owner's standing
-word to proceed stands, on, held or off, and the work the agent is on,
-the chain from the plan down to the step.
+file inside .agents/, and a write that just landed anywhere in the
+project, after which the check reads the file written and, where it
+landed inside .agents/, doctor reads the whole brain. The session start,
+the prompt and the tick carry the clock, since a model does not know
+the time and forgets what it was told, where the owner's standing word
+to proceed stands, on, held or off, and the work the agent is on, the
+chain from the plan down to the step.
 
     python3 .agents/skills/agent-brain/scripts/hooks.py session-start --agent claude
     python3 .agents/skills/agent-brain/scripts/hooks.py prompt --agent claude
@@ -110,7 +112,9 @@ def run(
     Exit 1 is the non blocking error every agent shows to the person,
     which is the right outcome for a broken brain: the write goes ahead
     and the reason is on screen, rather than every write being refused
-    until someone finds a traceback.
+    until someone finds a traceback. After a write the hook answers with
+    exit 0 all the same, doctor's error in words in its context beside
+    the check's slips, since an exit 1 would lose the slips.
     """
     event = read_event()
     brain = locate(event)
@@ -237,15 +241,6 @@ def session_start(
         chat_style = brain.root.parent / f".{agent}" / "plain-and-short.md"
         if store.readable_file(chat_style):
             text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
-
-    length_in_utf16_units: int = len(
-        text.encode(
-            encoding="utf-16-le",
-            errors="surrogatepass",
-        ),
-    ) // 2
-    if agent == "claude" and length_in_utf16_units > CLAUDE_SHOWS:
-        text = f"{PAST_WHAT_CLAUDE_SHOWS}\n\n" + text
 
     emit_context(agent=agent, text=text, event_name="SessionStart")
 
@@ -1112,7 +1107,13 @@ def post_write(
     event: dict,
     agent: str,
 ) -> int:
-    """After a write, the check over the file just written and, inside the brain, doctor over the whole of it, each handed back as context so the slip is fixed in the same round."""
+    """After a write, the check over the file just written and, inside the brain, doctor over the whole of it, each handed back as context so the slip is fixed in the same round.
+
+    Where doctor cannot read the brain, its error goes in words in its
+    place, and the hook still answers with exit 0, since the agent says
+    the context to the person, and an exit 1 would show the person the
+    error and lose the slips, so a broken brain never hides one.
+    """
     touched = touches(event=event, agent=agent)
     parts: list[str] = []
 
@@ -1121,10 +1122,9 @@ def post_write(
         parts.append("brain check after that write:\n" + "\n".join(slip.text() for slip in slips))
 
     inside = [touch for touch in touched if is_inside(brain=brain, path=touch.path)]
-    findings = doctor.run(brain) if inside else []
-    if findings:
-        lines = [finding.line() for finding in findings]
-        parts.append("brain doctor after that write:\n" + "\n".join(lines) + "\nRun brain doctor --fix for the fixable ones.")
+    doctor_part: Optional[str] = doctor_after(brain) if inside else None
+    if doctor_part is not None:
+        parts.append(doctor_part)
 
     if not parts:
         emit_nothing(agent)
@@ -1134,15 +1134,37 @@ def post_write(
     return 0
 
 
+def doctor_after(
+    brain: store.Brain,
+) -> Optional[str]:
+    """Doctor's findings after a write as their part of the context, the error in words with the file and the reason where doctor cannot read the brain, or None when it finds nothing."""
+    try:
+        findings = doctor.run(brain)
+    except (store.StoreError, frontmatter.FrontmatterError, OSError, ValueError) as error:
+        return f"brain doctor could not run after that write: {store.explain(error)}"
+
+    if not findings:
+        return None
+
+    lines = [finding.line() for finding in findings]
+
+    return "brain doctor after that write:\n" + "\n".join(lines) + "\nRun brain doctor --fix for the fixable ones."
+
+
 def in_project(
     brain: store.Brain,
     path: Path,
 ) -> bool:
-    """Whether the file sits under the project and is there to read, the one kind of file the check reads after a write."""
-    root = Path(os.path.normpath(str(brain.root.parent)))
+    """Whether the file sits under the project and is there to read, the one kind of file the check reads after a write.
+
+    The file is placed by its resolved path, the one the check names it
+    by, so a link in the project that leads out of it is no file of the
+    project's. A path that cannot be resolved, a loop on the 3.9 floor or
+    a stray null byte, is placed nowhere.
+    """
     try:
-        Path(os.path.normpath(str(path))).relative_to(root)
-    except ValueError:
+        path.resolve().relative_to(brain.root.parent.resolve())
+    except (OSError, RuntimeError, ValueError):
         return False
 
     return store.readable_file(path)
@@ -1364,13 +1386,26 @@ def emit_context(
     is closed then, so the bytes it refused do not fail again at the exit.
     A hook started with its standard output closed has none, where print
     writes nothing without a word, so that fails here too, as a write to
-    the closed descriptor would.
+    the closed descriptor would. A context longer than Claude Code shows
+    of a hook opens, for Claude Code, with the line that asks for the
+    file it keeps the context in to be read whole, whichever event hands
+    it back, since the slips after a write run as long as the file
+    written.
     """
     if sys.stdout is None:
         raise OSError(
             errno.EBADF,
             os.strerror(errno.EBADF),
         )
+
+    length_in_utf16_units: int = len(
+        text.encode(
+            encoding="utf-16-le",
+            errors="surrogatepass",
+        ),
+    ) // 2
+    if agent == "claude" and length_in_utf16_units > CLAUDE_SHOWS:
+        text = f"{PAST_WHAT_CLAUDE_SHOWS}\n\n" + text
 
     try:
         if agent == "codex" and event_name in CODEX_PLAIN:
