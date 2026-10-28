@@ -24,10 +24,6 @@ from . import autoack, frontmatter, index, links, schema, sections, steps, store
 # only where a scan asks for them.
 SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, schema.HANDOVER_FOLDER, ".worktrees"})
 
-# A header block the parser refuses, taken off by its fences alone so
-# the prose under it is still read.
-HEADER_BLOCK = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
-
 MACHINE_PATH = re.compile(r"(/Users/|/home/|[A-Z]:\\)")
 
 SECRET_SHAPES = (
@@ -169,9 +165,8 @@ def markdown_files(
 
     A file that is neither is a stray, reported once by its own check
     rather than measured against rules written for something else. The
-    style and hygiene scans read every file the walk takes, filed or
-    not, since a pasted secret is most likely in exactly the file nobody
-    filed.
+    hygiene scan reads every file the walk takes, filed or not, since a
+    pasted secret is most likely in exactly the file nobody filed.
     """
     accounted = brain.known()
 
@@ -186,13 +181,12 @@ def all_markdown(
 
     The walk skips a dotted path and the folders in SKIP_DIRS. The
     skills folder is the tool's own, its files follow the Agent Skills
-    standard rather than the specs, so only the prose and boundary
-    checks (style and hygiene) read them. A skipped folder is known by
-    its name as `links.names_folder` reads it, so where git takes two
-    spellings that differ by case alone for one file, or gives no answer
-    for its flag, `Handover/` is the handover folder and stays unread
-    like it, and git is asked once per run, as `links.case_flag` keeps
-    its answer.
+    standard rather than the specs, so only the boundary check, hygiene,
+    reads them. A skipped folder is known by its name as
+    `links.names_folder` reads it, so where git takes two spellings that
+    differ by case alone for one file, or gives no answer for its flag,
+    `Handover/` is the handover folder and stays unread like it, and git
+    is asked once per run, as `links.case_flag` keeps its answer.
     """
     skipped_folders = [folder for folder in SKIP_DIRS if not (with_skills and folder == schema.SKILLS)]
     found: list[Path] = []
@@ -942,53 +936,6 @@ def write_index(
         index.write_one(path=path, text=text)
 
     return repair
-
-
-def check_style(
-    brain: store.Brain,
-) -> list[Finding]:
-    """The prose rules over every file the walk takes but the indexes.
-
-    An index is the tool's rendering of other files' header values and
-    of the folders they sit in, checked at their source by the fields
-    and filename checks, so a slip is named on the file a person can
-    put right rather than on one nobody may edit.
-    """
-    found: list[Finding] = []
-
-    for path in all_markdown(brain=brain, with_skills=True):
-        if path.name == schema.INDEX:
-            continue
-
-        prose = prose_in(path)
-        if prose is None:
-            continue
-
-        where = relative(brain=brain, path=path)
-        found += [Finding(path=where, check="style", message=slip) for slip in sections.style_slips(prose)]
-
-    return found
-
-
-def prose_in(
-    path: Path,
-) -> Optional[str]:
-    """The file's prose, its header block and its code stepped over, or None when it cannot be read.
-
-    A header the tool can read is taken off by the parser, one it
-    cannot, the Agent Skills shape in `skills/` for one, by its fences.
-    """
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return None
-
-    try:
-        body = frontmatter.parse(text).body
-    except frontmatter.FrontmatterError:
-        body = HEADER_BLOCK.sub("", text, count=1)
-
-    return sections.prose_of(body)
 
 
 def check_hygiene(
@@ -2643,6 +2590,10 @@ def blanked(
     return "".join(kept)
 
 
+# No check here holds a file's prose to the house style. That is
+# brainlib/check.py's, which the post write hook and the gates run and
+# which names each slip by its line, so one slip is named once. Doctor
+# holds only the header values to it, where the check never looks.
 CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_leftovers,
     check_strays,
@@ -2655,7 +2606,6 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_filenames,
     check_links,
     check_indexes,
-    check_style,
     check_hygiene,
     check_layout,
     check_front_doors,

@@ -13,6 +13,12 @@ from typing import Callable, Optional
 
 from . import frontmatter, schema
 
+# The exit codes past 0, kept here once so the command line and the
+# gates, which the command line imports, return the same names. 1 is a
+# refusal or a red gate, 2 a run that left findings.
+REFUSED = 1
+FINDINGS_REMAIN = 2
+
 # what the store notes for a folder it could not list, beside the files it could not read
 UNLISTED = "cannot be listed"
 
