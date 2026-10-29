@@ -1149,7 +1149,11 @@ def post_write(
         emit_nothing(agent)
         return 0
 
-    emit_context(agent=agent, text="\n\n".join(parts), event_name=AFTER_WRITE.get(agent, "PostToolUse"))
+    emit_context(
+        agent=agent,
+        text="\n\n".join(parts),
+        event_name=AFTER_WRITE.get(agent, "PostToolUse"),
+    )
     return 0
 
 
@@ -1158,14 +1162,14 @@ def doctor_after(
 ) -> Optional[str]:
     """Doctor's findings after a write as their part of the context, the error in words with the file and the reason where doctor cannot read the brain, or None when it finds nothing."""
     try:
-        findings = doctor.run(brain)
+        findings: list[doctor.Finding] = doctor.run(brain)
     except (store.StoreError, frontmatter.FrontmatterError, OSError, ValueError) as error:
         return f"brain doctor could not run after that write: {store.explain(error)}"
 
     if not findings:
         return None
 
-    lines = [finding.line() for finding in findings]
+    lines: list[str] = [finding.line() for finding in findings]
 
     return "brain doctor after that write:\n" + "\n".join(lines) + "\nRun brain doctor --fix for the fixable ones."
 
