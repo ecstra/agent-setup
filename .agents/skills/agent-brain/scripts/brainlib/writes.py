@@ -133,7 +133,7 @@ def update(
     changes = dict(changes)
     if "links" in changes:
         changes["links"] = frontmatter.render_list(
-            settled_links(
+            values=settled_links(
                 brain=brain,
                 wanted=frontmatter.parse_list(changes["links"]),
                 existing=entry.document.get_list("links"),

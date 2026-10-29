@@ -58,6 +58,7 @@ def main(
         except OSError as error:
             print(store.explain(error), file=sys.stderr)
         print(store.explain(partial), file=sys.stderr)
+
         if partial.filed is not None:
             say_slips_in(
                 brain=brain,
@@ -434,6 +435,7 @@ def run_new(
         )
         index.write(brain)
         print(entry.relative)
+
         say_slips_in(
             brain=brain,
             path=entry.path,
@@ -452,6 +454,7 @@ def run_new(
     )
     index.write(brain)
     print(entry.relative)
+
     say_slips_in(
         brain=brain,
         path=entry.path,
@@ -517,6 +520,7 @@ def run_refile(
 
     index.write(brain)
     print(entry.relative)
+
     # a retitle writes the header alone, while a change of kind files the prose given on standard input
     if args.kind:
         say_slips_in(
@@ -570,10 +574,10 @@ def add_check(
     commands: argparse._SubParsersAction,
 ) -> None:
     command = commands.add_parser(
-        "check",
+        name="check",
         help="the house rules a machine can check, over the files given or the project's own files, and the branch's commits",
         description=(
-            "the house rules a machine can check: a dash, a semicolon or a colon outside a list item's label in the prose of "
+            "the house rules a machine can check, which are a dash, a semicolon or a colon outside a list item's label in the prose of "
             "a markdown file, a def, a class whose bases break across lines or a broken call not stacked one per line with a "
             "trailing comma in a Python file, and in the kit's own checkout alone the future import of annotations, over the "
             "files given or, with none, the project's own files, those git tracks and the new ones it does not ignore, less "
@@ -586,7 +590,10 @@ def add_check(
         nargs="*",
         help="files or folders to check, each file named that the check passes over said on standard error with the reason, none for the project's own files",
     )
-    command.add_argument("--json", action="store_true")
+    command.add_argument(
+        "--json",
+        action="store_true",
+    )
     command.set_defaults(handler=run_check)
 
 
@@ -598,13 +605,22 @@ def run_check(
         project=brain.root.parent,
         paths=[Path(given) for given in args.paths] if args.paths else None,
     )
+
     # a note, a file passed over or not parsed or the commits not read, is no slip, so it goes beside the output and never into its count or its JSON
     for note in checked.notes:
-        print(note, file=sys.stderr)
+        print(
+            note,
+            file=sys.stderr,
+        )
 
     slips = checked.slips
     if args.json:
-        print(json.dumps([{"path": slip.path, "line": slip.line, "message": slip.message} for slip in slips], indent=2))
+        print(
+            json.dumps(
+                obj=[{"path": slip.path, "line": slip.line, "message": slip.message} for slip in slips],
+                indent=2,
+            ),
+        )
     else:
         for slip in slips:
             print(slip.text())
@@ -622,6 +638,7 @@ def say_slips_in(
         project=brain.root.parent,
         path=path,
     )
+
     for note in checked.notes:
         print(
             note,
@@ -635,7 +652,10 @@ def say_slips_in(
 def add_gates(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("gates", help="the gates section 0 names, in order, stopping at the first red, then check and doctor")
+    command = commands.add_parser(
+        name="gates",
+        help="the gates section 0 names, in order, stopping at the first red, then check and doctor",
+    )
     command.set_defaults(handler=run_gates)
 
 
@@ -701,6 +721,7 @@ def run_steps_add(
     numbers = steps.add(brain=brain, key=args.key, lines=lines, by=args.by)
     index.write(brain)
     print("\n".join(str(number) for number in numbers))
+
     entry = steps.stepped_entry(
         brain=brain,
         key=args.key,

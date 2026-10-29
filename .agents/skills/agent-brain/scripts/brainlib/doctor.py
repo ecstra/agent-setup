@@ -374,7 +374,11 @@ def check_frontmatter(
         updated = document.get("updated")
         if updated and not schema.is_date(updated):
             found.append(
-                Finding(path=where, check="frontmatter", message=f"updated reads '{updated}', not YYYY-MM-DD"),
+                Finding(
+                    path=where,
+                    check="frontmatter",
+                    message=f"updated reads '{updated}', not YYYY-MM-DD",
+                ),
             )
 
     return found
@@ -570,7 +574,11 @@ def check_sections(
                 continue
 
             found.append(
-                Finding(path=entry.relative, check="sections", message=f"no {title} heading"),
+                Finding(
+                    path=entry.relative,
+                    check="sections",
+                    message=f"no {title} heading",
+                ),
             )
 
         for message in sections.lifecycle_gaps(kind=entry.kind, fields=entry.document.fields(), body=body):
@@ -795,7 +803,11 @@ def check_filenames(
         for folder in Path(entry.relative).parts[1:-1]:
             if not schema.is_slug(folder):
                 found.append(
-                    Finding(path=entry.relative, check="filename", message=f"sits in a folder that is not a slug, '{folder}'"),
+                    Finding(
+                        path=entry.relative,
+                        check="filename",
+                        message=f"sits in a folder that is not a slug, '{folder}'",
+                    ),
                 )
 
         if entry.kind.has_ids and entry.identifier is None:
@@ -810,7 +822,11 @@ def check_filenames(
 
         if not schema.is_slug(entry.slug):
             found.append(
-                Finding(path=entry.relative, check="filename", message=f"'{entry.slug}' is not a slug"),
+                Finding(
+                    path=entry.relative,
+                    check="filename",
+                    message=f"'{entry.slug}' is not a slug",
+                ),
             )
 
         if entry.identifier is None:
