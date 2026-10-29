@@ -3,14 +3,14 @@
 Doctor reads the brain against its specs. This reads the project's own
 markdown and Python, each file known by its suffix, against the rules
 of SYSTEM.md a machine can judge without reading for meaning, types
-left to a type checker: the prose by line as it renders, an em dash, a
-semicolon, a colon anywhere but a list item's label or a table row,
-with the code, the raw HTML and the literal text stepped over, and
-Python by its syntax tree and its tokens, the parameters of a def, the
-bases of a class broken across lines and the arguments of a call
-already broken across lines each held to one per line with a trailing
-comma, and in the kit's own checkout alone the future import of
-annotations, which its code keeps out by its convention. The branch's
+left to a type checker. It reads the prose by line as it renders for
+an em dash, a semicolon or a colon anywhere but a list item's label or
+a table row, with the code, the raw HTML and the literal text stepped
+over, and Python by its syntax tree and its tokens, the parameters of
+a def, the bases of a class broken across lines and the arguments of a
+call already broken across lines each held to one per line with a
+trailing comma, and in the kit's own checkout alone the future import
+of annotations, which its code keeps out by its convention. The branch's
 commit messages are read too, for a co-author line or an AI
 attribution. It reports and never rewrites, since none of these has
 one mechanical repair, and the post write hook runs it on the file
@@ -31,7 +31,7 @@ import tokenize
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Optional
+from typing import Optional, Union
 
 from . import doctor, frontmatter, handover, schema, sections, store, style, upgrade
 
@@ -59,7 +59,10 @@ NAMES_PER_CALL = 8000
 # own English. A git that falls back to the system's language words it
 # otherwise, and its warning is passed on as a note as it stands.
 LOCALE: frozenset[str] = frozenset({"LANG", "LANGUAGE", "LC_ALL", "LC_MESSAGES"})
-UNOPENED = re.compile(r"^warning: could not open directory '(.*)': (.*)$", re.MULTILINE)
+UNOPENED = re.compile(
+    pattern=r"^warning: could not open directory '(.*)': (.*)$",
+    flags=re.MULTILINE,
+)
 
 # How the name of each variable git traces its own work by opens,
 # GIT_TRACE, GIT_TRACE2 and the rest, each left out of the check's
@@ -72,7 +75,7 @@ NOT_PROSE_OR_CODE = "it is neither markdown nor Python"
 TOOLS_OWN = "the brain tool writes it"
 KITS_OWN = "the kit writes it whole and the next upgrade writes it back"
 
-# What a line of prose may not carry, read as it renders: an em dash,
+# What a line of prose may not carry, read as it renders, is an em dash,
 # the mark or two hyphens between words typed for it, with a space on
 # each side as the line is written, a semicolon, and a colon outside a
 # list item's label and a table row. The en dash is none, since
@@ -104,14 +107,14 @@ DELIMITER_ROW = re.compile(r"[ \t]*(?:\|[ \t]*)?:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \
 QUOTE_MARKER = re.compile(r"[ \t]{0,3}>[ \t]?")
 
 # The header block a markdown file opens with, the front matter other
-# tools read too: a `---` line, a key line straight after it, then lines
-# each a key at the margin, an indented line, a list item, a comment or
-# blank, up to the closing `---`. A file that opens with a thematic
-# break and a blank line has none.
+# tools read too, is a `---` line, a key line straight after it, then
+# lines each a key at the margin, an indented line, a list item, a
+# comment or blank, up to the closing `---`. A file that opens with a
+# thematic break and a blank line has none.
 HEADER_KEY = re.compile(r"[^\s#-][^:\n]*:(?:[ \t]|$)")
 HEADER_LINE = re.compile(r"[^\s#-][^:\n]*:(?:[ \t]|$)|[ \t]+\S|[ \t]*-(?:[ \t]|$)|[ \t]*#|[ \t]*$")
 
-# The raw HTML a page renders as no prose: a block opened by a tag whose
+# The raw HTML a page renders as no prose is a block opened by a tag whose
 # text CommonMark leaves raw, to its closing tag or the end of the quote
 # it opened in, an element of code, its tags and what it holds, and each
 # other tag with its attributes, as CommonMark reads a tag, an attribute
@@ -274,7 +277,7 @@ def run(
 ) -> Checked:
     """Every slip in the files the paths name, or with no list of paths at all in the project's own files and the branch's commits, an empty list reading nothing, with the notes the caller says beside them, on each line git said as it listed the files, each file named that the check passes over, each Python file the interpreter running the check cannot parse, and the commits where they were not read."""
     if paths is None:
-        listing = tracked(project)
+        listing: Listing = tracked(project)
     else:
         listing = chosen(
             project=project,
@@ -294,7 +297,7 @@ def run(
             notes.append(str(unparsed))
 
     if paths is None:
-        commits = check_commits(project)
+        commits: Checked = check_commits(project)
         found += commits.slips
         notes += commits.notes
 
@@ -322,7 +325,7 @@ def chosen(
     the first folder whose listing it came in.
     """
     root = project.resolve()
-    once: dict[str, Target] = {}
+    targets: dict[str, Target] = {}
     slips: list[Slip] = []
     warned: dict[str, str] = {}
     named: list[str] = []
@@ -331,13 +334,13 @@ def chosen(
     for given in paths:
         path = given if given.is_absolute() else Path.cwd() / given
         if store.quietly(path.is_dir):
-            folder = within(
+            folder: Path = within(
                 root=root,
                 path=path,
                 given=given,
             )
             if handover.inside_repository(project=folder):
-                listing = listed(
+                listing: Listing = listed(
                     root=root,
                     folder=folder,
                     listings=listings,
@@ -351,7 +354,7 @@ def chosen(
                 )
 
             for target in listing.files:
-                once.setdefault(target.relative, target)
+                targets.setdefault(target.relative, target)
 
             slips += listing.slips
             continue
@@ -359,7 +362,7 @@ def chosen(
         if not store.readable_file(path):
             raise CheckError(f"no file at {store.near(str(given))}")
 
-        resolved = within(
+        resolved: Path = within(
             root=root,
             path=path,
             given=given,
@@ -369,17 +372,21 @@ def chosen(
             path=resolved,
             listings=listings,
         )
-        once.setdefault(target.relative, target)
+        targets.setdefault(target.relative, target)
         named.append(target.relative)
 
-    reasons = passed_over(
+    reasons: dict[str, Optional[str]] = passed_over(
         project=project,
-        relatives=list(once),
+        relatives=list(targets),
     )
-    notes = list(warned.values()) + [f"{relative} is passed over, {reasons[relative]}" for relative in dict.fromkeys(named) if reasons[relative] is not None]
+    notes = list(warned.values()) + [
+        f"{relative} is passed over, {reasons[relative]}"
+        for relative in dict.fromkeys(named)
+        if reasons[relative] is not None
+    ]
 
     return Listing(
-        files=[target for relative, target in once.items() if reasons[relative] is None],
+        files=[target for relative, target in targets.items() if reasons[relative] is None],
         slips=list(dict.fromkeys(slips)),
         notes=notes,
     )
@@ -391,13 +398,13 @@ def tracked(
     """The project's own markdown and Python files, those git tracks and the new ones it does not ignore, refused in git's words where git cannot list them, each the check passes over left out."""
     root = project.resolve()
     warned: dict[str, str] = {}
-    listing = listed(
+    listing: Listing = listed(
         root=root,
         folder=root,
         listings={},
         warned=warned,
     )
-    reasons = passed_over(
+    reasons: dict[str, Optional[str]] = passed_over(
         project=project,
         relatives=[target.relative for target in listing.files],
     )
@@ -425,44 +432,45 @@ def listed(
     into the run's `warned` by the line git said, so a line the listings
     of two folders both say is one note.
     """
-    where = named_from(
+    where: str = named_from(
         root=root,
         path=folder,
     )
-    files = "the project's files" if folder == root else f"the files under {where}"
-    reply = answered(
+    which_files = "the project's files" if folder == root else f"the files under {where}"
+    reply: handover.Reply = answered(
         folder=folder,
         arguments=list(LISTING),
-        refusal=f"git cannot list {files}",
+        refusal=f"git cannot list {which_files}",
     )
     names = [name for name in dict.fromkeys(reply.output.split("\0")) if name and prose_or_code(name)]
-    spelled = [handover.on_disk(name=name) for name in names]
-    listing = kept_on_disk(
+    spelled: list[Optional[str]] = [handover.on_disk(name=name) for name in names]
+    listing: Listing = kept_on_disk(
         root=root,
         paths=[folder / name for name in spelled if name is not None],
         listings=listings,
     )
+
     for line in reply.trouble.split("\n"):
         said = line.strip()
         if said and not UNOPENED.match(line):
-            warned.setdefault(said, f"git warned as it listed {files}, {said}")
+            warned.setdefault(said, f"git warned as it listed {which_files}, {said}")
 
-    warnings = UNOPENED.findall(reply.trouble)
-    if not warnings:
+    unopenable: list[tuple[str, str]] = UNOPENED.findall(reply.trouble)
+    if not unopenable:
         return listing
 
-    top = answered(
+    top: handover.Reply = answered(
         folder=folder,
         arguments=["rev-parse", "--show-toplevel"],
         refusal="git cannot say where its work tree starts",
     )
-    unopened = [
+    unopened: list[Slip] = [
         unopened_slip(
             root=root,
             folder=Path(top.output.strip()) / place.rstrip("/"),
             reason=reason,
         )
-        for place, reason in warnings
+        for place, reason in unopenable
     ]
 
     return Listing(
@@ -488,7 +496,7 @@ def walked(
         folders[:] = sorted(name for name in folders if not name.startswith("."))
         paths += [Path(place) / name for name in names if prose_or_code(name)]
 
-    listing = kept_on_disk(
+    listing: Listing = kept_on_disk(
         root=root,
         paths=sorted(
             paths,
@@ -496,7 +504,7 @@ def walked(
         ),
         listings=listings,
     )
-    unopened = [
+    unopened: list[Slip] = [
         unopened_slip(
             root=root,
             folder=Path(error.filename),
@@ -522,12 +530,12 @@ def kept_on_disk(
 
     for path in paths:
         try:
-            regular = is_regular(
+            regular: bool = is_regular(
                 root=root,
                 path=path,
             )
         except OSError as error:
-            where = named_from(
+            where: str = named_from(
                 root=root,
                 path=path,
             )
@@ -560,7 +568,7 @@ def unopened_slip(
     reason: str,
 ) -> Slip:
     """The slip of a folder that could not be opened, so none of the files under it were read."""
-    where = named_from(
+    where: str = named_from(
         root=root,
         path=folder,
     )
@@ -607,20 +615,21 @@ def check_file(
         notes=[],
     )
     root = project.resolve()
-    resolved = within_project(
+    resolved: Optional[Path] = within_project(
         root=root,
         path=path,
     )
     if resolved is None:
         return nothing
 
-    target = target_of(
+    target: Target = target_of(
         root=root,
         path=resolved,
         listings={},
     )
+
     try:
-        reasons = passed_over(
+        reasons: dict[str, Optional[str]] = passed_over(
             project=project,
             relatives=[target.relative],
         )
@@ -636,7 +645,7 @@ def check_file(
         return nothing
 
     try:
-        found = slips_of(
+        found: list[Slip] = slips_of(
             project=project,
             target=target,
         )
@@ -672,7 +681,7 @@ def slips_of(
 
     if PurePosixPath(relative).suffix.lower() == PYTHON:
         try:
-            text = python_text(data)
+            text: str = python_text(data)
         except (SyntaxError, LookupError, UnicodeError) as error:
             undecoded = Slip(
                 path=relative,
@@ -744,7 +753,7 @@ def within(
     given: Path,
 ) -> Path:
     """The path given resolved, refused in words where it lies outside the project, whose own files are all the check reads."""
-    resolved = within_project(
+    resolved: Optional[Path] = within_project(
         root=root,
         path=path,
     )
@@ -783,17 +792,17 @@ def target_of(
     spells otherwise alone.
     """
     resolved = path.resolve()
-    relative = named_from(
+    relative: str = named_from(
         root=root,
         path=resolved,
     )
-    as_given = spelled_as_given(
+    as_given: bool = spelled_as_given(
         root=root,
         relative=relative,
         listings=listings,
     )
     if as_given:
-        spelled = relative
+        spelled: Optional[str] = relative
     else:
         spelled = doctor.spelled_on_disk(
             base=root,
@@ -852,27 +861,30 @@ def passed_over(
     vendored, which outside git marks no file. Where git cannot read the
     attributes, the check is refused in git's words.
     """
-    reasons: dict[str, Optional[str]] = {relative: None if prose_or_code(relative) else NOT_PROSE_OR_CODE for relative in relatives}
-    left = [relative for relative, reason in reasons.items() if reason is None]
-    if not left:
+    reasons: dict[str, Optional[str]] = {
+        relative: None if prose_or_code(relative) else NOT_PROSE_OR_CODE
+        for relative in relatives
+    }
+    to_judge = [relative for relative, reason in reasons.items() if reason is None]
+    if not to_judge:
         return reasons
 
-    kit_checkout = is_kit_checkout(project)
-    stamp = store.stamp_of(project / BRAIN_FOLDER) or schema.as_tuple(schema.NO_VERSION)
-    for relative in left:
+    kit_checkout: bool = is_kit_checkout(project)
+    stamp: tuple[int, ...] = store.stamp_of(project / BRAIN_FOLDER) or schema.as_tuple(schema.NO_VERSION)
+    for relative in to_judge:
         if is_tools(relative):
             reasons[relative] = TOOLS_OWN
             continue
 
-        kits = is_kits(
+        from_kit: bool = written_by_kit(
             relative=relative,
             stamp=stamp,
         )
-        if kits and not kit_checkout:
+        if from_kit and not kit_checkout:
             reasons[relative] = KITS_OWN
 
-    unmarked = [relative for relative in left if reasons[relative] is None]
-    marks = marked(
+    unmarked = [relative for relative in to_judge if reasons[relative] is None]
+    marks: dict[str, str] = marked(
         project=project,
         relatives=unmarked,
     )
@@ -903,7 +915,7 @@ def marked(
 
     found: dict[str, str] = {}
     for names in batches(relatives):
-        reply = answered(
+        reply: handover.Reply = answered(
             folder=project,
             arguments=["check-attr", "-z", *MARKS, "--", *names],
             refusal="git cannot read the attributes of the files",
@@ -945,13 +957,13 @@ def is_kit_checkout(
 
 
 # The kind folder the review ledgers go in, one folder each.
-REVIEWS = schema.KINDS["review"].folder
+REVIEWS: str = schema.KINDS["review"].folder
 
 
 def is_tools(
     relative: str,
 ) -> bool:
-    """Whether the file is one the brain tool writes whole where it writes it, in a project and in the kit's own checkout alike: the index at the brain's root and in each folder it indexes, a review ledger, and the handover note.
+    """Whether the file is one the brain tool writes whole where it writes it, in a project and in the kit's own checkout alike, the index at the brain's root and in each folder it indexes, a review ledger, and the handover note.
 
     An index is the tool's rendering of other files' header values, a
     ledger the tool's record, whose claims name a file by its line with
@@ -982,7 +994,7 @@ KIT_ROOT_FILES: tuple[str, ...] = tuple(name for name in schema.ROOT_FILES if na
 CHAT_STYLE: tuple[str, ...] = tuple(path.as_posix() for path in (style.SOURCE, *style.COPIES))
 
 
-def is_kits(
+def written_by_kit(
     relative: str,
     stamp: tuple[int, ...],
 ) -> bool:
@@ -996,7 +1008,15 @@ def is_kits(
     if relative in KIT_ROOT_FILES or relative in CHAT_STYLE:
         return True
 
-    definition = next((definition for skill in schema.KIT_SKILLS for definition in skill.definitions if definition.path == relative), None)
+    definition: Optional[schema.Definition] = next(
+        (
+            definition
+            for skill in schema.KIT_SKILLS
+            for definition in skill.definitions
+            if definition.path == relative
+        ),
+        None,
+    )
     if definition is not None:
         return schema.carries(
             since=definition.since,
@@ -1010,7 +1030,7 @@ def is_kits(
     if schema.is_kit_path("/".join(parts[1:])):
         return True
 
-    skill = upgrade.kit_skill_named(parts[2]) if len(parts) > 3 and parts[1] == schema.SKILLS else None
+    skill: Optional[schema.KitSkill] = upgrade.kit_skill_named(parts[2]) if len(parts) > 3 and parts[1] == schema.SKILLS else None
 
     return skill is not None and schema.ships(
         skill=skill,
@@ -1038,17 +1058,17 @@ def markdown_slips(
     told from one that opens past a tag. In a project's AGENTS.md only
     the words above the kit's marker are the project's to put right.
     """
-    reading = read_markdown(text)
+    reading: Reading = read_markdown(text)
     prose = reading.prose
     if own_words_only:
         # the marker is an HTML comment, blanked in the prose, so it is found in the text as section_zero_in reads it, outside code and comments, or on its line inside a fence or a comment left open, and the prose keeps the text's offsets
-        mark = upgrade.kit_mark_in(text)
+        mark: int = upgrade.kit_mark_in(text)
         if mark != -1:
             prose = prose[:mark]
 
     found: list[Slip] = []
     for number, (line, typed, codeless) in enumerate(
-        zip(prose.split("\n"), text.split("\n"), reading.codeless.split("\n")),
+        iterable=zip(prose.split("\n"), text.split("\n"), reading.codeless.split("\n")),
         start=1,
     ):
         bare = QUOTE.sub(
@@ -1058,30 +1078,48 @@ def markdown_slips(
         if not bare.strip():
             continue
 
-        quoted = len(line) - len(bare)
-        written = typed[quoted:]
-        judged = literal_blanked(bare)
-        rendered = as_rendered(
-            as_judged(
+        quote_width = len(line) - len(bare)
+        written = typed[quote_width:]
+        judged: str = literal_blanked(bare)
+        rendered: str = as_rendered(
+            text=as_judged(
                 judged=judged,
                 written=written,
             ),
         )
         if EM_DASH in rendered or TYPED_EM_DASH.search(rendered):
-            found.append(Slip(path=relative, line=number, message="carries a dash the house style bans, write a comma, a period or the word"))
+            found.append(
+                Slip(
+                    path=relative,
+                    line=number,
+                    message="carries a dash the house style bans, write a comma, a period or the word",
+                ),
+            )
 
         if ";" in rendered:
-            found.append(Slip(path=relative, line=number, message="carries a semicolon, write two sentences"))
+            found.append(
+                Slip(
+                    path=relative,
+                    line=number,
+                    message="carries a semicolon, write two sentences",
+                ),
+            )
 
-        colon = colon_slip(
+        colon_message: Optional[str] = colon_slip(
             written=written,
             judged=judged,
-            codeless=codeless[quoted:],
+            codeless=codeless[quote_width:],
             heading=number in reading.headings,
             table=number in reading.tables,
         )
-        if colon is not None:
-            found.append(Slip(path=relative, line=number, message=colon))
+        if colon_message is not None:
+            found.append(
+                Slip(
+                    path=relative,
+                    line=number,
+                    message=colon_message,
+                ),
+            )
 
     return found
 
@@ -1126,7 +1164,7 @@ def rendered_with_origins(
     origins: list[int] = []
     cursor = 0
     for found in REFERENCE.finditer(text):
-        rendered = rendered_reference(found)
+        rendered: str = rendered_reference(found)
         shown += [text[cursor : found.start()], rendered]
         origins += [*range(cursor, found.start()), *[found.start()] * len(rendered)]
         cursor = found.end()
@@ -1189,26 +1227,30 @@ def read_markdown(
     line is written with, and a lazy line read with the quote's
     paragraph it goes on with.
     """
-    header = header_span(text)
+    header: Optional[tuple[int, int]] = header_span(text)
     hidden: list[tuple[int, int]] = [] if header is None else [header]
-    body = sections.blanked(
+    body: str = sections.blanked(
         text=text,
         spans=hidden,
     )
 
-    outside = sections.code_spans(body)
-    plain = unquoted(
+    outside: list[tuple[int, int]] = sections.code_spans(body)
+    plain: Unquoted = unquoted(
         text=body,
         code=sections.blocks_of(body).code,
     )
-    inside = [(plain.origin(quote_start + start), plain.origin(quote_start + end)) for quote_start, quote_end in plain.quotes for start, end in sections.code_spans(plain.text[quote_start:quote_end])]
-    code = merged(outside + inside)
+    inside: list[tuple[int, int]] = [
+        (plain.origin(quote_start + start), plain.origin(quote_start + end))
+        for quote_start, quote_end in plain.quotes
+        for start, end in sections.code_spans(plain.text[quote_start:quote_end])
+    ]
+    code: list[tuple[int, int]] = merged(outside + inside)
     hidden += code + sections.comment_spans(
         text=body,
         spans=code,
     )
 
-    rest = sections.blanked(
+    rest: str = sections.blanked(
         text=text,
         spans=merged(hidden),
     )
@@ -1217,11 +1259,12 @@ def read_markdown(
         quotes=[(plain.origin(quote_start), plain.origin(quote_end)) for quote_start, quote_end in plain.quotes],
     )
 
-    regions = merged(hidden)
-    prose = sections.blanked(
+    regions: list[tuple[int, int]] = merged(hidden)
+    prose: str = sections.blanked(
         text=text,
         spans=regions,
     )
+
     written = body.split("\n")
     depths, widths = quote_depths(
         lines=written,
@@ -1229,19 +1272,21 @@ def read_markdown(
     )
     unmarked = [line[width:] for line, width in zip(written, widths)]
     bares = [line[width:] for line, width in zip(prose.split("\n"), widths)]
+
     # the tables first, against the headings of hashes alone, each one line, since a line of hyphens under a table is a thematic break and makes no setext heading of it
-    before_tables = headings_in(
+    before_tables: list[tuple[int, int]] = headings_in(
         bares=unmarked,
         depths=depths,
         blank=frozenset(),
     )
     atx = frozenset(first for first, last in before_tables if first == last)
-    tables = table_rows(
+    tables: frozenset[int] = table_rows(
         bares=bares,
         headings=atx,
         depths=depths,
     )
-    lazy = depths_with_lazy_lines(
+
+    lazy_depths: list[int] = depths_with_lazy_lines(
         lines=unmarked,
         depths=depths,
         tables=tables,
@@ -1250,7 +1295,7 @@ def read_markdown(
         number
         for first, last in headings_in(
             bares=unmarked,
-            depths=lazy,
+            depths=lazy_depths,
             blank=tables,
         )
         for number in range(first, last + 1)
@@ -1348,26 +1393,26 @@ def unquoted(
 
     for line in text.split("\n"):
         marked = QUOTE.match(line)
-        markers = 0
+        marker_width = 0
         if marked is not None and not sections.in_code(
             spans=code,
             position=offset,
         ):
-            markers = marked.end()
+            marker_width = marked.end()
 
         start = offset - taken
         starts.append(start)
-        taken += markers
+        taken += marker_width
         moved.append(taken)
-        kept.append(line[markers:])
+        kept.append(line[marker_width:])
         offset += len(line) + 1
 
-        if markers and quoted_above:
-            quotes[-1] = (quotes[-1][0], start + len(line) - markers)
-        elif markers:
-            quotes.append((start, start + len(line) - markers))
+        if marker_width and quoted_above:
+            quotes[-1] = (quotes[-1][0], start + len(line) - marker_width)
+        elif marker_width:
+            quotes.append((start, start + len(line) - marker_width))
 
-        quoted_above = markers > 0
+        quoted_above = marker_width > 0
 
     return Unquoted(
         text="\n".join(kept),
@@ -1391,7 +1436,10 @@ def headings_in(
         numbers = list(run)
         text = "\n".join("" if number + 1 in blank else bares[number] for number in numbers)
         first = numbers[0] + 1
-        found += [(first + text.count("\n", 0, heading.start), first + text.count("\n", 0, heading.end)) for heading in sections.blocks_of(text).headings]
+        found += [
+            (first + text.count("\n", 0, heading.start), first + text.count("\n", 0, heading.end))
+            for heading in sections.blocks_of(text).headings
+        ]
 
     return found
 
@@ -1416,7 +1464,7 @@ def depths_with_lazy_lines(
     CommonMark never lets a lazy line do, keeps the depth it is written
     at.
     """
-    open_at_end = paragraphs_open_at_end(
+    open_at_end: frozenset[int] = paragraphs_open_at_end(
         lines=lines,
         depths=depths,
     )
@@ -1446,7 +1494,7 @@ def paragraphs_open_at_end(
     ):
         numbers = list(run)
         text = "\n".join(lines[number] for number in numbers)
-        blocks = sections.blocks_of(text)
+        blocks: sections.Blocks = sections.blocks_of(text)
         still_open = any(end == len(text) for _, end in blocks.inline) and not any(heading.end == len(text) for heading in blocks.headings)
         if still_open:
             found.add(numbers[-1])
@@ -1459,7 +1507,7 @@ def goes_on_with_a_paragraph(
 ) -> bool:
     """Whether the one reader in sections reads the line, straight under a line of an open paragraph, as more of that paragraph, so a blank line, one that opens a block of its own and one that underlines the paragraph as a heading do not."""
     pair = f"{OPEN_PARAGRAPH}\n{line}"
-    blocks = sections.blocks_of(pair)
+    blocks: sections.Blocks = sections.blocks_of(pair)
 
     return not blocks.headings and blocks.inline == [(0, len(pair))]
 
@@ -1488,7 +1536,7 @@ def html_regions(
 
         blocks.append((opened.start(), end))
 
-    rest = sections.blanked(
+    rest: str = sections.blanked(
         text=text,
         spans=blocks,
     )
@@ -1564,7 +1612,7 @@ def table_rows(
     """
     found: set[int] = set()
     for number, bare in enumerate(
-        bares,
+        iterable=bares,
         start=1,
     ):
         if number in found or "|" not in bare or not DELIMITER_ROW.match(bare):
@@ -1592,32 +1640,32 @@ def colon_slip(
     table: bool,
 ) -> Optional[str]:
     """Why the line's colon is not a list item's label, or None when the line carries none that is not, its literal text blanked in what is judged, a table row taking any, and a list item opened by a marker the line as written holds and the reading did not step over, so neither a tag or code turned to spaces before a hyphen nor a marker inside a comment opened on a line above opens one, with the line's code alone turned to spaces in `codeless`."""
-    rendered = as_rendered(judged)
+    rendered: str = as_rendered(judged)
     if ":" not in rendered or table:
         return None
 
     if heading:
         return "carries a colon in a heading, which takes none"
 
-    marked = as_judged(
+    marked: str = as_judged(
         judged=judged,
         written=written,
     )
-    item = LIST_ITEM.match(written)
-    if item is None or STEPPED_OVER in marked[: item.end()]:
+    list_marker = LIST_ITEM.match(written)
+    if list_marker is None or STEPPED_OVER in marked[: list_marker.end()]:
         return "carries a colon mid sentence, which the house style keeps for a list item's label"
 
-    text, origins = rendered_with_origins(marked[item.end() :])
-    past_a_sentence = holds_a_sentence_end(
-        label=text[: text.index(":")],
+    item_text, origins = rendered_with_origins(marked[list_marker.end() :])
+    past_a_sentence: bool = holds_a_sentence_end(
+        label=item_text[: item_text.index(":")],
         origins=origins,
-        written=written[item.end() :],
-        codeless=codeless[item.end() :],
+        written=written[list_marker.end() :],
+        codeless=codeless[list_marker.end() :],
     )
     if past_a_sentence:
         return "carries a colon mid sentence, past the sentence that opens the list item, which the house style keeps for the item's label"
 
-    if text.count(":") > 1:
+    if item_text.count(":") > 1:
         return "carries a second colon in a list item, past the one that ends its label"
 
     return None
@@ -1647,11 +1695,14 @@ def holds_a_sentence_end(
     codeless: str,
 ) -> bool:
     """Whether a list item's label, read as it renders with what the reading stepped over marked STEPPED_OVER, holds the end of a sentence, the upper case letter after its opening marks read there, or on the line as written, from where `origins` places it, where the marks reach a code span, which `codeless` alone turns to spaces, and each other thing stepped over read as a space."""
-    spaced = "".join(" " if character == STEPPED_OVER and codeless[origins[place]] == written[origins[place]] else character for place, character in enumerate(label))
-    for end in SENTENCE_END.finditer(spaced):
+    spaced = "".join(
+        " " if character == STEPPED_OVER and codeless[origins[place]] == written[origins[place]] else character
+        for place, character in enumerate(label)
+    )
+    for sentence_end in SENTENCE_END.finditer(spaced):
         opened = SENTENCE_OPENING.match(
             string=spaced,
-            pos=end.end(),
+            pos=sentence_end.end(),
         ).end()
         if opened < len(spaced) and spaced[opened] == STEPPED_OVER:
             typed = SENTENCE_OPENING.match(
@@ -1665,7 +1716,7 @@ def holds_a_sentence_end(
         if not upper:
             continue
 
-        if spaced[end.start()] == "." and ABBREVIATION.search(spaced[: end.start() + 1]):
+        if spaced[sentence_end.start()] == "." and ABBREVIATION.search(spaced[: sentence_end.start() + 1]):
             continue
 
         return True
@@ -1684,7 +1735,7 @@ def python_slips(
     alone, whose code keeps it out by its convention, since SYSTEM.md
     holds no such rule for a project.
     """
-    code = read_python(
+    code: Code = read_python(
         relative=relative,
         text=text,
     )
@@ -1720,7 +1771,10 @@ def python_slips(
                 code=code,
             )
 
-    return sorted(found, key=lambda slip: (slip.line, slip.message))
+    return sorted(
+        found,
+        key=lambda slip: (slip.line, slip.message),
+    )
 
 
 @dataclass(frozen=True)
@@ -1819,7 +1873,7 @@ def walk_outside_strings(
 
 def def_slips(
     relative: str,
-    node: ast.AST,
+    node: Union[ast.FunctionDef, ast.AsyncFunctionDef],
     code: Code,
 ) -> list[Slip]:
     """A def's parameters one per line below its bracket, with a trailing comma after the last, a def with none or a receiver alone aside."""
@@ -1827,13 +1881,14 @@ def def_slips(
     parameters = [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]
     if arguments.vararg is not None:
         parameters.append(arguments.vararg)
+
     if arguments.kwarg is not None:
         parameters.append(arguments.kwarg)
 
     if not parameters or (len(parameters) == 1 and parameters[0].arg in RECEIVERS):
         return []
 
-    opened = header_bracket(
+    opened: int = header_bracket(
         code=code,
         node=node,
     )
@@ -1857,11 +1912,11 @@ def class_slips(
     if not bases:
         return []
 
-    opened = header_bracket(
+    opened: int = header_bracket(
         code=code,
         node=node,
     )
-    judged = held(
+    judged: bool = held(
         code=code,
         opened=opened,
         items=bases,
@@ -1884,12 +1939,12 @@ def call_slips(
     code: Code,
 ) -> list[Slip]:
     """A call already broken across lines keeps its arguments one per line with a trailing comma, a lone literal, string or generator aside."""
-    end = code.at(
+    end: tuple[int, int] = code.at(
         line=node.end_lineno,
         offset=node.end_col_offset,
     )
     opened = code.opens[code.ending[end]]
-    judged = held(
+    judged: bool = held(
         code=code,
         opened=opened,
         items=[*node.args, *node.keywords],
@@ -1908,10 +1963,10 @@ def call_slips(
 
 def header_bracket(
     code: Code,
-    node: ast.AST,
+    node: Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef],
 ) -> int:
     """The bracket a def's parameters or a class's bases open at, the first `(` after its keyword outside any other bracket, so a list of type parameters is stepped over."""
-    start = code.at(
+    start: tuple[int, int] = code.at(
         line=node.lineno,
         offset=node.col_offset,
     )
@@ -1953,8 +2008,8 @@ def stacking_slips(
     comma in a comment or a string, after the bracket, or on the line
     below is read as it is.
     """
-    bracket = code.tokens[opened].start[0]
-    ended = bracket
+    bracket_line = code.tokens[opened].start[0]
+    ended = bracket_line
     for first, last in items_within(
         code=code,
         opened=opened,
@@ -1962,7 +2017,7 @@ def stacking_slips(
         if code.tokens[first].start[0] <= ended:
             sharing_a_line = Slip(
                 path=relative,
-                line=bracket,
+                line=bracket_line,
                 message=unstacked,
             )
 
@@ -1970,7 +2025,7 @@ def stacking_slips(
 
         ended = code.tokens[last].end[0]
 
-    trailing = is_mark(
+    trailing: bool = is_mark(
         token=code.tokens[code.closes[opened] - 1],
         mark=",",
     )
@@ -2006,14 +2061,14 @@ def items_within(
         if token.type == tokenize.NAME and token.string == "lambda":
             lambdas += 1
 
-        ending = is_mark(
+        ending: bool = is_mark(
             token=token,
             mark=":",
         )
         if ending and lambdas:
             lambdas -= 1
 
-        parting = is_mark(
+        parting: bool = is_mark(
             token=token,
             mark=",",
         )
@@ -2058,7 +2113,7 @@ def check_commits(
     message nor a signature is read as a commit's hash.
     """
     try:
-        known = answered(
+        known: handover.Reply = answered(
             folder=project,
             arguments=["for-each-ref", "--format=%(refname)", *BASE_PREFIXES],
             refusal=UNREAD,
@@ -2073,7 +2128,7 @@ def check_commits(
 
             return unknown
 
-        log = answered(
+        log: handover.Reply = answered(
             folder=project,
             arguments=["log", "--no-show-signature", "-z", "--format=%h%n%B", "HEAD", "--not", *bases, "--"],
             refusal=UNREAD,
@@ -2136,7 +2191,7 @@ def answered(
 ) -> handover.Reply:
     """Git's reply for the folder through the shared runner, waiting as long as git takes unless the seconds are given, as the upgrade's calls over the whole tree do, or the check refused in the words given and what git said, git run with neither the variables of its language nor those of a trace."""
     try:
-        reply = handover.git(
+        reply: handover.Reply = handover.git(
             project=folder,
             arguments=arguments,
             seconds=seconds,
