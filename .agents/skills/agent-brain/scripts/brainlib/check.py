@@ -61,6 +61,12 @@ NAMES_PER_CALL = 8000
 LOCALE: frozenset[str] = frozenset({"LANG", "LANGUAGE", "LC_ALL", "LC_MESSAGES"})
 UNOPENED = re.compile(r"^warning: could not open directory '(.*)': (.*)$", re.MULTILINE)
 
+# How the name of each variable git traces its own work by opens,
+# GIT_TRACE, GIT_TRACE2 and the rest, each left out of the check's
+# calls, since a trace git writes to standard error reads there as git's
+# own words, a warning as it lists the files or the reason it refused.
+TRACE = "GIT_TRACE"
+
 # Why the check passes over a file, said of a file named on the command line.
 NOT_PROSE_OR_CODE = "it is neither markdown nor Python"
 TOOLS_OWN = "the brain tool writes it"
@@ -93,6 +99,9 @@ REFERENCE = re.compile(r"\\[\s\S]|&(?:#[0-9]{1,7}|#[xX][0-9A-Fa-f]{1,6}|[A-Za-z]
 LIST_ITEM = re.compile(r"^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+")
 QUOTE = re.compile(r"^(?:[ \t]{0,3}>[ \t]?)+")
 DELIMITER_ROW = re.compile(r"[ \t]*(?:\|[ \t]*)?:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*(?:\|[ \t]*)?$")
+
+# One of the quote markers QUOTE takes off, so a line's first few are taken alone.
+QUOTE_MARKER = re.compile(r"[ \t]{0,3}>[ \t]?")
 
 # The header block a markdown file opens with, the front matter other
 # tools read too: a `---` line, a key line straight after it, then lines
@@ -128,14 +137,17 @@ TAG = re.compile(r"</[A-Za-z][A-Za-z0-9-]*\s*>|<[A-Za-z][A-Za-z0-9-]*(?:\s+[A-Za
 # quote among them, up to the last that is not closing punctuation, so a
 # semicolon, a colon, a comma, a period or a parenthesis right after it
 # is the sentence's, and so is a dash set flush against it. A scheme
-# opens a word, so a long word is read once and not from each letter.
+# opens at a word's first letter, so a long word is read once and not
+# from each letter, and the digits, dots, pluses and hyphens a word
+# opens with before it, on none of which a scheme opens, go with the
+# URL, so one glued to a number or a flag is literal text too.
 URL_TAIL = r"(?:[^\s<>\N{EM DASH}]*[^\s<>\N{EM DASH}.,;:)])"
 LITERALS: tuple["re.Pattern[str]", ...] = (
     # a link reference definition whole, and a footnote definition's label and colon, whose text is judged
     re.compile(r"^[ \t]{0,3}\[(?!\^)(?:[^\[\]\\\n]|\\.)+\]:[ \t]*(?:<[^<>\n]*>|[^\s<]\S*)(?:[ \t]+(?:\"[^\"\n]*\"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*$"),
     re.compile(r"^[ \t]{0,3}\[\^[^\[\]\s]+\]:"),
     # a URL, a word of a scheme written with no slashes, and git's user@host:path
-    re.compile(rf"(?<![A-Za-z0-9+.-])[A-Za-z][A-Za-z0-9+.-]*://{URL_TAIL}?"),
+    re.compile(rf"(?<![A-Za-z0-9+.-])[0-9+.-]*[A-Za-z][A-Za-z0-9+.-]*://{URL_TAIL}?"),
     re.compile(rf"(?<![A-Za-z0-9+.-])(?:mailto|tel|urn|data|file):{URL_TAIL}"),
     re.compile(rf"(?<![\w.+-])[\w.+-]+@[A-Za-z0-9.-]+:{URL_TAIL}"),
     # a colon with a digit on each side, a time, a timestamp, a ratio or a line number, before the paths that end in one
@@ -183,10 +195,12 @@ UNREAD = "the commits were not read"
 # parenthesis or bracket and any emoji aside, a sequence joined by zero
 # width joiners or with a skin tone being one emoji. A co-author trailer
 # in any case, and an attribution, a trailer or the words of one,
-# generated, written, created or made, then with or by, whose object is
-# an agent named as its product writes itself, right after it with no
-# more than a link's opening bracket or its maker's name between, so an
-# agent named later in the line is none. The name is a whole word, a
+# generated, written, created or made, then with or by and the colon a
+# trailer ends with where it is typed, whose object is an agent named
+# as its product writes itself, right after it with no more than a
+# link's opening bracket or its maker's name between, the maker's in
+# the possessive too and before the bracket or after it, so an agent
+# named later in the line is none. The name is a whole word, a
 # version or a variant after a hyphen in it, that is no part of a file
 # or folder name, a word that goes on to a slash or ends in a suffix, so
 # CLAUDE.md, .claude/, Codex-guide.md and a cursor name none, while
@@ -198,9 +212,9 @@ EMOJI_POINT = r"[⌀-⏿☀-➿⬀-⯿\U0001f000-\U0001f3fa\U0001f400-\U0001faff
 EMOJI = rf"{EMOJI_POINT}(?:\u200d{EMOJI_POINT})*"
 LINE_HEAD = rf"[ \t]*(?:(?:[-*+]|\d{{1,9}}[.)])[ \t]+|[(\[][ \t]*|{EMOJI}[ \t]*)*"
 AGENT = r"(?<![\w./\\-])(?:Claude|Codex|Gemini|Copilot|ChatGPT|Cursor|Aider)(?!\w)(?![\w.-]*(?:[/\\]|\.[A-Za-z]\w*(?![\w.-])))"
-NAMED = r"(?:\[[ \t]*)?(?:(?i:GitHub|OpenAI|Google|Anthropic)[ \t]+)?"
+NAMED = r"(?:\[[ \t]*)?(?:(?i:(?:GitHub|OpenAI|Google|Anthropic)(?:['’]s)?)[ \t]+(?:\[[ \t]*)?)?"
 CO_AUTHOR = re.compile(rf"(?im)^{LINE_HEAD}co-authored-by[ \t]*:")
-ATTRIBUTION = re.compile(rf"(?m)^{LINE_HEAD}(?:(?i:assisted-by|generated-by)[ \t]*:[ \t]*|(?i:generated|written|created|made)[ \t]+(?i:with|by)[ \t]+){NAMED}{AGENT}")
+ATTRIBUTION = re.compile(rf"(?m)^{LINE_HEAD}(?:(?i:assisted-by|generated-by)[ \t]*:[ \t]*|(?i:generated|written|created|made)[ \t]+(?i:with|by)(?:[ \t]*:[ \t]*|[ \t]+)){NAMED}{AGENT}")
 
 # The parameters a def may keep on its own line, since a method with
 # nothing but its receiver has nothing to stack.
@@ -304,12 +318,13 @@ def chosen(
     once in a note with the reason, and one under a folder named is
     passed in silence, as the tree's are. A folder that cannot be opened,
     or a file that cannot be read, is one slip however many of the paths
-    reach it, and a line git said as it listed one note.
+    reach it, and a line git said as it listed one note, in the words of
+    the first folder whose listing it came in.
     """
     root = project.resolve()
     once: dict[str, Target] = {}
     slips: list[Slip] = []
-    warned: list[str] = []
+    warned: dict[str, str] = {}
     named: list[str] = []
     listings: dict[Path, Optional[frozenset[str]]] = {}
 
@@ -326,6 +341,7 @@ def chosen(
                     root=root,
                     folder=folder,
                     listings=listings,
+                    warned=warned,
                 )
             else:
                 listing = walked(
@@ -338,7 +354,6 @@ def chosen(
                 once.setdefault(target.relative, target)
 
             slips += listing.slips
-            warned += listing.notes
             continue
 
         if not store.readable_file(path):
@@ -361,7 +376,7 @@ def chosen(
         project=project,
         relatives=list(once),
     )
-    notes = list(dict.fromkeys(warned)) + [f"{relative} is passed over, {reasons[relative]}" for relative in dict.fromkeys(named) if reasons[relative] is not None]
+    notes = list(warned.values()) + [f"{relative} is passed over, {reasons[relative]}" for relative in dict.fromkeys(named) if reasons[relative] is not None]
 
     return Listing(
         files=[target for relative, target in once.items() if reasons[relative] is None],
@@ -375,10 +390,12 @@ def tracked(
 ) -> Listing:
     """The project's own markdown and Python files, those git tracks and the new ones it does not ignore, refused in git's words where git cannot list them, each the check passes over left out."""
     root = project.resolve()
+    warned: dict[str, str] = {}
     listing = listed(
         root=root,
         folder=root,
         listings={},
+        warned=warned,
     )
     reasons = passed_over(
         project=project,
@@ -388,7 +405,7 @@ def tracked(
     return Listing(
         files=[target for target in listing.files if reasons[target.relative] is None],
         slips=listing.slips,
-        notes=listing.notes,
+        notes=list(warned.values()),
     )
 
 
@@ -396,6 +413,7 @@ def listed(
     root: Path,
     folder: Path,
     listings: dict[Path, Optional[frozenset[str]]],
+    warned: dict[str, str],
 ) -> Listing:
     """The markdown and Python files git lists under the folder, those it tracks and the new ones it does not ignore, each name once in git's order, refused in git's words where git cannot list them, each folder on the way to one listed once into the run's `listings`.
 
@@ -403,7 +421,9 @@ def listed(
     lists none of the new files under it, and git names it from the top
     of its work tree. Every other line git says as it lists them is a
     note as it stands, since a git that speaks another language words
-    its warning for such a folder where UNOPENED cannot read it.
+    its warning for such a folder where UNOPENED cannot read it, put once
+    into the run's `warned` by the line git said, so a line the listings
+    of two folders both say is one note.
     """
     where = named_from(
         root=root,
@@ -422,14 +442,14 @@ def listed(
         paths=[folder / name for name in spelled if name is not None],
         listings=listings,
     )
-    notes = [f"git warned as it listed {files}, {line.strip()}" for line in reply.trouble.split("\n") if line.strip() and not UNOPENED.match(line)]
+    for line in reply.trouble.split("\n"):
+        said = line.strip()
+        if said and not UNOPENED.match(line):
+            warned.setdefault(said, f"git warned as it listed {files}, {said}")
+
     warnings = UNOPENED.findall(reply.trouble)
     if not warnings:
-        return Listing(
-            files=listing.files,
-            slips=listing.slips,
-            notes=notes,
-        )
+        return listing
 
     top = answered(
         folder=folder,
@@ -439,16 +459,15 @@ def listed(
     unopened = [
         unopened_slip(
             root=root,
-            folder=Path(top.output.strip()) / warned.rstrip("/"),
+            folder=Path(top.output.strip()) / place.rstrip("/"),
             reason=reason,
         )
-        for warned, reason in warnings
+        for place, reason in warnings
     ]
 
     return Listing(
         files=listing.files,
         slips=listing.slips + unopened,
-        notes=notes,
     )
 
 
@@ -1012,26 +1031,24 @@ def markdown_slips(
     judged with its quote markers and its literal text taken off and the
     character references CommonMark reads turned to the characters they
     render, beside the line as written, whose spaces alone stand beside
-    two hyphens typed for a dash and whose marker alone opens a list
-    item, so code or a tag turned to spaces is never read as either. In
-    a project's AGENTS.md only the words above the kit's marker are the
-    project's to put right.
+    two hyphens typed for a dash and whose marker alone, where the
+    reading did not step over it, opens a list item, so code or a tag
+    turned to spaces is never read as either, and beside the line with
+    its code alone turned to spaces, so a sentence a code span opens is
+    told from one that opens past a tag. In a project's AGENTS.md only
+    the words above the kit's marker are the project's to put right.
     """
     reading = read_markdown(text)
     prose = reading.prose
     if own_words_only:
-        # the marker is an HTML comment, blanked in the prose, so it is found in the text as the upgrade finds it, the first outside code, and the prose keeps the text's offsets
-        mark = upgrade.first_outside_code(
-            text=text,
-            pattern=upgrade.MARK,
-            start=0,
-        )
+        # the marker is an HTML comment, blanked in the prose, so it is found in the text as section_zero_in reads it, outside code and comments, or on its line inside a fence or a comment left open, and the prose keeps the text's offsets
+        mark = upgrade.kit_mark_in(text)
         if mark != -1:
             prose = prose[:mark]
 
     found: list[Slip] = []
-    for number, (line, typed) in enumerate(
-        zip(prose.split("\n"), text.split("\n")),
+    for number, (line, typed, codeless) in enumerate(
+        zip(prose.split("\n"), text.split("\n"), reading.codeless.split("\n")),
         start=1,
     ):
         bare = QUOTE.sub(
@@ -1041,7 +1058,8 @@ def markdown_slips(
         if not bare.strip():
             continue
 
-        written = typed[len(line) - len(bare) :]
+        quoted = len(line) - len(bare)
+        written = typed[quoted:]
         judged = literal_blanked(bare)
         rendered = as_rendered(
             as_judged(
@@ -1058,6 +1076,7 @@ def markdown_slips(
         colon = colon_slip(
             written=written,
             judged=judged,
+            codeless=codeless[quoted:],
             heading=number in reading.headings,
             table=number in reading.tables,
         )
@@ -1120,16 +1139,17 @@ def rendered_with_origins(
 
 @dataclass(frozen=True)
 class Reading:
-    """A markdown file as the prose check reads it, its text with what is stepped over turned to spaces and every line end kept, and the numbers of the lines a heading takes and of the lines of its tables."""
+    """A markdown file as the prose check reads it, its text with what is stepped over turned to spaces and every line end kept, the text with its code alone turned to spaces, and the numbers of the lines a heading takes and of the lines of its tables."""
 
     prose: str
+    codeless: str
     headings: frozenset[int]
     tables: frozenset[int]
 
 
 @dataclass(frozen=True)
 class Unquoted:
-    """A text with the quote markers taken off each line outside code, where each line starts in it, how far the start of each has moved from the text's by then, and where each run of quoted lines starts and ends in it."""
+    """A text with the quote markers taken off each line outside a block of code, where each line starts in it, how far the start of each has moved from the text's by then, and where each run of quoted lines starts and ends in it."""
 
     text: str
     starts: list[int]
@@ -1152,16 +1172,22 @@ class Unquoted:
 def read_markdown(
     text: str,
 ) -> Reading:
-    """The text with its header block, its code, its HTML comments and its raw HTML turned to spaces, each region once, and the lines its headings and its tables take.
+    """The text with its header block, its code, its HTML comments and its raw HTML turned to spaces, each region once, the text with its code alone turned to spaces, and the lines its headings and its tables take.
 
     The header goes first, so no code or heading is read in it. The code
     is the one reader's in sections, over the text and over each run of
-    quoted lines alone with the quote markers taken off, so code inside a
-    quote is found and a fence left open in one ends where the quote
-    does, as CommonMark closes it. The raw HTML is read where the code
-    and the comments leave text, a raw block opened in a quote ending
-    with the quote too. The tables and the headings are read from what
-    is left, the lines of each depth of quote apart.
+    quoted lines alone with the quote markers taken off, but for a line
+    that starts inside a block of code the reading over the text found,
+    so code inside a quote is found and a fence left open in one ends
+    where the quote does, as CommonMark closes it, and a span that
+    reading pairs across a quote's lines never cuts the quote. The raw
+    HTML is read where the code and the comments leave text, a raw block
+    opened in a quote ending with the quote too. The tables are read
+    from what is left, and the headings from the text as written, its
+    header aside, so code or a tag keeps the shape of the line it opens,
+    each over the lines of one depth of quote apart, by the markers a
+    line is written with, and a lazy line read with the quote's
+    paragraph it goes on with.
     """
     header = header_span(text)
     hidden: list[tuple[int, int]] = [] if header is None else [header]
@@ -1173,7 +1199,7 @@ def read_markdown(
     outside = sections.code_spans(body)
     plain = unquoted(
         text=body,
-        code=outside,
+        code=sections.blocks_of(body).code,
     )
     inside = [(plain.origin(quote_start + start), plain.origin(quote_start + end)) for quote_start, quote_end in plain.quotes for start, end in sections.code_spans(plain.text[quote_start:quote_end])]
     code = merged(outside + inside)
@@ -1191,22 +1217,21 @@ def read_markdown(
         quotes=[(plain.origin(quote_start), plain.origin(quote_end)) for quote_start, quote_end in plain.quotes],
     )
 
+    regions = merged(hidden)
     prose = sections.blanked(
         text=text,
-        spans=merged(hidden),
+        spans=regions,
     )
-    lines = prose.split("\n")
-    bares = [
-        QUOTE.sub(
-            repl="",
-            string=line,
-        )
-        for line in lines
-    ]
-    depths = [line.count(">", 0, len(line) - len(bare)) for line, bare in zip(lines, bares)]
+    written = body.split("\n")
+    depths, widths = quote_depths(
+        lines=written,
+        regions=regions,
+    )
+    unmarked = [line[width:] for line, width in zip(written, widths)]
+    bares = [line[width:] for line, width in zip(prose.split("\n"), widths)]
     # the tables first, against the headings of hashes alone, each one line, since a line of hyphens under a table is a thematic break and makes no setext heading of it
     before_tables = headings_in(
-        bares=bares,
+        bares=unmarked,
         depths=depths,
         blank=frozenset(),
     )
@@ -1216,11 +1241,16 @@ def read_markdown(
         headings=atx,
         depths=depths,
     )
+    lazy = depths_with_lazy_lines(
+        lines=unmarked,
+        depths=depths,
+        tables=tables,
+    )
     headings = frozenset(
         number
         for first, last in headings_in(
-            bares=bares,
-            depths=depths,
+            bares=unmarked,
+            depths=lazy,
             blank=tables,
         )
         for number in range(first, last + 1)
@@ -1228,16 +1258,86 @@ def read_markdown(
 
     return Reading(
         prose=prose,
+        codeless=sections.blanked(
+            text=text,
+            spans=code,
+        ),
         headings=headings,
         tables=tables,
     )
+
+
+def quote_depths(
+    lines: list[str],
+    regions: list[tuple[int, int]],
+) -> tuple[list[int], list[int]]:
+    """The depth of quote each line sits at, by the markers it is written with, and how many of its first characters the markers of that depth take.
+
+    A line that starts inside a region the reading stepped over, opened
+    on a line above, sits at the depth of the line the region opened on,
+    since code, a comment or raw HTML never runs out of the quote it
+    opens in, so the markers it is written with past that depth are the
+    region's own text, and one it lacks makes it a lazy line of that
+    quote. The regions are in order and none overlaps another.
+    """
+    opened = [start for start, _ in regions]
+    starts: list[int] = []
+    depths: list[int] = []
+    widths: list[int] = []
+    start = 0
+
+    for line in lines:
+        starts.append(start)
+        before = bisect.bisect_left(
+            a=opened,
+            x=start,
+        )
+        if before > 0 and start < regions[before - 1][1]:
+            opener = bisect.bisect_right(
+                a=starts,
+                x=regions[before - 1][0],
+            )
+            depth = depths[opener - 1]
+        else:
+            marked = QUOTE.match(line)
+            depth = 0 if marked is None else marked.group().count(">")
+
+        depths.append(depth)
+        widths.append(
+            markers_width(
+                line=line,
+                depth=depth,
+            ),
+        )
+        start += len(line) + 1
+
+    return depths, widths
+
+
+def markers_width(
+    line: str,
+    depth: int,
+) -> int:
+    """How many of the line's first characters its first `depth` quote markers take, or all it has where it has fewer."""
+    width = 0
+    for _ in range(depth):
+        marker = QUOTE_MARKER.match(
+            string=line,
+            pos=width,
+        )
+        if marker is None:
+            break
+
+        width = marker.end()
+
+    return width
 
 
 def unquoted(
     text: str,
     code: list[tuple[int, int]],
 ) -> Unquoted:
-    """The text with the quote markers taken off each line, however deep, but a line that starts inside code, which keeps what it holds, and the runs of lines it took markers from."""
+    """The text with the quote markers taken off each line, however deep, but a line that starts inside one of the blocks of code given, which keeps what it holds, and the runs of lines it took markers from."""
     kept: list[str] = []
     starts: list[int] = []
     moved: list[int] = []
@@ -1294,6 +1394,74 @@ def headings_in(
         found += [(first + text.count("\n", 0, heading.start), first + text.count("\n", 0, heading.end)) for heading in sections.blocks_of(text).headings]
 
     return found
+
+
+# A line of an open paragraph, which a line is read under to ask the one
+# reader in sections whether that line goes on with a paragraph.
+OPEN_PARAGRAPH = "text"
+
+
+def depths_with_lazy_lines(
+    lines: list[str],
+    depths: list[int],
+    tables: frozenset[int],
+) -> list[int]:
+    """The depth of quote each line belongs to, each lazy line, one with fewer quote markers than the line above that goes on with the quote's paragraph, at the depth of that paragraph.
+
+    A line goes on with the paragraph the line above it ends where that
+    line ends a run of its depth inside an open paragraph, or is itself
+    lazy, neither line is a table's, and the one reader in sections
+    reads the line under a paragraph's line as more of that paragraph,
+    so a line that opens a block, or underlines a heading, which
+    CommonMark never lets a lazy line do, keeps the depth it is written
+    at.
+    """
+    open_at_end = paragraphs_open_at_end(
+        lines=lines,
+        depths=depths,
+    )
+    found = list(depths)
+    for index in range(1, len(lines)):
+        above = index - 1
+        # the tables number their lines from one
+        if depths[index] >= found[above] or index in tables or index + 1 in tables:
+            continue
+
+        continued = above in open_at_end or found[above] != depths[above]
+        if continued and goes_on_with_a_paragraph(lines[index]):
+            found[index] = found[above]
+
+    return found
+
+
+def paragraphs_open_at_end(
+    lines: list[str],
+    depths: list[int],
+) -> frozenset[int]:
+    """The index of each line that ends a run of lines at one depth of quote inside a paragraph still open there, as the one reader in sections reads the run, and so neither inside code or a comment nor a heading's."""
+    found: set[int] = set()
+    for _, run in itertools.groupby(
+        iterable=range(len(lines)),
+        key=depths.__getitem__,
+    ):
+        numbers = list(run)
+        text = "\n".join(lines[number] for number in numbers)
+        blocks = sections.blocks_of(text)
+        still_open = any(end == len(text) for _, end in blocks.inline) and not any(heading.end == len(text) for heading in blocks.headings)
+        if still_open:
+            found.add(numbers[-1])
+
+    return frozenset(found)
+
+
+def goes_on_with_a_paragraph(
+    line: str,
+) -> bool:
+    """Whether the one reader in sections reads the line, straight under a line of an open paragraph, as more of that paragraph, so a blank line, one that opens a block of its own and one that underlines the paragraph as a heading do not."""
+    pair = f"{OPEN_PARAGRAPH}\n{line}"
+    blocks = sections.blocks_of(pair)
+
+    return not blocks.headings and blocks.inline == [(0, len(pair))]
 
 
 def html_regions(
@@ -1419,10 +1587,11 @@ def table_rows(
 def colon_slip(
     written: str,
     judged: str,
+    codeless: str,
     heading: bool,
     table: bool,
 ) -> Optional[str]:
-    """Why the line's colon is not a list item's label, or None when the line carries none that is not, its literal text blanked in what is judged, a table row taking any, and a list item opened by the line as written, so a tag or code turned to spaces before a hyphen opens none."""
+    """Why the line's colon is not a list item's label, or None when the line carries none that is not, its literal text blanked in what is judged, a table row taking any, and a list item opened by a marker the line as written holds and the reading did not step over, so neither a tag or code turned to spaces before a hyphen nor a marker inside a comment opened on a line above opens one, with the line's code alone turned to spaces in `codeless`."""
     rendered = as_rendered(judged)
     if ":" not in rendered or table:
         return None
@@ -1430,19 +1599,20 @@ def colon_slip(
     if heading:
         return "carries a colon in a heading, which takes none"
 
-    item = LIST_ITEM.match(written)
-    if item is None:
-        return "carries a colon mid sentence, which the house style keeps for a list item's label"
-
     marked = as_judged(
         judged=judged,
         written=written,
     )
+    item = LIST_ITEM.match(written)
+    if item is None or STEPPED_OVER in marked[: item.end()]:
+        return "carries a colon mid sentence, which the house style keeps for a list item's label"
+
     text, origins = rendered_with_origins(marked[item.end() :])
     past_a_sentence = holds_a_sentence_end(
         label=text[: text.index(":")],
         origins=origins,
         written=written[item.end() :],
+        codeless=codeless[item.end() :],
     )
     if past_a_sentence:
         return "carries a colon mid sentence, past the sentence that opens the list item, which the house style keeps for the item's label"
@@ -1461,7 +1631,10 @@ def colon_slip(
 # upper case letter, the period of a known abbreviation aside. The
 # letter may follow what opens emphasis, a link, a parenthesis, a quote
 # or a code span, and where the reading stepped over what follows the
-# marks, a code span, the letter is read on the line as written.
+# marks, a code span, the letter is read on the line as written. Each
+# other thing it stepped over, a tag, a comment, a shortcode or literal
+# text, reads as the spaces it was turned to before the line is judged,
+# so a sentence opens at the letter past it.
 SENTENCE_END = re.compile(r"[.!?][*_]*[ \t]+")
 SENTENCE_OPENING = re.compile(r"[*_\[(\"'`\u201c\u2018]*")
 ABBREVIATION = re.compile(r"(?<![\w.])(?:e\.g|i\.e|etc|cf|vs|Dr|Mr|Mrs|Ms|St|No|Fig|Inc|Ltd|Co|Jr|Sr)\.$")
@@ -1471,26 +1644,28 @@ def holds_a_sentence_end(
     label: str,
     origins: list[int],
     written: str,
+    codeless: str,
 ) -> bool:
-    """Whether a list item's label, read as it renders with what the reading stepped over marked STEPPED_OVER, holds the end of a sentence, the upper case letter after its opening marks read there, or on the line as written, from where `origins` places it, where the marks reach something stepped over."""
-    for end in SENTENCE_END.finditer(label):
+    """Whether a list item's label, read as it renders with what the reading stepped over marked STEPPED_OVER, holds the end of a sentence, the upper case letter after its opening marks read there, or on the line as written, from where `origins` places it, where the marks reach a code span, which `codeless` alone turns to spaces, and each other thing stepped over read as a space."""
+    spaced = "".join(" " if character == STEPPED_OVER and codeless[origins[place]] == written[origins[place]] else character for place, character in enumerate(label))
+    for end in SENTENCE_END.finditer(spaced):
         opened = SENTENCE_OPENING.match(
-            string=label,
+            string=spaced,
             pos=end.end(),
         ).end()
-        if opened < len(label) and label[opened] == STEPPED_OVER:
+        if opened < len(spaced) and spaced[opened] == STEPPED_OVER:
             typed = SENTENCE_OPENING.match(
                 string=written,
                 pos=origins[opened],
             ).end()
             upper = typed < len(written) and written[typed].isupper()
         else:
-            upper = opened < len(label) and label[opened].isupper()
+            upper = opened < len(spaced) and spaced[opened].isupper()
 
         if not upper:
             continue
 
-        if label[end.start()] == "." and ABBREVIATION.search(label[: end.start() + 1]):
+        if spaced[end.start()] == "." and ABBREVIATION.search(spaced[: end.start() + 1]):
             continue
 
         return True
@@ -1959,13 +2134,13 @@ def answered(
     refusal: str,
     seconds: Optional[int] = None,
 ) -> handover.Reply:
-    """Git's reply for the folder through the shared runner, waiting as long as git takes unless the seconds are given, as the upgrade's calls over the whole tree do, or the check refused in the words given and what git said."""
+    """Git's reply for the folder through the shared runner, waiting as long as git takes unless the seconds are given, as the upgrade's calls over the whole tree do, or the check refused in the words given and what git said, git run with neither the variables of its language nor those of a trace."""
     try:
         reply = handover.git(
             project=folder,
             arguments=arguments,
             seconds=seconds,
-            unset=LOCALE,
+            unset=LOCALE | frozenset(name for name in os.environ if name.startswith(TRACE)),
         )
     except handover.Unanswered as error:
         raise CheckError(f"{refusal}, {error}") from error
