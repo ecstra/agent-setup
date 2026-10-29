@@ -26,19 +26,43 @@ from typing import Callable, Optional
 
 from . import check, doctor, sections, store, upgrade
 
-# The letters gates with no letter on either side, so the digit a `<sup>`
-# footnote mark leaves beside them once its tags come off still leaves
-# the word.
+# The word gates with no letter, digit or underscore beside it as the
+# heading shows, its emphasis taken off first, so an identifier such as
+# `ci_gates.yml` or `SKIP_GATES` holds no word gates.
 GATES_WORD = re.compile(
-    pattern=r"(?<![^\W\d_])gates(?![^\W\d_])",
+    pattern=r"(?<!\w)gates(?!\w)",
     flags=re.IGNORECASE,
 )
 SET_LINE = re.compile(r"^set(?:[ \t]|$)")
+
+# Emphasis, a pair of `*` or `_` runs of one to three around text, the
+# opener with no letter or digit before it and the closer with none after
+# it, which shows its text alone, so an underscore inside a word or with
+# no pair shows as written. It is read where each code span and each
+# backslash escape stands as marks of its length, so no run inside either
+# opens or closes one.
+EMPHASIS = re.compile(r"(?<![^\W_])(?P<run>\*{1,3}|_{1,3})(?![\s*_])(?P<text>[\s\S]*?[^\s*_])(?P=run)(?![^\W_])")
+ESCAPE = re.compile(r"\\[!-/:-@\[-`{-~]")
+
+# The mark left where a comment or a tag comes off flush, and put for each
+# character of a code span or an escape while emphasis is read. No heading
+# holds it, emphasis reads it as the punctuation that stood there, as
+# CommonMark reads a run beside a tag, and it is dropped once emphasis is
+# read.
+STAND_IN = "\0"
 
 # A line break and an image part the words beside them as they render,
 # where any other tag joins them.
 SPACED_TAG = re.compile(
     pattern=r"</?(?:br|img)(?![A-Za-z0-9-])",
+    flags=re.IGNORECASE,
+)
+
+# A `<sup>` or `<sub>` element, a footnote mark beside a word for one,
+# parts the words beside it with all it holds, to its closing tag or, left
+# open, to the end of the text, where the heading closes it.
+SPACED_ELEMENT = re.compile(
+    pattern=r"<(sup|sub)(?![A-Za-z0-9-])[^>]*>[\s\S]*?(?:</\1\s*>|\Z)",
     flags=re.IGNORECASE,
 )
 
@@ -419,12 +443,13 @@ def shown(
     text: str,
     labels: frozenset[str],
 ) -> str:
-    """The heading's text as markdown shows it, read as one line of inline text, its code spans as they stand, its comments taken off flush, and the rest unlinked, so a word in a comment, an attribute, an image or a link's target never makes a Gates heading."""
+    """The heading's text as markdown shows it, read as one line of inline text, its code spans as they stand, its comments taken off flush, the rest unlinked, and its emphasis outside the code spans taken off, so a word in a comment, an attribute, an image or a link's target never makes a Gates heading."""
     spans, comments = sections.inline_of(
         text=text,
         stretches=[(0, len(text))],
     )
     kept: list[str] = []
+    code: list[tuple[int, int]] = []
     cursor = 0
     for start, end in sorted(spans + comments):
         kept.append(
@@ -433,7 +458,12 @@ def shown(
                 labels=labels,
             ),
         )
-        kept.append("" if (start, end) in comments else text[start:end])
+        if (start, end) in comments:
+            kept.append(STAND_IN)
+        else:
+            offset = sum(len(piece) for piece in kept)
+            code.append((offset, offset + end - start))
+            kept.append(text[start:end])
         cursor = end
     kept.append(
         unlinked(
@@ -442,22 +472,70 @@ def shown(
         ),
     )
 
-    return "".join(kept)
+    return unemphasized(
+        text="".join(kept),
+        code=code,
+    ).replace(STAND_IN, "")
+
+
+def unemphasized(
+    text: str,
+    code: list[tuple[int, int]],
+) -> str:
+    """The text with each emphasis outside its code spans by its text alone, the innermost first, an escaped `*` or `_` and the runs inside a code span left as written."""
+    read = "".join(
+        STAND_IN
+        if sections.in_code(
+            spans=code,
+            position=index,
+        )
+        else character
+        for index, character in enumerate(text)
+    )
+    read = ESCAPE.sub(
+        repl=STAND_IN * 2,
+        string=read,
+    )
+
+    while True:
+        pair = EMPHASIS.search(read)
+        if pair is None:
+            return text
+
+        text = runs_off(
+            text=text,
+            pair=pair,
+        )
+        read = runs_off(
+            text=read,
+            pair=pair,
+        )
+
+
+def runs_off(
+    text: str,
+    pair: re.Match,
+) -> str:
+    """The text with the opening and the closing run of an emphasis taken off, at the offsets the pattern found them in the text read alongside it, and what they hold kept."""
+    return text[: pair.start("run")] + text[pair.end("run") : pair.end("text")] + text[pair.end() :]
 
 
 def unlinked(
     text: str,
     labels: frozenset[str],
 ) -> str:
-    """The text with each link by its text alone, each image as a space, and each HTML tag taken off flush but a line break or an `<img>`, each read as a space."""
+    """The text with each link by its text alone, each image and each `<sup>` or `<sub>` element as a space, and each HTML tag taken off flush, the stand-in mark left where it stood, but a line break or an `<img>`, each read as a space."""
     return check.TAG.sub(
-        repl=lambda found: " " if SPACED_TAG.match(found.group()) else "",
-        string=LINK.sub(
-            repl=lambda found: link_shown(
-                found=found,
-                labels=labels,
+        repl=lambda found: " " if SPACED_TAG.match(found.group()) else STAND_IN,
+        string=SPACED_ELEMENT.sub(
+            repl=" ",
+            string=LINK.sub(
+                repl=lambda found: link_shown(
+                    found=found,
+                    labels=labels,
+                ),
+                string=text,
             ),
-            string=text,
         ),
     )
 

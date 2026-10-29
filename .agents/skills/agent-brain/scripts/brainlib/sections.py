@@ -47,11 +47,17 @@ NOT_A_LINE_END = re.compile(r"[^\n]")
 QUOTE_MARK = ">"
 CODE_INDENT = 4
 
+# How deep the reader reads a quote inside a quote, each level a call of
+# its own, so a line of hundreds of `>` stays well inside Python's
+# recursion limit, and the markers past it are the innermost quote's text.
+QUOTE_DEPTH = 32
+
 # An HTML comment hides what it holds from a reader that asks, a gate
 # or a heading an owner commented out for one. It is no code, so the
 # kit's marker, itself a comment, is still found outside code. One that
 # opens a line or a list item's text is a block of its own, as markdown
-# reads it, and one inside a sentence ends with its paragraph.
+# reads it, one inside a list item ends with the item where no `-->`
+# comes first, and one inside a sentence ends with its paragraph.
 COMMENT_OPEN = "<!--"
 COMMENT_CLOSE = "-->"
 COMMENT_CLOSER = re.compile(re.escape(COMMENT_CLOSE))
@@ -170,12 +176,15 @@ def comment_spans(
     A comment that opens a line, a list item's text or a line of a
     quote runs to the first `-->` past it, inside the quote for one in
     a quote, through blank lines and through anything that looks like a
-    fence, since no fence opens inside it. One inside a paragraph or a
-    heading runs to the first `-->` before that paragraph or heading
-    ends. An opener with no closer hides nothing, so a stray one never
-    swallows the rest of the text. A caller that finds code the text's
-    own reading does not, as the check does inside a quote, passes it,
-    and a comment that opens inside it is none.
+    fence, since no fence opens inside it. One in a list item runs to
+    the first `-->` before the item ends, at the first line that is not
+    blank and sits left of the item's text, or to the item's end where
+    none comes first. One inside a paragraph or a heading runs to the
+    first `-->` before that paragraph or heading ends. Any other opener
+    with no closer hides nothing, so a stray one never swallows the rest
+    of the text. A caller that finds code the text's own reading does
+    not, as the check does inside a quote, passes it, and a comment that
+    opens inside it is none.
     """
     blocks = blocks_of(text)
     _, comments = inline_of(
@@ -247,6 +256,7 @@ def inline_of(
 
 def blocks_of(
     text: str,
+    depth: int = 0,
 ) -> Blocks:
     """The code blocks, the fences and the headings of the text, read line by line in the order they come.
 
@@ -260,7 +270,8 @@ def blocks_of(
     under an item whose marker ended its line. A line of three or more
     `-`, `*` or `_` and nothing else, spaced or not, is a thematic break
     and no list item. An HTML comment that opens a line runs to the line
-    that holds its first `-->`, and nothing inside it opens. A paragraph
+    that holds its first `-->`, inside a list item to the item's end
+    where no `-->` comes first, and nothing inside it opens. A paragraph
     is open from its first line, a list item's own line among them, to a
     blank line or another block, and a line of `=` or `-` under it makes
     it a setext heading, unless the line sits left of the list item the
@@ -271,7 +282,9 @@ def blocks_of(
     text of their own, its code, comments and stretches put back where
     they stand in the text and its fences and headings left out, since
     no gate and no section stands in a quote, and a line under it that
-    opens no block runs on the quote's last paragraph. The stretches of
+    opens no block runs on the quote's last paragraph. `depth` is how
+    many quotes the text already sits in, and at QUOTE_DEPTH a `>` opens
+    no quote and is the innermost quote's text. The stretches of
     paragraph, heading and row text are where the spans and the comments
     inside a sentence are read.
     """
@@ -349,9 +362,17 @@ def blocks_of(
             marker = None if thematic or header else LIST_MARKER.match(bare)
             atx = ATX_OPEN.match(bare)
             opener = fence_opener(bare)
-            closer = text.find(COMMENT_CLOSE, opened + len(COMMENT_OPEN)) if bare.startswith(COMMENT_OPEN) else -1
-            quoted = bare.startswith(QUOTE_MARK)
-            interrupts = underline or thematic or marker is not None or atx is not None or opener is not None or closer != -1 or quoted
+            comment: Optional[tuple[int, int]] = None
+            if bare.startswith(COMMENT_OPEN):
+                # a comment is a block, so it keeps to the innermost item the line does not sit left of, the margin the pop below leaves
+                comment = comment_at(
+                    text=text,
+                    opened=opened,
+                    margin=next((item for item in reversed(items) if item <= indent), 0),
+                )
+
+            quoted = depth < QUOTE_DEPTH and bare.startswith(QUOTE_MARK)
+            interrupts = underline or thematic or marker is not None or atx is not None or opener is not None or comment is not None or quoted
             if paragraph is None or interrupts:
                 while items and indent < items[-1]:
                     items.pop()
@@ -405,9 +426,9 @@ def blocks_of(
                 )
                 break
 
-            if closer != -1:
-                read_to = closer + len(COMMENT_CLOSE)
-                comments.append((opened, read_to))
+            if comment is not None:
+                closed, read_to = comment
+                comments.append((opened, closed))
                 break
 
             if underline and above is not None:
@@ -442,6 +463,7 @@ def blocks_of(
                     start=start,
                     mark=opened,
                     margin=margin,
+                    depth=depth,
                 )
                 code += quote.code
                 comments += quote.comments
@@ -508,13 +530,15 @@ def quote_at(
     start: int,
     mark: int,
     margin: int,
+    depth: int,
 ) -> tuple[Blocks, int]:
-    """The blocks of the block quote whose first line starts at `start` with its `>` at `mark`, where they stand in the text, and where the quote's last line ends.
+    """The blocks of the block quote whose first line starts at `start` with its `>` at `mark`, in a text that sits `depth` quotes deep, where they stand in the text, and where the quote's last line ends.
 
     The quote runs over the lines under it whose text opens with a `>`
     less than four columns past the margin. Each line loses its `>` and
     a space or a tab after it, so the quote is read as a text of its
-    own, and a quote inside it the same way in turn.
+    own, one quote deeper, and a quote inside it the same way in turn,
+    down to QUOTE_DEPTH.
     """
     taken: list[int] = []
     origins: list[int] = []
@@ -541,7 +565,10 @@ def quote_at(
         length += match.end() - content + 1
         end = match.end()
 
-    inner = blocks_of("\n".join(lines))
+    inner = blocks_of(
+        text="\n".join(lines),
+        depth=depth + 1,
+    )
 
     return (
         Blocks(
@@ -600,6 +627,60 @@ def origin_of(
     line = bisect.bisect_right(taken, offset) - 1
 
     return origins[line] + offset - taken[line]
+
+
+def comment_at(
+    text: str,
+    opened: int,
+    margin: int,
+) -> Optional[tuple[int, int]]:
+    """Where the HTML comment whose `<!--` opens a line at `opened` ends and where the reading of the lines goes on, or None where it is no comment.
+
+    It ends at its first `-->`. Inside a list item whose text starts at
+    column `margin` it ends where the item ends if no `-->` comes first,
+    at the first line under it that is not blank and sits left of the
+    item's text, as CommonMark ends an HTML block with its container,
+    and the reading goes on at that line. At the margin of the text an
+    opener with no closer is no comment, so a stray one never hides the
+    rest of the text.
+    """
+    bound = len(text)
+    if margin:
+        bound = item_end(
+            text=text,
+            position=opened,
+            margin=margin,
+        )
+
+    closer = text.find(COMMENT_CLOSE, opened + len(COMMENT_OPEN), bound)
+    if closer != -1:
+        closed = closer + len(COMMENT_CLOSE)
+        return closed, closed
+
+    if not margin:
+        return None
+
+    return len(text[:bound].rstrip()), bound
+
+
+def item_end(
+    text: str,
+    position: int,
+    margin: int,
+) -> int:
+    """Where the list item whose text starts at column `margin` ends below the line that holds `position`, at the first line that is not blank and sits left of that column, else at the end of the text."""
+    below = text.find("\n", position) + 1
+    if not below:
+        return len(text)
+
+    for line in LINE.finditer(
+        string=text,
+        pos=below,
+    ):
+        if line.group().strip() and indent_of(line.group()) < margin:
+            return line.start()
+
+    return len(text)
 
 
 def fence_opener(
