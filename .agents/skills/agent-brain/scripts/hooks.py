@@ -30,7 +30,7 @@ import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import BinaryIO, NoReturn, Optional, Union
+from typing import BinaryIO, NoReturn, Optional, TextIO, Union
 
 from brainlib import autoack, check, clock, doctor, frontmatter, handover, links, reads, schema, steps, store, task
 
@@ -1113,11 +1113,12 @@ def post_write(
     or one the interpreter running the check cannot parse, is named on
     standard error and never in the context, as the check says every
     note, since neither is a slip of the file's and the agent fixes what
-    the context holds. Where doctor cannot read the brain, its error goes
-    in words in its place, and the hook still answers with exit 0, since
-    the agent says the context to the person, and an exit 1 would show
-    the person the error and lose the slips, so a broken brain never
-    hides one.
+    the context holds, and a standard error that cannot take the notes
+    loses them and nothing else. Where doctor cannot read the brain, its
+    error goes in words in its place, and the hook still answers with
+    exit 0, since the agent says the context to the person, and an exit 1
+    would show the person the error and lose the slips, so a broken brain
+    never hides one.
     """
     touched = touches(event=event, agent=agent)
     parts: list[str] = []
@@ -1137,12 +1138,7 @@ def post_write(
     if slips:
         parts.append("brain check after that write:\n" + "\n".join(slip.text() for slip in slips))
 
-    for checked in checks:
-        for note in checked.notes:
-            print(
-                note,
-                file=sys.stderr,
-            )
+    say_notes(notes=[note for checked in checks for note in checked.notes])
 
     inside = [touch for touch in touched if is_inside(brain=brain, path=touch.path)]
     doctor_part: Optional[str] = doctor_after(brain) if inside else None
@@ -1432,7 +1428,10 @@ def emit_context(
 
     try:
         if agent == "codex" and event_name in CODEX_PLAIN:
-            write_utf8(text=text + "\n")
+            write_utf8(
+                stream=sys.stdout,
+                text=text + "\n",
+            )
             return
 
         payload = {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": text}}
@@ -1441,45 +1440,77 @@ def emit_context(
             flush=True,
         )
     except OSError:
-        let_go_of_standard_output()
+        let_go_of(stream=sys.stdout)
         raise
 
 
-def let_go_of_standard_output() -> None:
-    """Close standard output once its pipe has refused the context, dropping the bytes its buffer still holds.
+def say_notes(
+    notes: list[str],
+) -> None:
+    """Put the check's notes on standard error, one line each, as UTF-8 bytes whatever the locale, as the context is.
 
-    The interpreter flushes standard output again at the exit, and the
-    refused bytes would fail a second time there, an ignored error on
-    standard error after the hook's own line and an exit of 120 in place
-    of its 1. A closed stream is never flushed again. The close fails on
-    the same bytes, an error the one already on its way out reports, so
+    A note is the lesser part of the hook's answer and never costs the
+    slips, so a standard error that is closed, absent or refuses the
+    write loses the notes and nothing else, and the hook goes on to hand
+    the context back and exit 0. A hook started with the descriptor
+    closed has no standard error, where print would put the note on
+    standard output ahead of the context, so nothing is written. One
+    that refuses a note, its reader gone or its disk full, is let go,
+    and the notes after it are lost with it.
+    """
+    if sys.stderr is None:
+        return
+
+    try:
+        for note in notes:
+            write_utf8(
+                stream=sys.stderr,
+                text=note + "\n",
+            )
+    except OSError:
+        let_go_of(stream=sys.stderr)
+
+
+def let_go_of(
+    stream: TextIO,
+) -> None:
+    """Close a standard stream once its pipe has refused a write, dropping the bytes its buffer still holds.
+
+    The interpreter flushes standard output and standard error again at
+    the exit, and the refused bytes would fail a second time there, an
+    exit of 120 in place of the hook's own, after an ignored error on
+    standard error where standard output refused. A closed stream is
+    never flushed again. The close fails on the same bytes, an error the
+    one already on its way out reports or the lost notes stand for, so
     that second one is let go.
     """
     try:
-        sys.stdout.close()
+        stream.close()
     except OSError:
         return
 
 
 def write_utf8(
+    stream: TextIO,
     text: str,
 ) -> None:
-    """Put text on standard output as UTF-8 bytes, under the text layer, so the locale's encoding never gets a say.
+    """Put text on a standard stream as UTF-8 bytes, under the text layer, so the locale's encoding never gets a say.
 
-    The rulebook carries characters a Windows code page cannot encode,
-    and the agent reads the pipe as UTF-8 whatever the locale. A lone
+    The rulebook carries characters a Windows code page cannot encode, a
+    check note names a file in whatever characters its name holds, and
+    the agent reads its pipes as UTF-8 whatever the locale. A lone
     surrogate, which a file name that is not UTF-8 brings into the
     status, has no UTF-8 bytes, so it goes out as its escape, the way
     brain.py writes such a name. A byte layer that is not there, a text
     stream handed in by a test, takes the text as it is.
     """
-    buffer: Optional[BinaryIO] = getattr(sys.stdout, "buffer", None)
+    buffer: Optional[BinaryIO] = getattr(stream, "buffer", None)
     if buffer is None:
-        sys.stdout.write(text)
-        sys.stdout.flush()
+        stream.write(text)
+        stream.flush()
         return
 
-    sys.stdout.flush()
+    stream.flush()
     buffer.write(
         text.encode(
             encoding="utf-8",
