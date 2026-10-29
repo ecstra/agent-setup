@@ -2,7 +2,7 @@
 name: spec-memory
 kind: doc
 description: format and rules for .agents/memory, project facts learned along the way
-updated: 2026-10-06
+updated: 2026-10-29
 links: [spec/conventions.md]
 ---
 
@@ -27,7 +27,7 @@ type: project | feedback | reference
 - reference: a pointer to external truth (an upstream issue, a vendor
   doc, a dashboard).
 
-The body is three beats, namely the fact, why it matters, how to apply it.
+The body is three beats, the fact, why it matters and how to apply it.
 
 ## Boundaries, stricter here than anywhere
 

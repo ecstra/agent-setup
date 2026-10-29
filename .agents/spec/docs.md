@@ -2,7 +2,7 @@
 name: spec-docs
 kind: doc
 description: format and folder rules for .agents/docs, the knowledge library
-updated: 2026-10-06
+updated: 2026-10-29
 links: [spec/conventions.md]
 ---
 

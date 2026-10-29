@@ -2,7 +2,7 @@
 name: house-rules-agent
 kind: doc
 description: the branch contract and code review protocol, the agent's operating version
-updated: 2026-10-06
+updated: 2026-10-29
 links: [spec/reviews.md, spec/bugs.md, spec/todos.md, README.md]
 ---
 
@@ -15,7 +15,7 @@ AGENTS.md section 0 names its exact gates, tooling, and PR rules.
 
 ## The branch contract
 
-1. **One branch, one intent.** A feature, a fix, a restructure, one
+1. **One branch, one intent.** A feature, a fix or a restructure is one
    coherent intent per branch, named `feat/<slug>`, `fix/<slug>`, or
    `sweep/<slug>`. Size is measured by intent, never by commit count. A
    long branch serving one intent is fine, a second intent born mid
@@ -33,13 +33,14 @@ AGENTS.md section 0 names its exact gates, tooling, and PR rules.
 
 ## The gates
 
-Before any review, `brain gates` is green. It runs every suite,
-analyzer, and build the project's AGENTS.md section 0 names under its
-Gates heading, one fenced bash block each, in order, stops at the first
-red one, then runs `brain check` over the tracked tree and
-`brain doctor`. The review judges code that already works, reviewers
-never burn effort on red suites or a brain with broken links. When the
-review starts the working tree is clean as well, since a review reads
+Before any review, `brain gates` is green. It runs the gates the
+project's AGENTS.md section 0 names under a Gates heading, in order,
+and stops at the first red one, and once all are green it runs
+`brain check` and `brain doctor`, as
+[commands.md](skills/agent-brain/references/commands.md#the-gates)
+says. The review judges code that already works, reviewers never burn
+effort on red suites or a brain with broken links. When the review
+starts the working tree is clean as well, since a review reads
 committed work only.
 
 ## The review protocol

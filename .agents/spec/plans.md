@@ -2,7 +2,7 @@
 name: spec-plans
 kind: doc
 description: format and lifecycle for .agents/plans, a goal with the steps that reach it
-updated: 2026-10-06
+updated: 2026-10-29
 links: [spec/conventions.md, spec/todos.md, spec/bugs.md, spec/reviews.md]
 ---
 

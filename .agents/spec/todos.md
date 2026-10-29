@@ -2,7 +2,7 @@
 name: spec-todos
 kind: doc
 description: format and lifecycle for .agents/todos, the work tracker
-updated: 2026-10-06
+updated: 2026-10-29
 links: [spec/conventions.md, spec/bugs.md]
 ---
 

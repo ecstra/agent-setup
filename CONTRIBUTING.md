@@ -17,11 +17,11 @@ behavior.
   rule in AGENTS.md section 0.
 - **Single author, no co-authors, no AI attribution anywhere.** Not in
   commits, not in PR titles or bodies, no generated-with footers.
-- **Gates before review.** `brain gates` is green, which runs every
-  suite, analyzer, build and validator section 0 names, then
-  `brain check` over the tracked tree and `brain doctor`, and the
-  working tree is clean before a review starts. Reviewers judge
-  committed, working code and a sound brain.
+- **Gates before review.** `brain gates` is green and the working tree
+  is clean before a review starts. It runs the gates AGENTS.md
+  section 0 names, then `brain check` and `brain doctor`, as
+  [commands.md](.agents/skills/agent-brain/references/commands.md#the-gates)
+  says. Reviewers judge committed, working code and a sound brain.
 - **Secrets stay out of git.** They live in the gitignored root `.env`
   or in the project's own secret store, never in code, docs, `.agents/`,
   or git history.

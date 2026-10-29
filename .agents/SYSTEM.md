@@ -10,7 +10,7 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
-Before implementing.
+Before implementing, hold to these.
 
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them, don't pick silently.
@@ -33,14 +33,14 @@ Ask yourself, "Would a senior engineer say this is overcomplicated?" If yes, sim
 
 **Touch only what you must. Clean up only your own mess.**
 
-When editing existing code.
+When editing existing code, hold to these.
 
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it, don't delete it.
 
-When your changes create orphans.
+When your changes create orphans, clean up after them.
 
 - Remove imports, variables, and functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
@@ -71,7 +71,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Write tests that can fail. Make the code pass them, not the other way around.**
 
-When you write tests.
+When you write tests, hold to these.
 
 - A test that passes no matter what the code does is testing nothing. Write it so it fails first, which proves it is actually checking something, then make the code turn it green.
 - Don't write tests that already pass against the current code. If a test is green before you change the implementation, it isn't exercising the behavior you came to add.
@@ -164,7 +164,7 @@ The annotated version needs no docstring to explain its inputs, and a type check
 
 **One argument per line, named where the language allows, with a trailing comma.**
 
-Applies to definitions and calls.
+This applies to definitions and calls alike.
 
 - One parameter or argument per line.
 - Name arguments at the call site when the language supports keyword arguments.
@@ -520,7 +520,7 @@ Say the state in plain words first, then what changed, then what is left and wha
 
 **`.agents/` at the repo root is the project's brain, committed, all but what git ignores there, so any agent on any machine resumes cold.**
 
-Read `.agents/INDEX.md` before working. It is the spine of the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked. Its `check` holds the project's own prose and code to the rules of this file a machine can judge, and its `gates` runs the gates section 0 names, then the check and doctor, as the one command before a review and before a merge. The tool's own code, under `.agents/skills/agent-brain/scripts/`, is never read by hand, not through a Read and not through the shell, since the skill sheet and its command reference say what every command does and the code costs context for nothing. The port writes Claude Code the rules that refuse the read. The kit's own checkout is the one place that code is the work, and it carries no such rule, since the tool never installs the kit onto itself.
+Read `.agents/INDEX.md` before working. It is the spine of the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked. Its `check` holds the project's own prose and code to the rules of this file a machine can judge, and its `gates` is the one command before a review and before a merge, rule 9.2. The tool's own code, under `.agents/skills/agent-brain/scripts/`, is never read by hand, not through a Read and not through the shell, since the skill sheet and its command reference say what every command does and the code costs context for nothing. The port writes Claude Code the rules that refuse the read. The kit's own checkout is the one place that code is the work, and it carries no such rule, since the tool never installs the kit onto itself.
 
 ### 8.1 Upkeep
 
@@ -549,7 +549,7 @@ A session writes the note for the next one with `brain handover` when it passes 
 **Main contains reviewed code only. The protocol lives in `.agents/house-rules.md`, these are the hard lines.**
 
 1. **One branch, one intent** (`feat/`, `fix/`, `sweep/`), sized by intent, never by commit count. A second intent born mid branch forks its own branch immediately. Sweeps group small work by surface and never carry a breaking change.
-2. **Gates first, then review, then merge.** `brain gates` is the gate, every suite, analyzer and build section 0 names under its Gates heading, then `brain check` and `brain doctor`, green before a review opens and before a merge. No step skips, and nothing merges before the branch's review has closed. When the PR opens and whether as a draft is a project rule in `## 0. Project Rules`, and the agent never asks about it. Without such a rule a plain PR opens on the user's ask, and merge still waits for the review.
+2. **Gates first, then review, then merge.** `brain gates` runs the gates section 0 names under a Gates heading, then `brain check` and `brain doctor`, and is green before a review opens and before a merge. No step skips, and nothing merges before the branch's review has closed. When the PR opens and whether as a draft is a project rule in `## 0. Project Rules`, and the agent never asks about it. Without such a rule a plain PR opens on the user's ask, and merge still waits for the review.
 3. **The user calls the timing, the agent runs the review.** The agent never decides on its own that a branch is ready for review, and on the user's word it runs one itself with the kit's `branch-review` skill at the level the branch earns, which names how wide the finding pass goes and never how hard the model thinks. A tool's own review command, paid or cloud run ones included, is the user's alone, so never reach for one and never answer a review request by asking for it by name.
 4. **Findings first, whole**, before anything is fixed. Every finding lands in a ledger under `.agents/reviews/`, batched by theme with correctness first, and ends fixed, refuted, left as it is or deferred with its reason, never dropped for being rare or small.
 5. **The round of fixes**: the batches that have the user's word are fixed in rounds, by one fixer sub agent per group of files whose work verifier sub agents check, each round followed by hunters until a hunt finds nothing. With sub agents only a fixer edits, and only its group's files, and the main agent alone commits and writes the ledger.
