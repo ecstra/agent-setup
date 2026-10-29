@@ -18,6 +18,7 @@ import platform
 import re
 import shutil
 import signal
+import string
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -26,48 +27,40 @@ from typing import Callable, Optional
 
 from . import check, doctor, sections, store, upgrade
 
-# The word gates with no letter, digit or underscore beside it as the
-# heading shows, its emphasis taken off first, so an identifier such as
-# `ci_gates.yml` or `SKIP_GATES` holds no word gates.
+# The word gates with no ASCII letter, ASCII digit or underscore beside
+# it in either reading of the heading, so an identifier such as
+# `ci_gates.yml` or `SKIP_GATES` holds no word gates, and any other
+# character beside it parts it, a superscript digit or a letter of a
+# script written without spaces among them.
 GATES_WORD = re.compile(
-    pattern=r"(?<!\w)gates(?!\w)",
-    flags=re.IGNORECASE,
+    pattern=r"(?<![A-Za-z0-9_])gates(?![A-Za-z0-9_])",
+    flags=re.IGNORECASE | re.ASCII,
 )
 SET_LINE = re.compile(r"^set(?:[ \t]|$)")
 
-# Emphasis, a pair of `*` or `_` runs of one to three around text, the
-# opener with no letter or digit before it and the closer with none after
-# it, which shows its text alone, so an underscore inside a word or with
-# no pair shows as written. It is read where each code span and each
-# backslash escape stands as marks of its length, so no run inside either
-# opens or closes one.
-EMPHASIS = re.compile(r"(?<![^\W_])(?P<run>\*{1,3}|_{1,3})(?![\s*_])(?P<text>[\s\S]*?[^\s*_])(?P=run)(?![^\W_])")
-ESCAPE = re.compile(r"\\[!-/:-@\[-`{-~]")
+# What the text a link leaves is cut at in one pass, a run of `*` or `_`
+# that may open or close emphasis and an HTML tag, past the backslash
+# escapes that keep the character after them as written, so an escaped
+# `*`, `_` or `<` opens nothing.
+INLINE_MARK = re.compile(rf"(?P<escape>\\[\s\S])|(?P<run>\*+|_+)|(?P<tag>{check.TAG.pattern})")
 
-# The mark left where a comment or a tag comes off flush, and put for each
-# character of a code span or an escape while emphasis is read. No heading
-# holds it, emphasis reads it as the punctuation that stood there, as
-# CommonMark reads a run beside a tag, and it is dropped once emphasis is
-# read.
-STAND_IN = "\0"
+# What an emphasis run is judged by beside it, an ASCII letter or digit,
+# where any other character, a tag's bracket among them, leaves it free
+# to open or close.
+WORD_CHARACTERS = frozenset(string.ascii_letters + string.digits)
 
-# A line break and an image part the words beside them as they render,
-# where any other tag joins them.
-SPACED_TAG = re.compile(
-    pattern=r"</?(?:br|img)(?![A-Za-z0-9-])",
-    flags=re.IGNORECASE,
-)
-
-# A `<sup>` or `<sub>` element, a footnote mark beside a word for one,
-# parts the words beside it with all it holds, to its closing tag or, left
-# open, to the end of the text, where the heading closes it.
-SPACED_ELEMENT = re.compile(
-    pattern=r"<(sup|sub)(?![A-Za-z0-9-])[^>]*>[\s\S]*?(?:</\1\s*>|\Z)",
-    flags=re.IGNORECASE,
-)
+# The kinds of piece a heading's text is cut into, text it shows, a code
+# span shown as written, markup that comes off, which is an HTML comment,
+# a tag or an image, a run of `*` or `_` shown as written, and emphasis,
+# a run paired with another, which comes off.
+SHOWN = "shown"
+CODE = "code"
+MARKUP = "markup"
+RUN = "run"
+EMPHASIS = "emphasis"
 
 # A link or an image, by an inline target or a reference label, a link
-# shown by its text alone and an image read as a space, past the
+# shown by its text alone and an image taken off as markup is, past the
 # backslash escapes that keep a bracket as it stands. An inline target holds no space outside
 # angle brackets, its parentheses paired, and a title after it is
 # quoted, and a reference label is a link only where the file defines
@@ -149,6 +142,14 @@ class Answer:
     path: str
     at_floor: bool
     version: str
+
+
+@dataclass(frozen=True)
+class Piece:
+    """A piece of a heading's text as it is read, what it holds as written and its kind, one of the kinds above."""
+
+    text: str
+    kind: str
 
 
 Runner = Callable[[Gate], int]
@@ -324,10 +325,10 @@ def section_gates(
     """The gates under each Gates heading of section 0 in AGENTS.md, in order, with a line for each block no gate runs and one for each heading that holds no gate.
 
     A heading or a block inside code or an HTML comment is neither, a
-    heading holds the word gates only in the text it shows, a reference
-    link's label shown or not by whether the file defines it, and each
-    Gates heading runs to the next heading at its level or above, or to
-    the end of section 0.
+    heading holds the word gates where either reading of the text it
+    shows does, a reference link's label shown or not by whether the
+    file defines it, and each Gates heading runs to the next heading at
+    its level or above, or to the end of section 0.
     """
     door = project / "AGENTS.md"
     if not store.readable_file(door):
@@ -348,12 +349,11 @@ def section_gates(
     taken: list[sections.Fence] = []
     empty: list[str] = []
     for heading in blocks.headings:
-        if not GATES_WORD.search(
-            shown(
-                text=heading.text,
-                labels=labels,
-            ),
-        ):
+        readings = shown(
+            text=heading.text,
+            labels=labels,
+        )
+        if not any(GATES_WORD.search(reading) for reading in readings):
             continue
 
         end = next((later.start for later in blocks.headings if later.start > heading.start and later.level <= heading.level), len(zero))
@@ -442,109 +442,198 @@ def label_key(
 def shown(
     text: str,
     labels: frozenset[str],
-) -> str:
-    """The heading's text as markdown shows it, read as one line of inline text, its code spans as they stand, its comments taken off flush, the rest unlinked, and its emphasis outside the code spans taken off, so a word in a comment, an attribute, an image or a link's target never makes a Gates heading."""
-    spans, comments = sections.inline_of(
-        text=text,
-        stretches=[(0, len(text))],
-    )
-    kept: list[str] = []
-    code: list[tuple[int, int]] = []
-    cursor = 0
-    for start, end in sorted(spans + comments):
-        kept.append(
-            unlinked(
-                text=text[cursor:start],
-                labels=labels,
-            ),
-        )
-        if (start, end) in comments:
-            kept.append(STAND_IN)
-        else:
-            offset = sum(len(piece) for piece in kept)
-            code.append((offset, offset + end - start))
-            kept.append(text[start:end])
-        cursor = end
-    kept.append(
-        unlinked(
-            text=text[cursor:],
+) -> tuple[str, str]:
+    """The heading's text as markdown shows it, read twice, once with each HTML comment, tag and image taken off flush and once with each taken off as a space, the text inside an element kept either way.
+
+    Its code spans stand as written, each link shows its text alone, a
+    reference link by a label the file defines among them, and a run of
+    `*` or `_` outside the code spans comes off where it pairs as
+    emphasis, so a word in a comment, an attribute, an image or a link's
+    target never makes a Gates heading. Each step is one pass over the
+    text, so the time grows with its length and no more.
+    """
+    pieces = emphasized(
+        pieces_of(
+            text=text,
             labels=labels,
         ),
     )
 
-    return unemphasized(
-        text="".join(kept),
-        code=code,
-    ).replace(STAND_IN, "")
-
-
-def unemphasized(
-    text: str,
-    code: list[tuple[int, int]],
-) -> str:
-    """The text with each emphasis outside its code spans by its text alone, the innermost first, an escaped `*` or `_` and the runs inside a code span left as written."""
-    read = "".join(
-        STAND_IN
-        if sections.in_code(
-            spans=code,
-            position=index,
-        )
-        else character
-        for index, character in enumerate(text)
-    )
-    read = ESCAPE.sub(
-        repl=STAND_IN * 2,
-        string=read,
+    return (
+        joined(
+            pieces=pieces,
+            markup="",
+        ),
+        joined(
+            pieces=pieces,
+            markup=" ",
+        ),
     )
 
-    while True:
-        pair = EMPHASIS.search(read)
-        if pair is None:
-            return text
 
-        text = runs_off(
-            text=text,
-            pair=pair,
-        )
-        read = runs_off(
-            text=read,
-            pair=pair,
-        )
-
-
-def runs_off(
+def pieces_of(
     text: str,
-    pair: re.Match,
-) -> str:
-    """The text with the opening and the closing run of an emphasis taken off, at the offsets the pattern found them in the text read alongside it, and what they hold kept."""
-    return text[: pair.start("run")] + text[pair.end("run") : pair.end("text")] + text[pair.end() :]
+    labels: frozenset[str],
+) -> list[Piece]:
+    """The heading's text cut into pieces, its code spans and its HTML comments as the shared reader finds them in one line of inline text, and the text between them unlinked."""
+    spans, comments = sections.inline_of(
+        text=text,
+        stretches=[(0, len(text))],
+    )
+    found = sorted([(start, end, CODE) for start, end in spans] + [(start, end, MARKUP) for start, end in comments])
+
+    pieces: list[Piece] = []
+    cursor = 0
+    for start, end, kind in found:
+        pieces += unlinked(
+            text=text[cursor:start],
+            labels=labels,
+        )
+        pieces.append(
+            Piece(
+                text=text[start:end],
+                kind=kind,
+            ),
+        )
+        cursor = end
+    pieces += unlinked(
+        text=text[cursor:],
+        labels=labels,
+    )
+
+    return pieces
 
 
 def unlinked(
     text: str,
     labels: frozenset[str],
-) -> str:
-    """The text with each link by its text alone, each image and each `<sup>` or `<sub>` element as a space, and each HTML tag taken off flush, the stand-in mark left where it stood, but a line break or an `<img>`, each read as a space."""
-    return check.TAG.sub(
-        repl=lambda found: " " if SPACED_TAG.match(found.group()) else STAND_IN,
-        string=SPACED_ELEMENT.sub(
-            repl=" ",
-            string=LINK.sub(
-                repl=lambda found: link_shown(
-                    found=found,
-                    labels=labels,
+) -> list[Piece]:
+    """The pieces of text outside the code spans and the comments, each link by its text alone and each image as markup, the rest cut at its runs and its tags."""
+    pieces: list[Piece] = []
+    cursor = 0
+    for found in LINK.finditer(text):
+        pieces += marked(text[cursor : found.start()])
+        link = link_shown(
+            found=found,
+            labels=labels,
+        )
+        if link is None:
+            pieces.append(
+                Piece(
+                    text=found.group(),
+                    kind=MARKUP,
                 ),
-                string=text,
+            )
+        else:
+            pieces += marked(link)
+        cursor = found.end()
+    pieces += marked(text[cursor:])
+
+    return pieces
+
+
+def marked(
+    text: str,
+) -> list[Piece]:
+    """The text cut at each run of `*` or `_` and at each HTML tag, a tag as markup and the text between as text it shows, a backslash escape kept in it with the character after it, and no piece left empty."""
+    pieces: list[Piece] = []
+    cursor = 0
+    for mark in INLINE_MARK.finditer(text):
+        if mark.group("escape") is not None:
+            continue
+
+        if mark.start() > cursor:
+            pieces.append(
+                Piece(
+                    text=text[cursor : mark.start()],
+                    kind=SHOWN,
+                ),
+            )
+        pieces.append(
+            Piece(
+                text=mark.group(),
+                kind=MARKUP if mark.group("tag") is not None else RUN,
             ),
-        ),
-    )
+        )
+        cursor = mark.end()
+
+    if cursor < len(text):
+        pieces.append(
+            Piece(
+                text=text[cursor:],
+                kind=SHOWN,
+            ),
+        )
+
+    return pieces
+
+
+def emphasized(
+    pieces: list[Piece],
+) -> list[Piece]:
+    """The pieces with each run of `*` or `_` that pairs with a later run of the same character and length taken as emphasis, found in one pass with a stack.
+
+    A run opens where it is followed by no space and has no ASCII
+    letter or digit before it, and closes where it is preceded by no
+    space and has no ASCII letter or digit after it, each judged by the
+    characters beside it as written. A closer pairs with the latest run
+    of its kind still open, and each run opened after that one stays as
+    written, as CommonMark reads it, so a lone run stays as written.
+    """
+    opened: list[int] = []
+    still_open: set[int] = set()
+    waiting: dict[str, list[int]] = {}
+    paired: set[int] = set()
+    for index, piece in enumerate(pieces):
+        if piece.kind != RUN:
+            continue
+
+        before = pieces[index - 1].text[-1] if index else " "
+        after = pieces[index + 1].text[0] if index + 1 < len(pieces) else " "
+        same = waiting.setdefault(piece.text, [])
+        # a run a later pair closed over is open no more, and it is dropped from its kind's list here, once, so the pass stays linear
+        while same and same[-1] not in still_open:
+            same.pop()
+
+        if same and not before.isspace() and after not in WORD_CHARACTERS:
+            opener = same.pop()
+            while opened[-1] != opener:
+                still_open.discard(opened.pop())
+            still_open.discard(opened.pop())
+            paired.update((opener, index))
+            continue
+
+        if not after.isspace() and before not in WORD_CHARACTERS:
+            opened.append(index)
+            still_open.add(index)
+            same.append(index)
+
+    return [
+        Piece(
+            text=piece.text,
+            kind=EMPHASIS,
+        )
+        if index in paired
+        else piece
+        for index, piece in enumerate(pieces)
+    ]
+
+
+def joined(
+    pieces: list[Piece],
+    markup: str,
+) -> str:
+    """The pieces as one text, each piece of markup as the given text, each run taken as emphasis taken off, and the rest as written."""
+    instead = {MARKUP: markup, EMPHASIS: ""}
+
+    return "".join(instead.get(piece.kind, piece.text) for piece in pieces)
 
 
 def link_shown(
     found: re.Match,
     labels: frozenset[str],
-) -> str:
-    """What a match of the link pattern shows, a link its text and an image a space, and an escape or a reference to a label the file does not define just as it stands."""
+) -> Optional[str]:
+    """What a match of the link pattern shows, a link its text, an escape or a reference to a label the file does not define just as it stands, and None for an image, which comes off as markup does."""
     if found.group("text") is None:
         return found.group()
 
@@ -553,7 +642,7 @@ def link_shown(
         return found.group()
 
     if found.group("image"):
-        return " "
+        return None
 
     return found.group("text")
 

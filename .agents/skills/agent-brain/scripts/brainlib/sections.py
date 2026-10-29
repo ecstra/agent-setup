@@ -43,6 +43,7 @@ ATX_CLOSE = re.compile(r"(?:^|[ \t]+)#+$")
 SETEXT_UNDERLINE = re.compile(r"(?:=+|-+)\s*$")
 DELIMITER_ROW = re.compile(r"[ \t]*(?:\|[ \t]*)?:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*(?:\|[ \t]*)?$")
 INLINE_OPEN = re.compile(r"\\[\s\S]|<!--|`+")
+BACKTICKS = re.compile(r"`+")
 NOT_A_LINE_END = re.compile(r"[^\n]")
 QUOTE_MARK = ">"
 CODE_INDENT = 4
@@ -57,10 +58,12 @@ QUOTE_DEPTH = 32
 # kit's marker, itself a comment, is still found outside code. One that
 # opens a line or a list item's text is a block of its own, as markdown
 # reads it, one inside a list item ends with the item where no `-->`
-# comes first, and one inside a sentence ends with its paragraph.
+# comes first, and one inside a sentence ends with its paragraph. Its
+# `-->` is looked for from the opener's own dashes, so `<!-->` and
+# `<!--->` close where they stand, as CommonMark reads them.
 COMMENT_OPEN = "<!--"
 COMMENT_CLOSE = "-->"
-COMMENT_CLOSER = re.compile(re.escape(COMMENT_CLOSE))
+COMMENT_DASHES = COMMENT_OPEN.index("-")
 
 
 @dataclass(frozen=True)
@@ -171,7 +174,7 @@ def comment_spans(
     text: str,
     spans: Optional[list[tuple[int, int]]] = None,
 ) -> list[tuple[int, int]]:
-    """Where the HTML comments sit outside code, each from its `<!--` to the `-->` that closes it.
+    """Where the HTML comments sit outside code, each from its `<!--` to the `-->` that closes it, `<!-->` and `<!--->` closed where they stand.
 
     A comment that opens a line, a list item's text or a line of a
     quote runs to the first `-->` past it, inside the quote for one in
@@ -214,14 +217,28 @@ def inline_of(
     A backslash is read with the character after it, so an escaped
     backtick or `<` opens nothing and an escaped backslash escapes
     nothing. A run of backticks is closed by the next run as long, and a
-    comment by its first `-->`, each inside its stretch, and whichever
-    opens first holds what follows, so a backtick inside a comment opens
-    no span and a backslash inside either is its own. An opener with
-    nothing to close it inside its stretch is plain text.
+    comment by its first `-->`, `<!-->` and `<!--->` where they stand,
+    each inside its stretch, and whichever opens first holds what
+    follows, so a backtick inside a comment opens no span and a
+    backslash inside either is its own. An opener with nothing to close
+    it inside its stretch is plain text. The runs of backticks are
+    listed by length once a stretch, and a `-->` one opener does not
+    find no later one finds, so each closer is looked for once and the
+    reading stays linear in the stretch however many openers find none.
     """
     spans: list[tuple[int, int]] = []
     comments: list[tuple[int, int]] = []
     for start, end in stretches:
+        runs: dict[int, list[int]] = {}
+        for run in BACKTICKS.finditer(
+            string=text,
+            pos=start,
+            endpos=end,
+        ):
+            runs.setdefault(len(run.group()), []).append(run.start())
+
+        passed: dict[int, int] = {}
+        unclosed = False
         position = start
         while True:
             opener = INLINE_OPEN.search(
@@ -236,22 +253,60 @@ def inline_of(
                 position = opener.end()
                 continue
 
-            is_comment = opener.group() == COMMENT_OPEN
-            closing = COMMENT_CLOSER if is_comment else re.compile(f"(?<!`){opener.group()}(?!`)")
-            closer = closing.search(
-                string=text,
-                pos=opener.end(),
-                endpos=end,
-            )
-            if closer is None:
+            if opener.group() == COMMENT_OPEN:
+                closed = -1
+                if not unclosed:
+                    closed = comment_close(
+                        text=text,
+                        opened=opener.start(),
+                        bound=end,
+                    )
+                unclosed = closed == -1
+                found = comments
+            else:
+                closed = run_after(
+                    runs=runs,
+                    passed=passed,
+                    length=len(opener.group()),
+                    after=opener.end(),
+                )
+                found = spans
+
+            if closed == -1:
                 position = opener.end()
                 continue
 
-            found = comments if is_comment else spans
-            found.append((opener.start(), closer.end()))
-            position = closer.end()
+            found.append((opener.start(), closed))
+            position = closed
 
     return spans, comments
+
+
+def run_after(
+    runs: dict[int, list[int]],
+    passed: dict[int, int],
+    length: int,
+    after: int,
+) -> int:
+    """Where the first run of backticks of the length that starts at or past `after` ends, or -1 where none does, from the starts of a stretch's runs by length, the count of those passed over kept in `passed`, since the reading only goes on."""
+    starts = runs.get(length, [])
+    index = passed.get(length, 0)
+    while index < len(starts) and starts[index] < after:
+        index += 1
+    passed[length] = index
+
+    return starts[index] + length if index < len(starts) else -1
+
+
+def comment_close(
+    text: str,
+    opened: int,
+    bound: int,
+) -> int:
+    """Where the HTML comment whose `<!--` stands at `opened` ends, past its first `-->` before `bound`, or -1 where none comes, the `-->` looked for from the opener's own dashes, so `<!-->` and `<!--->` close where they stand."""
+    closer = text.find(COMMENT_CLOSE, opened + COMMENT_DASHES, bound)
+
+    return -1 if closer == -1 else closer + len(COMMENT_CLOSE)
 
 
 def blocks_of(
@@ -294,6 +349,7 @@ def blocks_of(
     comments: list[tuple[int, int]] = []
     inline: list[tuple[int, int]] = []
     items: list[int] = []
+    item_ends: dict[int, int] = {}
     fence: Optional[Opened] = None
     paragraph: Optional[Paragraph] = None
     in_table = False
@@ -365,10 +421,19 @@ def blocks_of(
             comment: Optional[tuple[int, int]] = None
             if bare.startswith(COMMENT_OPEN):
                 # a comment is a block, so it keeps to the innermost item the line does not sit left of, the margin the pop below leaves
+                kept_to = next((item for item in reversed(items) if item <= indent), 0)
+                # an item's end found below one of its lines is its end below every later line above it, so it is found once per item
+                if kept_to and item_ends.get(kept_to, 0) <= opened:
+                    item_ends[kept_to] = item_end(
+                        text=text,
+                        position=opened,
+                        margin=kept_to,
+                    )
+
                 comment = comment_at(
                     text=text,
                     opened=opened,
-                    margin=next((item for item in reversed(items) if item <= indent), 0),
+                    item=item_ends[kept_to] if kept_to else None,
                 )
 
             quoted = depth < QUOTE_DEPTH and bare.startswith(QUOTE_MARK)
@@ -632,35 +697,35 @@ def origin_of(
 def comment_at(
     text: str,
     opened: int,
-    margin: int,
+    item: Optional[int],
 ) -> Optional[tuple[int, int]]:
     """Where the HTML comment whose `<!--` opens a line at `opened` ends and where the reading of the lines goes on, or None where it is no comment.
 
-    It ends at its first `-->`. Inside a list item whose text starts at
-    column `margin` it ends where the item ends if no `-->` comes first,
-    at the first line under it that is not blank and sits left of the
-    item's text, as CommonMark ends an HTML block with its container,
-    and the reading goes on at that line. At the margin of the text an
-    opener with no closer is no comment, so a stray one never hides the
-    rest of the text.
+    It ends at its first `-->`, `<!-->` and `<!--->` where they stand.
+    Inside a list item, which ends at `item`, at the first line under it
+    that is not blank and sits left of the item's text, it ends there if
+    no `-->` comes first, as CommonMark ends an HTML block with its
+    container, and the reading goes on at that line. At the margin of
+    the text, where `item` is None, an opener with no closer is no
+    comment, so a stray one never hides the rest of the text.
     """
-    bound = len(text)
-    if margin:
-        bound = item_end(
-            text=text,
-            position=opened,
-            margin=margin,
-        )
-
-    closer = text.find(COMMENT_CLOSE, opened + len(COMMENT_OPEN), bound)
-    if closer != -1:
-        closed = closer + len(COMMENT_CLOSE)
+    closed = comment_close(
+        text=text,
+        opened=opened,
+        bound=len(text) if item is None else item,
+    )
+    if closed != -1:
         return closed, closed
 
-    if not margin:
+    if item is None:
         return None
 
-    return len(text[:bound].rstrip()), bound
+    # walked back over the white space alone, since a copy of the text up to the item's end would cost the whole text above it for each item
+    hidden = item
+    while hidden > opened and text[hidden - 1].isspace():
+        hidden -= 1
+
+    return hidden, item
 
 
 def item_end(
