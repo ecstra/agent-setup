@@ -67,15 +67,19 @@ EMPHASIS = "emphasis"
 # it, on a line of its own that opens a paragraph, as CommonMark reads
 # them. Anything else in brackets shows as it stands.
 LINK = re.compile(
-    r"\\[\s\S]"
-    r"|(?P<image>!?)\[(?P<text>(?:\\[\s\S]|[^\[\]\\])*)\]"
-    r"(?:\([ \t]*(?:<(?:\\[\s\S]|[^<>\\\n])*>|(?!<)(?:\\\S|[^\s()\\]|\((?:\\\S|[^\s()\\])*\))*)"
-    r"(?:[ \t]+(?:\"(?:\\[\s\S]|[^\"\\])*\"|'(?:\\[\s\S]|[^'\\])*'|\((?:\\[\s\S]|[^()\\])*\)))?[ \t]*\)"
-    r"|\[(?P<label>(?:\\[\s\S]|[^\[\]\\])*)\])"
+    pattern=(
+        r"\\[\s\S]"
+        r"|(?P<image>!?)\[(?P<text>(?:\\[\s\S]|[^\[\]\\])*)\]"
+        r"(?:\([ \t]*(?:<(?:\\[\s\S]|[^<>\\\n])*>|(?!<)(?:\\\S|[^\s()\\]|\((?:\\\S|[^\s()\\])*\))*)"
+        r"(?:[ \t]+(?:\"(?:\\[\s\S]|[^\"\\])*\"|'(?:\\[\s\S]|[^'\\])*'|\((?:\\[\s\S]|[^()\\])*\)))?[ \t]*\)"
+        r"|\[(?P<label>(?:\\[\s\S]|[^\[\]\\])*)\])"
+    ),
 )
 DEFINITION = re.compile(
-    r"[ \t]*\[((?:\\[\s\S]|[^\[\]\\])+)\]:[ \t]*\n?[ \t]*(?:<(?:\\[\s\S]|[^<>\\\n])*>|[^\s<]\S*)"
-    r"(?:[ \t]+(?:\"[^\"\n]*\"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*(?:\n|$)"
+    pattern=(
+        r"[ \t]*\[(?P<label>(?:\\[\s\S]|[^\[\]\\])+)\]:[ \t]*\n?[ \t]*(?:<(?:\\[\s\S]|[^<>\\\n])*>|[^\s<]\S*)"
+        r"(?:[ \t]+(?:\"[^\"\n]*\"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*(?:\n|$)"
+    ),
 )
 
 # The shell an info string's first word picks, and the flags each runs a
@@ -117,7 +121,7 @@ class GatesError(Exception):
 
 @dataclass(frozen=True)
 class Gate:
-    """One gate: its command, the folder it runs in, the one line that names it, and the shell its block runs under, or the argument list it runs as with no shell, which the kit's own gates are."""
+    """One gate, with its command, the folder it runs in, the one line that names it, and the shell its block runs under, or the argument list it runs as with no shell, which the kit's own gates are."""
 
     command: str
     cwd: Path
@@ -128,7 +132,7 @@ class Gate:
 
 @dataclass(frozen=True)
 class Named:
-    """What a project names: its gates in order, a line for each thing that does not run, and a line for each Gates heading that holds no gate."""
+    """What a project names, its gates in order, a line for each thing that does not run, and a line for each Gates heading that holds no gate."""
 
     gates: list[Gate] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
@@ -137,7 +141,7 @@ class Named:
 
 @dataclass(frozen=True)
 class Answer:
-    """What the floor's interpreter says of itself: the path it runs from, whether it is at the kit's floor, and its version."""
+    """What the floor's interpreter says of itself, the path it runs from, whether it is at the kit's floor, and its version."""
 
     path: str
     at_floor: bool
@@ -168,9 +172,9 @@ def run(
     heading holds no gate or the check or doctor has findings.
     """
     say = out or print
-    runs = runner or run_gate
+    run_one: Runner = runner or run_gate
     try:
-        named = gates_of(project)
+        named: Named = gates_of(project)
     except GatesError as error:
         say(str(error))
         return store.REFUSED
@@ -180,11 +184,11 @@ def run(
 
     total = len(named.gates)
     for number, gate in enumerate(
-        named.gates,
+        iterable=named.gates,
         start=1,
     ):
         say(f"gate {number} of {total}, {gate.name}")
-        code = runs(gate)
+        code = run_one(gate)
         if code != 0:
             say(f"gate {number} of {total} is red, {gate.name}, {ending(code)}, and the rest did not run")
             return store.REFUSED
@@ -220,7 +224,7 @@ def check_lines(
 ) -> tuple[list[str], list[str]]:
     """The check's slips over the tree and the branch's commits, a line each, each a finding, and its notes, none a finding, or the one line on why the check could not list the tree, which counts as a finding."""
     try:
-        checked = check.run(project=project)
+        checked: check.Checked = check.run(project=project)
     except check.CheckError as error:
         return [f"the check could not run, {error}"], []
 
@@ -231,21 +235,21 @@ def gates_of(
     project: Path,
 ) -> Named:
     """The gates the project names, the kit's own tests first in the kit's checkout, then section 0's, with the lines on what does not run."""
-    zero = section_gates(project)
+    in_section_zero: Named = section_gates(project)
     if check.is_kit_checkout(project):
-        own = kit_gates(project)
+        kits_own: Named = kit_gates(project)
 
         return Named(
-            gates=own.gates + zero.gates,
-            notes=own.notes + zero.notes,
-            empty=zero.empty,
+            gates=kits_own.gates + in_section_zero.gates,
+            notes=kits_own.notes + in_section_zero.notes,
+            empty=in_section_zero.empty,
         )
 
     # every Gates heading gives a gate or a line that it holds none, so with neither section 0 has no such heading
-    if not zero.gates and not zero.empty:
+    if not in_section_zero.gates and not in_section_zero.empty:
         return Named(notes=[NO_GATES])
 
-    return zero
+    return in_section_zero
 
 
 def kit_gates(
@@ -255,9 +259,9 @@ def kit_gates(
     if not sys.executable:
         raise GatesError("the interpreter running this gives no path of its own in sys.executable, so the tool's tests have nothing to run under, and no gate ran")
 
-    interpreters = [(sys.executable, platform.python_version())]
+    interpreters: list[tuple[str, str]] = [(sys.executable, platform.python_version())]
     notes: list[str] = []
-    answer = floor_answer()
+    answer: Optional[Answer] = floor_answer()
     if answer is not None and not same_interpreter(
         one=Path(answer.path),
         other=Path(sys.executable),
@@ -289,7 +293,7 @@ def floor_answer() -> Optional[Answer]:
         return None
 
     try:
-        answered = subprocess.run(
+        answered: subprocess.CompletedProcess[str] = subprocess.run(
             args=[str(FLOOR), "-c", PROBE],
             capture_output=True,
             text=True,
@@ -339,29 +343,32 @@ def section_gates(
     except (OSError, UnicodeDecodeError) as error:
         raise GatesError(f"AGENTS.md cannot be read, {store.explain(error)}, so no gate ran") from error
 
-    zero = upgrade.section_zero_in(text)
-    if zero is None:
+    section_zero: Optional[str] = upgrade.section_zero_in(text)
+    if section_zero is None:
         return Named()
 
-    blocks = sections.blocks_of(zero)
-    labels = labels_of(text)
+    blocks: sections.Blocks = sections.blocks_of(section_zero)
+    labels: frozenset[str] = labels_of(text)
 
     taken: list[sections.Fence] = []
     empty: list[str] = []
     for heading in blocks.headings:
-        readings = shown(
+        readings: tuple[str, str] = shown(
             text=heading.text,
             labels=labels,
         )
         if not any(GATES_WORD.search(reading) for reading in readings):
             continue
 
-        end = next((later.start for later in blocks.headings if later.start > heading.start and later.level <= heading.level), len(zero))
-        under = [fence for fence in blocks.fences if heading.end <= fence.start < end]
-        if not any(shell_of(fence) is not None and commands_of(fence) for fence in under):
+        stretch_end: int = next(
+            (later.start for later in blocks.headings if later.start > heading.start and later.level <= heading.level),
+            len(section_zero),
+        )
+        fences_under = [fence for fence in blocks.fences if heading.end <= fence.start < stretch_end]
+        if not any(shell_of(fence) is not None and commands_of(fence) for fence in fences_under):
             empty.append(f"the heading {heading.text} holds no gate, and {GATE_SHAPE}")
 
-        taken += [fence for fence in under if fence not in taken]
+        taken += [fence for fence in fences_under if fence not in taken]
 
     gates: list[Gate] = []
     notes: list[str] = []
@@ -369,14 +376,17 @@ def section_gates(
         taken,
         key=lambda fence: fence.start,
     ):
-        shell = shell_of(fence)
-        commands = commands_of(fence)
-        first = next((line.strip() for line in fence.text.split("\n") if line.strip()), "")
+        shell: Optional[str] = shell_of(fence)
+        commands: list[str] = commands_of(fence)
+        first_line: str = next(
+            (line.strip() for line in fence.text.split("\n") if line.strip()),
+            "",
+        )
         if shell is None:
             notes.append(
                 not_run(
                     what=f"a {fence.info.split()[0]} block",
-                    first=first,
+                    first=first_line,
                 ),
             )
             continue
@@ -384,8 +394,8 @@ def section_gates(
         if not commands:
             notes.append(
                 not_run(
-                    what="a block of nothing but comments" if first else "an empty block",
-                    first=first,
+                    what="a block of nothing but comments" if first_line else "an empty block",
+                    first=first_line,
                 ),
             )
             continue
@@ -394,7 +404,10 @@ def section_gates(
             Gate(
                 command=fence.text.strip(),
                 cwd=project,
-                name=next((line for line in commands if not SET_LINE.match(line)), commands[0]),
+                name=next(
+                    (line for line in commands if not SET_LINE.match(line)),
+                    commands[0],
+                ),
                 shell=shell,
             ),
         )
@@ -410,7 +423,7 @@ def labels_of(
     text: str,
 ) -> frozenset[str]:
     """The reference labels the file defines, each by its key, read where a paragraph opens outside code, a definition to a line."""
-    blocks = sections.blocks_of(text)
+    blocks: sections.Blocks = sections.blocks_of(text)
     labels: set[str] = set()
     for start, end in blocks.inline:
         if any(heading.start <= start < heading.end for heading in blocks.headings):
@@ -418,7 +431,7 @@ def labels_of(
 
         position = start
         while True:
-            definition = DEFINITION.match(
+            definition: Optional[re.Match[str]] = DEFINITION.match(
                 string=text,
                 pos=position,
                 endpos=end,
@@ -426,7 +439,7 @@ def labels_of(
             if definition is None:
                 break
 
-            labels.add(label_key(definition.group(1)))
+            labels.add(label_key(definition.group("label")))
             position = definition.end()
 
     return frozenset(label for label in labels if label)
@@ -452,8 +465,8 @@ def shown(
     target never makes a Gates heading. Each step is one pass over the
     text, so the time grows with its length and no more.
     """
-    pieces = emphasized(
-        pieces_of(
+    pieces: list[Piece] = emphasized(
+        pieces=pieces_of(
             text=text,
             labels=labels,
         ),
@@ -480,11 +493,13 @@ def pieces_of(
         text=text,
         stretches=[(0, len(text))],
     )
-    found = sorted([(start, end, CODE) for start, end in spans] + [(start, end, MARKUP) for start, end in comments])
+    spans_and_comments: list[tuple[int, int, str]] = sorted(
+        [(start, end, CODE) for start, end in spans] + [(start, end, MARKUP) for start, end in comments],
+    )
 
     pieces: list[Piece] = []
     cursor = 0
-    for start, end, kind in found:
+    for start, end, kind in spans_and_comments:
         pieces += unlinked(
             text=text[cursor:start],
             labels=labels,
@@ -496,6 +511,7 @@ def pieces_of(
             ),
         )
         cursor = end
+
     pieces += unlinked(
         text=text[cursor:],
         labels=labels,
@@ -513,11 +529,11 @@ def unlinked(
     cursor = 0
     for found in LINK.finditer(text):
         pieces += marked(text[cursor : found.start()])
-        link = link_shown(
+        link_text: Optional[str] = link_shown(
             found=found,
             labels=labels,
         )
-        if link is None:
+        if link_text is None:
             pieces.append(
                 Piece(
                     text=found.group(),
@@ -525,8 +541,9 @@ def unlinked(
                 ),
             )
         else:
-            pieces += marked(link)
+            pieces += marked(link_text)
         cursor = found.end()
+
     pieces += marked(text[cursor:])
 
     return pieces
@@ -590,13 +607,13 @@ def emphasized(
 
         before = pieces[index - 1].text[-1] if index else " "
         after = pieces[index + 1].text[0] if index + 1 < len(pieces) else " "
-        same = waiting.setdefault(piece.text, [])
+        openers_of_its_kind: list[int] = waiting.setdefault(piece.text, [])
         # a run a later pair closed over is open no more, and it is dropped from its kind's list here, once, so the pass stays linear
-        while same and same[-1] not in still_open:
-            same.pop()
+        while openers_of_its_kind and openers_of_its_kind[-1] not in still_open:
+            openers_of_its_kind.pop()
 
-        if same and not before.isspace() and after not in WORD_CHARACTERS:
-            opener = same.pop()
+        if openers_of_its_kind and not before.isspace() and after not in WORD_CHARACTERS:
+            opener = openers_of_its_kind.pop()
             while opened[-1] != opener:
                 still_open.discard(opened.pop())
             still_open.discard(opened.pop())
@@ -606,7 +623,7 @@ def emphasized(
         if not after.isspace() and before not in WORD_CHARACTERS:
             opened.append(index)
             still_open.add(index)
-            same.append(index)
+            openers_of_its_kind.append(index)
 
     return [
         Piece(
@@ -624,9 +641,9 @@ def joined(
     markup: str,
 ) -> str:
     """The pieces as one text, each piece of markup as the given text, each run taken as emphasis taken off, and the rest as written."""
-    instead = {MARKUP: markup, EMPHASIS: ""}
+    shown_as: dict[str, str] = {MARKUP: markup, EMPHASIS: ""}
 
-    return "".join(instead.get(piece.kind, piece.text) for piece in pieces)
+    return "".join(shown_as.get(piece.kind, piece.text) for piece in pieces)
 
 
 def link_shown(
@@ -637,7 +654,7 @@ def link_shown(
     if found.group("text") is None:
         return found.group()
 
-    label = found.group("label")
+    label: Optional[str] = found.group("label")
     if label is not None and label_key(label or found.group("text")) not in labels:
         return found.group()
 
@@ -677,11 +694,12 @@ def run_gate(
     gate: Gate,
 ) -> int:
     """Run one gate in its folder with its output passed straight through, and hand back its exit code, negative where a signal killed it."""
-    argv = list(gate.argv) or shell_line(gate)
+    argv: list[str] = list(gate.argv) or shell_line(gate)
 
     # the gate writes to this process's streams straight, and stderr writes the complaint's line at once, so the name line the caller printed leaves the buffer first
     sys.stdout.flush()
     sys.stderr.flush()
+
     if not argv:
         print(
             f"this gate is a {gate.shell} block and no {gate.shell} is on the path, so it needs one to run",
@@ -690,7 +708,7 @@ def run_gate(
         return 1
 
     try:
-        completed = subprocess.run(
+        completed: subprocess.CompletedProcess[bytes] = subprocess.run(
             args=argv,
             cwd=str(gate.cwd),
             check=False,
@@ -709,11 +727,11 @@ def shell_line(
     gate: Gate,
 ) -> list[str]:
     """The argument list that runs the gate's block under its shell, under sh where a bash gate on a POSIX machine finds no bash, said in one line, or nothing where its shell is not on the path."""
-    found = shell_path(gate.shell)
-    if found is not None:
-        return [found, *SHELL_FLAGS[gate.shell], gate.command]
+    shell: Optional[str] = shell_path(gate.shell)
+    if shell is not None:
+        return [shell, *SHELL_FLAGS[gate.shell], gate.command]
 
-    fallback = shell_path("sh") if gate.shell == "bash" and POSIX else None
+    fallback: Optional[str] = shell_path("sh") if gate.shell == "bash" and POSIX else None
     if fallback is None:
         return []
 
@@ -729,8 +747,8 @@ def shell_path(
     if not WINDOWS:
         return shutil.which(name)
 
-    system = os.path.normcase(
-        os.environ.get(
+    windows_folder = os.path.normcase(
+        s=os.environ.get(
             key="SystemRoot",
             default="C:\\Windows",
         ),
@@ -739,7 +757,7 @@ def shell_path(
         key="PATH",
         default="",
     ).split(os.pathsep):
-        found = (
+        found: Optional[str] = (
             shutil.which(
                 cmd=name,
                 path=folder,
@@ -747,12 +765,7 @@ def shell_path(
             if folder
             else None
         )
-        if found is not None and not os.path.normcase(os.path.abspath(found)).startswith(system + os.sep):
+        if found is not None and not os.path.normcase(os.path.abspath(found)).startswith(windows_folder + os.sep):
             return found
 
     return None
-
-
-def is_tty() -> bool:
-    """Whether the gates print to a person, for a caller that wants to say more then."""
-    return os.isatty(sys.stdout.fileno()) if hasattr(sys.stdout, "fileno") else False
