@@ -69,7 +69,7 @@ READ_GUARDS = (
     f"Read(/{doctor.SKILL_LINKS.as_posix()}/agent-brain/scripts/**)",
 )
 KIT_RULE = re.compile(
-    r"^Read\(/(?:"
+    pattern=r"^Read\(/(?:"
     + "|".join(
         re.escape(folder)
         for folder in (
@@ -126,7 +126,7 @@ LAUNCHERS = (
     LAUNCHER.replace("import sys;'' in sys.path and sys.path.remove('');import os,pathlib,runpy;", "import os,pathlib,runpy,sys;"),
 )
 KIT_HOOK = re.compile(
-    r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
+    pattern=r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
     r'|^python3 -c "(?:' + "|".join(re.escape(text) for text in LAUNCHERS) + r')"(?: [\w.-]+)*$',
 )
 IGNORE_FILE = schema.IGNORE_FILE
@@ -1671,8 +1671,8 @@ def section_zero_in(
     is no heading, neither the section's own nor the one that would end
     it.
     """
-    code = sections.code_spans(text)
-    hidden = code + sections.comment_spans(
+    code: list[tuple[int, int]] = sections.code_spans(text)
+    hidden: list[tuple[int, int]] = code + sections.comment_spans(
         text=text,
         spans=code,
     )
@@ -1685,7 +1685,7 @@ def section_zero_in(
             position=match.start(),
         )
     )
-    heading = next(found, None)
+    heading: Optional[re.Match] = next(found, None)
     if heading is None:
         return None
 
@@ -1697,7 +1697,7 @@ def section_zero_in(
             depth=2,
             spans=hidden,
         )
-        alone = marker_line_left_open(
+        alone: int = marker_line_left_open(
             text=text,
             start=heading.end(),
             end=end,
@@ -1729,7 +1729,7 @@ def first_outside_code(
     is the other's words.
     """
     spans = sections.code_spans(text)
-    comments = sections.comment_spans(
+    comments: list[tuple[int, int]] = sections.comment_spans(
         text=text,
         spans=spans,
     )
@@ -1754,9 +1754,13 @@ def marker_line_left_open(
     end: int,
 ) -> int:
     """Where the kit's marker first stands between `start` and `end` on a line of its own inside a fence left open to the end of the text, or inside an HTML comment that no `-->` closes before the marker's own, or -1 where it stands on no such line."""
-    left_open = next((fence for fence in sections.blocks_of(text).fences if not fence.closed), None)
-    comments = sections.comment_spans(text)
-    for line in MARK_LINE.finditer(text, start, end):
+    left_open: Optional[sections.Fence] = next((fence for fence in sections.blocks_of(text).fences if not fence.closed), None)
+    comments: list[tuple[int, int]] = sections.comment_spans(text)
+    for line in MARK_LINE.finditer(
+        string=text,
+        pos=start,
+        endpos=end,
+    ):
         mark = line.start(1)
         if left_open is not None and mark > left_open.start:
             return line.start()
@@ -1771,7 +1775,7 @@ def kit_mark_in(
     text: str,
 ) -> int:
     """Where the kit's words start in a front door, by the marker as section_zero_in reads it, where it first stands outside code and HTML comments, else at its line inside a fence or a comment the project left open, or -1 where it stands on neither."""
-    mark = first_outside_code(
+    mark: int = first_outside_code(
         text=text,
         pattern=MARK,
         start=0,
@@ -1793,7 +1797,7 @@ def own_words(
 
     Code keeps its comments and its `@` lines, a decorator for one.
     """
-    mark = kit_mark_in(text)
+    mark: int = kit_mark_in(text)
     own = text if mark == -1 else text[:mark]
     for pattern in (COMMENT, IMPORT_LINE):
         own = without(text=own, pattern=pattern)

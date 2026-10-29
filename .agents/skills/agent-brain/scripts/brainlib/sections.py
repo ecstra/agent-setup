@@ -33,7 +33,10 @@ EN_DASH = "–"
 # three backticks in the middle of a sentence with no three to close
 # them are just backticks. A block quote's lines are read as a text of
 # their own with their markers taken off, and a table's rows each alone.
-LINE = re.compile(r"^.*$", re.MULTILINE)
+LINE = re.compile(
+    pattern=r"^.*$",
+    flags=re.MULTILINE,
+)
 FENCE_OPEN = re.compile(r"(`{3,}|~{3,})(.*)$")
 FENCE_CLOSE = re.compile(r"(`{3,}|~{3,})\s*$")
 LIST_MARKER = re.compile(r"([-*+]|\d{1,9}[.)])(?:([ \t]+)|$)")
@@ -153,7 +156,7 @@ def code_spans(
     text: str,
 ) -> list[tuple[int, int]]:
     """Where the code sits in the text, as start and end offsets, the blocks and the spans inside the paragraphs and headings they leave."""
-    blocks = blocks_of(text)
+    blocks: Blocks = blocks_of(text)
     spans, _ = inline_of(
         text=text,
         stretches=blocks.inline,
@@ -189,7 +192,7 @@ def comment_spans(
     not, as the check does inside a quote, passes it, and a comment that
     opens inside it is none.
     """
-    blocks = blocks_of(text)
+    blocks: Blocks = blocks_of(text)
     _, comments = inline_of(
         text=text,
         stretches=blocks.inline,
@@ -407,7 +410,7 @@ def blocks_of(
         while True:
             bare = text[position:end].lstrip()
             opened = end - len(bare)
-            indent = indent_of(
+            indent: int = indent_of(
                 line=text[position:end],
                 column=column,
             )
@@ -417,7 +420,7 @@ def blocks_of(
             thematic = not underline and not header and THEMATIC_BREAK.match(bare) is not None
             marker = None if thematic or header else LIST_MARKER.match(bare)
             atx = ATX_OPEN.match(bare)
-            opener = fence_opener(bare)
+            opener: Optional[re.Match] = fence_opener(bare)
             comment: Optional[tuple[int, int]] = None
             if bare.startswith(COMMENT_OPEN):
                 # a comment is a block, so it keeps to the innermost item the line does not sit left of, the margin the pop below leaves
@@ -610,7 +613,10 @@ def quote_at(
     lines: list[str] = []
     length = 0
     end = start
-    for match in LINE.finditer(text, start):
+    for match in LINE.finditer(
+        string=text,
+        pos=start,
+    ):
         line = match.group()
         marked = mark
         if match.start() != start:
@@ -630,7 +636,7 @@ def quote_at(
         length += match.end() - content + 1
         end = match.end()
 
-    inner = blocks_of(
+    inner: Blocks = blocks_of(
         text="\n".join(lines),
         depth=depth + 1,
     )
@@ -689,7 +695,13 @@ def origin_of(
     origins: list[int],
 ) -> int:
     """Where an offset of a text whose lines start at the `taken` offsets stands in the text its lines were taken from."""
-    line = bisect.bisect_right(taken, offset) - 1
+    line = (
+        bisect.bisect_right(
+            a=taken,
+            x=offset,
+        )
+        - 1
+    )
 
     return origins[line] + offset - taken[line]
 
@@ -709,7 +721,7 @@ def comment_at(
     the text, where `item` is None, an opener with no closer is no
     comment, so a stray one never hides the rest of the text.
     """
-    closed = comment_close(
+    closed: int = comment_close(
         text=text,
         opened=opened,
         bound=len(text) if item is None else item,
@@ -780,7 +792,7 @@ def item_gap(
     rest: str,
 ) -> int:
     """How many columns past its marker a list item's text starts, the spacing counted from the column the marker ends at, one where no text follows the marker or the gap would make its text code."""
-    gap = (
+    gap: int = (
         indent_of(
             line=spacing or "",
             column=column,
