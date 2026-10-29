@@ -26,15 +26,40 @@ from typing import Callable, Optional
 
 from . import check, doctor, sections, store, upgrade
 
+# The letters gates with no letter on either side, so the digit a `<sup>`
+# footnote mark leaves beside them once its tags come off still leaves
+# the word.
 GATES_WORD = re.compile(
-    pattern=r"\bgates\b",
+    pattern=r"(?<![^\W\d_])gates(?![^\W\d_])",
     flags=re.IGNORECASE,
 )
 SET_LINE = re.compile(r"^set(?:[ \t]|$)")
 
-# A link or an image, by an inline target or a reference label, which a
-# heading shows by its text alone.
-LINK = re.compile(r"!?\[([^\]]*)\](?:\([^)]*\)|\[[^\]]*\])")
+# A line break and an image part the words beside them as they render,
+# where any other tag joins them.
+SPACED_TAG = re.compile(
+    pattern=r"</?(?:br|img)(?![A-Za-z0-9-])",
+    flags=re.IGNORECASE,
+)
+
+# A link or an image, by an inline target or a reference label, a link
+# shown by its text alone and an image read as a space, past the
+# backslash escapes that keep a bracket as it stands. An inline target holds no space outside
+# angle brackets, its parentheses paired, and a title after it is
+# quoted, and a reference label is a link only where the file defines
+# it, on a line of its own that opens a paragraph, as CommonMark reads
+# them. Anything else in brackets shows as it stands.
+LINK = re.compile(
+    r"\\[\s\S]"
+    r"|(?P<image>!?)\[(?P<text>(?:\\[\s\S]|[^\[\]\\])*)\]"
+    r"(?:\([ \t]*(?:<(?:\\[\s\S]|[^<>\\\n])*>|(?!<)(?:\\\S|[^\s()\\]|\((?:\\\S|[^\s()\\])*\))*)"
+    r"(?:[ \t]+(?:\"(?:\\[\s\S]|[^\"\\])*\"|'(?:\\[\s\S]|[^'\\])*'|\((?:\\[\s\S]|[^()\\])*\)))?[ \t]*\)"
+    r"|\[(?P<label>(?:\\[\s\S]|[^\[\]\\])*)\])"
+)
+DEFINITION = re.compile(
+    r"[ \t]*\[((?:\\[\s\S]|[^\[\]\\])+)\]:[ \t]*\n?[ \t]*(?:<(?:\\[\s\S]|[^<>\\\n])*>|[^\s<]\S*)"
+    r"(?:[ \t]+(?:\"[^\"\n]*\"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*(?:\n|$)"
+)
 
 # The shell an info string's first word picks, and the flags each runs a
 # block under, the ones GitHub Actions gives a `shell: bash` step, so a
@@ -275,7 +300,8 @@ def section_gates(
     """The gates under each Gates heading of section 0 in AGENTS.md, in order, with a line for each block no gate runs and one for each heading that holds no gate.
 
     A heading or a block inside code or an HTML comment is neither, a
-    heading holds the word gates only in the text it shows, and each
+    heading holds the word gates only in the text it shows, a reference
+    link's label shown or not by whether the file defines it, and each
     Gates heading runs to the next heading at its level or above, or to
     the end of section 0.
     """
@@ -293,11 +319,17 @@ def section_gates(
         return Named()
 
     blocks = sections.blocks_of(zero)
+    labels = labels_of(text)
 
     taken: list[sections.Fence] = []
     empty: list[str] = []
     for heading in blocks.headings:
-        if not GATES_WORD.search(shown(heading.text)):
+        if not GATES_WORD.search(
+            shown(
+                text=heading.text,
+                labels=labels,
+            ),
+        ):
             continue
 
         end = next((later.start for later in blocks.headings if later.start > heading.start and later.level <= heading.level), len(zero))
@@ -350,36 +382,102 @@ def section_gates(
     )
 
 
+def labels_of(
+    text: str,
+) -> frozenset[str]:
+    """The reference labels the file defines, each by its key, read where a paragraph opens outside code, a definition to a line."""
+    blocks = sections.blocks_of(text)
+    labels: set[str] = set()
+    for start, end in blocks.inline:
+        if any(heading.start <= start < heading.end for heading in blocks.headings):
+            continue
+
+        position = start
+        while True:
+            definition = DEFINITION.match(
+                string=text,
+                pos=position,
+                endpos=end,
+            )
+            if definition is None:
+                break
+
+            labels.add(label_key(definition.group(1)))
+            position = definition.end()
+
+    return frozenset(label for label in labels if label)
+
+
+def label_key(
+    label: str,
+) -> str:
+    """The label as CommonMark matches one, its white space run together and its case folded."""
+    return " ".join(label.split()).casefold()
+
+
 def shown(
     text: str,
+    labels: frozenset[str],
 ) -> str:
-    """The heading's text as markdown shows it, with no HTML comment and no tag, and a link or an image by its text alone, so a word in a comment, an attribute or a link's target never makes a Gates heading."""
-    bare = sections.blanked(
+    """The heading's text as markdown shows it, read as one line of inline text, its code spans as they stand, its comments taken off flush, and the rest unlinked, so a word in a comment, an attribute, an image or a link's target never makes a Gates heading."""
+    spans, comments = sections.inline_of(
         text=text,
-        spans=sections.comment_spans(text),
+        stretches=[(0, len(text))],
     )
     kept: list[str] = []
     cursor = 0
-    for start, end in sections.code_spans(bare):
-        kept.append(unlinked(bare[cursor:start]))
-        kept.append(bare[start:end])
+    for start, end in sorted(spans + comments):
+        kept.append(
+            unlinked(
+                text=text[cursor:start],
+                labels=labels,
+            ),
+        )
+        kept.append("" if (start, end) in comments else text[start:end])
         cursor = end
-    kept.append(unlinked(bare[cursor:]))
+    kept.append(
+        unlinked(
+            text=text[cursor:],
+            labels=labels,
+        ),
+    )
 
     return "".join(kept)
 
 
 def unlinked(
     text: str,
+    labels: frozenset[str],
 ) -> str:
-    """The text with each link and image by its text alone and no HTML tag."""
+    """The text with each link by its text alone, each image as a space, and each HTML tag taken off flush but a line break or an `<img>`, each read as a space."""
     return check.TAG.sub(
-        repl="",
+        repl=lambda found: " " if SPACED_TAG.match(found.group()) else "",
         string=LINK.sub(
-            repl=r"\1",
+            repl=lambda found: link_shown(
+                found=found,
+                labels=labels,
+            ),
             string=text,
         ),
     )
+
+
+def link_shown(
+    found: re.Match,
+    labels: frozenset[str],
+) -> str:
+    """What a match of the link pattern shows, a link its text and an image a space, and an escape or a reference to a label the file does not define just as it stands."""
+    if found.group("text") is None:
+        return found.group()
+
+    label = found.group("label")
+    if label is not None and label_key(label or found.group("text")) not in labels:
+        return found.group()
+
+    if found.group("image"):
+        return " "
+
+    return found.group("text")
 
 
 def shell_of(

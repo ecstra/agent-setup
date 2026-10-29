@@ -163,6 +163,10 @@ GIT_TAKES_CHARACTERS = os.name == "nt"
 SECTION_ZERO_HEADING = "## 0. Project Rules"
 KIT_MARK = "<!-- The kit's words start here. Section 0 goes above this line. -->"
 MARK = re.compile(re.escape(KIT_MARK))
+MARK_LINE = re.compile(
+    pattern=rf"^[ \t]*({re.escape(KIT_MARK)})[ \t]*\r?$",
+    flags=re.MULTILINE,
+)
 COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 IMPORT_LINE = re.compile(r"^[ \t]*@\S+[ \t]*$", re.MULTILINE)
 
@@ -1654,14 +1658,18 @@ def section_zero_in(
     section it was given whatever the kit's own words say now. In one
     the first kit wrote, before the marker, it ends where that kit's
     words stood. Anywhere else it runs to the next `#` or `##` heading
-    outside code and HTML comments. Where no marker stands outside code,
-    the marker on a line of its own still ends it, since that line is
-    the kit's boundary, so a fence the project left open above it closes
-    there and the kit's words never read as the project's. Code ends it
-    nowhere else, so a `## ` or a marker quoted inside a fence of
-    backticks or tildes, or an indented block, above the marker stays in
-    it, and a heading inside a comment is no heading, neither the
-    section's own nor the one that would end it.
+    outside code and HTML comments. The marker ends it at the first place
+    it stands outside code and outside any other comment. Where it stands
+    nowhere outside them, the marker on a line of its own still ends it
+    inside a fence left open to the end of the text, or inside a comment
+    that no `-->` closes before the marker's own, since that line is the
+    kit's boundary, so the fence or the comment the project left open
+    closes there and the kit's words never read as the project's. Code
+    and comments end it nowhere else, so a `## `, or a marker quoted
+    inside a closed fence of backticks or tildes, an indented block, a
+    code span or a comment, stays in it, and a heading inside a comment
+    is no heading, neither the section's own nor the one that would end
+    it.
     """
     code = sections.code_spans(text)
     hidden = code + sections.comment_spans(
@@ -1689,16 +1697,13 @@ def section_zero_in(
             depth=2,
             spans=hidden,
         )
-        alone = re.compile(
-            pattern=rf"^[ \t]*{re.escape(KIT_MARK)}[ \t]*\r?$",
-            flags=re.MULTILINE,
-        ).search(
-            string=text,
-            pos=heading.end(),
-            endpos=end,
+        alone = marker_line_left_open(
+            text=text,
+            start=heading.end(),
+            end=end,
         )
-        if alone is not None:
-            end = alone.start()
+        if alone != -1:
+            end = alone
 
         words = first_outside_code(text=text, pattern=FIRST_KIT, start=heading.end(), end=end)
         if words != -1:
@@ -1717,13 +1722,68 @@ def first_outside_code(
     start: int,
     end: Optional[int] = None,
 ) -> int:
-    """Where the pattern first matches outside code between `start` and `end`, or -1 when it does not."""
+    """Where the pattern first matches between `start` and `end` outside code and outside any HTML comment that opens before the match, or -1 when it does not.
+
+    The kit's marker is a comment itself, so the comment that opens
+    where it stands is its own, and one quoted inside another comment
+    is the other's words.
+    """
     spans = sections.code_spans(text)
+    comments = sections.comment_spans(
+        text=text,
+        spans=spans,
+    )
     for match in pattern.finditer(text, start, len(text) if end is None else end):
-        if not sections.in_code(spans=spans, position=match.start()):
-            return match.start()
+        if sections.in_code(
+            spans=spans,
+            position=match.start(),
+        ):
+            continue
+
+        if any(opened < match.start() < closed for opened, closed in comments):
+            continue
+
+        return match.start()
 
     return -1
+
+
+def marker_line_left_open(
+    text: str,
+    start: int,
+    end: int,
+) -> int:
+    """Where the kit's marker first stands between `start` and `end` on a line of its own inside a fence left open to the end of the text, or inside an HTML comment that no `-->` closes before the marker's own, or -1 where it stands on no such line."""
+    left_open = next((fence for fence in sections.blocks_of(text).fences if not fence.closed), None)
+    comments = sections.comment_spans(text)
+    for line in MARK_LINE.finditer(text, start, end):
+        mark = line.start(1)
+        if left_open is not None and mark > left_open.start:
+            return line.start()
+
+        if any(opened < mark and closed == mark + len(KIT_MARK) for opened, closed in comments):
+            return line.start()
+
+    return -1
+
+
+def kit_mark_in(
+    text: str,
+) -> int:
+    """Where the kit's words start in a front door, by the marker as section_zero_in reads it, where it first stands outside code and HTML comments, else at its line inside a fence or a comment the project left open, or -1 where it stands on neither."""
+    mark = first_outside_code(
+        text=text,
+        pattern=MARK,
+        start=0,
+    )
+    if mark != -1:
+        return mark
+
+    return marker_line_left_open(
+        text=text,
+        start=0,
+        end=len(text),
+    )
 
 
 def own_words(
@@ -1733,7 +1793,7 @@ def own_words(
 
     Code keeps its comments and its `@` lines, a decorator for one.
     """
-    mark = first_outside_code(text=text, pattern=MARK, start=0)
+    mark = kit_mark_in(text)
     own = text if mark == -1 else text[:mark]
     for pattern in (COMMENT, IMPORT_LINE):
         own = without(text=own, pattern=pattern)
