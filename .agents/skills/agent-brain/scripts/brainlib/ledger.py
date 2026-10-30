@@ -772,7 +772,7 @@ def checked(
     field: str,
     value: str,
 ) -> str:
-    """A finding's value as the record takes it, refused when the spec has no room for it."""
+    """A finding's value as the record takes it, refused when the ledger has no room."""
     if field not in FIELDS:
         raise LedgerError(f"a finding has no '{field}' field, its fields are {', '.join(FIELDS)}")
 

@@ -344,7 +344,7 @@ def holder_of(
     """The brain relative path of whatever already carries this name, entry or kit file, or None.
 
     A name is unique across the whole brain, the kit's own files
-    included, so a doc may not be called conventions while the spec is.
+    included, so a doc may not be called agent-index, as the index is.
     A name two files already share is refused with both named.
     """
     try:
@@ -556,7 +556,7 @@ def render_lines(
     kind: schema.Kind,
     fields: dict[str, str],
 ) -> list[str]:
-    """Frontmatter lines in the order the spec lists them, each value as written, trimmed."""
+    """Frontmatter lines in the order schema lists them, each value as written, trimmed."""
     return [f"{item.name}: {fields[item.name].strip()}" for item in schema.fields_for(kind) if item.name in fields]
 
 
@@ -564,7 +564,7 @@ def check(
     kind: schema.Kind,
     fields: dict[str, str],
 ) -> None:
-    """Every field against the spec, the common ones and the kind's own."""
+    """Every field against schema, the common ones and the kind's own."""
     check_against(kind=kind, fields=fields, items=schema.fields_for(kind))
 
 

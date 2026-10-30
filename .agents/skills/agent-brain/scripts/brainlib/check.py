@@ -227,7 +227,7 @@ class Listing:
 
 @dataclass(frozen=True)
 class Checked:
-    """What a run of the check or its call over one file found, its slips, and the notes its caller says beside them, none of them a slip, on a line git said as it listed the files, a file named and passed over, a file not checked, one the interpreter cannot parse or whose attributes git cannot read, and the commits where they were not read."""
+    """What a run of the check or its call over one file found, its slips, and the notes its caller says beside them, none of them a slip, on a line git said as it listed the files, a file named and passed over, a file not checked, one whose attributes git cannot read, and the commits where they were not read."""
 
     slips: list[Slip]
     notes: list[str]
@@ -237,7 +237,7 @@ def run(
     project: Path,
     paths: Optional[list[Path]] = None,
 ) -> Checked:
-    """Every slip in the files the paths name, or with no list of paths at all in the project's own files and the branch's commits, an empty list reading nothing, with the notes the caller says beside them, on each line git said as it listed the files, each file named that the check passes over, each Python file the interpreter running the check cannot parse, and the commits where they were not read."""
+    """Every slip in the files the paths name, or with no list of paths at all in the project's own files and the branch's commits, an empty list reading nothing, with the notes the caller says beside them, on each line git said as it listed the files, each file named that the check passes over, and the commits where they were not read."""
     if paths is None:
         listing: Listing = tracked(project)
     else:
@@ -274,8 +274,8 @@ def chosen(
 
     A folder inside a git work tree stands for the files git lists under
     it, as the run with no paths reads them, and a folder outside one for
-    the regular markdown and Python files under it that no dotted folder
-    holds. A path that leads to nothing, or to a place outside the
+    the regular markdown files under it that no dotted folder holds. A
+    path that leads to nothing, or to a place outside the
     project, is refused. A file named that the check passes over is named
     once in a note with the reason, and one under a folder named is
     passed in silence, as the tree's are. A folder that cannot be opened,
@@ -350,7 +350,7 @@ def chosen(
 def tracked(
     project: Path,
 ) -> Listing:
-    """The project's own markdown and Python files, those git tracks and the new ones it does not ignore, refused in git's words where git cannot list them, each the check passes over left out."""
+    """The project's own markdown files, those git tracks and the new ones it does not ignore, refused in git's words where git cannot list them, each the check passes over left out."""
     root = project.resolve()
     warned: dict[str, str] = {}
     listing: Listing = listed(
@@ -377,7 +377,7 @@ def listed(
     listings: dict[Path, Optional[frozenset[str]]],
     warned: dict[str, str],
 ) -> Listing:
-    """The markdown and Python files git lists under the folder, those it tracks and the new ones it does not ignore, each name once in git's order, refused in git's words where git cannot list them, each folder on the way to one listed once into the run's `listings`.
+    """The markdown files git lists under the folder, those it tracks and the new ones it does not ignore, each name once in git's order, refused in git's words where git cannot list them, each folder on the way to one listed once into the run's `listings`.
 
     Each folder git says it could not open is a slip in words, since git
     lists none of the new files under it, and git names it from the top
@@ -439,7 +439,7 @@ def walked(
     folder: Path,
     listings: dict[Path, Optional[frozenset[str]]],
 ) -> Listing:
-    """The regular markdown and Python files under a folder outside git, those a dotted folder below it holds left out, in the order of their paths, each folder the walk cannot open a slip in words, and each folder on the way to one listed once into the run's `listings`."""
+    """The regular markdown files under a folder outside git, those a dotted folder below it holds left out, in the order of their paths, each folder the walk cannot open a slip in words, and each folder on the way to one listed once into the run's `listings`."""
     paths: list[Path] = []
     unopenable: list[OSError] = []
     walk = os.walk(
@@ -562,8 +562,6 @@ def check_file(
     the note says so in git's words apart from the slips, so the caller
     says the check did not run on it and never names a slip no edit of
     the file can put right, and a hook that raised would lose the rest.
-    A Python file the interpreter running the check cannot parse has no
-    slip and a note of its own, as `run` hands one back.
     """
     nothing = Checked(
         slips=[],
@@ -765,8 +763,8 @@ def passed_over(
 ) -> dict[str, Optional[str]]:
     """Why the check passes over each file, named from the project as the disk spells it, or None for each it judges, the one test the tree, the paths and the post write hook share.
 
-    A file is judged where it is markdown or Python by its suffix in any
-    case, the brain tool does not write it, the kit does not write it
+    A file is judged where it is markdown by its suffix in any case,
+    the brain tool does not write it, the kit does not write it
     whole in a project, and git's attributes do not mark it generated or
     vendored, which outside git marks no file. Where git cannot read the
     attributes, the check is refused in git's words.

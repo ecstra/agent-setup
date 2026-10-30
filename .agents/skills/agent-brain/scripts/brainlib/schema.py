@@ -531,7 +531,7 @@ def is_kit_path(
 
 
 class UnknownKind(Exception):
-    """A kind name the spec does not know, with the known ones in the message."""
+    """A kind name the tool does not know, with the known ones in the message."""
 
 
 def kind_named(
@@ -588,7 +588,7 @@ def format_id(
 def slugify(
     title: str,
 ) -> str:
-    """Turn a title into the filename slug the conventions ask for."""
+    """Turn a title into the filename slug the brain uses."""
     lowered = title.lower()
     cleaned = re.sub(r"[^a-z0-9]+", "-", lowered)
 

@@ -8,7 +8,7 @@ word stands the ledger takes an ack of "auto" and the review skill
 passes its gates without waiting. The state is the tool's own, one
 dotted file at the root of the brain, which git ignores since it
 belongs to this machine and this stretch of work, and the brain's
-conventions say the rest.
+skill sheet has the rest.
 """
 
 import json

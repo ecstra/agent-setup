@@ -181,7 +181,7 @@ def all_markdown(
 
     The walk skips a dotted path and the folders in SKIP_DIRS. The
     skills folder is the tool's own, its files follow the Agent Skills
-    standard rather than the specs, so only the boundary check, hygiene,
+    standard rather than a kind's, so only the boundary check, hygiene,
     reads them. A skipped folder is known by its name as
     `links.names_folder` reads it, so where git takes two spellings that
     differ by case alone for one file, or gives no answer for its flag,
@@ -735,7 +735,7 @@ def convert_steps(
     """A repair that turns a list under Steps into the table, its rows marked by the entry's own status, the reason when the tool refuses the list as it stands, so the finding says why no run of --fix clears it, or none when there is no list to turn.
 
     A bug gets no repair, since a list under its Steps from before the
-    table may be the reproduction, which the spec puts under Evidence,
+    table may be the reproduction, which SKILL.md puts under Evidence,
     and only whoever filed it can say which it is, though the reason
     the section would not turn is named for it too, so the line to
     move by hand is known.
