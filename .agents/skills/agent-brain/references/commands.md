@@ -2,12 +2,14 @@
 
 All of them run as `python3 .agents/skills/agent-brain/scripts/brain.py`,
 shortened here to `brain`. A command exits 0 when done, 1 when refused,
-with the reason on standard error, and 2 when doctor still has findings.
-A write that landed its entry and then lost a second write, a step
-cell, a step's pointer or the chain, exits 0 with that failure on
-standard error, since the command did its work and doctor reports what
-is left, while an index rebuild that fails exits 1 like any refusal,
-the entry written all the same.
+with the reason on standard error, and 2 while findings remain, doctor's
+or the check's. `brain gates` says why it stopped on standard output,
+among the gates' own output, and [its row](#the-gates) says what each of
+its codes means. A write that landed its entry and then lost a second
+write, a step cell, a step's pointer or the chain, exits 0 with that
+failure on standard error, since the command did its work and doctor
+reports what is left, while an index rebuild that fails exits 1 like any
+refusal, the entry written all the same.
 
 ## Reading
 
@@ -37,13 +39,13 @@ answers nothing. Every command that takes a key reads it this way.
 
 | Command | What it does |
 |---|---|
-| `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry. Prose on standard input. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`, a path into `handover/` included, since no link goes into the folder whose one note is read once. |
+| `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry from the prose on standard input and prints its path, then any slip the check finds in it, as [the check](#the-check) says. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`, a path into `handover/` included, since no link goes into the folder whose one note is read once. |
 | `brain set <key> field=value ...` | Changes fields, checks values and dates, applies the lifecycle rules, stamps `updated`. |
 | `brain refile <key> --title T` | Renames for a new title. The id stays, every link follows. |
-| `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input. Both files stay, linked both ways, the old one marked `refiled` with the new one's id in `became`, which every step that pointed at the old one follows, save a step whose own entry the new one's steps point back at, which stays on the old one as skipped while the new one is open and follows once it closes. Refused when a step of the new body points at the old entry, or at an open entry whose steps point back at it at any remove, since the new entry takes the old one's pointers over. |
+| `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input, and prints the new one's path and any slip the check finds in it, as `brain new` does. Both files stay, linked both ways, the old one marked `refiled` with the new one's id in `became`, which every step that pointed at the old one follows, save a step whose own entry the new one's steps point back at, which stays on the old one as skipped while the new one is open and follows once it closes. Refused when a step of the new body points at the old entry, or at an open entry whose steps point back at it at any remove, since the new entry takes the old one's pointers over. |
 | `brain index` | Rebuilds every `INDEX.md` and prints the ones that changed. |
 
-Fields by kind, all passed as flags to `new` or as `field=value` to `set`:
+Fields by kind, all passed as flags to `new` or as `field=value` to `set`.
 
 - bug: `--severity breaks|bug|debt|nit` and `--area` required. `status`
   is open, branched, fixed, wontfix or refiled, `reported` defaults to
@@ -212,9 +214,9 @@ dropped without a word. A pipe in a step is written into its cell as
 
 | Command | What it does |
 |---|---|
-| `brain new plan --title T --description D [--by owner\|agent] [--link P] [--category C]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. The steps go under a heading that reads `## Steps` and nothing more, and a Steps heading at another level or with a colon after it is refused, since the readers would never find it. `by` is owner unless said otherwise, `--link` and `--category` work as for any kind, and a field flag a plan does not carry is refused. |
+| `brain new plan --title T --description D [--by owner\|agent] [--link P] [--category C]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. The steps go under a heading that reads `## Steps` and nothing more, and a Steps heading at another level or with a colon after it is refused, since the readers would never find it. `by` is owner unless said otherwise, `--link`, `--category` and what it prints work as for any kind, and a field flag a plan does not carry is refused. |
 | `brain steps <key>` | The entry in a few lines, its status and the count of settled steps, then one line per step with what it points at and its mark. |
-| `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers. A todo or a bug with no Steps section gets one where its spec puts it, and a numbered list written under Steps by hand becomes the table first, its rows set by the plan's or the todo's own `by` and by agent on a bug. Refused on an entry that is not open, for a step that points at the entry itself, for one that points at an entry whose steps point back here at any remove, since the two would wait on each other for good, and on a plan whose steps sit under a heading that is not `## Steps`. |
+| `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers, then any slip the check finds in the entry, as `brain new` does. A todo or a bug with no Steps section gets one where its spec puts it, and a numbered list written under Steps by hand becomes the table first, its rows set by the plan's or the todo's own `by` and by agent on a bug. Refused on an entry that is not open, for a step that points at the entry itself, for one that points at an entry whose steps point back here at any remove, since the two would wait on each other for good, and on a plan whose steps sit under a heading that is not `## Steps`. |
 | `brain steps <key> step <n> pending\|done\|skipped` | Marks a step that points at nothing, or one whose pointer reaches nothing the brain can read, a dead key or an id two files carry after a merge, which doctor reports. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped, and a step whose todo or bug was refiled follows it to the entry filed in its place. The tool refreshes it whenever the entry's status changes, a ledger close included, while the holder is open, and a retitle rewrites a cell naming the entry by hand as its id in every holder, or as the new name for a file with no id, which doctor reports, so marking a pointed step by hand is refused. Refused on an entry that is not open, whose table is its record. |
 
 A plan goes done, a todo done and a bug fixed with `brain set` once
@@ -279,37 +281,38 @@ patterns kept and no id carried twice, links that resolve, links written
 as paths with each file once, body links that resolve, a link of either
 kind into `handover/` reported as reaching nothing even while the note
 is there, the steps tables as the steps section says, indexes current,
-no dashes or semicolons in prose, no machine paths, nothing shaped like
-a secret, the version stamp a version, the chat style copies for Codex
-and Gemini CLI matching the Claude Code one where the project keeps
-those agents' folders, and the skill links Claude Code needs, one per
-skill the kit ships and one per skill folder the project keeps, each of
-which must reach its skill rather than point at nothing or be a plain
-file. It reports too a real folder copy of a kit skill that fell behind
-the brain's, a dangling link doctor once made for a project skill since
-gone from the brain, and a skills folder it cannot list. Doctor reads no
-file in `handover/`, and a folder whose name differs from it in case
-alone is that folder, to doctor's walk and to every link check alike,
-where git's `core.ignorecase` is true or git gives no answer for that
-flag, outside any repository it opens or past its time limit. A kit
-folder named in another case, such as `Skills/` for `skills/`, is the
-kit's only where git says the flag is true, so where git gives no answer
-on a disk that ignores case, its files are named as strays under that
-name, the casing to put right. Doctor reads the front doors,
-`AGENTS.md`, `CLAUDE.md` and `GEMINI.md`, the way each agent reads its
-`@` imports. Claude Code reads `CLAUDE.md` and `AGENTS.md` while the
-project keeps a `.claude/` folder, and Gemini CLI reads `GEMINI.md` and
-`AGENTS.md` while the project keeps a `.gemini/` folder. A front door is
-judged once for each agent that reads it, `AGENTS.md` by Claude Code's
-rules when the project keeps neither folder, and a front door that is a
-link to `AGENTS.md` is read once, as that file. Both agents find code
-the same way, in a fence of backticks or tildes, closed or not, in an
-indented block, which is a line four columns in from the margin where no
-paragraph is open, the margin inside a list item being where its text
-starts, or in a span, which a backtick after a backslash never opens. A
-comment opened at the start of a line runs to its `-->` or to the end of
-the file, and a fence inside it opens nothing. Claude Code skips HTML
-comments too, while Gemini CLI reads them raw.
+no dash or semicolon in a header's name, description or links, which
+flow into the indexes, no machine paths, nothing shaped like a secret,
+the version stamp a version, the chat style copies for Codex and Gemini
+CLI matching the Claude Code one where the project keeps those agents'
+folders, and the skill links Claude Code needs, one per skill the kit
+ships and one per skill folder the project keeps, each of which must
+reach its skill rather than point at nothing or be a plain file. It
+reports too a real folder copy of a kit skill that fell behind the
+brain's, a dangling link doctor once made for a project skill since gone
+from the brain, and a skills folder it cannot list. Doctor reads no file
+in `handover/`, and a folder whose name differs from it in case alone is
+that folder, to doctor's walk and to every link check alike, where git's
+`core.ignorecase` is true or git gives no answer for that flag, outside
+any repository it opens or past its time limit. A kit folder named in
+another case, such as `Skills/` for `skills/`, is the kit's only where
+git says the flag is true, so where git gives no answer on a disk that
+ignores case, its files are named as strays under that name, the casing
+to put right. Doctor reads the front doors, `AGENTS.md`, `CLAUDE.md` and
+`GEMINI.md`, the way each agent reads its `@` imports. Claude Code reads
+`CLAUDE.md` and `AGENTS.md` while the project keeps a `.claude/` folder,
+and Gemini CLI reads `GEMINI.md` and `AGENTS.md` while the project keeps
+a `.gemini/` folder. A front door is judged once for each agent that
+reads it, `AGENTS.md` by Claude Code's rules when the project keeps
+neither folder, and a front door that is a link to `AGENTS.md` is read
+once, as that file. Both agents find code the same way, in a fence of
+backticks or tildes, closed or not, in an indented block, which is a
+line four columns in from the margin where no paragraph is open, the
+margin inside a list item being where its text starts, or in a span,
+which a backtick after a backslash never opens. A comment opened at the
+start of a line runs to its `-->` or to the end of the file, and a fence
+inside it opens nothing. Claude Code skips HTML comments too, while
+Gemini CLI reads them raw.
 
 In both agents an `@` at the start or after whitespace opens an import
 whose path runs to the next whitespace. Claude Code reads the lexer's
@@ -393,6 +396,279 @@ elsewhere is replaced by the right one, and a repair that rewrites a
 file, a stale index or chat style copy, writes a real file in place of
 any link standing there. No other file is removed.
 
+## The check
+
+Doctor reads the brain against its specs. The check reads the project's
+own markdown and Python, and the branch's commits, against the rules of
+SYSTEM.md a machine can judge without reading for meaning. It reports
+and never rewrites, since most of its slips need new words that only the
+writer can choose.
+
+| Command | What it does |
+|---|---|
+| `brain check [paths...] [--json]` | Prints one line per slip, `path:line: message`, or `path: message` for a slip with no line such as a file that cannot be read, or `commit <hash>: message` for a commit, then `clean` or the count of findings. With `--json` it prints one JSON list in their place, each slip with its `path`, its `line`, 0 where it has none, and its `message`. Exit 2 while any slip remains. Each note goes to standard error and is no slip, such as a file named and passed over, a Python file the check could not parse, a warning git gave as it listed the files, or the commits not read. With no paths it reads the project's files and the branch's commits, and with paths the files named and those under each folder named, never the commits. A path that is not there, or that leads outside the project once its links are resolved, is refused, exit 1, and so is a run where git cannot list the files, as outside a repository, or read their attributes. |
+
+With no paths the check reads the markdown and Python files git lists,
+those it tracks and the new ones it does not ignore. A file counts as
+markdown or Python by its suffix alone, `.md` or `.py` in any case, so a
+`.markdown`, `.mdx` or `.rst` file, a `.pyi` stub, a script with no
+suffix and the code of any other language are never read. A name git
+lists that is gone from the disk, or is a link, a folder or a pipe
+there, is left out. A folder git warns it could not open is one slip,
+since the new files under it went unread, and git's other warnings are
+notes. A folder named on the command line stands for what git lists
+under it, dotted folders included, and outside git for the markdown and
+Python files under it that no dotted folder holds. Each file is read
+once, by the file it resolves to, and a file that cannot be read or
+decoded, markdown as UTF-8 and Python by the coding it declares, is one
+slip.
+
+Some files are passed over wherever the check meets them. A file git's
+attributes mark `linguist-generated` or `linguist-vendored` is one,
+which is how a project leaves out text it did not write, and where git
+cannot read the attributes the run is refused in git's words. The files
+the tool writes are others, the indexes, the review ledgers and the
+handover note, since no hand puts them right. In a project the files the
+kit writes whole are passed over too, since a slip there is the kit's
+and the next upgrade writes them back. Which files those are goes by the
+project's version stamp, as the upgrade decides, so a project's own file
+under a name the kit took later is read. The project's `AGENTS.md` is
+read above the kit's marker alone. In the kit's own checkout, which
+holds the tool's tests under
+`.agents/skills/agent-brain/scripts/tests/`, the kit's files are the
+work and are read, the tool's own files aside. A file named on the
+command line and passed over is named on standard error with the reason,
+and one under a folder named is passed over in silence.
+
+In markdown each line is read as it renders, an HTML entity as the
+character it shows. An em dash is a slip, whether typed as the mark, as
+`&mdash;` or as two hyphens between words with a space on each side,
+while an en dash or a hyphen is none. A semicolon is a slip. A colon is
+a slip anywhere but in a table row or as a list item's label, which is
+the text before the item's first colon where that text holds no sentence
+end. A sentence ends at a `.`, `!` or `?` followed by a space and an
+upper case letter, the period of a known abbreviation such as `e.g.` or
+`etc.` aside. So a colon in a heading, a setext one included, one mid
+sentence, one past the sentence an item opens with and a second one in
+an item are each a slip. A table row is a line of a table as GitHub
+reads one, the header row straight above a delimiter row, the delimiter
+row and the rows under it up to a blank line, a heading or a line with
+no pipe, and it takes any colon.
+
+What carries literal punctuation is stepped over before a line is
+judged. That is the header block, a `---` line that opens the file with
+a key line straight under it, up to the closing `---`, code fenced,
+indented or in a span, a quote's code too, HTML comments, raw HTML,
+which is a tag with its attributes, a `code`, `kbd` or `samp` element,
+or a `pre`, `script`, `style` or `textarea` block, a link reference
+definition, a footnote definition's label, a URL, a word that opens with
+`mailto:`, `tel:`, `urn:`, `data:` or `file:`, git's `user@host:path`, a
+drive path such as `C:\`, a path's line number or a host's port such as
+`check.py:12` or `localhost:8080`, a colon between two digits such as a
+time or a ratio, an emoji shortcode such as `:tada:`, and the quote
+markers.
+
+Python is read from its syntax tree and its tokens, per SYSTEM.md 2.4. A
+def with any parameter but a lone `self` or `cls`, however short, a
+class whose bases break across lines and a call already broken across
+lines must each hold their items one per line, the first on a line below
+the bracket's, with a trailing comma after the last. So `def add(a, b):`
+on one line is a slip, while a call or a class kept on one line is not
+judged. A lone argument or base that is a literal, a string or a
+generator may open on the bracket's line and takes no comma. A lambda,
+and anything inside a formatted string, is not judged. In the kit's own
+checkout alone, `from __future__ import annotations` is a slip too,
+which the kit's code keeps out by its convention. A Python file the
+interpreter running the check cannot parse, or cannot parse within its
+limits, is a note on standard error that names that interpreter's
+version, and no slip, since whether a file parses is for the project's
+tests to say.
+
+With no paths the check reads the branch's commits too, those of HEAD
+that no `main` git knows reaches, the local one or any remote's, so on
+main itself there are none. A commit carries a slip for a line that
+opens with `Co-authored-by:`, in any case, and for an AI attribution, a
+line that opens with `Assisted-by:` or `Generated-by:`, or with
+generated, written, created or made and then with or by, and names an
+agent right after it, Claude, Codex, Gemini, Copilot, ChatGPT, Cursor or
+Aider, with no more than a maker's name such as Anthropic or a link's
+bracket between. A list marker, a bracket or an emoji before such a
+line's words is read past, and `CLAUDE.md`, `.claude/` or an agent named
+later in the line is no attribution. Where git knows no main, or cannot
+give the log, a note on standard error says the commits were not read
+and why.
+
+The post write hook runs the check on each file an agent writes, as
+[Hooks](#hooks) says. `brain new`, `brain refile --kind` and
+`brain steps add` write through the shell, which no hook sees, so each
+runs the check over the file it wrote and prints any slip on standard
+output after the path or the numbers, under
+`brain check after that write:`, with the notes on standard error. A
+refile that lost a second write prints no path, since its message on
+standard error names the new file and the write it lost, and then prints
+the slips the same way. A slip there changes no exit code. `brain gates`
+runs the check with no paths before a review and before a merge.
+
+The check falls short in these places.
+
+- A call or a class kept on one line is never judged, though SYSTEM.md
+  2.4 holds every call, since where a short call should break needs a
+  line length the rules do not set. A one line call of several arguments
+  is the review's to find.
+- Types are not judged, since SYSTEM.md 2.3 asks for an annotation where
+  a type is not obvious, which takes reading for meaning, and a type
+  checker is the tool for the rest.
+- A wrapped line of a paragraph that opens with a number and a period,
+  such as `2026. Then`, reads as a numbered list item, so keep such a
+  number off the start of a line.
+- A copy of the kit's tests kept in a project, under
+  `.agents/skills/agent-brain/scripts/tests/`, makes the check take the
+  project for the kit's own checkout.
+- Two hyphens set between words with a space on each side that mean no
+  dash, such as a flag written outside a code span, are named as an em
+  dash, and the fix is a code span.
+- A colon in a table cell is never judged.
+- A label that holds an abbreviation the check does not know, before an
+  upper case word, reads as past the end of a sentence, so drop the
+  period or reword.
+- The check finds code nested one level deep. An HTML block or an
+  indented code block nested deeper, inside a list item, or opened in a
+  quote right under a list or a paragraph, is read as prose and its
+  punctuation named, and the fix is a fenced block.
+- A fence, or an HTML block such as `<pre>` or `<script>`, left open in
+  a quote inside another quote runs on through the outer quote's lines,
+  which are then stepped over as code, a slip missed and never a false
+  one.
+- An HTML block in a quote that holds a fence is cut at the fence, so
+  its lines after the fence are judged, and the fix is a fenced block. A
+  list in a quote whose sub item holds a fence is read as no list past
+  the fence, so a paragraph four columns in reads as code and goes
+  unjudged.
+- A `---` or `===` inside or right after an HTML block that interrupts a
+  paragraph makes the paragraph a setext heading, whose colon is named
+  as one in a heading, and the fix is a blank line before the block.
+- In a list item's label, a tag, a comment and literal text such as a
+  URL or a path each read as a space, so a sentence that opens with
+  literal text is read on to the next upper case word, and a tag set
+  flush after a period reads as the space after it. Reword a label that
+  this misreads.
+- A paragraph line that holds a pipe, over a line of pipes and hyphens,
+  reads as a table whatever its count of cells, and a quote that takes
+  up its marker again after a lazy line reads as two quotes. A code span
+  across either cut is lost and its punctuation named, so keep the span
+  on one line or the marker on every line.
+- A tab after a quote's marker can make the text after it read as an
+  indented code block, so that line goes unjudged.
+- Git's warning that it could not open a folder is read in git's
+  English. Where git still speaks another language, no folder is named,
+  and its warning is passed on as a note as it stands.
+- A project's own file under `.agents/spec/` is passed over as the kit's
+  wherever the upgrade takes it for one.
+- The check takes git's `GIT_TRACE` variables out of its git calls, but
+  a trace git's own config sends to standard error, such as through
+  `trace2.normalTarget`, still reaches the notes as git's words, though
+  never as a slip.
+- `brain check` writes its notes to standard error plainly, so with
+  standard error closed it puts them on standard output, ahead of the
+  list under `--json`, and with the reader of its standard error gone it
+  ends with exit 120. Give it a standard error.
+
+## The gates
+
+| Command | What it does |
+|---|---|
+| `brain gates` | Runs the gates the project names, in order, then the check with no paths, over the project's files and the branch's commits, then doctor over the brain, and prints what it finds on standard output. Each gate is named on one line, `gate <n> of <m>, <name>`, before it runs, and the first red one stops the run, saying which, with its exit code or the signal that killed it, and that the rest did not run, exit 1, with neither the check nor doctor run. Past the gates the check and doctor both run whatever the other finds, each slip, note and finding printed, then `check clean` or its count and `doctor clean` or its count, a note counting as no finding. A check that cannot run, since git cannot list the files or read their attributes, is one line that counts as a finding. Exit 0 when every gate is green and both are clean, 2 while the check or doctor has findings or a Gates heading holds no gate. An `AGENTS.md` that cannot be read or decoded exits 1 in words that name it, with nothing run. |
+
+The gates sit in section 0 of the project's `AGENTS.md`, under each
+heading whose text holds the word gates, such as `### Gates` or
+`### 0.2 Merge gates`, at any level, with hashes or underlined. A word
+in an HTML comment, a tag's attribute, an image or a link's target does
+not count, nor does one with an ASCII letter, a digit or an underscore
+against it, such as `ci_gates.yml`. A heading that sits under no Gates
+heading and is none as it shows, though its text as written, outside
+code spans and HTML comments, holds gates with no ASCII letter or digit
+right beside it, is named in one line that says it holds the word as
+written and not as shown, so its blocks do not run. Each Gates heading
+runs to the next heading at its level or above, or to the end of section
+0, and each fenced block under it is a gate, in order. The block's info
+string picks the shell, `bash`, `shell` or none for bash, `sh` for sh
+and `zsh` for zsh. A block of another language, or one with nothing but
+blank lines and comments, is named in one line as not run and left out
+of the count. A block inside a quote, an indented code block and
+anything inside an HTML comment are no gate. A gate's name is its first
+line that is neither a comment nor a `set` line.
+
+Where section 0 has no such heading, or the project has no section 0,
+the run says so in one line, and the check and doctor are the gates.
+Where a Gates heading holds no gate, the run names it with the shape a
+gate takes and goes on, and exits 2 where no gate turns red.
+
+Each gate runs from the project's root with its output passed straight
+through, a bash block under `bash --noprofile --norc -eo pipefail`, the
+shell GitHub Actions gives a `shell: bash` step, an sh block under
+`sh -e` and a zsh block under `zsh --no-rcs -e -o pipefail`, so a
+failing line, or a failing stage of a pipeline where the shell takes
+pipefail, turns the gate red. Where bash is not on the path, a bash gate
+runs under `sh -e` on a POSIX machine and says so in one line, and is
+red elsewhere, as is an sh or a zsh gate whose shell is missing, with a
+line on standard error that names the shell. On Windows a bash under the
+Windows folder, the WSL launcher, is passed over for the next one on the
+path.
+
+In the kit's own checkout the tool's own tests come first,
+`<interpreter> -m unittest discover -s tests -t .` in the scripts
+folder, under the interpreter running the command and then under
+`/usr/bin/python3` where that is another interpreter and answers at the
+kit's floor of 3.9 or above. One below 3.9 is named in one line as not
+run, and each kit gate names the Python version it runs under. Section
+0's gates follow, where the kit's `AGENTS.md` names any. An interpreter
+whose `sys.executable` is empty exits 1 with nothing run.
+
+The gates fall short in these places.
+
+- A section 0 that names its gates under no heading holding the word
+  gates runs none of them, and says so in one line.
+- A gate that relies on a command failing without stopping the block
+  needs `|| true` or its own `set +e`, as it would in a CI step.
+- An sh gate takes no pipefail, since POSIX sh has none.
+- On Windows the gates need a bash such as Git Bash on the path.
+- A heading's shown text is read with its comments, tags, images and
+  link targets taken off. Other markup can leave the word gates in what
+  the heading does not show, an HTML comment before a link or an image
+  or inside its text, a link whose text holds brackets, a reference link
+  whose definition the reader does not take, such as one whose title
+  wraps, holds an escaped quote or sits in a quote, or a footnote
+  reference such as `[^gates]`, and that word opens the heading's
+  blocks. Keep the word out of the markup of a heading in section 0 that
+  is not the gates.
+- Every doubt reads toward the word, so a heading whose markup leaves
+  gates whole inside a longer word, such as `Dele<b>gates</b>`, or one
+  where a letter of another script stands against it, such as
+  `délégates`, opens its blocks too, each named as it runs.
+- A run of `*` or `_` beside a link is read against the link's text, so
+  where that text opens or ends in a space inside its brackets, as in
+  `_[Gates ](docs/ci.md)_`, the run stays as written and the heading is
+  no Gates heading, which the line on a word held as written and not as
+  shown says. Drop the space inside the brackets.
+- A run of `*` or `_` pairs only with a run of the same length, so runs
+  of different lengths around the word, as in `__gates___`, leave a mark
+  against it and the heading is no Gates heading, which the same line
+  says. Use runs of one length.
+- A tag that holds a backslash escape or a link anywhere inside it is
+  not read as a tag, so the whole tag shows in both readings, its
+  attributes too. A word gates in it opens the heading's blocks, each
+  named as it runs, while a `*` or `_` in it can pair with a run outside
+  it and leave the heading no Gates heading, which the same line says.
+  Keep escapes and links out of a heading's tags.
+- A `<!--` that section 0 never closes hides from GitHub everything down
+  to the kit's marker, while the run cuts section 0 at the marker, where
+  that comment hides nothing, so a Gates heading under it still runs its
+  blocks, each named as it starts. Close the comment.
+- A `<!--` left open on the kit's marker line, before or after the
+  marker, hides the marker, so section 0 runs on into the kit's words,
+  and the check judges them as the project's. Close the comment or move
+  it off the marker's line.
+
 ## Port and upgrade
 
 Both run from a checkout of the kit, since a project without the tool
@@ -466,20 +742,25 @@ under `handover/` among them, is printed as the disk spells it.
 ## Hooks
 
 `scripts/hooks.py` is what the agents call, with the event JSON on
-standard input:
+standard input.
 
 | Event | What happens |
 |---|---|
-| `session-start` | Prints into the agent's context the clock, the standing word and the current work, then the note the last session left in `handover/handover.md`, whole under a line that says how it was taken, or the one line that says why a file there stays, then `brain status`, counted once the note is taken, so it names a note this start read only where the start could not take it aside and read it in place, which the next session reads again. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy after those, for an agent that does not expand imports. The note is taken on every start the event's `source` names but a fork, since a fork carries the context it came from, and the handover section above says how. A Claude Code context past the 10,000 characters Claude Code shows from a hook opens with a line that asks the model to read whole the file Claude Code keeps it in, and the shipped Codex config sets `additionalContextLimit` to 0 on the session start, so Codex takes the context whole. |
+| `session-start` | Prints into the agent's context the clock, the standing word and the current work, then the note the last session left in `handover/handover.md`, whole under a line that says how it was taken, or the one line that says why a file there stays, then `brain status`, counted once the note is taken, so it names a note this start read only where the start could not take it aside and read it in place, which the next session reads again. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy after those, for an agent that does not expand imports. The note is taken on every start the event's `source` names but a fork, since a fork carries the context it came from, and the handover section above says how. |
 | `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
 | `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Claude Code fires it once after each round of tool calls, Codex and Gemini CLI after each shell call. |
 | `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, anything in the `handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
-| `post-write` | After a write inside `.agents/`, runs doctor and hands its findings back as context. |
+| `post-write` | After a write, runs the check on each file just written inside the project, a file reached through a link that leads out of it left out, and hands its slips back as context under `brain check after that write:`, so they are fixed in the same round, a file the check passes over left out as the check leaves it out. A file the check could not judge, since git cannot read its attributes or the interpreter cannot parse it, is named on standard error, in UTF-8, and never in the context, and a standard error that cannot take the note loses it and nothing else. After a write inside `.agents/`, runs doctor too and hands its findings back the same way, or its error in words where it cannot read the brain, and still exits 0, since an exit 1 would show the person the error and lose the slips. |
 
 Context goes back as one JSON object naming the event, which all three
 agents read on every event. Codex also takes plain text at the start of
 a session and on a prompt, and gets it there. On its tool events plain
-text is dropped, so those get the JSON object too.
+text is dropped, so those get the JSON object too. A Claude Code context
+past the 10,000 characters Claude Code shows from a hook opens, on any
+event, with a line that asks the model to read whole the file Claude
+Code keeps it in, and the shipped Codex config sets
+`additionalContextLimit` to 0 on the session start and after a write, so
+Codex takes those whole.
 
 The config files that wire them up ship with the kit, as
 `.claude/settings.json`, `.codex/hooks.json` and

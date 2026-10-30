@@ -4,11 +4,13 @@ Claude Code, Codex and Gemini CLI each call this with their own event
 JSON on standard input and the event name as the first argument. Five
 events matter, the start of a session, each prompt the owner sends, a
 tick after the agent's tool calls, a write that is about to create a
-file inside .agents/, and a write that just landed there. The session
-start, the prompt and the tick carry the clock, since a model does not
-know the time and forgets what it was told, where the owner's standing
-word to proceed stands, on, held or off, and the work the agent is on,
-the chain from the plan down to the step.
+file inside .agents/, and a write that just landed anywhere in the
+project, after which the check reads the file written and, where it
+landed inside .agents/, doctor reads the whole brain. The session start,
+the prompt and the tick carry the clock, since a model does not know
+the time and forgets what it was told, where the owner's standing word
+to proceed stands, on, held or off, and the work the agent is on, the
+chain from the plan down to the step.
 
     python3 .agents/skills/agent-brain/scripts/hooks.py session-start --agent claude
     python3 .agents/skills/agent-brain/scripts/hooks.py prompt --agent claude
@@ -28,9 +30,9 @@ import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import BinaryIO, NoReturn, Optional, Union
+from typing import BinaryIO, NoReturn, Optional, TextIO, Union
 
-from brainlib import autoack, clock, doctor, frontmatter, handover, links, reads, schema, steps, store, task
+from brainlib import autoack, check, clock, doctor, frontmatter, handover, links, reads, schema, steps, store, task
 
 BLOCK = 2
 FAILED = 1
@@ -110,7 +112,9 @@ def run(
     Exit 1 is the non blocking error every agent shows to the person,
     which is the right outcome for a broken brain: the write goes ahead
     and the reason is on screen, rather than every write being refused
-    until someone finds a traceback.
+    until someone finds a traceback. After a write the hook answers with
+    exit 0 all the same, doctor's error in words in its context beside
+    the check's slips, since an exit 1 would lose the slips.
     """
     event = read_event()
     brain = locate(event)
@@ -237,15 +241,6 @@ def session_start(
         chat_style = brain.root.parent / f".{agent}" / "plain-and-short.md"
         if store.readable_file(chat_style):
             text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
-
-    length_in_utf16_units: int = len(
-        text.encode(
-            encoding="utf-16-le",
-            errors="surrogatepass",
-        ),
-    ) // 2
-    if agent == "claude" and length_in_utf16_units > CLAUDE_SHOWS:
-        text = f"{PAST_WHAT_CLAUDE_SHOWS}\n\n" + text
 
     emit_context(agent=agent, text=text, event_name="SessionStart")
 
@@ -1112,16 +1107,90 @@ def post_write(
     event: dict,
     agent: str,
 ) -> int:
-    inside = [touch for touch in touches(event=event, agent=agent) if is_inside(brain=brain, path=touch.path)]
-    findings = doctor.run(brain) if inside else []
-    if not findings:
+    """After a write, the check over the file just written and, inside the brain, doctor over the whole of it, each handed back as context so the slip is fixed in the same round.
+
+    A file the check did not judge, one whose attributes git cannot read
+    or one the interpreter running the check cannot parse, is named on
+    standard error and never in the context, as the check says every
+    note, since neither is a slip of the file's and the agent fixes what
+    the context holds, and a standard error that cannot take the notes
+    loses them and nothing else. Where doctor cannot read the brain, its
+    error goes in words in its place, and the hook still answers with
+    exit 0, since the agent says the context to the person, and an exit 1
+    would show the person the error and lose the slips, so a broken brain
+    never hides one.
+    """
+    touched = touches(event=event, agent=agent)
+    parts: list[str] = []
+
+    checks: list[check.Checked] = [
+        check.check_file(
+            project=brain.root.parent,
+            path=touch.path,
+        )
+        for touch in touched
+        if not touch.deleted and in_project(
+            brain=brain,
+            path=touch.path,
+        )
+    ]
+    slips: list[check.Slip] = [slip for checked in checks for slip in checked.slips]
+    if slips:
+        parts.append("brain check after that write:\n" + "\n".join(slip.text() for slip in slips))
+
+    say_notes(notes=[note for checked in checks for note in checked.notes])
+
+    inside = [touch for touch in touched if is_inside(brain=brain, path=touch.path)]
+    doctor_part: Optional[str] = doctor_after(brain) if inside else None
+    if doctor_part is not None:
+        parts.append(doctor_part)
+
+    if not parts:
         emit_nothing(agent)
         return 0
 
-    lines = [finding.line() for finding in findings]
-    text = "brain doctor after that write:\n" + "\n".join(lines) + "\nRun brain doctor --fix for the fixable ones."
-    emit_context(agent=agent, text=text, event_name=AFTER_WRITE.get(agent, "PostToolUse"))
+    emit_context(
+        agent=agent,
+        text="\n\n".join(parts),
+        event_name=AFTER_WRITE.get(agent, "PostToolUse"),
+    )
     return 0
+
+
+def doctor_after(
+    brain: store.Brain,
+) -> Optional[str]:
+    """Doctor's findings after a write as their part of the context, the error in words with the file and the reason where doctor cannot read the brain, or None when it finds nothing."""
+    try:
+        findings: list[doctor.Finding] = doctor.run(brain)
+    except (store.StoreError, frontmatter.FrontmatterError, OSError, ValueError) as error:
+        return f"brain doctor could not run after that write: {store.explain(error)}"
+
+    if not findings:
+        return None
+
+    lines: list[str] = [finding.line() for finding in findings]
+
+    return "brain doctor after that write:\n" + "\n".join(lines) + "\nRun brain doctor --fix for the fixable ones."
+
+
+def in_project(
+    brain: store.Brain,
+    path: Path,
+) -> bool:
+    """Whether the file sits under the project and is there to read, the one kind of file the check reads after a write.
+
+    The file is placed by its resolved path, the one the check names it
+    by, so a link in the project that leads out of it is no file of the
+    project's. A path that cannot be resolved, a loop on the 3.9 floor or
+    a stray null byte, is placed nowhere.
+    """
+    try:
+        path.resolve().relative_to(brain.root.parent.resolve())
+    except (OSError, RuntimeError, ValueError):
+        return False
+
+    return store.readable_file(path)
 
 
 def is_inside(
@@ -1168,7 +1237,7 @@ def touches(
                     old_string=text_field(tool_input=tool_input, key="old_string"),
                     new_string=text_field(tool_input=tool_input, key="new_string"),
                     replace_all=replaces_more_than_one(tool_input),
-                )
+                ),
             )
 
     return found
@@ -1256,7 +1325,7 @@ def patch_touches(
                     path=path,
                     content="" if action == "Add File" else None,
                     deleted=action == "Delete File",
-                )
+                ),
             )
             updating = len(found) - 1 if action == "Update File" else None
             adding = len(found) - 1 if action == "Add File" else None
@@ -1340,7 +1409,11 @@ def emit_context(
     is closed then, so the bytes it refused do not fail again at the exit.
     A hook started with its standard output closed has none, where print
     writes nothing without a word, so that fails here too, as a write to
-    the closed descriptor would.
+    the closed descriptor would. A context longer than Claude Code shows
+    of a hook opens, for Claude Code, with the line that asks for the
+    file it keeps the context in to be read whole, whichever event hands
+    it back, since the slips after a write run as long as the file
+    written.
     """
     if sys.stdout is None:
         raise OSError(
@@ -1348,9 +1421,21 @@ def emit_context(
             os.strerror(errno.EBADF),
         )
 
+    length_in_utf16_units: int = len(
+        text.encode(
+            encoding="utf-16-le",
+            errors="surrogatepass",
+        ),
+    ) // 2
+    if agent == "claude" and length_in_utf16_units > CLAUDE_SHOWS:
+        text = f"{PAST_WHAT_CLAUDE_SHOWS}\n\n" + text
+
     try:
         if agent == "codex" and event_name in CODEX_PLAIN:
-            write_utf8(text=text + "\n")
+            write_utf8(
+                stream=sys.stdout,
+                text=text + "\n",
+            )
             return
 
         payload = {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": text}}
@@ -1359,45 +1444,77 @@ def emit_context(
             flush=True,
         )
     except OSError:
-        let_go_of_standard_output()
+        let_go_of(stream=sys.stdout)
         raise
 
 
-def let_go_of_standard_output() -> None:
-    """Close standard output once its pipe has refused the context, dropping the bytes its buffer still holds.
+def say_notes(
+    notes: list[str],
+) -> None:
+    """Put the check's notes on standard error, one line each, as UTF-8 bytes whatever the locale, as the context is.
 
-    The interpreter flushes standard output again at the exit, and the
-    refused bytes would fail a second time there, an ignored error on
-    standard error after the hook's own line and an exit of 120 in place
-    of its 1. A closed stream is never flushed again. The close fails on
-    the same bytes, an error the one already on its way out reports, so
+    A note is the lesser part of the hook's answer and never costs the
+    slips, so a standard error that is closed, absent or refuses the
+    write loses the notes and nothing else, and the hook goes on to hand
+    the context back and exit 0. A hook started with the descriptor
+    closed has no standard error, where print would put the note on
+    standard output ahead of the context, so nothing is written. One
+    that refuses a note, its reader gone or its disk full, is let go,
+    and the notes after it are lost with it.
+    """
+    if sys.stderr is None:
+        return
+
+    try:
+        for note in notes:
+            write_utf8(
+                stream=sys.stderr,
+                text=note + "\n",
+            )
+    except OSError:
+        let_go_of(stream=sys.stderr)
+
+
+def let_go_of(
+    stream: TextIO,
+) -> None:
+    """Close a standard stream once its pipe has refused a write, dropping the bytes its buffer still holds.
+
+    The interpreter flushes standard output and standard error again at
+    the exit, and the refused bytes would fail a second time there, an
+    exit of 120 in place of the hook's own, after an ignored error on
+    standard error where standard output refused. A closed stream is
+    never flushed again. The close fails on the same bytes, an error the
+    one already on its way out reports or the lost notes stand for, so
     that second one is let go.
     """
     try:
-        sys.stdout.close()
+        stream.close()
     except OSError:
         return
 
 
 def write_utf8(
+    stream: TextIO,
     text: str,
 ) -> None:
-    """Put text on standard output as UTF-8 bytes, under the text layer, so the locale's encoding never gets a say.
+    """Put text on a standard stream as UTF-8 bytes, under the text layer, so the locale's encoding never gets a say.
 
-    The rulebook carries characters a Windows code page cannot encode,
-    and the agent reads the pipe as UTF-8 whatever the locale. A lone
+    The rulebook carries characters a Windows code page cannot encode, a
+    check note names a file in whatever characters its name holds, and
+    the agent reads its pipes as UTF-8 whatever the locale. A lone
     surrogate, which a file name that is not UTF-8 brings into the
     status, has no UTF-8 bytes, so it goes out as its escape, the way
     brain.py writes such a name. A byte layer that is not there, a text
     stream handed in by a test, takes the text as it is.
     """
-    buffer: Optional[BinaryIO] = getattr(sys.stdout, "buffer", None)
+    buffer: Optional[BinaryIO] = getattr(stream, "buffer", None)
     if buffer is None:
-        sys.stdout.write(text)
-        sys.stdout.flush()
+        stream.write(text)
+        stream.flush()
         return
 
-    sys.stdout.flush()
+    stream.flush()
     buffer.write(
         text.encode(
             encoding="utf-8",

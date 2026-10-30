@@ -2,13 +2,13 @@
 name: agent-readme
 kind: doc
 description: what the .agents directory is and how a cold agent boots from it
-updated: 2026-10-27
+updated: 2026-10-28
 links: [INDEX.md, spec/conventions.md, house-rules.md]
 ---
 
 # The Agent Directory
 
-This directory is the project's brain: everything an agent needs to work
+This directory is the project's brain, everything an agent needs to work
 on this project, committed to the repo, all but what git ignores
 there, so any agent on any machine resumes cold. Humans read docs/ at
 the repo root when the project keeps one, agents read this.

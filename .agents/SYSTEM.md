@@ -4,13 +4,13 @@
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
-> **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+> **Tradeoff.** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
 ### 1.1 Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
-Before implementing:
+Before implementing, hold to these.
 
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them, don't pick silently.
@@ -27,37 +27,37 @@ Before implementing:
 - No error handling for impossible scenarios.
 - If you write 200 lines and it could be 50, rewrite it.
 
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+Ask yourself, "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
 ### 1.3 Surgical Changes
 
 **Touch only what you must. Clean up only your own mess.**
 
-When editing existing code:
+When editing existing code, hold to these.
 
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it, don't delete it.
 
-When your changes create orphans:
+When your changes create orphans, clean up after them.
 
 - Remove imports, variables, and functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 
-The test: every changed line should trace directly to the user's request.
+The test is that every changed line should trace directly to the user's request.
 
 ### 1.4 Goal-Driven Execution
 
 **Define success criteria. Loop until verified.**
 
-Transform tasks into verifiable goals:
+Transform tasks into verifiable goals.
 
 - "Add validation" → "Write tests for invalid inputs, then make them pass"
 - "Fix the bug" → "Write a test that reproduces it, then make it pass"
 - "Refactor X" → "Ensure tests pass before and after"
 
-For multi-step tasks, state a brief plan:
+For multi-step tasks, state a brief plan.
 
 ```text
 1. [Step] → verify: [check]
@@ -71,14 +71,14 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Write tests that can fail. Make the code pass them, not the other way around.**
 
-When you write tests:
+When you write tests, hold to these.
 
 - A test that passes no matter what the code does is testing nothing. Write it so it fails first, which proves it is actually checking something, then make the code turn it green.
 - Don't write tests that already pass against the current code. If a test is green before you change the implementation, it isn't exercising the behavior you came to add.
 - Make the code pass the test, not the test pass the code. Loosening an assertion to match a wrong output is faking the result.
 - The only reason to touch a test is that the test itself is wrong about the expected behavior. When that happens, say so and state what the correct expectation is.
 
-> **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+> **These guidelines are working if** there are fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 ---
 
 ## 2. Coding Style
@@ -89,7 +89,7 @@ The code should explain itself. A reader follows the flow and the intent from th
 
 **Comments explain what the code cannot. Never restate the code.**
 
-Reserve them for the why, a non-obvious constraint, a gotcha, or a link to the issue or spec behind a decision. A redundant comment is noise. It duplicates the line below it and rots the moment the code changes:
+Reserve them for the why, a non-obvious constraint, a gotcha, or a link to the issue or spec behind a decision. A redundant comment is noise. It duplicates the line below it and rots the moment the code changes.
 
 ```python
 # increment the counter by one
@@ -100,7 +100,7 @@ for user in users:
     ...
 ```
 
-A stateful comment carries information that isn't recoverable from the code:
+A stateful comment carries information that isn't recoverable from the code.
 
 ```rust
 // Pad to 64 bytes: the DMA controller silently drops transfers
@@ -164,7 +164,7 @@ The annotated version needs no docstring to explain its inputs, and a type check
 
 **One argument per line, named where the language allows, with a trailing comma.**
 
-Applies to definitions and calls:
+This applies to definitions and calls alike.
 
 - One parameter or argument per line.
 - Name arguments at the call site when the language supports keyword arguments.
@@ -172,7 +172,7 @@ Applies to definitions and calls:
 
 Applied unconditionally here. A common variant breaks to vertical only when line length or argument count crosses a threshold, keeping short calls inline.
 
-Python and Dart have true named arguments, so name everything:
+Python and Dart have true named arguments, so name everything.
 
 ```python
 transfer(
@@ -193,7 +193,7 @@ Padding(
 )
 ```
 
-Rust and Go are positional at the call site. Keep the vertical shape and the types, and reach for a struct literal when you want the fields named at the call site, which helps once there are many arguments and the call reads like a config:
+Rust and Go are positional at the call site. Keep the vertical shape and the types, and reach for a struct literal when you want the fields named at the call site, which helps once there are many arguments and the call reads like a config.
 
 ```rust
 let receipt = transfer(
@@ -233,7 +233,7 @@ The trailing comma keeps diffs to one line per argument and matches what the for
 
 Handle invalid states and edge cases up front and return, break, or continue immediately. The happy path stays flat at the lowest indentation instead of sinking into nested branches.
 
-Deep nesting buries the main flow:
+Deep nesting buries the main flow.
 
 ```go
 func process(req *Request) error {
@@ -253,7 +253,7 @@ func process(req *Request) error {
 }
 ```
 
-Guard clauses flatten it. Every precondition fails fast, and the real work sits unindented at the bottom:
+Guard clauses flatten it. Every precondition fails fast, and the real work sits unindented at the bottom.
 
 ```go
 func process(req *Request) error {
@@ -273,7 +273,7 @@ func process(req *Request) error {
 }
 ```
 
-The same instinct uses `?` in Rust and plain early returns in Dart and Python:
+The same instinct uses `?` in Rust and plain early returns in Dart and Python.
 
 ```rust
 fn process(req: Option<Request>) -> Result<Receipt> {
@@ -422,7 +422,7 @@ A cause rarely has one case. Before you fix, list the sibling cases, every other
 
 **These moves trade a visible problem for a hidden one, which is the opposite of progress.**
 
-They are off the table unless you can justify them out loud:
+They are off the table unless you can justify them out loud.
 
 - Swallowing an exception to quiet it.
 - Weakening or deleting a test to make the suite pass.
@@ -463,7 +463,7 @@ Never treat it as the source of truth. The code and the docs are the truth. Read
 
 ### 6.3 Documentation style
 
-In all documentation, write in a natural, easy tone and follow these constraints. No em-dashes anywhere. Avoid normal hyphens as much as possible, keeping them only for established compound words and literal names. No semicolons. Use colons only inside a list item as a label, for example "term: description", never mid sentence or in a heading. Code blocks, file paths, and URLs are exempt because their punctuation is literal.
+In all documentation, write in a natural, easy tone and follow these constraints. No em-dashes anywhere. Avoid normal hyphens as much as possible, keeping them only for established compound words and literal names. No semicolons. Use colons only inside a list item as a label, for example `term: description`, never mid sentence or in a heading. Code blocks, file paths, and URLs are exempt because their punctuation is literal.
 
 ---
 
@@ -520,7 +520,7 @@ Say the state in plain words first, then what changed, then what is left and wha
 
 **`.agents/` at the repo root is the project's brain, committed, all but what git ignores there, so any agent on any machine resumes cold.**
 
-Read `.agents/INDEX.md` before working. It is the spine: the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked. The tool's own code, under `.agents/skills/agent-brain/scripts/`, is never read by hand, not through a Read and not through the shell, since the skill sheet and its command reference say what every command does and the code costs context for nothing. The port writes Claude Code the rules that refuse the read. The kit's own checkout is the one place that code is the work, and it carries no such rule, since the tool never installs the kit onto itself.
+Read `.agents/INDEX.md` before working. It is the spine of the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked. Its `check` holds the project's own markdown and Python to the rules of this file a machine can judge, and its `gates` is the one command before a review and before a merge, rule 9.2. The tool's own code, under `.agents/skills/agent-brain/scripts/`, is never read by hand, not through a Read and not through the shell, since the skill sheet and its command reference say what every command does and the code costs context for nothing. The port writes Claude Code the rules that refuse the read. The kit's own checkout is the one place that code is the work, and it carries no such rule, since the tool never installs the kit onto itself.
 
 ### 8.1 Upkeep
 
@@ -534,7 +534,7 @@ The brain is maintained in the same motion as the work, never as a separate chor
 
 ### 8.3 The Trackers
 
-Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each, filed through the tool so the id, the header block, and the index line are never typed by hand. The agent classifies on intake without asking (a bug has evidence of wrong behavior, a todo has a done-when) and uses todos extensively: multi step work gets filed, not carried in a session's head. Any todo the user writes anywhere, the agent picks up, cleans, and files with the user's wording preserved, and on completing one it tells the user which of their own notes to tick. Long horizon work is a plan in `.agents/plans/`, a goal with a steps table the tool keeps, each step pointing at a todo, a bug or a review where one exists, and the agent grows it as the work teaches it.
+Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each, filed through the tool so the id, the header block, and the index line are never typed by hand. The agent classifies on intake without asking (a bug has evidence of wrong behavior, a todo has a done-when) and uses todos extensively. Multi step work gets filed, not carried in a session's head. Any todo the user writes anywhere, the agent picks up, cleans, and files with the user's wording preserved, and on completing one it tells the user which of their own notes to tick. Long horizon work is a plan in `.agents/plans/`, a goal with a steps table the tool keeps, each step pointing at a todo, a bug or a review where one exists, and the agent grows it as the work teaches it.
 
 Work that spans more than one step starts with `brain task on <entry>` before the first step and moves with `brain task done`, which marks the step in the entry's own steps table, or of itself when the entry a step points at closes, a refiled one handing the step on to the entry filed in its place, so every hook line says what the agent is on and the file shows what is done. The current work is one chain at a time, a plan, a todo, a bug or a review at the root, a todo, a bug or a review under the step that points at it, a review under the todo or the bug the work is on too, which the agent keeps to the one it reviews, and a link drops off with everything under it the moment its entry closes. A second root while one stands is refused until the chain is done or cleared with `brain task off`, link by link or all at once with `--all`, and `--replace` sets it aside on the user's word only.
 
@@ -549,7 +549,7 @@ A session writes the note for the next one with `brain handover` when it passes 
 **Main contains reviewed code only. The protocol lives in `.agents/house-rules.md`, these are the hard lines.**
 
 1. **One branch, one intent** (`feat/`, `fix/`, `sweep/`), sized by intent, never by commit count. A second intent born mid branch forks its own branch immediately. Sweeps group small work by surface and never carry a breaking change.
-2. **Gates first, then review, then merge.** No step skips, and nothing merges before the branch's review has closed. When the PR opens and whether as a draft is a project rule in `## 0. Project Rules`, and the agent never asks about it. Without such a rule a plain PR opens on the user's ask, and merge still waits for the review.
+2. **Gates first, then review, then merge.** `brain gates` runs the gates section 0 names under a Gates heading, then `brain check` and `brain doctor`, and is green before a review opens and before a merge. No step skips, and nothing merges before the branch's review has closed. When the PR opens and whether as a draft is a project rule in `## 0. Project Rules`, and the agent never asks about it. Without such a rule a plain PR opens on the user's ask, and merge still waits for the review.
 3. **The user calls the timing, the agent runs the review.** The agent never decides on its own that a branch is ready for review, and on the user's word it runs one itself with the kit's `branch-review` skill at the level the branch earns, which names how wide the finding pass goes and never how hard the model thinks. A tool's own review command, paid or cloud run ones included, is the user's alone, so never reach for one and never answer a review request by asking for it by name.
 4. **Findings first, whole**, before anything is fixed. Every finding lands in a ledger under `.agents/reviews/`, batched by theme with correctness first, and ends fixed, refuted, left as it is or deferred with its reason, never dropped for being rare or small.
 5. **The round of fixes**: the batches that have the user's word are fixed in rounds, by one fixer sub agent per group of files whose work verifier sub agents check, each round followed by hunters until a hunt finds nothing. With sub agents only a fixer edits, and only its group's files, and the main agent alone commits and writes the ledger.
@@ -561,8 +561,8 @@ A session writes the note for the next one with `brain handover` when it passes 
 
 > Temporary rules, or rules that do not fit any category.
 
-1. **Git.** Commits are allowed and expected: one commit per change, so every change is undoable and addressable by hash. Single author, never add yourself (Claude) as a co-author, no AI attribution anywhere. Messages in the user's voice, short. Push after each commit. Never commit to main directly, and PRs and merges only on the user's explicit ask.
-2. **No worktrees.** Git worktrees are disabled: never create one, and never use a worktree isolation mode for sub-agents. In the rare case the user explicitly asks for one, it lives under `.agents/.worktrees/` (gitignored) and nowhere else, and dies when the task does.
+1. **Git.** Commits are allowed and expected, one commit per change, so every change is undoable and addressable by hash. Single author, never add yourself (Claude) as a co-author, no AI attribution anywhere. Messages in the user's voice, short. Push after each commit. Never commit to main directly, and PRs and merges only on the user's explicit ask.
+2. **No worktrees.** Git worktrees are disabled, so never create one, and never use a worktree isolation mode for sub-agents. In the rare case the user explicitly asks for one, it lives under `.agents/.worktrees/` (gitignored) and nowhere else, and dies when the task does.
 3. **Real tools only for writes.** DO NOT use python, sed, awk, heredocs, or any scripting to create or edit files, code or docs. Every write goes through the proper edit tools, reading the file first and then editing it exactly. Scripted writes shred text (random line breaks, lines cut mid word, half lost sentences) and bypass reading what you change. And never leave a line broken mid sentence or cut mid word. Wrap prose naturally or not at all. Scripting stays fine for read only inspection (grep, counts, link checks), never for writing. The one exception is the brain tool, which does every write inside `.agents/` that is structure rather than prose. A file enters through `brain new` with its prose handed over on standard input inside a quoted heredoc, its header changes through `brain set`, it moves through `brain refile`, a review ledger's records go through `brain ledger`, a steps table's rows through `brain steps` and `brain task`, the note for the next session through `brain handover`, its prose on standard input inside a quoted heredoc too, and the indexes come from `brain index` or `brain doctor --fix`. The tool writes the structure and passes the prose through as it came, the Steps section aside, where a numbered list becomes the table, a table typed by hand is read and its marks settled, and a plan with no section gets an empty one, and the prose below a header block is edited with the proper edit tools like any other file. This rule holds for the project's files and not for a code review's scratch folder, which lies outside the repository as working paper.
 4. **Project Rules.** A `## 0. Project Rules` section may be added to `AGENTS.md`, directly under its title, to hold instructions specific to the current project. Add it only when a project needs rules the general ones do not cover. `CLAUDE.md` pulls in `AGENTS.md` and carries the kit's compaction instructions, kept there since Claude Code's docs put a project's compaction instructions in its `CLAUDE.md`, and `GEMINI.md` pulls in `AGENTS.md` plus the chat style file in its own folder. Both stay exactly as the kit ships them, and so does this file, since the port and the upgrade write all three whole from the kit.
 5. **Sub agent models.** In Claude Code, every sub agent runs on the latest Opus. Not Fable above it, not Sonnet or Haiku below it, unless the user asks for a different one.

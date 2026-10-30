@@ -2,19 +2,19 @@
 name: spec-decisions
 kind: doc
 description: format for .agents/decisions, one decision per file
-updated: 2026-09-16
+updated: 2026-10-29
 links: [spec/conventions.md]
 ---
 
-# Spec: decisions/
+# Spec for decisions/
 
 Decisions actually taken and the reasoning behind them. One per file. Not
-a status log, not a changelog: a real entry records a choice made, the
+a status log, not a changelog. A real entry records a choice made, the
 alternative it beat, or the gotcha that forced it.
 
 ## Format
 
-Standard frontmatter, `kind: decision`, plus:
+Standard frontmatter, `kind: decision`, plus these.
 
 ```
 date: <YYYY-MM-DD, when the decision was taken>
@@ -23,7 +23,7 @@ status: standing | superseded
 superseded-by: <DEC name, when status says so>
 ```
 
-Body sections for new decisions:
+Body sections for new decisions.
 
 ```
 ## Decision
@@ -37,7 +37,7 @@ What this commits us to, what it forecloses.
 ```
 
 Entries imported from a legacy record may keep their original prose body
-whole under a single `## Decision` heading: the reasoning was written
+whole under a single `## Decision` heading, since the reasoning was written
 once, in the moment, and rewriting history loses more than it formats.
 
 ## Lifecycle

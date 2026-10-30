@@ -18,7 +18,19 @@ class WriteError(Exception):
 
 
 class Partial(WriteError):
-    """The entry was written, and a step elsewhere that points at it could not be, with the reason in the message, so a caller never takes the raise for nothing written."""
+    """The entry was written, and a step elsewhere that points at it could not be, with the reason in the message, so a caller never takes the raise for nothing written.
+
+    `filed` is the file the write filed from the caller's prose, where
+    there is one, so the check over it is still said.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        filed: Optional[Path] = None,
+    ) -> None:
+        super().__init__(message)
+        self.filed = filed
 
 
 def refresh_after(
@@ -121,11 +133,11 @@ def update(
     changes = dict(changes)
     if "links" in changes:
         changes["links"] = frontmatter.render_list(
-            settled_links(
+            values=settled_links(
                 brain=brain,
                 wanted=frontmatter.parse_list(changes["links"]),
                 existing=entry.document.get_list("links"),
-            )
+            ),
         )
 
     fields = entry.document.fields()
@@ -418,7 +430,10 @@ def convert(
     try:
         update(brain=brain, key=key, changes=closing, stamp=stamp)
     except Partial as partial:
-        raise Partial(f"{created.relative} was filed and {partial}") from partial
+        raise Partial(
+            message=f"{created.relative} was filed and {partial}",
+            filed=created.path,
+        ) from partial
     except (WriteError, OSError):
         created.path.unlink()
         brain.refresh()

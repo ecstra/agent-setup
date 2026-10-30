@@ -6,8 +6,8 @@ Run from anywhere inside a project that carries the kit:
 
 Prose for a new file comes in on standard input, so a heredoc in single
 quotes passes it through without the shell touching it. Exit codes: 0
-when it did the thing, 1 when it refused and said why, 2 when doctor
-still has findings.
+when it did the thing, 1 when it refused and said why, 2 while doctor's
+or the check's findings remain.
 """
 
 import argparse
@@ -16,10 +16,8 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import autoack, clock, doctor, frontmatter, handover, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
-
-REFUSED = 1
-FINDINGS_REMAIN = 2
+from brainlib import autoack, check, clock, doctor, frontmatter, gates, handover, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
+from brainlib.store import FINDINGS_REMAIN, REFUSED
 
 FIELD_FLAGS = ("status", "severity", "area", "by", "type", "branch", "date")
 
@@ -54,12 +52,18 @@ def main(
         brain = store.find_brain(Path.cwd())
         return args.handler(brain=brain, args=args)
     except writes.Partial as partial:
-        # the entry was written, so the command did its work and exits as done, the indexes follow it where they can, and the second write that failed is named on standard error
+        # the entry was written, so the command did its work and exits as done, the indexes follow it where they can, the second write that failed is named on standard error, and an entry filed from prose gets the check the plain path gives it
         try:
             index.write(brain)
         except OSError as error:
             print(store.explain(error), file=sys.stderr)
         print(store.explain(partial), file=sys.stderr)
+
+        if partial.filed is not None:
+            say_slips_in(
+                brain=brain,
+                path=partial.filed,
+            )
         return 0
     except (
         store.StoreError,
@@ -69,6 +73,7 @@ def main(
         steps.StepsError,
         task.TaskError,
         handover.HandoverError,
+        check.CheckError,
         upgrade.UpgradeError,
         autoack.AckError,
         frontmatter.FrontmatterError,
@@ -101,6 +106,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_refile(commands)
     add_index(commands)
     add_doctor(commands)
+    add_check(commands)
+    add_gates(commands)
     add_steps(commands)
     add_ledger(commands)
     add_port(commands)
@@ -428,6 +435,11 @@ def run_new(
         )
         index.write(brain)
         print(entry.relative)
+
+        say_slips_in(
+            brain=brain,
+            path=entry.path,
+        )
         return 0
 
     entry = writes.create(
@@ -442,6 +454,11 @@ def run_new(
     )
     index.write(brain)
     print(entry.relative)
+
+    say_slips_in(
+        brain=brain,
+        path=entry.path,
+    )
     return 0
 
 
@@ -503,6 +520,13 @@ def run_refile(
 
     index.write(brain)
     print(entry.relative)
+
+    # a retitle writes the header alone, while a change of kind files the prose given on standard input
+    if args.kind:
+        say_slips_in(
+            brain=brain,
+            path=entry.path,
+        )
     return 0
 
 
@@ -544,6 +568,105 @@ def run_doctor(
         print("clean" if not found else f"{len(found)} findings")
 
     return FINDINGS_REMAIN if found else 0
+
+
+def add_check(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser(
+        name="check",
+        help="the house rules a machine can check, over the files given or the project's own files, and the branch's commits",
+        description=(
+            "the house rules a machine can check, which are a dash, a semicolon or a colon outside a list item's label in the prose of "
+            "a markdown file, a def, a class whose bases break across lines or a broken call not stacked one per line with a "
+            "trailing comma in a Python file, and in the kit's own checkout alone the future import of annotations, over the "
+            "files given or, with none, the project's own files, those git tracks and the new ones it does not ignore, less "
+            "what git's attributes mark generated or vendored, and the branch's commits against main, the local one or a "
+            "remote's, read for a co-author line or an AI attribution"
+        ),
+    )
+    command.add_argument(
+        "paths",
+        nargs="*",
+        help="files or folders to check, each file named that the check passes over said on standard error with the reason, none for the project's own files",
+    )
+    command.add_argument(
+        "--json",
+        action="store_true",
+    )
+    command.set_defaults(handler=run_check)
+
+
+def run_check(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    checked = check.run(
+        project=brain.root.parent,
+        paths=[Path(given) for given in args.paths] if args.paths else None,
+    )
+
+    # a note, a file passed over or not parsed or the commits not read, is no slip, so it goes beside the output and never into its count or its JSON
+    for note in checked.notes:
+        print(
+            note,
+            file=sys.stderr,
+        )
+
+    slips = checked.slips
+    if args.json:
+        print(
+            json.dumps(
+                obj=[{"path": slip.path, "line": slip.line, "message": slip.message} for slip in slips],
+                indent=2,
+            ),
+        )
+    else:
+        for slip in slips:
+            print(slip.text())
+        print("clean" if not slips else f"{len(slips)} findings")
+
+    return FINDINGS_REMAIN if slips else 0
+
+
+def say_slips_in(
+    brain: store.Brain,
+    path: Path,
+) -> None:
+    """The check over a file the tool just wrote the agent's words into, said after the write, since a write the shell makes reaches no post write hook, each note, such as the file not checked where git cannot read the attributes, on standard error, since a note is no slip an edit of the file can put right."""
+    checked = check.check_file(
+        project=brain.root.parent,
+        path=path,
+    )
+
+    for note in checked.notes:
+        print(
+            note,
+            file=sys.stderr,
+        )
+
+    if checked.slips:
+        print("brain check after that write:\n" + "\n".join(slip.text() for slip in checked.slips))
+
+
+def add_gates(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser(
+        name="gates",
+        help="the gates section 0 names, in order, stopping at the first red, then check and doctor",
+    )
+    command.set_defaults(handler=run_gates)
+
+
+def run_gates(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    return gates.run(
+        project=brain.root.parent,
+        brain=brain,
+    )
 
 
 def add_steps(
@@ -598,6 +721,15 @@ def run_steps_add(
     numbers = steps.add(brain=brain, key=args.key, lines=lines, by=args.by)
     index.write(brain)
     print("\n".join(str(number) for number in numbers))
+
+    entry = steps.stepped_entry(
+        brain=brain,
+        key=args.key,
+    )
+    say_slips_in(
+        brain=brain,
+        path=entry.path,
+    )
     return 0
 
 

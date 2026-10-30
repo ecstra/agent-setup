@@ -24,10 +24,6 @@ from . import autoack, frontmatter, index, links, schema, sections, steps, store
 # only where a scan asks for them.
 SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, schema.HANDOVER_FOLDER, ".worktrees"})
 
-# A header block the parser refuses, taken off by its fences alone so
-# the prose under it is still read.
-HEADER_BLOCK = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
-
 MACHINE_PATH = re.compile(r"(/Users/|/home/|[A-Z]:\\)")
 
 SECRET_SHAPES = (
@@ -169,9 +165,8 @@ def markdown_files(
 
     A file that is neither is a stray, reported once by its own check
     rather than measured against rules written for something else. The
-    style and hygiene scans read every file the walk takes, filed or
-    not, since a pasted secret is most likely in exactly the file nobody
-    filed.
+    hygiene scan reads every file the walk takes, filed or not, since a
+    pasted secret is most likely in exactly the file nobody filed.
     """
     accounted = brain.known()
 
@@ -186,13 +181,12 @@ def all_markdown(
 
     The walk skips a dotted path and the folders in SKIP_DIRS. The
     skills folder is the tool's own, its files follow the Agent Skills
-    standard rather than the specs, so only the prose and boundary
-    checks (style and hygiene) read them. A skipped folder is known by
-    its name as `links.names_folder` reads it, so where git takes two
-    spellings that differ by case alone for one file, or gives no answer
-    for its flag, `Handover/` is the handover folder and stays unread
-    like it, and git is asked once per run, as `links.case_flag` keeps
-    its answer.
+    standard rather than the specs, so only the boundary check, hygiene,
+    reads them. A skipped folder is known by its name as
+    `links.names_folder` reads it, so where git takes two spellings that
+    differ by case alone for one file, or gives no answer for its flag,
+    `Handover/` is the handover folder and stays unread like it, and git
+    is asked once per run, as `links.case_flag` keeps its answer.
     """
     skipped_folders = [folder for folder in SKIP_DIRS if not (with_skills and folder == schema.SKILLS)]
     found: list[Path] = []
@@ -280,7 +274,7 @@ def check_leftovers(
                 check="leftover",
                 message="left by an interrupted write, nothing in it is the brain's",
                 repair=remove(path),
-            )
+            ),
         )
 
     return found
@@ -380,7 +374,11 @@ def check_frontmatter(
         updated = document.get("updated")
         if updated and not schema.is_date(updated):
             found.append(
-                Finding(path=where, check="frontmatter", message=f"updated reads '{updated}', not YYYY-MM-DD")
+                Finding(
+                    path=where,
+                    check="frontmatter",
+                    message=f"updated reads '{updated}', not YYYY-MM-DD",
+                ),
             )
 
     return found
@@ -444,7 +442,7 @@ def check_names(
                     check="name",
                     message=f"name is '{actual}', the file says '{expected}'",
                     repair=set_name(brain=brain, entry=entry, actual=actual, expected=expected),
-                )
+                ),
             )
 
         if actual in seen:
@@ -453,7 +451,7 @@ def check_names(
                     path=entry.relative,
                     check="name",
                     message=f"name '{actual}' is also carried by {seen[actual]}",
-                )
+                ),
             )
         seen[actual] = entry.relative
 
@@ -525,7 +523,7 @@ def check_kinds(
                 path=entry.relative,
                 check="kind",
                 message=f"kind is '{actual}' but the file sits in {entry.kind.folder}/",
-            )
+            ),
         )
 
     return found
@@ -576,7 +574,11 @@ def check_sections(
                 continue
 
             found.append(
-                Finding(path=entry.relative, check="sections", message=f"no {title} heading")
+                Finding(
+                    path=entry.relative,
+                    check="sections",
+                    message=f"no {title} heading",
+                ),
             )
 
         for message in sections.lifecycle_gaps(kind=entry.kind, fields=entry.document.fields(), body=body):
@@ -644,7 +646,7 @@ def check_table(
                     path=entry.relative,
                     check="steps",
                     message=f"the entry is {entry.field('status')} with step {numbers} still pending, so reopen it and close it again once the step is settled{way_round}",
-                )
+                ),
             )
 
         return found
@@ -665,7 +667,7 @@ def check_table(
                     path=entry.relative,
                     check="steps",
                     message=f"step {step.number} points at '{step.points_at}', {why}, and brain steps <key> step {step.number} done or skipped marks it by hand meanwhile",
-                )
+                ),
             )
         elif fresh.points_at != step.points_at:
             target = steps.pointed(brain=brain, key=step.points_at)
@@ -684,7 +686,7 @@ def check_table(
                     check="steps",
                     message=f"step {step.number} points at {step.points_at}, {why}",
                     repair=refresh_steps(brain=brain, entry=entry),
-                )
+                ),
             )
         elif fresh.status != step.status:
             found.append(
@@ -693,7 +695,7 @@ def check_table(
                     check="steps",
                     message=f"step {step.number} is marked {step.status} while {step.points_at} says {fresh.status}",
                     repair=refresh_steps(brain=brain, entry=entry),
-                )
+                ),
             )
 
     found += [Finding(path=entry.relative, check="steps", message=message) for message in steps.looping(brain=brain, entry=entry, rows=derived)]
@@ -794,14 +796,18 @@ def check_filenames(
                         path=entry.relative,
                         check="filename",
                         message=f"a review folder is named <yyyy-mm>-<branch-slug>, not '{entry.slug}'",
-                    )
+                    ),
                 )
             continue
 
         for folder in Path(entry.relative).parts[1:-1]:
             if not schema.is_slug(folder):
                 found.append(
-                    Finding(path=entry.relative, check="filename", message=f"sits in a folder that is not a slug, '{folder}'")
+                    Finding(
+                        path=entry.relative,
+                        check="filename",
+                        message=f"sits in a folder that is not a slug, '{folder}'",
+                    ),
                 )
 
         if entry.kind.has_ids and entry.identifier is None:
@@ -810,13 +816,17 @@ def check_filenames(
                     path=entry.relative,
                     check="filename",
                     message=f"a {entry.kind.name} is named {entry.kind.id_prefix}-###-<slug>.md",
-                )
+                ),
             )
             continue
 
         if not schema.is_slug(entry.slug):
             found.append(
-                Finding(path=entry.relative, check="filename", message=f"'{entry.slug}' is not a slug")
+                Finding(
+                    path=entry.relative,
+                    check="filename",
+                    message=f"'{entry.slug}' is not a slug",
+                ),
             )
 
         if entry.identifier is None:
@@ -828,7 +838,7 @@ def check_filenames(
                     path=entry.relative,
                     check="filename",
                     message=f"{entry.identifier} is also {numbers[entry.identifier]}",
-                )
+                ),
             )
         numbers[entry.identifier] = entry.relative
 
@@ -872,7 +882,7 @@ def check_links(
                     check="link",
                     message="links not written as paths relative to .agents/, each once",
                     repair=set_links(path=path, values=canonical),
-                )
+                ),
             )
 
     for path, document in documents:
@@ -944,53 +954,6 @@ def write_index(
     return repair
 
 
-def check_style(
-    brain: store.Brain,
-) -> list[Finding]:
-    """The prose rules over every file the walk takes but the indexes.
-
-    An index is the tool's rendering of other files' header values and
-    of the folders they sit in, checked at their source by the fields
-    and filename checks, so a slip is named on the file a person can
-    put right rather than on one nobody may edit.
-    """
-    found: list[Finding] = []
-
-    for path in all_markdown(brain=brain, with_skills=True):
-        if path.name == schema.INDEX:
-            continue
-
-        prose = prose_in(path)
-        if prose is None:
-            continue
-
-        where = relative(brain=brain, path=path)
-        found += [Finding(path=where, check="style", message=slip) for slip in sections.style_slips(prose)]
-
-    return found
-
-
-def prose_in(
-    path: Path,
-) -> Optional[str]:
-    """The file's prose, its header block and its code stepped over, or None when it cannot be read.
-
-    A header the tool can read is taken off by the parser, one it
-    cannot, the Agent Skills shape in `skills/` for one, by its fences.
-    """
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return None
-
-    try:
-        body = frontmatter.parse(text).body
-    except frontmatter.FrontmatterError:
-        body = HEADER_BLOCK.sub("", text, count=1)
-
-    return sections.prose_of(body)
-
-
 def check_hygiene(
     brain: store.Brain,
 ) -> list[Finding]:
@@ -1042,7 +1005,7 @@ def check_layout(
                 path=schema.SKILLS,
                 check="layout",
                 message=f"the skills folder cannot be listed, so only the kit's skill links were checked: {reason}",
-            )
+            ),
         )
         listed = False
 
@@ -1068,7 +1031,7 @@ def check_layout(
                 check="layout",
                 message=message,
                 repair=repair,
-            )
+            ),
         )
 
     if listed:
@@ -1185,7 +1148,7 @@ def stray_skill_links(
                 check="layout",
                 message=SKILL_GONE + (SHARED_REMOVAL if shared else ""),
                 repair=None if shared else remove_link(link),
-            )
+            ),
         )
 
     return found
@@ -1530,7 +1493,7 @@ def check_front_doors(
                 import_finding(
                     name=name,
                     message=MISSING[name],
-                )
+                ),
             )
             continue
 
@@ -1539,7 +1502,7 @@ def check_front_doors(
                 import_finding(
                     name=name,
                     message=f"is spelled {spelled}, and only {name} is read, so rename it",
-                )
+                ),
             )
             continue
 
@@ -1557,7 +1520,7 @@ def check_front_doors(
                 import_finding(
                     name=name,
                     message=f"cannot be read: {store.explain(error)}",
-                )
+                ),
             )
             continue
 
@@ -1733,7 +1696,7 @@ def claude_opens(
                     written=match.group(1) + rest,
                     after_marker=after_marker,
                     cut_at_backslash=bool(rest),
-                )
+                ),
             )
 
     return opened
@@ -1879,7 +1842,7 @@ def claude_code_slips(
                     import_finding(
                         name=name,
                         message=f"imports @{opened.written} with a backslash in its path, which ends the path there, so write it with slashes",
-                    )
+                    ),
                 )
             continue
 
@@ -1900,7 +1863,7 @@ def claude_code_slips(
                 glued_on(
                     name=name,
                     path=path,
-                )
+                ),
             )
             continue
 
@@ -1912,7 +1875,7 @@ def claude_code_slips(
                 from_root(
                     name=name,
                     path=path,
-                )
+                ),
             )
             continue
 
@@ -1925,7 +1888,7 @@ def claude_code_slips(
                 back_in_by_name(
                     name=name,
                     path=path,
-                )
+                ),
             )
             continue
 
@@ -1942,7 +1905,7 @@ def claude_code_slips(
                 import_finding(
                     name=name,
                     message=f"imports @{path}, which is not there",
-                )
+                ),
             )
         elif spelled != wanted:
             found.append(
@@ -1950,7 +1913,7 @@ def claude_code_slips(
                     name=name,
                     path=path,
                     spelled=spelled,
-                )
+                ),
             )
 
     if name != RULES and not loads_rules:
@@ -1958,7 +1921,7 @@ def claude_code_slips(
             import_finding(
                 name=name,
                 message=NO_RULES,
-            )
+            ),
         )
 
     return found
@@ -2015,7 +1978,7 @@ def gemini_cli_slips(
                     import_finding(
                         name=name,
                         message=f"imports @{escaped.group()} with an escaped space, which Gemini CLI does not read, so the path ends at the backslash there",
-                    )
+                    ),
                 )
                 continue
 
@@ -2029,7 +1992,7 @@ def gemini_cli_slips(
                     import_finding(
                         name=name,
                         message=f"imports @{path} with a backslash in its path, which Gemini CLI reads as part of the name, so write it with slashes",
-                    )
+                    ),
                 )
                 continue
 
@@ -2045,7 +2008,7 @@ def gemini_cli_slips(
                 import_finding(
                     name=name,
                     message=f"imports @{path} with emphasis markers glued on, which Gemini CLI reads as part of the name",
-                )
+                ),
             )
             continue
 
@@ -2054,7 +2017,7 @@ def gemini_cli_slips(
                 glued_on(
                     name=name,
                     path=path,
-                )
+                ),
             )
             continue
 
@@ -2066,7 +2029,7 @@ def gemini_cli_slips(
                 from_root(
                     name=name,
                     path=path,
-                )
+                ),
             )
             continue
 
@@ -2079,7 +2042,7 @@ def gemini_cli_slips(
                 back_in_by_name(
                     name=name,
                     path=path,
-                )
+                ),
             )
             continue
 
@@ -2096,14 +2059,14 @@ def gemini_cli_slips(
                 import_finding(
                     name=name,
                     message=f"imports @{path}, which Gemini CLI looks for with the fragment in its name, so it is not there",
-                )
+                ),
             )
         elif spelled is None:
             found.append(
                 import_finding(
                     name=name,
                     message=f"imports @{path}, which is not there",
-                )
+                ),
             )
         elif spelled != path:
             found.append(
@@ -2111,7 +2074,7 @@ def gemini_cli_slips(
                     name=name,
                     path=path,
                     spelled=spelled,
-                )
+                ),
             )
 
     if CLAUDE_CODE in readers_of(
@@ -2130,7 +2093,7 @@ def gemini_cli_slips(
             import_finding(
                 name=name,
                 message=NO_RULES,
-            )
+            ),
         )
 
     return found
@@ -2167,7 +2130,7 @@ def unopened_after_markers(
                 import_finding(
                     name=name,
                     message=f"imports @{path} right after an emphasis marker, where Gemini CLI opens no import",
-                )
+                ),
             )
 
     return found
@@ -2634,7 +2597,7 @@ def blanked(
             NOT_A_LINE_END.sub(
                 repl=" ",
                 string=text[start:end],
-            )
+            ),
         )
         cursor = end
 
@@ -2643,6 +2606,10 @@ def blanked(
     return "".join(kept)
 
 
+# No check here holds a file's prose to the house style. That is
+# brainlib/check.py's, which the post write hook and the gates run and
+# which names each slip by its line, so one slip is named once. Doctor
+# holds only the header values to it, where the check never looks.
 CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_leftovers,
     check_strays,
@@ -2655,7 +2622,6 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_filenames,
     check_links,
     check_indexes,
-    check_style,
     check_hygiene,
     check_layout,
     check_front_doors,

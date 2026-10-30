@@ -116,10 +116,11 @@ the report says what it decided.
 
 ## Before the review
 
-1. Before. The project's gates, every suite, analyzer and build that
-   AGENTS.md section 0 names, are green, and `brain doctor` is clean.
-   The working tree is clean too, since a review reads committed work.
-   Where any of them is not, the review stops before the ledger opens
+1. Before. `brain gates` is green, which runs the gates AGENTS.md
+   section 0 names, then `brain check` and `brain doctor`, as the
+   [command reference](../agent-brain/references/commands.md#the-gates)
+   says. The working tree is clean too, since a review reads committed
+   work. Where either is not, the review stops before the ledger opens
    and the agent tells the owner which.
 
    The range is `main...HEAD` unless the owner gave one, and
@@ -233,10 +234,12 @@ the report says what it decided.
    prompt. A style finding, one on how a code file is written by
    SYSTEM.md section 2, waits for the sweep, and a doc finding on code
    a group of the round owns waits for the docs writer, since both
-   follow the code and would be done again each time it moved. Every
-   other finding is fixed in the round by the group of its file. The
-   prose in a code file belongs to the group that owns the file, and the
-   fixer that changes a behaviour changes the prose that describes it.
+   follow the code and would be done again each time it moved. The
+   lines a fixer writes still keep to what `brain check` judges, since
+   the gates of step 11 run it. Every other finding is fixed in the
+   round by the group of its file. The prose in a code file belongs to
+   the group that owns the file, and the fixer that changes a behaviour
+   changes the prose that describes it.
 
    A group that is one mechanism, such as a parser or a merge, gets its
    model first. The main session writes it, and writes it again whole

@@ -1,10 +1,14 @@
-"""The `## Heading` blocks a body carries.
+"""The `## Heading` blocks a body carries, and the code a text holds.
 
 Reading only. Nothing here rewrites prose, it reports what is there so a
-command can refuse to file something the spec says is incomplete.
+command can refuse to file something the spec says is incomplete. The
+reading of code here is the one every reader shares, section 0's cut,
+the gates, the brain's own bodies and doctor alike.
 """
 
+import bisect
 import re
+from dataclasses import dataclass
 from typing import Optional
 
 from . import frontmatter, schema
@@ -16,21 +20,122 @@ HEADING = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 EM_DASH = "—"
 EN_DASH = "–"
 
-# Code in a body, fenced or inline. It keeps its own punctuation and
-# its own links, so the checks and the rewrites step over it. A fence
-# opens and closes at the start of a line, the way markdown reads it, so
-# three backticks in the middle of a sentence are just backticks and a
-# fence with no closer fences nothing.
-FENCE = r"^[ \t]{0,3}```[^\n]*\n.*?^[ \t]{0,3}```[ \t]*$"
-INLINE = r"`[^`\n]*`"
-CODE = re.compile(f"{FENCE}|{INLINE}", re.DOTALL | re.MULTILINE)
+# Code in a text, fenced, indented or inline, read the way markdown
+# reads it. It keeps its own punctuation and its own links, so the
+# checks and the rewrites step over it. A fence is a run of three or
+# more backticks or tildes that starts a line, up to three columns past
+# the margin of the list item it sits in, and it runs to a run of the
+# same character at least as long or to the text's end. A line four
+# columns past its margin is code where no paragraph is open. A span is
+# a run of backticks no backslash escapes, a backslash read with the
+# character after it so an escaped backslash escapes nothing, closed by
+# the next run as long inside its paragraph, heading or table row, so
+# three backticks in the middle of a sentence with no three to close
+# them are just backticks. A block quote's lines are read as a text of
+# their own with their markers taken off, and a table's rows each alone.
+LINE = re.compile(
+    pattern=r"^.*$",
+    flags=re.MULTILINE,
+)
+FENCE_OPEN = re.compile(r"(`{3,}|~{3,})(.*)$")
+FENCE_CLOSE = re.compile(r"(`{3,}|~{3,})\s*$")
+LIST_MARKER = re.compile(r"([-*+]|\d{1,9}[.)])(?:([ \t]+)|$)")
+THEMATIC_BREAK = re.compile(r"([-*_])(?:[ \t]*\1){2,}\s*$")
+ATX_OPEN = re.compile(r"(#{1,6})(?:[ \t]+|$)")
+ATX_CLOSE = re.compile(r"(?:^|[ \t]+)#+$")
+SETEXT_UNDERLINE = re.compile(r"(?:=+|-+)\s*$")
+DELIMITER_ROW = re.compile(r"[ \t]*(?:\|[ \t]*)?:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*(?:\|[ \t]*)?$")
+INLINE_OPEN = re.compile(r"\\[\s\S]|<!--|`+")
+BACKTICKS = re.compile(r"`+")
+NOT_A_LINE_END = re.compile(r"[^\n]")
+QUOTE_MARK = ">"
+CODE_INDENT = 4
+
+# How deep the reader reads a quote inside a quote, each level a call of
+# its own, so a line of hundreds of `>` stays well inside Python's
+# recursion limit, and the markers past it are the innermost quote's text.
+QUOTE_DEPTH = 32
+
+# An HTML comment hides what it holds from a reader that asks, a gate
+# or a heading an owner commented out for one. It is no code, so the
+# kit's marker, itself a comment, is still found outside code. One that
+# opens a line or a list item's text is a block of its own, as markdown
+# reads it, one inside a list item ends with the item where no `-->`
+# comes first, and one inside a sentence ends with its paragraph. Its
+# `-->` is looked for from the opener's own dashes, so `<!-->` and
+# `<!--->` close where they stand, as CommonMark reads them.
+COMMENT_OPEN = "<!--"
+COMMENT_CLOSE = "-->"
+COMMENT_DASHES = COMMENT_OPEN.index("-")
+
+
+@dataclass(frozen=True)
+class Fence:
+    """One fenced block: where it starts and ends, its info string, its lines with the indent its fence carries taken off, and whether a closer ends it or it runs to the end of the text."""
+
+    start: int
+    end: int
+    info: str
+    text: str
+    closed: bool
+
+
+@dataclass(frozen=True)
+class Heading:
+    """One heading outside code, of hashes or a setext line: where it starts and ends, its level, and its text without the closing hashes."""
+
+    start: int
+    end: int
+    level: int
+    text: str
+
+
+@dataclass(frozen=True)
+class Blocks:
+    """What a reading of the blocks finds: where the code blocks sit, the fences among them, the headings outside them, the HTML comments that open a line, the stretches of paragraph and heading text the spans are read in, and whether the text ends inside a paragraph, its last stretch, which a lazy line under a quote runs on."""
+
+    code: list[tuple[int, int]]
+    fences: list[Fence]
+    headings: list[Heading]
+    comments: list[tuple[int, int]]
+    inline: list[tuple[int, int]]
+    paragraph_open: bool
+
+
+@dataclass
+class Opened:
+    """A fence still open as the lines are read: where it starts, its run, the margin its closer keeps to, the columns its lines lose, its info string, and its lines so far."""
+
+    start: int
+    run: str
+    margin: int
+    indent: int
+    info: str
+    lines: list[str]
+
+
+@dataclass
+class Paragraph:
+    """A paragraph still open as the lines are read: where its text starts, where its last line ends, the margin of the list item it opened in, which a line under it that is no lazy continuation keeps to, and whether it is a quote's paragraph run on past the quote, which no line under it underlines or makes a table."""
+
+    start: int
+    end: int
+    margin: int
+    lazy: bool
 
 
 def prose_of(
     text: str,
 ) -> str:
     """The text with its code taken out."""
-    return CODE.sub("", text)
+    kept: list[str] = []
+    cursor = 0
+    for start, end in code_spans(text):
+        kept.append(text[cursor:start])
+        cursor = end
+    kept.append(text[cursor:])
+
+    return "".join(kept)
 
 
 def style_slips(
@@ -50,16 +155,709 @@ def style_slips(
 def code_spans(
     text: str,
 ) -> list[tuple[int, int]]:
-    """Where the code sits in the text, as start and end offsets."""
-    return [(match.start(), match.end()) for match in CODE.finditer(text)]
+    """Where the code sits in the text, as start and end offsets, the blocks and the spans inside the paragraphs and headings they leave."""
+    blocks: Blocks = blocks_of(text)
+    spans, _ = inline_of(
+        text=text,
+        stretches=blocks.inline,
+    )
+
+    return sorted(blocks.code + spans)
 
 
 def in_code(
     spans: list[tuple[int, int]],
     position: int,
 ) -> bool:
-    """Whether an offset falls inside one of the code spans."""
+    """Whether an offset falls inside one of the spans, of code or of anything else a reader steps over."""
     return any(start <= position < end for start, end in spans)
+
+
+def comment_spans(
+    text: str,
+    spans: Optional[list[tuple[int, int]]] = None,
+) -> list[tuple[int, int]]:
+    """Where the HTML comments sit outside code, each from its `<!--` to the `-->` that closes it, `<!-->` and `<!--->` closed where they stand.
+
+    A comment that opens a line, a list item's text or a line of a
+    quote runs to the first `-->` past it, inside the quote for one in
+    a quote, through blank lines and through anything that looks like a
+    fence, since no fence opens inside it. One in a list item runs to
+    the first `-->` before the item ends, at the first line that is not
+    blank and sits left of the item's text, or to the item's end where
+    none comes first. One inside a paragraph or a heading runs to the
+    first `-->` before that paragraph or heading ends. Any other opener
+    with no closer hides nothing, so a stray one never swallows the rest
+    of the text. A caller that finds code the text's own reading does
+    not, as the check does inside a quote, passes it, and a comment that
+    opens inside it is none.
+    """
+    blocks: Blocks = blocks_of(text)
+    _, comments = inline_of(
+        text=text,
+        stretches=blocks.inline,
+    )
+    found = sorted(blocks.comments + comments)
+    if not spans:
+        return found
+
+    return [
+        comment
+        for comment in found
+        if not in_code(
+            spans=spans,
+            position=comment[0],
+        )
+    ]
+
+
+def inline_of(
+    text: str,
+    stretches: list[tuple[int, int]],
+) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
+    """The code spans and the HTML comments inside the stretches of paragraph and heading text, read in the order they open.
+
+    A backslash is read with the character after it, so an escaped
+    backtick or `<` opens nothing and an escaped backslash escapes
+    nothing. A run of backticks is closed by the next run as long, and a
+    comment by its first `-->`, `<!-->` and `<!--->` where they stand,
+    each inside its stretch, and whichever opens first holds what
+    follows, so a backtick inside a comment opens no span and a
+    backslash inside either is its own. An opener with nothing to close
+    it inside its stretch is plain text. The runs of backticks are
+    listed by length once a stretch, and a `-->` one opener does not
+    find no later one finds, so each closer is looked for once and the
+    reading stays linear in the stretch however many openers find none.
+    """
+    spans: list[tuple[int, int]] = []
+    comments: list[tuple[int, int]] = []
+    for start, end in stretches:
+        runs: dict[int, list[int]] = {}
+        for run in BACKTICKS.finditer(
+            string=text,
+            pos=start,
+            endpos=end,
+        ):
+            runs.setdefault(len(run.group()), []).append(run.start())
+
+        passed: dict[int, int] = {}
+        unclosed = False
+        position = start
+        while True:
+            opener = INLINE_OPEN.search(
+                string=text,
+                pos=position,
+                endpos=end,
+            )
+            if opener is None:
+                break
+
+            if opener.group().startswith("\\"):
+                position = opener.end()
+                continue
+
+            if opener.group() == COMMENT_OPEN:
+                closed = -1
+                if not unclosed:
+                    closed = comment_close(
+                        text=text,
+                        opened=opener.start(),
+                        bound=end,
+                    )
+                unclosed = closed == -1
+                found = comments
+            else:
+                closed = run_after(
+                    runs=runs,
+                    passed=passed,
+                    length=len(opener.group()),
+                    after=opener.end(),
+                )
+                found = spans
+
+            if closed == -1:
+                position = opener.end()
+                continue
+
+            found.append((opener.start(), closed))
+            position = closed
+
+    return spans, comments
+
+
+def run_after(
+    runs: dict[int, list[int]],
+    passed: dict[int, int],
+    length: int,
+    after: int,
+) -> int:
+    """Where the first run of backticks of the length that starts at or past `after` ends, or -1 where none does, from the starts of a stretch's runs by length, the count of those passed over kept in `passed`, since the reading only goes on."""
+    starts = runs.get(length, [])
+    index = passed.get(length, 0)
+    while index < len(starts) and starts[index] < after:
+        index += 1
+    passed[length] = index
+
+    return starts[index] + length if index < len(starts) else -1
+
+
+def comment_close(
+    text: str,
+    opened: int,
+    bound: int,
+) -> int:
+    """Where the HTML comment whose `<!--` stands at `opened` ends, past its first `-->` before `bound`, or -1 where none comes, the `-->` looked for from the opener's own dashes, so `<!-->` and `<!--->` close where they stand."""
+    closer = text.find(COMMENT_CLOSE, opened + COMMENT_DASHES, bound)
+
+    return -1 if closer == -1 else closer + len(COMMENT_CLOSE)
+
+
+def blocks_of(
+    text: str,
+    depth: int = 0,
+) -> Blocks:
+    """The code blocks, the fences and the headings of the text, read line by line in the order they come.
+
+    A list item's own line is read past its marker as a line of its
+    own, so a fence, a heading, an HTML comment or another item opens
+    there too. The margin is where the text of the list item the line
+    sits in starts, the spacing after its marker counted in columns, so
+    a list item's paragraph indented four columns is read, and a heading
+    or a fence left of that margin ends every list that is open, as does
+    any line left of it where no paragraph is open, and a blank line
+    under an item whose marker ended its line. A line of three or more
+    `-`, `*` or `_` and nothing else, spaced or not, is a thematic break
+    and no list item. An HTML comment that opens a line runs to the line
+    that holds its first `-->`, inside a list item to the item's end
+    where no `-->` comes first, and nothing inside it opens. A paragraph
+    is open from its first line, a list item's own line among them, to a
+    blank line or another block, and a line of `=` or `-` under it makes
+    it a setext heading, unless the line sits left of the list item the
+    paragraph opened in, which makes it a lazy line of the paragraph, or
+    for `-` a thematic break. A line of hyphens and pipes under one makes
+    the paragraph's last line a table's header row, and each line after
+    it that holds a pipe is a row. A block quote's lines are read as a
+    text of their own, its code, comments and stretches put back where
+    they stand in the text and its fences and headings left out, since
+    no gate and no section stands in a quote, and a line under it that
+    opens no block runs on the quote's last paragraph. `depth` is how
+    many quotes the text already sits in, and at QUOTE_DEPTH a `>` opens
+    no quote and is the innermost quote's text. The stretches of
+    paragraph, heading and row text are where the spans and the comments
+    inside a sentence are read.
+    """
+    code: list[tuple[int, int]] = []
+    fences: list[Fence] = []
+    headings: list[Heading] = []
+    comments: list[tuple[int, int]] = []
+    inline: list[tuple[int, int]] = []
+    items: list[int] = []
+    item_ends: dict[int, int] = {}
+    fence: Optional[Opened] = None
+    paragraph: Optional[Paragraph] = None
+    in_table = False
+    empty_item = False
+    read_to = 0
+
+    for match in LINE.finditer(text):
+        line = match.group()
+        start, end = match.span()
+
+        if start < read_to:
+            continue
+
+        if fence is not None:
+            if not fence_closes(
+                fence=fence,
+                line=line,
+            ):
+                fence.lines.append(
+                    dedented(
+                        line=line,
+                        columns=fence.indent,
+                    ),
+                )
+                continue
+
+            code.append((fence.start, end))
+            fences.append(
+                Fence(
+                    start=fence.start,
+                    end=end,
+                    info=fence.info,
+                    text="\n".join(fence.lines),
+                    closed=True,
+                ),
+            )
+            fence = None
+            continue
+
+        if not line.strip():
+            if paragraph is not None:
+                inline.append((paragraph.start, paragraph.end))
+            paragraph = None
+            in_table = False
+            # an item whose marker ends its line takes no text past a blank line, as markdown reads it
+            if empty_item:
+                items.pop()
+            empty_item = False
+            continue
+
+        empty_item = False
+        position = start
+        column = 0
+        # a list item's text past its marker is read again as a line of its own, so the loop runs once per marker the line opens with
+        while True:
+            bare = text[position:end].lstrip()
+            opened = end - len(bare)
+            indent: int = indent_of(
+                line=text[position:end],
+                column=column,
+            )
+            runs_on = paragraph is not None and not paragraph.lazy
+            underline = runs_on and indent >= paragraph.margin and SETEXT_UNDERLINE.match(bare) is not None
+            header = runs_on and not underline and "|" in bare and DELIMITER_ROW.match(bare) is not None
+            thematic = not underline and not header and THEMATIC_BREAK.match(bare) is not None
+            marker = None if thematic or header else LIST_MARKER.match(bare)
+            atx = ATX_OPEN.match(bare)
+            opener: Optional[re.Match] = fence_opener(bare)
+            comment: Optional[tuple[int, int]] = None
+            if bare.startswith(COMMENT_OPEN):
+                # a comment is a block, so it keeps to the innermost item the line does not sit left of, the margin the pop below leaves
+                kept_to = next((item for item in reversed(items) if item <= indent), 0)
+                # an item's end found below one of its lines is its end below every later line above it, so it is found once per item
+                if kept_to and item_ends.get(kept_to, 0) <= opened:
+                    item_ends[kept_to] = item_end(
+                        text=text,
+                        position=opened,
+                        margin=kept_to,
+                    )
+
+                comment = comment_at(
+                    text=text,
+                    opened=opened,
+                    item=item_ends[kept_to] if kept_to else None,
+                )
+
+            quoted = depth < QUOTE_DEPTH and bare.startswith(QUOTE_MARK)
+            interrupts = underline or thematic or marker is not None or atx is not None or opener is not None or comment is not None or quoted
+            if paragraph is None or interrupts:
+                while items and indent < items[-1]:
+                    items.pop()
+
+            margin = items[-1] if items else 0
+            if indent - margin >= CODE_INDENT:
+                if paragraph is None:
+                    code.append((position, end))
+                else:
+                    paragraph.end = end
+                break
+
+            if in_table and not interrupts and "|" in bare:
+                inline.append((opened, end))
+                break
+
+            in_table = False
+            if header:
+                head = max(paragraph.start, text.rfind("\n", 0, paragraph.end) + 1)
+                if head > paragraph.start:
+                    inline.append((paragraph.start, head - 1))
+                inline.append((head, paragraph.end))
+                paragraph = None
+                in_table = True
+                break
+
+            if not interrupts:
+                if paragraph is None:
+                    paragraph = Paragraph(
+                        start=opened,
+                        end=end,
+                        margin=margin,
+                        lazy=False,
+                    )
+                paragraph.end = end
+                break
+
+            above = paragraph
+            if paragraph is not None:
+                inline.append((paragraph.start, paragraph.end))
+            paragraph = None
+
+            if opener is not None:
+                fence = Opened(
+                    start=start,
+                    run=opener.group(1),
+                    margin=margin,
+                    indent=indent,
+                    info=opener.group(2).strip(),
+                    lines=[],
+                )
+                break
+
+            if comment is not None:
+                closed, read_to = comment
+                comments.append((opened, closed))
+                break
+
+            if underline and above is not None:
+                headings.append(
+                    Heading(
+                        start=above.start,
+                        end=end,
+                        level=1 if bare.startswith("=") else 2,
+                        text=" ".join(part.strip() for part in text[above.start : start].split("\n") if part.strip()),
+                    ),
+                )
+                break
+
+            if atx is not None:
+                headings.append(
+                    Heading(
+                        start=start,
+                        end=end,
+                        level=len(atx.group(1)),
+                        text=ATX_CLOSE.sub(
+                            repl="",
+                            string=bare[atx.end() :].rstrip(),
+                        ).strip(),
+                    ),
+                )
+                inline.append((opened + atx.end(), end))
+                break
+
+            if quoted:
+                quote, read_to = quote_at(
+                    text=text,
+                    start=start,
+                    mark=opened,
+                    margin=margin,
+                    depth=depth,
+                )
+                code += quote.code
+                comments += quote.comments
+                inline += quote.inline
+                if quote.paragraph_open:
+                    last_start, last_end = inline.pop()
+                    paragraph = Paragraph(
+                        start=last_start,
+                        end=last_end,
+                        margin=margin,
+                        lazy=True,
+                    )
+                break
+
+            if marker is None:
+                break
+
+            after = indent + len(marker.group(1))
+            item_text = bare[marker.end() :]
+            items.append(
+                after
+                + item_gap(
+                    spacing=marker.group(2),
+                    column=after,
+                    rest=item_text,
+                ),
+            )
+            if not item_text.strip():
+                empty_item = True
+                break
+
+            position = opened + len(marker.group(1))
+            column = after
+
+    paragraph_open = paragraph is not None
+    if paragraph is not None:
+        inline.append((paragraph.start, paragraph.end))
+
+    # a fence with no closer runs to the end of the text, as markdown renders it
+    if fence is not None:
+        code.append((fence.start, len(text)))
+        fences.append(
+            Fence(
+                start=fence.start,
+                end=len(text),
+                info=fence.info,
+                text="\n".join(fence.lines),
+                closed=False,
+            ),
+        )
+
+    return Blocks(
+        code=code,
+        fences=fences,
+        headings=headings,
+        comments=comments,
+        inline=inline,
+        paragraph_open=paragraph_open,
+    )
+
+
+def quote_at(
+    text: str,
+    start: int,
+    mark: int,
+    margin: int,
+    depth: int,
+) -> tuple[Blocks, int]:
+    """The blocks of the block quote whose first line starts at `start` with its `>` at `mark`, in a text that sits `depth` quotes deep, where they stand in the text, and where the quote's last line ends.
+
+    The quote runs over the lines under it whose text opens with a `>`
+    less than four columns past the margin. Each line loses its `>` and
+    a space or a tab after it, so the quote is read as a text of its
+    own, one quote deeper, and a quote inside it the same way in turn,
+    down to QUOTE_DEPTH.
+    """
+    taken: list[int] = []
+    origins: list[int] = []
+    lines: list[str] = []
+    length = 0
+    end = start
+    for match in LINE.finditer(
+        string=text,
+        pos=start,
+    ):
+        line = match.group()
+        marked = mark
+        if match.start() != start:
+            bare = line.lstrip()
+            if not bare.startswith(QUOTE_MARK) or not margin <= indent_of(line) < margin + CODE_INDENT:
+                break
+
+            marked = match.end() - len(bare)
+
+        content = marked + len(QUOTE_MARK)
+        if text[content : content + 1] in (" ", "\t"):
+            content += 1
+
+        taken.append(length)
+        origins.append(content)
+        lines.append(text[content : match.end()])
+        length += match.end() - content + 1
+        end = match.end()
+
+    inner: Blocks = blocks_of(
+        text="\n".join(lines),
+        depth=depth + 1,
+    )
+
+    return (
+        Blocks(
+            code=placed(
+                spans=inner.code,
+                taken=taken,
+                origins=origins,
+            ),
+            fences=[],
+            headings=[],
+            comments=placed(
+                spans=inner.comments,
+                taken=taken,
+                origins=origins,
+            ),
+            inline=placed(
+                spans=inner.inline,
+                taken=taken,
+                origins=origins,
+            ),
+            paragraph_open=inner.paragraph_open,
+        ),
+        end,
+    )
+
+
+def placed(
+    spans: list[tuple[int, int]],
+    taken: list[int],
+    origins: list[int],
+) -> list[tuple[int, int]]:
+    """The spans of a text whose lines start at the `taken` offsets, where they stand in the text those lines were taken from, each line starting there at its offset in `origins`."""
+    return [
+        (
+            origin_of(
+                offset=start,
+                taken=taken,
+                origins=origins,
+            ),
+            origin_of(
+                offset=end,
+                taken=taken,
+                origins=origins,
+            ),
+        )
+        for start, end in spans
+    ]
+
+
+def origin_of(
+    offset: int,
+    taken: list[int],
+    origins: list[int],
+) -> int:
+    """Where an offset of a text whose lines start at the `taken` offsets stands in the text its lines were taken from."""
+    line = (
+        bisect.bisect_right(
+            a=taken,
+            x=offset,
+        )
+        - 1
+    )
+
+    return origins[line] + offset - taken[line]
+
+
+def comment_at(
+    text: str,
+    opened: int,
+    item: Optional[int],
+) -> Optional[tuple[int, int]]:
+    """Where the HTML comment whose `<!--` opens a line at `opened` ends and where the reading of the lines goes on, or None where it is no comment.
+
+    It ends at its first `-->`, `<!-->` and `<!--->` where they stand.
+    Inside a list item, which ends at `item`, at the first line under it
+    that is not blank and sits left of the item's text, it ends there if
+    no `-->` comes first, as CommonMark ends an HTML block with its
+    container, and the reading goes on at that line. At the margin of
+    the text, where `item` is None, an opener with no closer is no
+    comment, so a stray one never hides the rest of the text.
+    """
+    closed: int = comment_close(
+        text=text,
+        opened=opened,
+        bound=len(text) if item is None else item,
+    )
+    if closed != -1:
+        return closed, closed
+
+    if item is None:
+        return None
+
+    # walked back over the white space alone, since a copy of the text up to the item's end would cost the whole text above it for each item
+    hidden = item
+    while hidden > opened and text[hidden - 1].isspace():
+        hidden -= 1
+
+    return hidden, item
+
+
+def item_end(
+    text: str,
+    position: int,
+    margin: int,
+) -> int:
+    """Where the list item whose text starts at column `margin` ends below the line that holds `position`, at the first line that is not blank and sits left of that column, else at the end of the text."""
+    below = text.find("\n", position) + 1
+    if not below:
+        return len(text)
+
+    for line in LINE.finditer(
+        string=text,
+        pos=below,
+    ):
+        if line.group().strip() and indent_of(line.group()) < margin:
+            return line.start()
+
+    return len(text)
+
+
+def fence_opener(
+    bare: str,
+) -> Optional[re.Match]:
+    """The fence the text opens with, or None, since a backtick fence's info string holds no backtick."""
+    opener = FENCE_OPEN.match(bare)
+    if opener is None:
+        return None
+
+    if opener.group(1).startswith("`") and "`" in opener.group(2):
+        return None
+
+    return opener
+
+
+def fence_closes(
+    fence: Opened,
+    line: str,
+) -> bool:
+    """Whether the line closes the fence, a run of the same character at least as long, indented less than four columns past the fence's margin."""
+    closer = FENCE_CLOSE.match(line.lstrip())
+    if closer is None or indent_of(line) - fence.margin >= CODE_INDENT:
+        return False
+
+    return closer.group(1)[0] == fence.run[0] and len(closer.group(1)) >= len(fence.run)
+
+
+def item_gap(
+    spacing: Optional[str],
+    column: int,
+    rest: str,
+) -> int:
+    """How many columns past its marker a list item's text starts, the spacing counted from the column the marker ends at, one where no text follows the marker or the gap would make its text code."""
+    gap: int = (
+        indent_of(
+            line=spacing or "",
+            column=column,
+        )
+        - column
+    )
+    if not rest.strip() or gap > CODE_INDENT:
+        return 1
+
+    return gap
+
+
+def indent_of(
+    line: str,
+    column: int = 0,
+) -> int:
+    """The column the line's leading white space reaches from the given column, a tab reaching the next multiple of four, so from the line's start how many columns it spans."""
+    for character in line:
+        if character == " ":
+            column += 1
+        elif character == "\t":
+            column += CODE_INDENT - column % CODE_INDENT
+        else:
+            break
+
+    return column
+
+
+def dedented(
+    line: str,
+    columns: int,
+) -> str:
+    """The line without the leading white space that reaches no further than the given column."""
+    taken = 0
+    position = 0
+    while position < len(line) and line[position] in " \t":
+        width = CODE_INDENT - taken % CODE_INDENT if line[position] == "\t" else 1
+        if taken + width > columns:
+            break
+
+        taken += width
+        position += 1
+
+    return line[position:]
+
+
+def blanked(
+    text: str,
+    spans: list[tuple[int, int]],
+) -> str:
+    """The text with the spans turned to spaces, its line ends and so its offsets kept."""
+    kept: list[str] = []
+    cursor = 0
+    for start, end in sorted(spans):
+        kept.append(text[cursor:start])
+        kept.append(
+            NOT_A_LINE_END.sub(
+                repl=" ",
+                string=text[start:end],
+            ),
+        )
+        cursor = end
+    kept.append(text[cursor:])
+
+    return "".join(kept)
 
 
 def heading_after(

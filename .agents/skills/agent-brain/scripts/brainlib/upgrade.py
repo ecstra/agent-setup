@@ -69,7 +69,7 @@ READ_GUARDS = (
     f"Read(/{doctor.SKILL_LINKS.as_posix()}/agent-brain/scripts/**)",
 )
 KIT_RULE = re.compile(
-    r"^Read\(/(?:"
+    pattern=r"^Read\(/(?:"
     + "|".join(
         re.escape(folder)
         for folder in (
@@ -78,7 +78,7 @@ KIT_RULE = re.compile(
             doctor.SKILL_LINKS.as_posix(),
         )
     )
-    + r")/agent-brain/scripts(?:/.*)?\)$"
+    + r")/agent-brain/scripts(?:/.*)?\)$",
 )
 
 # A hook group is the kit's when its command is one of two shapes with
@@ -126,8 +126,8 @@ LAUNCHERS = (
     LAUNCHER.replace("import sys;'' in sys.path and sys.path.remove('');import os,pathlib,runpy;", "import os,pathlib,runpy,sys;"),
 )
 KIT_HOOK = re.compile(
-    r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
-    r'|^python3 -c "(?:' + "|".join(re.escape(text) for text in LAUNCHERS) + r')"(?: [\w.-]+)*$'
+    pattern=r"^python3 (?:" + "|".join(ROOT_ANCHORS) + r")?\.agents?/skills/agent-brain/scripts/[\w-]+\.py(?: [\w.-]+)*$"
+    r'|^python3 -c "(?:' + "|".join(re.escape(text) for text in LAUNCHERS) + r')"(?: [\w.-]+)*$',
 )
 IGNORE_FILE = schema.IGNORE_FILE
 IGNORE_HEADING = "# The agent kit's own ignores."
@@ -163,6 +163,10 @@ GIT_TAKES_CHARACTERS = os.name == "nt"
 SECTION_ZERO_HEADING = "## 0. Project Rules"
 KIT_MARK = "<!-- The kit's words start here. Section 0 goes above this line. -->"
 MARK = re.compile(re.escape(KIT_MARK))
+MARK_LINE = re.compile(
+    pattern=rf"^[ \t]*({re.escape(KIT_MARK)})[ \t]*\r?$",
+    flags=re.MULTILINE,
+)
 COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 IMPORT_LINE = re.compile(r"^[ \t]*@\S+[ \t]*$", re.MULTILINE)
 
@@ -593,13 +597,13 @@ def prepare(
             if not kits_copy and skill is None:
                 raise UpgradeError(
                     f"the kit ships a skill named {name} this tool does not know, and {folder}/{schema.SKILLS}/{name} differs "
-                    "from it, so run the upgrade with the project's own tool if a kit wrote that folder, else move it aside first"
+                    "from it, so run the upgrade with the project's own tool if a kit wrote that folder, else move it aside first",
                 )
 
             if not kits_copy:
                 raise UpgradeError(
                     f"the kit now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, "
-                    "move it aside first, or delete it if an interrupted upgrade left it"
+                    "move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
         linked = project.root / doctor.SKILL_LINKS / name
@@ -607,7 +611,7 @@ def prepare(
         if not shipped and own_folder and not store.same_bytes(one=linked / schema.SKILL_FILE, other=kits_own_file):
             raise UpgradeError(
                 f"the kit now ships a skill named {name}, and {doctor.SKILL_LINKS / name} holds a folder of the project's own "
-                "where the kit's skill link goes, move it aside first"
+                "where the kit's skill link goes, move it aside first",
             )
 
         for definition in skill.definitions if skill else ():
@@ -626,7 +630,7 @@ def prepare(
             if not kits_copy:
                 raise UpgradeError(
                     f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, "
-                    "and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it"
+                    "and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
     stamp = kit.version()
@@ -1654,16 +1658,53 @@ def section_zero_in(
     section it was given whatever the kit's own words say now. In one
     the first kit wrote, before the marker, it ends where that kit's
     words stood. Anywhere else it runs to the next `#` or `##` heading
-    outside code. Code never ends it, so a `## ` or a quoted marker
-    inside a fenced block stays in it.
+    outside code and HTML comments. The marker ends it at the first place
+    it stands outside code and outside any other comment. Where it stands
+    nowhere outside them, the marker on a line of its own still ends it
+    inside a fence left open to the end of the text, or inside a comment
+    that no `-->` closes before the marker's own, since that line is the
+    kit's boundary, so the fence or the comment the project left open
+    closes there and the kit's words never read as the project's. Code
+    and comments end it nowhere else, so a `## `, or a marker quoted
+    inside a closed fence of backticks or tildes, an indented block, a
+    code span or a comment, stays in it, and a heading inside a comment
+    is no heading, neither the section's own nor the one that would end
+    it.
     """
-    heading = next((match for match in sections.heading_matches(text) if match.group(1).startswith("0.")), None)
+    code: list[tuple[int, int]] = sections.code_spans(text)
+    hidden: list[tuple[int, int]] = code + sections.comment_spans(
+        text=text,
+        spans=code,
+    )
+    found = (
+        match
+        for match in sections.heading_matches(text)
+        if match.group(1).startswith("0.")
+        and not sections.in_code(
+            spans=hidden,
+            position=match.start(),
+        )
+    )
+    heading: Optional[re.Match] = next(found, None)
     if heading is None:
         return None
 
     end = first_outside_code(text=text, pattern=MARK, start=heading.end())
     if end == -1:
-        end = sections.heading_after(body=text, start=heading.end(), depth=2)
+        end = sections.heading_after(
+            body=text,
+            start=heading.end(),
+            depth=2,
+            spans=hidden,
+        )
+        alone: int = marker_line_left_open(
+            text=text,
+            start=heading.end(),
+            end=end,
+        )
+        if alone != -1:
+            end = alone
+
         words = first_outside_code(text=text, pattern=FIRST_KIT, start=heading.end(), end=end)
         if words != -1:
             end = words
@@ -1681,13 +1722,72 @@ def first_outside_code(
     start: int,
     end: Optional[int] = None,
 ) -> int:
-    """Where the pattern first matches outside code between `start` and `end`, or -1 when it does not."""
+    """Where the pattern first matches between `start` and `end` outside code and outside any HTML comment that opens before the match, or -1 when it does not.
+
+    The kit's marker is a comment itself, so the comment that opens
+    where it stands is its own, and one quoted inside another comment
+    is the other's words.
+    """
     spans = sections.code_spans(text)
+    comments: list[tuple[int, int]] = sections.comment_spans(
+        text=text,
+        spans=spans,
+    )
     for match in pattern.finditer(text, start, len(text) if end is None else end):
-        if not sections.in_code(spans=spans, position=match.start()):
-            return match.start()
+        if sections.in_code(
+            spans=spans,
+            position=match.start(),
+        ):
+            continue
+
+        if any(opened < match.start() < closed for opened, closed in comments):
+            continue
+
+        return match.start()
 
     return -1
+
+
+def marker_line_left_open(
+    text: str,
+    start: int,
+    end: int,
+) -> int:
+    """Where the kit's marker first stands between `start` and `end` on a line of its own inside a fence left open to the end of the text, or inside an HTML comment that no `-->` closes before the marker's own, or -1 where it stands on no such line."""
+    left_open: Optional[sections.Fence] = next((fence for fence in sections.blocks_of(text).fences if not fence.closed), None)
+    comments: list[tuple[int, int]] = sections.comment_spans(text)
+    for line in MARK_LINE.finditer(
+        string=text,
+        pos=start,
+        endpos=end,
+    ):
+        mark = line.start(1)
+        if left_open is not None and mark > left_open.start:
+            return line.start()
+
+        if any(opened < mark and closed == mark + len(KIT_MARK) for opened, closed in comments):
+            return line.start()
+
+    return -1
+
+
+def kit_mark_in(
+    text: str,
+) -> int:
+    """Where the kit's words start in a front door, by the marker as section_zero_in reads it, where it first stands outside code and HTML comments, else at its line inside a fence or a comment the project left open, or -1 where it stands on neither."""
+    mark: int = first_outside_code(
+        text=text,
+        pattern=MARK,
+        start=0,
+    )
+    if mark != -1:
+        return mark
+
+    return marker_line_left_open(
+        text=text,
+        start=0,
+        end=len(text),
+    )
 
 
 def own_words(
@@ -1697,7 +1797,7 @@ def own_words(
 
     Code keeps its comments and its `@` lines, a decorator for one.
     """
-    mark = first_outside_code(text=text, pattern=MARK, start=0)
+    mark: int = kit_mark_in(text)
     own = text if mark == -1 else text[:mark]
     for pattern in (COMMENT, IMPORT_LINE):
         own = without(text=own, pattern=pattern)

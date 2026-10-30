@@ -2,7 +2,7 @@
 name: conventions
 kind: doc
 description: the shared rules every file in .agents obeys, frontmatter, naming, links, indexes
-updated: 2026-10-27
+updated: 2026-10-29
 links: [README.md]
 ---
 
@@ -12,7 +12,7 @@ The shared law. Each folder's own spec adds to this, never contradicts it.
 
 ## Frontmatter
 
-Every markdown file in .agents opens with:
+Every markdown file in .agents opens with this frontmatter.
 
 ```
 ---
@@ -39,27 +39,26 @@ Three places sit outside this rule. `SYSTEM.md` carries no frontmatter
 at all, since it is the rulebook and an agent takes it exactly as it
 stands. `skills/` holds the kit's skills, and its files follow the
 Agent Skills standard rather than this spec, so doctor holds them to
-the prose and boundary rules below and to nothing in this section. A
-project may keep skills of its own there too, each a folder with a
-SKILL.md that doctor links for Claude Code, under any name but the
-kit's own, `agent-brain` and `branch-review`, which the upgrade
-replaces whole once the stamp says the kit shipped them, and refuses
-to write over while the stamp says the project had them first.
-`handover/` holds the one note `brain handover` writes, whose header
-carries its own keys, `branch`, `head` and `written`, per
-[spec/handover.md](handover.md). Doctor reads no file in it and
-reports only the leftover of an interrupted write there, which `--fix`
-removes.
+the boundary rules below and to nothing in this section. A project may
+keep skills of its own there too, each a folder with a SKILL.md that
+doctor links for Claude Code, under any name but the kit's own,
+`agent-brain` and `branch-review`, which the upgrade replaces whole
+once the stamp says the kit shipped them, and refuses to write over
+while the stamp says the project had them first. `handover/` holds the
+one note `brain handover` writes, whose header carries its own keys,
+`branch`, `head` and `written`, per [spec/handover.md](handover.md).
+Doctor reads no file in it and reports only the leftover of an
+interrupted write there, which `--fix` removes.
 
 ## Naming and ids
 
-Files are kebab case. Tracked kinds carry ids: `BUG-###`, `TODO-###`,
-`DEC-###`, zero padded, assigned as the next free number in that folder,
-never reused. The filename is `<ID>-<short-slug>.md`.
+Files are kebab case. Tracked kinds carry the ids `BUG-###`,
+`TODO-###` and `DEC-###`, zero padded, assigned as the next free number
+in that folder, never reused. The filename is `<ID>-<short-slug>.md`.
 
 ## Links
 
-Two forms, each with its job:
+Two forms, each with its job.
 
 - Frontmatter `links:` lists paths relative to `.agents/`, such as
   `bugs/BUG-004-token-loop.md`, so an agent opens the file without
@@ -88,10 +87,10 @@ spine may summarize those groups with counts plus the open items.
 index line is `- [name](path), hook` where the hook is the description
 or a shorter cut of it.
 
-The upkeep rule: any change to a file updates its `updated:` date in the
-same commit, and the indexes are rebuilt by the brain tool, never edited
-by hand. The tool owns an index whole, its frontmatter as much as its
-body, and an index that differs from what it builds is a bug that
+The upkeep rule is that any change to a file updates its `updated:` date
+in the same commit, and the indexes are rebuilt by the brain tool, never
+edited by hand. The tool owns an index whole, its frontmatter as much as
+its body, and an index that differs from what it builds is a bug that
 doctor rebuilds.
 
 A brain written before the tool existed reads these rules as its
@@ -104,11 +103,11 @@ is left is fixed by hand through the tool, one finding at a time.
 
 ## Prose
 
-House style: no em-dashes, no semicolons, plain words, colons only as
-list labels. Terse beats complete. A claim about the code names the
-file it is true in, so a sync round can verify it mechanically. Never
-leave a line broken mid sentence or cut mid word, and wrap prose
-naturally or not at all.
+The house style is the documentation style of
+[SYSTEM.md](../SYSTEM.md), section 6.3. Terse beats complete. A claim
+about the code names the file it is true in, so a sync round can verify
+it mechanically. Never leave a line broken mid sentence or cut mid
+word, and wrap prose naturally or not at all.
 
 ## Boundaries
 
