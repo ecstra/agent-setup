@@ -29,7 +29,7 @@ written record of what the project knows.
 | `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also checks the project's own markdown and commit messages, runs your linters on each file the agent writes and your gates before a review, installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
 | `.agents/skills/branch-review/` | The code review, run on your word at a quick, standard or deep level. Finder sub agents read the whole branch in parallel, one per angle, and two verifier sub agents vote on each finding, or the main agent alone at the quick level. The main agent fixes every confirmed finding itself in one go, a fresh verifier rechecks the diff of the fix, three rounds at most, and one docs agent brings the docs up to the code at the end. The report says where things stand first. |
 | `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
-| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so each file the agent writes with its edit tools is linted and checked without anyone asking and the clock, your standing word and the work the agent is on stay in front of it, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
+| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so each file the agent writes with its edit tools is linted and checked without anyone asking and the clock, your standing word and the work the agent is on stay in front of it, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. Claude Code's settings also turn off its idle compaction, so a long session you step away from keeps its full context, and a project can turn it back on in its own settings. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
 | `.gitignore` | Keeps your `.env`, your local Claude Code settings and the Python and ruff caches out of git, along with what the agent-brain [skill sheet](.agents/skills/agent-brain/SKILL.md#the-brains-files) says git ignores in `.agents/`. |
@@ -102,9 +102,10 @@ uncommitted work, so commit first. Then it does all of this in one run.
   where the report says.
 - Your own hooks stay. The kit's hooks are added beside them in each
   agent's config, and any other setting of yours is left as it was.
-  The kit's own two settings for Claude Code, the sub agent model and
-  how many tool calls may run at once, are added the same way, and a
-  value you already set for either stays yours.
+  The kit's own four settings for Claude Code, the Plain & Short chat
+  style, the sub agent model, how many tool calls may run at once and
+  idle compaction turned off, are added the same way, and a value you
+  already set for any of them stays yours.
 - Your `.gitignore` keeps every line it had. The kit's lines go in a
   block at the top, so your own lines sit below them and win.
 - The tool's doctor runs once, builds the indexes and makes the skill

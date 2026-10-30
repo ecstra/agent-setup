@@ -1,5 +1,6 @@
 {
   "outputStyle": "Plain & Short",
+  "idleCompaction": false,
   "env": {
     "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
     "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY": "20"
