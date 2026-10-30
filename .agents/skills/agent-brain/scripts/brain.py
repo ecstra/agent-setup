@@ -326,8 +326,8 @@ def run_handover(
     print(
         "the session start hook puts it in front of the next session on this branch, or one that stands the same way on a detached head or before the first commit, or any session where git could not answer for it or for this one, and removes it, a fork aside",
     )
-    # the note is how a session concludes, so writing it ends the conclude word
-    if conclude.turn_off(brain=brain):
+    # a note written in the wind down or past the time is the session concluding, so it ends the word, while one written mid work before a compaction keeps it
+    if conclude.concluding(brain=brain) and conclude.turn_off(brain=brain):
         print("the conclude word is cleared, since the note is written")
     return 0
 

@@ -191,6 +191,7 @@ def locate(
 # since a fork carries the whole context it was forked from and the
 # session that wrote the note still holds everything in it.
 FORK = "fork"
+COMPACT = "compact"
 
 # Claude Code shows up to this many characters of a hook's added context,
 # and past it keeps the whole text in a file of the session's and shows
@@ -229,7 +230,9 @@ def session_start(
     """
     claim: Optional[handover.Claim] = handover.claim(brain=brain) if source != FORK else None
 
-    text = the_moment(brain=brain) + handover_text(claim=claim)
+    # a session that starts fresh after the conclude time is a new stretch of work, while one after a compaction is the same stretch going on
+    lapsed: Optional[str] = conclude.lapse(brain=brain) if source not in (FORK, COMPACT) else None
+    text = the_moment(brain=brain) + ("\n" + lapsed if lapsed else "") + handover_text(claim=claim)
     text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(data=reads.status(brain=brain))
     if with_rules:
         rules = brain.root / "SYSTEM.md"

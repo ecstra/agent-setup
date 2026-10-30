@@ -133,8 +133,9 @@ Every file opens with the header block the tool writes, `name`, `kind`,
 `key: value` line each at the margin, nothing quoted, a list as
 `[a, b]`, the name unique and matching the filename, a link a path from
 `.agents/`. `SYSTEM.md` has none, and `skills/` follows the Agent
-Skills standard. Git ignores `.ack`, the owner's standing word, and
-`.task`, the current work, with their writes in flight, `handover/`,
+Skills standard. Git ignores `.ack`, the owner's standing word,
+`.conclude`, the conclude word, and `.task`, the current work, with
+their writes in flight, `handover/`,
 `.worktrees/` and the Python and ruff caches. The rest is committed,
 and a closed bug, todo, plan or ledger is never deleted, since it is
 the record. Every file names the file each claim it makes about the
@@ -262,13 +263,15 @@ brain ack off
 
 When the owner names a time to stop, "stop at 17:15", the agent records
 it, and every hook line counts down to it. From 15 minutes before, the
-line says to wind down, finish the step in hand and start nothing new,
-and once the time passes it says to conclude, stop the sub agents,
-commit only what passed the gates, save the working paper, write the
-handover and stop. The conclude word wins over the standing word, which
-covers what the agent may decide and never how long it works. Writing
-the handover clears it, and
-[the reference](references/commands.md#the-conclude-word) has the rest.
+line says to wind down, finish the step in hand, start nothing new and
+conclude once it is done, and once the time passes it says to conclude,
+stop the sub agents, commit only what passed the gates, save the
+working paper, write the handover and stop. The conclude word wins over
+the standing word, which covers what the agent may decide and never
+how long it works. A handover written in the wind down or past the time
+clears it, one written earlier keeps it, and a session that starts
+fresh after the time clears it and says so.
+[The reference](references/commands.md#the-conclude-word) has the rest.
 
 ```bash
 brain conclude at 17:15

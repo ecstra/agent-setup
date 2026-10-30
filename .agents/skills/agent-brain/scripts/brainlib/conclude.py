@@ -124,6 +124,33 @@ def describe(
 
     line = f"conclude at {when}, {autoack.left(since=at, until=moment)} left"
     if moment - autoack.utc(at) <= WIND_DOWN:
-        line += ", so wind down, finish the step in hand and start no new work, sub agent or round of a review, the standing word included"
+        line += ", so wind down, finish the step in hand and start no new work, sub agent or round of a review, the standing word included, and conclude once it is done"
 
     return line
+
+
+def concluding(
+    brain: store.Brain,
+    at: Optional[datetime] = None,
+) -> bool:
+    """Whether the word stands in its wind down or past its time, when a handover is the session concluding rather than one written mid work."""
+    moment = read(brain=brain)
+    if moment is None:
+        return False
+
+    return moment - autoack.utc(at or clock.now()) <= WIND_DOWN
+
+
+def lapse(
+    brain: store.Brain,
+    at: Optional[datetime] = None,
+) -> Optional[str]:
+    """Clear a word whose time has passed and say so, for a session that starts fresh after it, which is a new stretch of work and no session to stop."""
+    at = at or clock.now()
+    moment = read(brain=brain)
+    if moment is None or autoack.utc(at) < moment:
+        return None
+
+    turn_off(brain=brain)
+
+    return f"the conclude word for {autoack.when(at=at, moment=moment)} had passed before this session started, so it is cleared"

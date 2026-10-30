@@ -85,8 +85,10 @@ as well, since a review reads committed work only.
    recorded on that round's batch. A standing word, `brain ack on` with
    an end by time or by task, is the ack for every round up to the
    third until that end, and each report says which of the two the
-   round ran on. A round past the third needs the owner's own word. The
-   close follows the last round with no word. The PR and the merge are
+   round ran on. A round past the third needs the owner's own word, and
+   in the wind down of the conclude word no new round starts, the
+   standing word included. The close follows the last round with no
+   word. The PR and the merge are
    not the review's gates and stay on the owner's explicit ask, per the
    git rules below. A standing word with no end is not taken, the agent
    proposes one and waits. Nothing starts a review but the owner's own
