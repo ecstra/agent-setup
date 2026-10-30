@@ -268,9 +268,9 @@ conclude once it is done, and once the time passes it says to conclude,
 stop the sub agents, commit only what passed the gates, save the
 working paper, write the handover and stop. The conclude word wins over
 the standing word, which covers what the agent may decide and never
-how long it works. A handover written in the wind down or past the time
-clears it, one written earlier keeps it, and a session that starts
-fresh after the time clears it and says so.
+how long it works. An hour past the time the line orders nothing, a
+handover written past the time clears it, and one written earlier
+keeps it.
 [The reference](references/commands.md#the-conclude-word) has the rest.
 
 ```bash

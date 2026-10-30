@@ -155,12 +155,13 @@ word included, and concludes once the step is done. Once the time has
 passed it reads `conclude now`, and says to stop the sub agents, commit
 only what passed the gates, save the working paper, write the handover
 with `brain handover` and stop, whatever is left of the standing word.
-A handover written in the wind down or past the time clears the word,
-and the command says so, while one written earlier, such as before a
-compaction, keeps it. A session that starts fresh after the time, on a
-start, a resume or a clear but never after a compaction, clears a word
-already passed and says so in its first lines, since it is a new
-stretch of work and no session to stop. A time not still to come, an empty one,
+An hour past the time the line orders nothing, and reads `the conclude
+word for 17:15 today has passed, so it orders nothing now, and brain
+conclude off clears it`, so a session that starts the next day, or one
+beside it, is never told to stop. A handover written past the time
+clears the word, and the command says so, while one written before it,
+in the wind down before a compaction among them, keeps it. Nothing else
+clears it but `brain conclude off`, a session start included. A time not still to come, an empty one,
 and one past the year 2999 are refused, and so are `at` or `in` with
 no time and `off` with one. The state is one dotted file at the root
 of the brain, `.agents/.conclude`, which git ignores like the standing

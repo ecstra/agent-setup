@@ -20,6 +20,8 @@ OFF = "conclude off"
 BROKEN = f"{FILE} does not read as a time and brain conclude off clears it"
 FOLDER = f"{FILE} is a folder the tool never made, move it away by hand"
 WIND_DOWN = timedelta(minutes=15)
+# an hour past its time the word orders nothing, so a session that starts the next day, or another one beside it, is never told to stop, and nothing has to clear the file at a session start
+STALE = timedelta(hours=1)
 
 
 class ConcludeError(Exception):
@@ -119,6 +121,9 @@ def describe(
 
     at = at or clock.now()
     when = autoack.when(at=at, moment=moment)
+    if autoack.utc(at) >= moment + STALE:
+        return f"the conclude word for {when} has passed, so it orders nothing now, and brain conclude off clears it"
+
     if autoack.utc(at) >= moment:
         return f"conclude now, its time {when} has passed, so stop the sub agents, commit only what passed the gates, save the working paper, write the handover with brain handover, and stop, whatever is left of the standing word"
 
@@ -129,28 +134,11 @@ def describe(
     return line
 
 
-def concluding(
+def passed(
     brain: store.Brain,
     at: Optional[datetime] = None,
 ) -> bool:
-    """Whether the word stands in its wind down or past its time, when a handover is the session concluding rather than one written mid work."""
+    """Whether the word's time has passed, when a handover is the session concluding rather than one written mid work, a wind down's before a compaction included."""
     moment = read(brain=brain)
-    if moment is None:
-        return False
 
-    return moment - autoack.utc(at or clock.now()) <= WIND_DOWN
-
-
-def lapse(
-    brain: store.Brain,
-    at: Optional[datetime] = None,
-) -> Optional[str]:
-    """Clear a word whose time has passed and say so, for a session that starts fresh after it, which is a new stretch of work and no session to stop."""
-    at = at or clock.now()
-    moment = read(brain=brain)
-    if moment is None or autoack.utc(at) < moment:
-        return None
-
-    turn_off(brain=brain)
-
-    return f"the conclude word for {autoack.when(at=at, moment=moment)} had passed before this session started, so it is cleared"
+    return moment is not None and autoack.utc(at or clock.now()) >= moment
