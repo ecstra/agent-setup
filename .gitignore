@@ -29,9 +29,11 @@
 # name neither does a link that stands in the folder's place.
 .agents/handover
 
-# Python leaves compiled bytecode beside the brain tool. It never ships.
+# Python leaves compiled bytecode beside the brain tool, and ruff its
+# cache. Neither ever ships.
 __pycache__/
 *.pyc
+.ruff_cache/
 
 # Claude Code keeps one person's own settings here. The shared ones are
 # in .claude/settings.json, which does ship.

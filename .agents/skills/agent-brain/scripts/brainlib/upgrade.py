@@ -322,11 +322,11 @@ class Kit:
 def ships(
     path: Path,
 ) -> bool:
-    """Whether a file in the kit's tree is one the kit ships: a real file, not bytecode, not a dotfile."""
+    """Whether a file in the kit's tree is one the kit ships: a real file, not bytecode or a linter's cache, not a dotfile."""
     if path.is_symlink() or not path.is_file():
         return False
 
-    return "__pycache__" not in path.parts and path.suffix != ".pyc" and not path.name.startswith(".")
+    return "__pycache__" not in path.parts and ".ruff_cache" not in path.parts and path.suffix != ".pyc" and not path.name.startswith(".")
 
 
 @dataclass
