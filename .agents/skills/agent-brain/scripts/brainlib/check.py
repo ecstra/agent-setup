@@ -12,9 +12,9 @@ call already broken across lines each held to one per line with a
 trailing comma, and in the kit's own checkout alone the future import
 of annotations, which its code keeps out by its convention. The branch's
 commit messages are read too, for a co-author line or an AI
-attribution. It reports and never rewrites, since none of these has
-one mechanical repair, and the post write hook runs it on the file
-just written so the slip is fixed in the same round.
+attribution. It reports and never rewrites, since most of these need
+new words that only the writer can choose, and the post write hook runs
+it on the file just written so the slip is fixed in the same round.
 """
 
 import ast

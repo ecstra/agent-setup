@@ -203,7 +203,7 @@ A heredoc, quoted or not, ends at the first line that is its word
 alone, so the word is one no line of the note is, which rules out `EOF`
 once a trap quotes a heredoc of its own.
 
-## Checking the brain, the code and the prose
+## Checking the brain and the project
 
 ```bash
 brain doctor
@@ -213,19 +213,23 @@ brain check src/app.py docs/guide.md
 brain gates
 ```
 
-Doctor reads the brain against its specs. The check reads the
-project's own prose and code against the rules a machine can judge, a
-dash, a semicolon or a colon outside a list item's label in markdown,
-the future import of annotations, a def or a call already broken
-across lines not stacked one per line with a trailing comma in Python,
-and the branch's commits for a co-author line or an AI attribution.
-It reports and never rewrites. With no paths it reads every markdown
-and Python file git tracks, and the hook runs it on every file the
-agent writes, so a slip is fixed in the same round. The gates command
-is the one command before a review and before a merge. It runs the
-gates section 0 names under its Gates heading, one fenced bash block
-each, stops at the first red one and says which, then runs the check
-and doctor.
+Doctor reads the brain against its specs. The check reads the project's
+own markdown and Python, and the branch's commits, against the rules of
+SYSTEM.md a machine can judge. In prose that is an em dash, a semicolon
+or a colon outside a list item's label. In Python it is a def with any
+parameter but a lone `self` or `cls`, a class whose bases break across
+lines or a call already broken across lines, whose items do not sit one
+per line with a trailing comma, so `def add(a, b):` on one line is a
+slip. In a commit it is a co-author line or an AI attribution. It
+reports and never rewrites. The post write hook runs it on each file the
+agent writes, and `brain new`, `brain refile --kind` and
+`brain steps add` run it on the file they write, so a slip is fixed in
+the same round. `brain gates` is the one command before a review and
+before a merge. It runs the gates section 0 names, then the check and
+doctor. The [reference](references/commands.md#the-check) says which
+files the check reads and where it falls short, and
+[the gates row](references/commands.md#the-gates) says what makes a
+gate, how each runs and what each exit code means.
 
 Doctor reports each defect on its own line, marked `fixable` or `flag`.
 `--fix` repairs the mechanical ones, a stale index, a name that

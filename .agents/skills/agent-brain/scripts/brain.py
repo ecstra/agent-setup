@@ -6,8 +6,8 @@ Run from anywhere inside a project that carries the kit:
 
 Prose for a new file comes in on standard input, so a heredoc in single
 quotes passes it through without the shell touching it. Exit codes: 0
-when it did the thing, 1 when it refused and said why, 2 when doctor
-still has findings.
+when it did the thing, 1 when it refused and said why, 2 while doctor's
+or the check's findings remain.
 """
 
 import argparse
