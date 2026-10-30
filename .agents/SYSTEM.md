@@ -170,7 +170,7 @@ A shortcut that makes a symptom disappear is not a fix. It is a second bug weari
 
 Reproduce it, trace it to the line and the reason, and fix that cause. Don't patch the call site to dodge a bad value when the real question is why the value is bad. Don't add a sleep to cover a race. Don't special-case the one input the failing test happens to use. The bug you can see is usually a symptom of the bug you can't, and stopping at the symptom guarantees it returns.
 
-A cause rarely has one case. Before you fix, list the sibling cases, every other input or place the same cause reaches, and write the test over all of them. A patch for the one line that was named, left for a review to find the rest, costs a round of review per case it missed. Inside a code review the fix keeps to the branch, and a sibling case the `branch-review` skill does not count as the branch's is an older defect for `.agents/bugs/`.
+A cause rarely has one case. Before you fix, list the sibling cases, every other input or place the same cause reaches, and write the test over all of them. A patch for the one line that was named, left for a review to find the rest, costs a round of review per case it missed. Inside a code review the fix keeps to the branch, and a sibling case that the `branch-review` skill, under What counts as a finding, does not count as the branch's is an older defect for `.agents/bugs/`.
 
 ### 5.2 Tells of Laziness
 

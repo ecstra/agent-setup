@@ -8,34 +8,40 @@ replies with one line per item.
 
 ```text
 You review one branch of <project root>, the range <base>...<head>, for
-one angle. Read the whole diff with `git diff '<base>...<head>'`, then
-any file you need to judge it, as much as you need. Read the build spec
-at <path to the build spec>, whose Behaviour and Edge cases say what
-the branch must do.
+one angle. Read the whole diff with
+`git diff '<base>...<head>' -- ':!.agents/reviews' <one ':!path' per other path a commit of the review's paper named>`,
+then any file you need to judge it, as much as you need, but never run
+the project's whole test suite. Read the build spec at <path to the
+build spec>, whose Behaviour and Edge cases say what the branch must
+do.
 
 Your angle is <the angle, as SKILL.md words it>.
+<for deep's fresh read, "The findings in the ledger at <ledger path> are found already, so report none of them again.">
+<in a project, "Never report a defect in these files, which the kit writes whole." and the list SKILL.md gives under What counts as a finding>
 
 Report a defect only where it has concrete harm, behaviour that breaks
 for a user or differs from the spec, data lost, leaked or written
 wrong, a security hole, an edge case a real input reaches, or for the
 overbuilding angle, code the spec never asked for, dead code or a test
 that can never fail. Never report style, wording, naming, layout or
-docs. Never report a case no real input reaches. A defect that behaves
-the same on <base> is older than the branch, so list it apart under
-Older.
+docs. Never report a case no real input reaches. A case outside the
+functions the range changed and the code the change made reachable,
+which behaves the same on <base>, is older than the branch, so list it
+apart under Older. Every other case is the branch's.
 
-Ten findings at most, the worst first. Write each to <answer file> in
-this shape.
+Ten findings at most, the worst first. Grade each breaks, bug or debt,
+the ledger's own grades, and never nit, since style is never a finding.
+Write each to <answer file> in this shape.
 
 ### C-1
 - File: <path>:<line>
-- Harm: <breaks, bug or edge>
+- Grade: <breaks, bug or debt>
 - Claim: <the defect in one or two plain sentences>
 - Scenario: <the input, what the code does, what it should do>
 
 Then a line `Older:` with each older defect as file:line and one
 sentence, or `Older: none`. Reply with one line per finding, its id and
-its harm.
+its grade.
 ```
 
 ## The verifier
@@ -43,7 +49,8 @@ its harm.
 ```text
 Finders reviewed <project root>, the range <base>...<head>, and their
 findings are in <the answer files>. Read each finding, then the code it
-names, and decide whether the scenario really happens at <head>.
+names, and decide whether the scenario really happens at <head>. Never
+run the project's whole test suite.
 
 Vote REAL where the code does what the claim says and the harm is
 concrete. Vote NOT REAL where a line of the code shows it does not
@@ -64,14 +71,17 @@ Reply with one line per finding, its name and its vote.
 
 ```text
 The main agent fixed the findings of a review of <project root>, and
-the fix is <the commit range>, which `git diff '<range>'` shows. The
+the fix is the commit <hash>, which `git show '<hash>'` shows. The
 findings it fixed are in the ledger at <ledger path>, F-<n> to F-<m>.
 
-Read the fix diff only, and the code around it as much as you need.
-Report two things and nothing else.
+Read the fix diff only, and the code around it as much as you need,
+but never run the project's whole test suite. Report three things and
+nothing else.
 - a finding of that list the fix did not settle, with the input that
   still breaks
 - a new break the fix brought in, with its scenario
+- a fix that loosened or deleted a test, swallowed an error, hardcoded
+  an answer or special cased the one input named
 
 Never report style, docs, or a defect the fix did not touch. Write each
 item to <answer file> in the finder's block shape, then reply with one
@@ -88,10 +98,14 @@ such as a new command, flag or refusal. Read the build spec at <path>,
 whose Changes say where the work left the plan.
 
 Edit docs only, never code. Check each fact you write against the code
-it describes. Follow the project's writing rules in .agents/SYSTEM.md
-section 6. One fact lives in one place, so link where another doc
-holds it. In a project, leave the files the kit writes whole as they
-are.
+it describes. Follow .agents/SYSTEM.md sections 6 and 8.1, and section
+0 of AGENTS.md where the project has one. A file under .agents/ that
+you change takes `updated=<today's date>` through `brain set` with the
+file's name. One fact lives in one place, so link where another doc
+holds it. Never edit a record, which is a decision, a bug, a memory or
+a review ledger, nor the review's own paper, <each path a commit of
+the paper named>, nor in a project the files the kit writes whole,
+<the list SKILL.md gives under What counts as a finding>.
 
 Write to <answer file> one line per doc you changed and what it now
 says, then reply with the number of docs changed.
