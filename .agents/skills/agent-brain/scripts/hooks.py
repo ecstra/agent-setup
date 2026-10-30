@@ -32,7 +32,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, TextIO, Union
 
-from brainlib import autoack, check, clock, doctor, frontmatter, handover, links, reads, schema, steps, store, task
+from brainlib import autoack, check, clock, doctor, frontmatter, handover, links, lint, reads, schema, steps, store, task
 
 BLOCK = 2
 FAILED = 1
@@ -1112,6 +1112,13 @@ def post_write(
     touched = touches(event=event, agent=agent)
     parts: list[str] = []
 
+    lint_part: Optional[str] = lint_after(
+        brain=brain,
+        paths=[touch.path for touch in touched if not touch.deleted],
+    )
+    if lint_part is not None:
+        parts.append(lint_part)
+
     checks: list[check.Checked] = [
         check.check_file(
             project=brain.root.parent,
@@ -1145,6 +1152,33 @@ def post_write(
         event_name=AFTER_WRITE.get(agent, "PostToolUse"),
     )
     return 0
+
+
+def lint_after(
+    brain: store.Brain,
+    paths: list[Path],
+) -> Optional[str]:
+    """The project's linters over each file written as one part of the context, the brain's own files aside outside the kit's checkout, or None when they leave nothing."""
+    project = brain.root.parent
+    in_kit = check.is_kit_checkout(project)
+    lines: list[str] = []
+    for path in paths:
+        if not in_project(brain=brain, path=path) or (is_inside(brain=brain, path=path) and not in_kit):
+            continue
+
+        result: lint.Linted = lint.run(
+            project=project,
+            path=path,
+        )
+        lines += result.left
+        lines += result.notes
+        if result.rewrote:
+            lines.append(f"the linters rewrote {path.name}, so read it again before the next edit")
+
+    if not lines:
+        return None
+
+    return "lint after that write:\n" + "\n".join(dict.fromkeys(lines))
 
 
 def doctor_after(

@@ -289,10 +289,32 @@ def kit_gates(
         for interpreter, version in interpreters
     ]
 
+    ruff: Optional[str] = ruff_path()
+    if ruff is None:
+        notes.append("ruff is not installed, so the tool's code is not linted, and pip or uv installs it")
+    else:
+        for words, name in (
+            (("format", "--check", "."), "ruff's layout over the tool's code"),
+            (("check", "."), "ruff's lint over the tool's code"),
+        ):
+            gates.append(
+                Gate(
+                    command=" ".join(["ruff", *words]),
+                    cwd=project / SCRIPTS,
+                    name=name,
+                    argv=(ruff, *words),
+                ),
+            )
+
     return Named(
         gates=gates,
         notes=notes,
     )
+
+
+def ruff_path() -> Optional[str]:
+    """Where ruff runs from on this machine, which the kit's own checkout lints its code with, or None."""
+    return shutil.which("ruff")
 
 
 def floor_answer() -> Optional[Answer]:
