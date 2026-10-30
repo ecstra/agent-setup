@@ -1,6 +1,6 @@
 """The house rules a machine can hold a file to, over the project's own files.
 
-Doctor reads the brain against its specs. This reads the project's own
+Doctor reads the brain against its formats. This reads the project's own
 markdown against the house prose rules of SYSTEM.md a machine can judge
 without reading for meaning, and leaves code to the project's own
 linters. It reads the prose by line as it renders for an em dash, a

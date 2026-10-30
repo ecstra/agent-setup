@@ -1,7 +1,7 @@
 """Filing a new entry and changing one that is already filed.
 
 Every field a kind carries is checked here before anything reaches disk,
-so a file cannot arrive in the brain already breaking its spec. The
+so a file cannot arrive in the brain already breaking its kind's format. The
 prose comes from the caller and is written through as it came, the
 Steps section aside, whose numbered list becomes the table.
 """

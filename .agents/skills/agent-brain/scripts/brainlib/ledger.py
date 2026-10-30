@@ -1,7 +1,7 @@
 """Review ledgers, the one body the tool edits by design.
 
 A ledger's batches and findings are structured records inside the body,
-per spec/reviews.md, so numbering a finding or flipping its status is
+so numbering a finding or flipping its status is
 bookkeeping rather than prose. Everything outside those records stays as
 it was written.
 """

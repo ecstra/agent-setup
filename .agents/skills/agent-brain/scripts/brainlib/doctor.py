@@ -581,7 +581,7 @@ def check_sections(
 def check_steps(
     brain: store.Brain,
 ) -> list[Finding]:
-    """The steps table a plan, a todo or a bug carries, per spec/plans.md.
+    """The steps table a plan, a build spec, a todo or a bug carries.
 
     The table must read as one, a list in its place turned into one on
     a plan or a todo and a plan's missing section given an empty table,

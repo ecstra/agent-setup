@@ -591,8 +591,7 @@ def add_check(
         help="the house rules a machine can check, over the files given or the project's own files, and the branch's commits",
         description=(
             "the house rules a machine can check, which are a dash, a semicolon or a colon outside a list item's label in the prose of "
-            "a markdown file, a def, a class whose bases break across lines or a broken call not stacked one per line with a "
-            "trailing comma in a Python file, and in the kit's own checkout alone the future import of annotations, over the "
+            "a markdown file, code being the project's own linters' to judge, over the "
             "files given or, with none, the project's own files, those git tracks and the new ones it does not ignore, less "
             "what git's attributes mark generated or vendored, and the branch's commits against main, the local one or a "
             "remote's, read for a co-author line or an AI attribution"

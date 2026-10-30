@@ -18,7 +18,7 @@ SEVERITIES: tuple[str, ...] = ("breaks", "bug", "debt", "nit")
 
 FILENAME_WITH_ID = re.compile(r"^(BUG|TODO|DEC|BUILD)-(\d{3})-(.+)\.md$")
 
-# A review folder is <yyyy-mm>-<branch-slug>, per spec/reviews.md.
+# A review folder is <yyyy-mm>-<branch-slug>.
 REVIEW_FOLDER = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-[a-z0-9]+(-[a-z0-9]+)*$")
 
 ID_DIGITS = 3
@@ -472,8 +472,8 @@ def as_tuple(
 # tool's own docs under skills/ follow the Agent Skills standard instead.
 NO_FRONTMATTER: tuple[str, ...] = ("SYSTEM.md",)
 
-# The folders that carry their own INDEX.md, per spec/conventions.md,
-# read off the kinds so the table lives in one place.
+# The folders that carry their own INDEX.md, read off the kinds so the
+# table lives in one place.
 INDEXED_FOLDERS: tuple[str, ...] = tuple(kind.folder for kind in KINDS.values())
 
 # The files the kit writes at the top of a project: the front doors every
