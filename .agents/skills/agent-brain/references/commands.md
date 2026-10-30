@@ -802,8 +802,12 @@ Section 0 of `AGENTS.md` names them under each heading whose text is
 Lint, such as `### Lint` or `### 0.3 Lint`, at any level, in the fenced
 blocks up to the next heading at its level or above. Each line of a
 block is a file pattern, then one command with `{file}` as a word of
-its own where the file goes, such as `*.py ruff check --fix {file}`,
-and a blank line or one that opens with `#` is passed over. Where
+its own where the file goes, such as
+`*.py ruff check --fix --unfixable F401 {file}`, and a blank line or
+one that opens with `#` is passed over. A fixer that deletes what looks
+unused, such as an import, wants that fix turned off, since the hook
+runs after every write and the agent often adds the import one edit
+before the line that uses it. Where
 section 0 has no Lint heading, or `AGENTS.md` has no section 0, nothing
 runs and nothing is said.
 

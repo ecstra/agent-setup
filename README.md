@@ -132,8 +132,10 @@ after it writes nothing.
 >    [`commands.md`](.agents/skills/agent-brain/references/commands.md#the-gates)
 >    says. The linters go under a `### Lint` heading, in a fenced block,
 >    one line each, a file pattern and then one command with `{file}`
->    where the file goes, such as `*.py ruff check --fix {file}`. The
->    brain runs every line that matches on each file the agent writes
+>    where the file goes, such as
+>    `*.py ruff check --fix --unfixable F401 {file}`, which leaves an
+>    import the agent just added for the edit that uses it. The brain
+>    runs every line that matches on each file the agent writes
 >    outside `.agents/`, with no shell, and hands back what the linters
 >    could not fix, never blocking the write, as
 >    [`commands.md`](.agents/skills/agent-brain/references/commands.md#the-lint-hook)
