@@ -791,9 +791,10 @@ of a kit from before that event still block on it until the session
 restarts, which this kit's script no longer does for events it will
 learn later. Each Codex hook carries the same line in a Windows form
 beside it, run through the `py` launcher. The Claude Code one also
-carries the kit's three settings, `CLAUDE_CODE_SUBAGENT_MODEL` for the
-sub agents' model and `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how
-many tool calls may run at once, and `"idleCompaction": false`, which
+carries the kit's four settings, `"outputStyle": "Plain & Short"` for
+the chat style, `CLAUDE_CODE_SUBAGENT_MODEL` for the sub agents' model,
+`CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how many tool calls may run
+at once, and `"idleCompaction": false`, which
 keeps Claude Code from compacting a long session that sat idle for
 about an hour, while compaction when the context fills runs as before.
 The port and the upgrade add each where the project lacks the key and

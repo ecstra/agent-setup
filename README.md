@@ -102,10 +102,10 @@ uncommitted work, so commit first. Then it does all of this in one run.
   where the report says.
 - Your own hooks stay. The kit's hooks are added beside them in each
   agent's config, and any other setting of yours is left as it was.
-  The kit's own three settings for Claude Code, the sub agent model,
-  how many tool calls may run at once and idle compaction turned off,
-  are added the same way, and a value you already set for any of them
-  stays yours.
+  The kit's own four settings for Claude Code, the Plain & Short chat
+  style, the sub agent model, how many tool calls may run at once and
+  idle compaction turned off, are added the same way, and a value you
+  already set for any of them stays yours.
 - Your `.gitignore` keeps every line it had. The kit's lines go in a
   block at the top, so your own lines sit below them and win.
 - The tool's doctor runs once, builds the indexes and makes the skill
