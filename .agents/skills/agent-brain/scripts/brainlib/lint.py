@@ -12,6 +12,7 @@ import contextlib
 import fnmatch
 import itertools
 import os
+import re
 import shlex
 import signal
 import subprocess
@@ -26,8 +27,8 @@ HEADING = "lint"
 FILE = "{file}"
 PER_COMMAND = 20.0
 BUDGET = 40.0
-# a word holding one of these is shell the hook never runs, so the line is refused in words
-SHELL_MARKS = (";", "|", "&", ">", "<")
+# a line beside the fence that is all one code span, in a list item or not, is a lint line written in the wrong place
+CODE_LINE = re.compile(r"^\s*(?:[-*+]|\d+[.)])?\s*`([^`]+)`\s*$")
 LEFT_LINES = 30
 
 # the kit's own checkout lints the tool's Python with ruff, from the config beside the scripts
@@ -91,7 +92,7 @@ def lines_of(
             refused.append(f"the lint line '{raw}' does not read as words, so it is not run")
             continue
 
-        reason: Optional[str] = refusal(words)
+        reason: Optional[str] = refusal(raw=raw, words=words)
         if reason:
             refused.append(f"the lint line '{raw}' is not run, {reason}")
             continue
@@ -125,7 +126,8 @@ def written_lines(
                 at = fence.end
 
         beside.append(zero[at:stretch_end])
-        strays += [line.strip() for line in "".join(beside).split("\n") if FILE in line]
+        spans = [CODE_LINE.match(line) for line in "".join(beside).split("\n")]
+        strays += [span.group(1).strip() for span in spans if span and FILE in span.group(1)]
         found = (fenced, strays)
 
     return found
@@ -143,6 +145,7 @@ def heading_name(
 
 
 def refusal(
+    raw: str,
     words: tuple[str, ...],
 ) -> Optional[str]:
     """Why a line cannot run as one command with the file as one argument, or None."""
@@ -150,14 +153,25 @@ def refusal(
         return "a line is a file pattern then a command"
 
     command = words[1:]
-    shell = any(mark in word for word in command for mark in SHELL_MARKS)
-    if shell or "=" in command[0]:
+    if unquoted_shell(raw) or "=" in command[0]:
         return "one command per line, with no shell, so write each command on a line of its own"
 
     if FILE not in command:
         return f"the command needs the word {FILE} where the file goes"
 
     return None
+
+
+def unquoted_shell(
+    raw: str,
+) -> bool:
+    """Whether the line holds a shell operator outside quotes, which shlex's shell mode splits into a token of its own."""
+    lexer = shlex.shlex(raw, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        return any(token and set(token) <= set(lexer.punctuation_chars) for token in lexer)
+    except ValueError:
+        return False
 
 
 def matches(
