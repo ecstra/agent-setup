@@ -10,6 +10,7 @@ line when they rewrote the file, and never blocks the write.
 
 import contextlib
 import fnmatch
+import itertools
 import os
 import shlex
 import signal
@@ -25,8 +26,8 @@ HEADING = "lint"
 FILE = "{file}"
 PER_COMMAND = 20.0
 BUDGET = 40.0
-# a word that opens or closes with one of these, or holds a redirect, is shell the hook never runs
-SHELL_EDGES = (";", "|", "&", ">", "<")
+# a word holding one of these is shell the hook never runs, so the line is refused in words
+SHELL_MARKS = (";", "|", "&", ">", "<")
 LEFT_LINES = 30
 
 # the kit's own checkout lints the tool's Python with ruff, from the config beside the scripts
@@ -73,16 +74,17 @@ def lines_of(
     if zero is None:
         return [], []
 
-    written: Optional[list[str]] = written_lines(zero)
+    written: Optional[tuple[list[str], list[str]]] = written_lines(zero)
     if written is None:
         return [], []
 
-    if not written:
+    fenced, strays = written
+    if not fenced and not strays:
         return [], [f"the Lint heading holds no lint line, so nothing is linted, and each goes in a fenced block as a file pattern then one command with {FILE}"]
 
     lines: list[Line] = []
-    refused: list[str] = []
-    for raw in written:
+    refused: list[str] = [f"the lint line '{raw}' sits outside a fenced block, so it is not run" for raw in strays]
+    for raw in fenced:
         try:
             words = tuple(shlex.split(raw))
         except ValueError:
@@ -101,22 +103,30 @@ def lines_of(
 
 def written_lines(
     zero: str,
-) -> Optional[list[str]]:
-    """Every line of the fenced blocks under a Lint heading of section 0, comments and blank lines aside, or None with no such heading."""
+) -> Optional[tuple[list[str], list[str]]]:
+    """The lines of the fenced blocks under a Lint heading of section 0, comments and blank lines aside, and the lines beside them that name the file, or None with no such heading."""
     blocks: sections.Blocks = sections.blocks_of(zero)
-    found: Optional[list[str]] = None
+    found: Optional[tuple[list[str], list[str]]] = None
     for heading in blocks.headings:
         if heading_name(heading.text) != HEADING:
             continue
 
-        found = found or []
+        fenced, strays = found or ([], [])
         stretch_end: int = next(
             (later.start for later in blocks.headings if later.start > heading.start and later.level <= heading.level),
             len(zero),
         )
+        beside: list[str] = []
+        at = heading.end
         for fence in blocks.fences:
             if heading.end <= fence.start < stretch_end:
-                found += [line.strip() for line in fence.text.split("\n") if line.strip() and not line.strip().startswith("#")]
+                fenced += [line.strip() for line in fence.text.split("\n") if line.strip() and not line.strip().startswith("#")]
+                beside.append(zero[at : fence.start])
+                at = fence.end
+
+        beside.append(zero[at:stretch_end])
+        strays += [line.strip() for line in "".join(beside).split("\n") if FILE in line]
+        found = (fenced, strays)
 
     return found
 
@@ -140,7 +150,7 @@ def refusal(
         return "a line is a file pattern then a command"
 
     command = words[1:]
-    shell = any(word.startswith(SHELL_EDGES) or word.endswith(SHELL_EDGES) or ">" in word or "<" in word for word in command)
+    shell = any(mark in word for word in command for mark in SHELL_MARKS)
     if shell or "=" in command[0]:
         return "one command per line, with no shell, so write each command on a line of its own"
 
@@ -156,7 +166,9 @@ def matches(
 ) -> bool:
     """Whether the file's path from the project matches, a pattern with no slash matching the file's name and `**/` matching no folder too."""
     if "/" in pattern:
-        return any(fnmatch.fnmatchcase(relative, form) for form in (pattern, pattern.replace("**/", "")))
+        parts = pattern.split("**/")
+        forms = {"".join(part + kept for part, kept in zip(parts, choice + ("",))) for choice in itertools.product(("**/", ""), repeat=len(parts) - 1)}
+        return any(fnmatch.fnmatchcase(relative, form) for form in forms)
 
     return fnmatch.fnmatchcase(relative.rsplit("/", 1)[-1], pattern)
 
