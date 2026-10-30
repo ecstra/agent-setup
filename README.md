@@ -135,9 +135,11 @@ after it writes nothing.
 >    where the file goes, such as `*.py ruff check --fix {file}`. The
 >    brain runs every line that matches on each file the agent writes
 >    outside `.agents/`, with no shell, and hands back what the linters
->    could not fix, never blocking the write. A project with no gates
->    or linters yet has nothing to put there, so skip it and add it when
->    the first one exists.
+>    could not fix, never blocking the write, as
+>    [`commands.md`](.agents/skills/agent-brain/references/commands.md#the-lint-hook)
+>    says with what it refuses and how long a command may run. A project
+>    with no gates or linters yet has nothing to put there, so skip it
+>    and add it when the first one exists.
 
 Commit, and start your first session. The agent reads `.agents/INDEX.md`
 on its own, you do not need to point at anything.

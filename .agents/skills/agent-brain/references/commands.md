@@ -16,9 +16,9 @@ refusal, the entry written all the same.
 | Command | What it answers |
 |---|---|
 | `brain version` | The kit version this project carries, from `.agents/VERSION`. |
-| `brain status [--json]` | The clock, the standing word and the current work first, then version, doctor health, counts per tracker, open reviews, the note waiting for the next session with the branch it was written on and when, unreadable files. A claimed note a session start could not remove, `handover/handover.md.reading`, is the note waiting while none sits at `handover/handover.md`, and its line says it was read before. The JSON form carries all of that but the clock and the word. The note is under `handover`, null when none waits, else its `branch` and its `written` moment, the first null where the header names none and the second where the header gives none in the one ISO shape the tool writes a moment in, with `again` beside them, true for a note read before. The chain is under `task`, which is null when the file does not read as a chain. The `latest_handover` key and the `handover` count of 1.4.0 are gone. |
+| `brain status [--json]` | The clock, the standing word and the current work first, then version, doctor health, counts per kind by status, the build specs among them, open reviews, the note waiting for the next session with the branch it was written on and when, unreadable files. A claimed note a session start could not remove, `handover/handover.md.reading`, is the note waiting while none sits at `handover/handover.md`, and its line says it was read before. The JSON form carries all of that but the clock and the word. The note is under `handover`, null when none waits, else its `branch` and its `written` moment, the first null where the header names none and the second where the header gives none in the one ISO shape the tool writes a moment in, with `again` beside them, true for a note read before. The chain is under `task`, which is null when the file does not read as a chain. The `latest_handover` key and the `handover` count of 1.4.0 are gone. |
 | `brain ack` | The clock and where the owner's standing word to proceed stands, off, held, or on with what is left of it and what ends it. |
-| `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. The kinds are bug, decision, doc, memory, plan, review and todo. |
+| `brain list <kind> [--status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. The kinds are bug, build-spec, decision, doc, memory, plan, review and todo. |
 | `brain show <key> [--meta]` | The whole file, or with `--meta` its frontmatter only. |
 | `brain path <key>` | The absolute path behind a key. |
 | `brain links <key> [--json]` | What the entry links to, and every entry that links to it. |
@@ -40,7 +40,7 @@ answers nothing. Every command that takes a key reads it this way.
 | Command | What it does |
 |---|---|
 | `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry from the prose on standard input and prints its path, then any slip the check finds in it, as [the check](#the-check) says. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`, a path into `handover/` included, since no link goes into the folder whose one note is read once. |
-| `brain set <key> field=value ...` | Changes fields, checks values and dates, applies the lifecycle rules, stamps `updated`. |
+| `brain set <key> field=value ...` | Changes fields, checks values and dates, applies the lifecycle rules, stamps `updated`, and prints the entry's path. Where the new status skips the steps that point at the entry, a todo or a build spec dropped or a todo or a bug refiled, it then prints one line for each step of an open entry that now reads skipped, `<id> step <n> now reads skipped, since <key> is <status>`, so the plan or the build spec that lost the step is seen to, and the entry that lost it stays valid. |
 | `brain refile <key> --title T` | Renames for a new title. The id stays, every link follows. |
 | `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input, and prints the new one's path and any slip the check finds in it, as `brain new` does. Both files stay, linked both ways, the old one marked `refiled` with the new one's id in `became`, which every step that pointed at the old one follows, save a step whose own entry the new one's steps point back at, which stays on the old one as skipped while the new one is open and follows once it closes. Refused when a step of the new body points at the old entry, or at an open entry whose steps point back at it at any remove, since the new entry takes the old one's pointers over. |
 | `brain index` | Rebuilds every `INDEX.md` and prints the ones that changed. |
@@ -59,6 +59,9 @@ Fields by kind, all passed as flags to `new` or as `field=value` to `set`.
 - plan: `--by owner|agent`, owner unless said otherwise. `status` is
   open, done or dropped, `born` defaults to today, `done` is the
   closing date.
+- build-spec: `--branch` required. `status` is draft, which it is
+  filed as, acked, closed or dropped, `born` defaults to today, `done`
+  is the closing date, which closed and dropped both want.
 - decision: `--area` required. `status` is standing or superseded,
   `date` defaults to today, `superseded-by` names the successor.
 - memory: `--type project|feedback|reference` required.
@@ -68,11 +71,13 @@ Fields by kind, all passed as flags to `new` or as `field=value` to `set`.
 
 The body must carry its kind's required headings. A plan carries `Why`
 and `Done when`, with `Steps` added by the tool when the prose has
-none, a bug `Problem` and `Evidence`, a todo `What` and `Done when`, a
-decision `Decision`, and a review `Summary`, `Batches` and `Findings`.
-An empty standard input writes the headings and nothing else, for
-filling in afterwards, a plan aside, which is filed from its prose or
-not at all.
+none, a build spec `Goal`, `Behaviour`, `Edge cases`, `Out of scope`,
+`Decisions` and `Proof`, with `Changes` optional and `Steps` added the
+same way, a bug `Problem` and `Evidence`, a todo `What` and
+`Done when`, a decision `Decision`, and a review `Summary`, `Batches`
+and `Findings`. An empty standard input writes the headings and
+nothing else, for filling in afterwards, a plan and a build spec
+aside, which are filed from their prose or not at all.
 
 ## The standing word
 
@@ -131,9 +136,10 @@ The chain from the plan down to the step the agent is on, per
 prints under the clock and the standing word, one line per link,
 outermost first, `task none` when nothing is on. A plan prints as
 `plan <name>, step <n> of <m>, <text>`, a todo as
-`task <id>, step <n> of <m>, <text>`, a bug as `bug <id>` the same
-way, a review as `review <name>, batch <n> of <m>, <status>`, the
-first batch not yet done. The step is the first pending row of the
+`task <id>, step <n> of <m>, <text>`, a build spec as `build <id>` and
+a bug as `bug <id>` the same way, a review as
+`review <name>, batch <n> of <m>, <status>`, the first batch not yet
+done. The step is the first pending row of the
 entry's steps table, read fresh each time with a pointed step's mark
 taken from its entry, so nothing is stored beside the table itself, a
 todo or a bug with no table prints its id alone, and an entry whose
@@ -142,8 +148,8 @@ every step is settled says so and how to close it.
 | Command | What it does |
 |---|---|
 | `brain task` | The chain as it stands, or `task none`. |
-| `brain task on <key> [--replace]` | Starts work on an open plan, todo, bug or review, by id, name or path. With nothing on, it is the root. With a chain on, it goes under the innermost link only where the rules allow, which is a review under a todo or a bug, and under a plan, a todo or a bug the entry its current step points at. The entry already innermost is left where it is. Anything else is refused with the link that stands, and `--replace` sets the whole chain aside for it. Refused for a closed entry, a decision, a doc or a memory, an unknown key, or one several entries share. |
-| `brain task done`, `brain task skip` | Marks the step the innermost link stands on done or skipped in the entry's file, so the work moves to the next pending one. Refused on a review, whose step is its batch, on a step that points at an entry, which takes its mark from that entry, on an entry with no steps, and once every step is settled. Once every step is settled the line gives the set command that closes the entry, with the closing date a plan or a todo wants, and the Fix section a bug wants and the Done when a todo wants named. |
+| `brain task on <key> [--replace]` | Starts work on an open plan, build spec, todo, bug or review, by id, name or path, a build spec counting as open while draft or acked. With nothing on, it is the root, a build spec with no plan above it included. With a chain on, it goes under the innermost link only where the rules allow, which is a review under a build spec, a todo or a bug, and under a plan, a build spec, a todo or a bug the entry its current step points at. The entry already innermost is left where it is. Anything else is refused with the link that stands, and `--replace` sets the whole chain aside for it. Refused for a closed entry, a decision, a doc or a memory, an unknown key, or one several entries share. |
+| `brain task done`, `brain task skip` | Marks the step the innermost link stands on done or skipped in the entry's file, so the work moves to the next pending one. Refused on a review, whose step is its batch, on a step that points at an entry, which takes its mark from that entry, on an entry with no steps, and once every step is settled. Once every step is settled the line gives the set command that closes the entry, with the closing date a plan, a build spec or a todo wants, and the Fix section a bug wants and the Done when a todo wants named. |
 | `brain task step <n>` | Marks step `n` of the innermost link pending again, and the work stands on the first pending step, which is `n` unless an earlier step is pending too. Refused on a review, on a step that points at an entry, on an entry with no steps or no step `n`, and on a step that is pending already. |
 | `brain task off [--all]` | Drops the innermost link, or with `--all` the whole chain, and takes the file away once it is empty. |
 
@@ -236,16 +242,17 @@ dropped without a word. A pipe in a step is written into its cell as
 |---|---|
 | `brain new plan --title T --description D [--by owner\|agent] [--link P] [--category C]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. The steps go under a heading that reads `## Steps` and nothing more, and a Steps heading at another level or with a colon after it is refused, since the readers would never find it. `by` is owner unless said otherwise, `--link`, `--category` and what it prints work as for any kind, and a field flag a plan does not carry is refused. |
 | `brain steps <key>` | The entry in a few lines, its status and the count of settled steps, then one line per step with what it points at and its mark. |
-| `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers, then any slip the check finds in the entry, as `brain new` does. A todo or a bug with no Steps section gets one where its kind's sections put it, and a numbered list written under Steps by hand becomes the table first, its rows set by the plan's or the todo's own `by` and by agent on a bug. Refused on an entry that is not open, for a step that points at the entry itself, for one that points at an entry whose steps point back here at any remove, since the two would wait on each other for good, and on a plan whose steps sit under a heading that is not `## Steps`. |
-| `brain steps <key> step <n> pending\|done\|skipped` | Marks a step that points at nothing, or one whose pointer reaches nothing the brain can read, a dead key or an id two files carry after a merge, which doctor reports. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped, and a step whose todo or bug was refiled follows it to the entry filed in its place. The tool refreshes it whenever the entry's status changes, a ledger close included, while the holder is open, and a retitle rewrites a cell naming the entry by hand as its id in every holder, or as the new name for a file with no id, which doctor reports, so marking a pointed step by hand is refused. Refused on an entry that is not open, whose table is its record. |
+| `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers, then any slip the check finds in the entry, as `brain new` does. A todo or a bug with no Steps section gets one where its kind's sections put it, and a numbered list written under Steps by hand becomes the table first, its rows set by the plan's or the todo's own `by` and by agent on a build spec or a bug. Refused on an entry that is not open, for a step that points at the entry itself, for one that points at an entry whose steps point back here at any remove, since the two would wait on each other for good, and on a plan whose steps sit under a heading that is not `## Steps`. |
+| `brain steps <key> step <n> pending\|done\|skipped` | Marks a step that points at nothing, or one whose pointer reaches nothing the brain can read, a dead key or an id two files carry after a merge, which doctor reports. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the build spec or the review closed, skipped when the entry was dropped, and a step whose todo or bug was refiled follows it to the entry filed in its place. The tool refreshes it whenever the entry's status changes, a ledger close included, while the holder is open, and a retitle rewrites a cell naming the entry by hand as its id in every holder, or as the new name for a file with no id, which doctor reports, so marking a pointed step by hand is refused. Refused on an entry that is not open, whose table is its record. |
 
-A plan goes done, a todo done and a bug fixed with `brain set` once
-every step is done or skipped, and the tool refuses it before then,
-a todo or a bug with no Steps section closing freely and an entry with
-an empty table closing on its Done when alone. A todo or a bug whose
-Steps holds anything but the table is refused its close too, a
-numbered list not yet turned into it as much as prose or bullets from
-before the table, since the tool reads only the table there. On an
+A plan goes done, a todo done, a build spec closed and a bug fixed
+with `brain set` once every step is done or skipped, and the tool
+refuses it before then, a todo or a bug with no Steps section closing
+freely and an entry with an empty table closing on its Done when
+alone. A todo or a bug whose Steps holds anything but the table is
+refused its close too, a numbered list not yet turned into it as much
+as prose or bullets from before the table, since the tool reads only
+the table there. On an
 open entry `brain steps add` turns a numbered list into the table, and
 so does `--fix` on a todo, never on a bug, while prose or bullets
 neither turns, so make them a numbered list first or move them under
@@ -258,11 +265,12 @@ one that does not read, a step line sitting outside the table, a step
 whose pointer reaches nothing, a pointed mark that drifted, a pointer
 left on a refiled entry or written by name, two open entries whose
 steps wait on each other, a `became` on an entry that is not refiled
-or naming nothing, two files or the wrong kind, an entry done or fixed
-with a step still pending, since dropped, wontfix and refiled close as
-they are, and a plan with no Steps section at all. Four of those it
-repairs under `--fix`, the drifted mark, the pointer, which it moves
-on to the entry filed in the refiled one's place or writes as the id,
+or naming nothing, two files or the wrong kind, an entry done, fixed
+or closed with a step still pending, since dropped, wontfix and
+refiled close as they are, and a plan with no Steps section at all.
+Four of those it repairs under `--fix`, the drifted mark, the pointer,
+which it moves on to the entry filed in the refiled one's place or
+writes as the id,
 a numbered list under a plan's or a todo's Steps, which becomes the
 table with its rows marked by the entry's own status, pending while
 it is open, done once it is done, skipped once it was dropped or
@@ -277,8 +285,8 @@ it is.
 | Command | What it does |
 |---|---|
 | `brain ledger open <branch> --summary S [--level quick\|standard\|deep]` | Creates `reviews/<yyyy-mm>-<branch-slug>/ledger.md` with the three sections and an empty batch table, the level recorded in its header, standard unless given. The old levels, low, medium, high and max, still read in a ledger opened before 2.0.0, and a new one never takes them. The summary is one line, or `-` to read it from standard input inside a quoted heredoc, which keeps the shell off it, and it is refused when empty or when it runs to more than one line. Standard input is read as UTF-8 wherever the tool takes it, and a byte that is not is refused. |
-| `brain ledger batch <ledger> --theme T` | Adds the next batch, numbered past the highest one, status pending, and prints its number. The theme is one line with no pipe. A batch past the cap of five that [the ledger](../SKILL.md#the-brains-files) holds to is refused, the one themed `closing pass` aside, however it is cased, which a ledger from before 2.0.0 may carry. |
-| `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE\|auto] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. The ack is the owner's word that starts a batch, recorded on it, so `fixing`, `verified` and `done` on a batch that holds findings are refused until the batch carries one, and verification closes the batch with no further word. An ack of `auto` is the standing word's stamp, and the standing word section says when it is taken, when it is refused, and what a stamp left on a pending batch means. Refuses when given none of them, and refuses `verified` or `done` while a finding in the batch is still open. A batch with no findings runs and closes without an ack. A batch starts whatever the batches before it stand at, since their order is the review's. The one change of theme refused is the batch themed `closing pass` given a theme the cap counts while the cap is full, and the refusal says that batch keeps its theme. An open finding filed into a batch already verified or done, or reopened there, or a finding moved in already fixed, puts the batch back to `fixing` with its ack kept, since the word covered it, so the late fix is verified like the rest. A batch that had none, an empty one closed without an ack and then given a finding, asks for the ack before anything else. The ack, like the theme, is one line with no pipe. |
+| `brain ledger batch <ledger> --theme T` | Adds the next batch, numbered past the highest one, status pending, and prints its number. The theme is one line with no pipe. A batch past the cap of five that [the ledger](../SKILL.md#the-brains-files) holds to is refused whatever its theme, and a batch themed `closing pass`, which a ledger from before 2.0.0 may carry, counts toward the cap like any other. |
+| `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE\|auto] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. The ack is the owner's word that starts a batch, recorded on it, so `fixing`, `verified` and `done` on a batch that holds findings are refused until the batch carries one, and verification closes the batch with no further word. An ack of `auto` is the standing word's stamp, and the standing word section says when it is taken, when it is refused, and what a stamp left on a pending batch means. Refuses when given none of them, and refuses `verified` or `done` while a finding in the batch is still open. A batch with no findings runs and closes without an ack. A batch starts whatever the batches before it stand at, since their order is the review's. A batch takes any new theme, since a rename never changes the count. An open finding filed into a batch already verified or done, or reopened there, or a finding moved in already fixed, puts the batch back to `fixing` with its ack kept, since the word covered it, so the late fix is verified like the rest. A batch that had none, an empty one closed without an ack and then given a finding, asks for the ack before anything else. The ack, like the theme, is one line with no pipe. |
 | `brain ledger add <ledger> "claim" --severity S [--found-by review\|recheck] [--batch n]` | Records the next finding, numbered past the highest one, and prints its id. A finding the recheck of a fix found takes `recheck`, and an old ledger's `hunter` still reads. The claim is one line. A batch number must name a row of the table, so no finding is filed where the report cannot see it. With `-` in place of the claim, the claims come in on standard input inside a quoted heredoc, one per line, all filed with the same severity, batch and found-by in one write, so they land whole or not at all, and the ids print one per line. That keeps the shell off a backtick or a dollar sign in a claim, and files a batch's worth in one call. Empty standard input is refused. |
 | `brain ledger set <ledger> F-NN [F-NN ...] field=value ...` | Changes a finding, or every finding named, each value one line taken as written. The findings come first and the changes after them, so no word meant for one finding lands on another. Several findings take the same changes in one write, so the findings a group's commit fixed get its hash in one call, whole or not at all, and a finding the ledger does not have refuses the call. The call is refused too, with a message that names the word, for a finding's id after the first change, a change before the first finding, a field given twice, a finding named twice, and an id in lower case such as `f-03`, and it is refused for findings with no change. A ledger given as a finding's id, in either case, is refused as the ledger's key left out. The fields are severity, found-by, batch, status, fix and reason, and a line a hand edit lost comes back. A fixed finding always names its commit, `fix=<hash>`, a refuted, a wontfix or a deferred one says why in the same call, `reason=<one line>`, and the reason leaves with the status, as the fix does with a status moved away from fixed, save a `fix=` the same call gives, which stands on every finding the call names, whatever its status. A finding that moves into fixed names its commit in the same call or the call is refused whole, whatever fix an earlier call left on it, and one fixed already and set fixed again keeps its commit. A batch must be one the table has. The statuses are open, fixed, refuted, wontfix and deferred, and a refuted finding, like a wontfix, has landed and needs no batch. |
 | `brain ledger report <ledger>` | The ledger's state in a few lines, counted from the file, with a blank status read as open the way close reads it. The first line gives the status and the counts, then one line per batch with its status, ack and counts, then a last line saying what comes next. That last line names an open or a fixed finding filed into no batch the table has before anything else, since a fix is verified by its batch, then walks the batches in order and says what the first unfinished one needs, the owner's word for a pending one, or its start when the ack is already on it or the standing word holds, a stamp from an earlier word counting only while the word holds, the ack on record for one that holds findings and has none, the standing word's while one holds, then its open findings, a late one included, its verification, and its marking done. Once every batch is done it says to close the ledger. |
@@ -418,29 +426,29 @@ any link standing there. No other file is removed.
 
 ## The check
 
-Doctor reads the brain against its formats. The check reads the project's
-own markdown and Python, and the branch's commits, against the rules of
-SYSTEM.md a machine can judge without reading for meaning. It reports
-and never rewrites, since most of its slips need new words that only the
-writer can choose.
+Doctor reads the brain against its formats. The check reads the
+project's own markdown and the branch's commits against the rules of
+SYSTEM.md a machine can judge without reading for meaning. Code is not
+the check's, since the project's own linters judge it, as
+[the lint hook](#the-lint-hook) says. It reports and never rewrites,
+since most of its slips need new words that only the writer can
+choose.
 
 | Command | What it does |
 |---|---|
-| `brain check [paths...] [--json]` | Prints one line per slip, `path:line: message`, or `path: message` for a slip with no line such as a file that cannot be read, or `commit <hash>: message` for a commit, then `clean` or the count of findings. With `--json` it prints one JSON list in their place, each slip with its `path`, its `line`, 0 where it has none, and its `message`. Exit 2 while any slip remains. Each note goes to standard error and is no slip, such as a file named and passed over, a Python file the check could not parse, a warning git gave as it listed the files, or the commits not read. With no paths it reads the project's files and the branch's commits, and with paths the files named and those under each folder named, never the commits. A path that is not there, or that leads outside the project once its links are resolved, is refused, exit 1, and so is a run where git cannot list the files, as outside a repository, or read their attributes. |
+| `brain check [paths...] [--json]` | Prints one line per slip, `path:line: message`, or `path: message` for a slip with no line such as a file that cannot be read, or `commit <hash>: message` for a commit, then `clean` or the count of findings. With `--json` it prints one JSON list in their place, each slip with its `path`, its `line`, 0 where it has none, and its `message`. Exit 2 while any slip remains. Each note goes to standard error and is no slip, such as a file named and passed over, a file that is not markdown among them, a warning git gave as it listed the files, or the commits not read. With no paths it reads the project's files and the branch's commits, and with paths the files named and those under each folder named, never the commits. A path that is not there, or that leads outside the project once its links are resolved, is refused, exit 1, and so is a run where git cannot list the files, as outside a repository, or read their attributes. |
 
-With no paths the check reads the markdown and Python files git lists,
-those it tracks and the new ones it does not ignore. A file counts as
-markdown or Python by its suffix alone, `.md` or `.py` in any case, so a
-`.markdown`, `.mdx` or `.rst` file, a `.pyi` stub, a script with no
-suffix and the code of any other language are never read. A name git
-lists that is gone from the disk, or is a link, a folder or a pipe
-there, is left out. A folder git warns it could not open is one slip,
-since the new files under it went unread, and git's other warnings are
-notes. A folder named on the command line stands for what git lists
-under it, dotted folders included, and outside git for the markdown and
-Python files under it that no dotted folder holds. Each file is read
-once, by the file it resolves to, and a file that cannot be read or
-decoded, markdown as UTF-8 and Python by the coding it declares, is one
+With no paths the check reads the markdown files git lists, those it
+tracks and the new ones it does not ignore. A file counts as markdown
+by its suffix alone, `.md` in any case, so a `.markdown`, `.mdx` or
+`.rst` file and code of any language are never read. A name git lists
+that is gone from the disk, or is a link, a folder or a pipe there, is
+left out. A folder git warns it could not open is one slip, since the
+new files under it went unread, and git's other warnings are notes. A
+folder named on the command line stands for what git lists under it,
+dotted folders included, and outside git for the markdown files under
+it that no dotted folder holds. Each file is read once, by the file it
+resolves to, and a file that cannot be read or decoded as UTF-8 is one
 slip.
 
 Some files are passed over wherever the check meets them. A file git's
@@ -488,22 +496,6 @@ drive path such as `C:\`, a path's line number or a host's port such as
 time or a ratio, an emoji shortcode such as `:tada:`, and the quote
 markers.
 
-Python is read from its syntax tree and its tokens, per SYSTEM.md 2.4. A
-def with any parameter but a lone `self` or `cls`, however short, a
-class whose bases break across lines and a call already broken across
-lines must each hold their items one per line, the first on a line below
-the bracket's, with a trailing comma after the last. So `def add(a, b):`
-on one line is a slip, while a call or a class kept on one line is not
-judged. A lone argument or base that is a literal, a string or a
-generator may open on the bracket's line and takes no comma. A lambda,
-and anything inside a formatted string, is not judged. In the kit's own
-checkout alone, `from __future__ import annotations` is a slip too,
-which the kit's code keeps out by its convention. A Python file the
-interpreter running the check cannot parse, or cannot parse within its
-limits, is a note on standard error that names that interpreter's
-version, and no slip, since whether a file parses is for the project's
-tests to say.
-
 With no paths the check reads the branch's commits too, those of HEAD
 that no `main` git knows reaches, the local one or any remote's, so on
 main itself there are none. A commit carries a slip for a line that
@@ -531,13 +523,6 @@ runs the check with no paths before a review and before a merge.
 
 The check falls short in these places.
 
-- A call or a class kept on one line is never judged, though SYSTEM.md
-  2.4 holds every call, since where a short call should break needs a
-  line length the rules do not set. A one line call of several arguments
-  is the review's to find.
-- Types are not judged, since SYSTEM.md 2.3 asks for an annotation where
-  a type is not obvious, which takes reading for meaning, and a type
-  checker is the tool for the rest.
 - A wrapped line of a paragraph that opens with a number and a period,
   such as `2026. Then`, reads as a numbered list item, so keep such a
   number off the start of a line.
@@ -633,14 +618,22 @@ line on standard error that names the shell. On Windows a bash under the
 Windows folder, the WSL launcher, is passed over for the next one on the
 path.
 
-In the kit's own checkout the tool's own tests come first,
-`<interpreter> -m unittest discover -s tests -t .` in the scripts
-folder, under the interpreter running the command and then under
+In the kit's own checkout the tool's own tests come first, as one gate,
+`<interpreter> -m tests.parallel` in the scripts folder, which runs
+each test class, a long one cut into batches of six tests, in a
+process of its own, as many at once as the machine has cores, and
+turns red where a batch fails or a test module will not import. It
+runs them under the interpreter running the command and under
 `/usr/bin/python3` where that is another interpreter and answers at the
-kit's floor of 3.9 or above. One below 3.9 is named in one line as not
-run, and each kit gate names the Python version it runs under. Section
-0's gates follow, where the kit's `AGENTS.md` names any. An interpreter
-whose `sys.executable` is empty exits 1 with nothing run.
+kit's floor of 3.9 or above, given as `--python /usr/bin/python3`. One
+below 3.9 is named in one line as not run, and the gate names the
+Python versions it runs under. Two gates of ruff follow in the same
+folder, `ruff format --check .` and `ruff check .`, under the config
+the scripts folder carries, which [the lint hook](#the-lint-hook)
+describes. Where ruff is not on the path, one line says the tool's code
+is not linted and both are left out. Section 0's gates follow, where
+the kit's `AGENTS.md` names any. An interpreter whose `sys.executable`
+is empty exits 1 with nothing run.
 
 The gates fall short in these places.
 
@@ -703,7 +696,7 @@ and `--project` has to name a folder that is there.
 | Command | What it does |
 |---|---|
 | `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain, which means the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, Claude Code's with the rules under `permissions.deny` that refuse reading the kit's code, by the brain's path and by the skill link's, an earlier spelling of the kit's replaced and the project's own rules kept, the review's sub agent definitions, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`, the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
-| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Refuses without a brain, refuses while a file it would replace holds uncommitted work, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills` or in `.claude/skills` where the link goes, and a project stamped before a sub agent definition shipped that keeps a file of its own under that definition's name, each definition counted from its own release since a skill gains them later, until the folder or file is moved aside. A folder or a file the kit itself wrote is known by its bytes and passes. Refuses too a project that is the kit itself, or a worktree or a clone of it, since that is where the tool's code is the work. It knows one by the folder under any spelling, or where the two folders, each the top of its own work tree, meet on walking back through their local origins, at most eight clones and a bare repository among them, to a folder or a remote repository both come from, so a kit vendored inside a project's repository, or a project folder inside the kit's, is no clone of it. The walk looks for a local origin under the names git's clone tries for it, the path with `/.git` after it, the path itself, then with `.git/.git` and with `.git` after it, and goes into the first that is a folder, where git is asked under `GIT_CEILING_DIRECTORIES` set to that folder's parent, so it answers for that folder alone and never for a repository above it. Every git call of the walk runs without the variables `git rev-parse --local-env-vars` names, so a `GIT_DIR` or a `GIT_WORK_TREE` a git hook exported never answers for a folder the walk asks about, while config given in command scope, through `git -c` or `GIT_CONFIG_COUNT` with its keys and values, still holds, so a `safe.directory` or a `safe.bareRepository` given that way reaches every git the walk runs. The walk asks git only `rev-parse` and `remote get-url`, so it opens no transport and runs no command a walked folder's config names. It reaches a folder whose name holds a byte that is not UTF-8 on every POSIX file system, while such a path on Windows, and under a locale that is not UTF-8 a name outside its codec, is taken as not there. It ends where git opens no repository, at a plain folder standing under a name git's clone tries first, such as `/srv/hub` beside the bare `/srv/hub.git` a project was cloned from by `git clone /srv/hub`, and at one git keeps closed for safety, a bare origin while the owner's config sets `safe.bareRepository` to `explicit` or a folder git refuses for its owner. Two clones of one such folder still meet there, since a folder is recorded before git is asked. An origin that is a file naming its repository is no folder to go into, so the walk ends at its path. Two clones that name it by two spellings of that path do not meet. A clone the walk misses in any of these ways is upgraded as any project is, the kit's files written over its copies of them under the refusal over uncommitted work. A walked folder holding a named pipe called `HEAD` holds the walk up as it holds git's own clone up, since the upgrade's git runs with no time limit. Git matches the ceiling against the folder's path as text, in the system's spelling, so an origin spelled another way on a disk that takes two spellings for one, by case or by Unicode form, or reached through a second path to the same volume such as macOS's `/System/Volumes/Data`, leaves git free to answer for a repository above it. Git also reads a `:` in the ceiling, or a `;` on Windows, as a break between folders, so an origin whose parent's path holds that separator does the same. That matters only where one repository holds both the kit and the project, and there the upgrade takes the project for a clone of the kit and installs nothing, which writes over no work. The walk is built for git 2.28 or later. Every run names, while they remain, the notes a project filed under `handover/` before the folder became the tool's, any markdown file there, nested too, that is not the tool's note, one at the note's own path whose header is not the tool's included, and says to move what still matters into `docs/` or `memory/` through `brain new` and delete the rest, which the upgrade never does itself. |
+| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Every run removes what the kit wrote and no longer ships, each file named in the report, a file the kit dropped from one of its skill folders, the brain's spec files the kit kept under `.agents/spec/` before 2.0.0, with the folder once it is empty, and the review's fixer and hunter definitions under `.claude/agents/` where the project's stamp says the kit wrote them, from the release each shipped in up to 2.0.0. A file of the project's own in `.agents/spec/` stays, named in the report to file under `docs/` through `brain new`. Refuses without a brain, refuses while a file it would replace holds uncommitted work, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills` or in `.claude/skills` where the link goes, and a project stamped before a sub agent definition shipped that keeps a file of its own under that definition's name, each definition counted from its own release since a skill gains them later, until the folder or file is moved aside. A folder or a file the kit itself wrote is known by its bytes and passes. Refuses too a project that is the kit itself, or a worktree or a clone of it, since that is where the tool's code is the work. It knows one by the folder under any spelling, or where the two folders, each the top of its own work tree, meet on walking back through their local origins, at most eight clones and a bare repository among them, to a folder or a remote repository both come from, so a kit vendored inside a project's repository, or a project folder inside the kit's, is no clone of it. The walk looks for a local origin under the names git's clone tries for it, the path with `/.git` after it, the path itself, then with `.git/.git` and with `.git` after it, and goes into the first that is a folder, where git is asked under `GIT_CEILING_DIRECTORIES` set to that folder's parent, so it answers for that folder alone and never for a repository above it. Every git call of the walk runs without the variables `git rev-parse --local-env-vars` names, so a `GIT_DIR` or a `GIT_WORK_TREE` a git hook exported never answers for a folder the walk asks about, while config given in command scope, through `git -c` or `GIT_CONFIG_COUNT` with its keys and values, still holds, so a `safe.directory` or a `safe.bareRepository` given that way reaches every git the walk runs. The walk asks git only `rev-parse` and `remote get-url`, so it opens no transport and runs no command a walked folder's config names. It reaches a folder whose name holds a byte that is not UTF-8 on every POSIX file system, while such a path on Windows, and under a locale that is not UTF-8 a name outside its codec, is taken as not there. It ends where git opens no repository, at a plain folder standing under a name git's clone tries first, such as `/srv/hub` beside the bare `/srv/hub.git` a project was cloned from by `git clone /srv/hub`, and at one git keeps closed for safety, a bare origin while the owner's config sets `safe.bareRepository` to `explicit` or a folder git refuses for its owner. Two clones of one such folder still meet there, since a folder is recorded before git is asked. An origin that is a file naming its repository is no folder to go into, so the walk ends at its path. Two clones that name it by two spellings of that path do not meet. A clone the walk misses in any of these ways is upgraded as any project is, the kit's files written over its copies of them under the refusal over uncommitted work. A walked folder holding a named pipe called `HEAD` holds the walk up as it holds git's own clone up, since the upgrade's git runs with no time limit. Git matches the ceiling against the folder's path as text, in the system's spelling, so an origin spelled another way on a disk that takes two spellings for one, by case or by Unicode form, or reached through a second path to the same volume such as macOS's `/System/Volumes/Data`, leaves git free to answer for a repository above it. Git also reads a `:` in the ceiling, or a `;` on Windows, as a break between folders, so an origin whose parent's path holds that separator does the same. That matters only where one repository holds both the kit and the project, and there the upgrade takes the project for a clone of the kit and installs nothing, which writes over no work. The walk is built for git 2.28 or later. Every run names, while they remain, the notes a project filed under `handover/` before the folder became the tool's, any markdown file there, nested too, that is not the tool's note, one at the note's own path whose header is not the tool's included, and says to move what still matters into `docs/` or `memory/` through `brain new` and delete the rest, which the upgrade never does itself. |
 
 What is the project's stays the project's, which is everything under
 `.agents/` that is not the kit's, section 0, `README.md`, `CODEOWNERS`,
@@ -768,7 +761,7 @@ standard input.
 | `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
 | `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Claude Code fires it once after each round of tool calls, Codex and Gemini CLI after each shell call. |
 | `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, anything in the `handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
-| `post-write` | After a write, runs the check on each file just written inside the project, a file reached through a link that leads out of it left out, and hands its slips back as context under `brain check after that write:`, so they are fixed in the same round, a file the check passes over left out as the check leaves it out. A file the check could not judge, since git cannot read its attributes or the interpreter cannot parse it, is named on standard error, in UTF-8, and never in the context, and a standard error that cannot take the note loses it and nothing else. After a write inside `.agents/`, runs doctor too and hands its findings back the same way, or its error in words where it cannot read the brain, and still exits 0, since an exit 1 would show the person the error and lose the slips. |
+| `post-write` | After a write, runs the project's own linters on each file just written, as [the lint hook](#the-lint-hook) says, and hands back what they left under `lint after that write:`. Then runs the check on each file just written inside the project, a file reached through a link that leads out of it left out, and hands its slips back as context under `brain check after that write:`, so they are fixed in the same round, a file the check passes over left out as the check leaves it out. A file the check could not judge, since git cannot read its attributes, is named on standard error, in UTF-8, and never in the context, and a standard error that cannot take the note loses it and nothing else. After a write inside `.agents/`, runs doctor too and hands its findings back the same way, or its error in words where it cannot read the brain, and still exits 0, since an exit 1 would show the person the error and lose the slips. |
 
 Context goes back as one JSON object naming the event, which all three
 agents read on every event. Codex also takes plain text at the start of
@@ -798,3 +791,78 @@ sub agents' model and `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY` for how
 many tool calls may run at once. The port and the upgrade add each to
 a project's `env` when it lacks the key and leave a value the project
 set.
+
+## The lint hook
+
+The post write hook runs the project's own linters on each file the
+agent writes, adds or moves with its edit tools inside the project, a
+deleted file and one reached through a link that leads out of the
+project left out, and in a project never on a file inside `.agents/`.
+Section 0 of `AGENTS.md` names them under each heading whose text is
+Lint, such as `### Lint` or `### 0.3 Lint`, at any level, in the fenced
+blocks up to the next heading at its level or above. Each line of a
+block is a file pattern, then one command with `{file}` as a word of
+its own where the file goes, such as `*.py ruff check --fix {file}`,
+and a blank line or one that opens with `#` is passed over. Where
+section 0 has no Lint heading, or `AGENTS.md` has no section 0, nothing
+runs and nothing is said.
+
+A pattern with no slash matches the file's name, and one with a slash
+matches its path from the project's root, where a `*` crosses folders
+and each `**/` matches no folder too, so `src/**/*.py` takes
+`src/app.py` as well as `src/api/app.py`. Patterns match case for case.
+Every line that matches runs, in the order section 0 gives. A line is
+split into words the way a POSIX shell splits them, quotes holding a
+word together, and its command runs from the project's root with no
+shell, `{file}` replaced by the file's absolute path as one argument,
+so a space, a quote, a leading dash or a letter outside ASCII in the
+file's name reaches the command whole and never reads as an option.
+
+A line the hook cannot run as one command is not run, and the context
+names it with the reason after every write the hook lints, until
+section 0 is put right. That is a line that does not split into words,
+such as one with a quote left open, a line of one word, a line with a
+shell operator outside quotes, `;`, `|`, `&`, `>`, `<`, `(` or `)`,
+alone or glued to a word as in `{file}&&` or `2>&1`, a line whose
+command opens with a word that holds `=`, which a shell reads as a
+variable, and a line with no word `{file}`. A quoted operator is an
+argument like any other. A line written beside the fences under a Lint
+heading as one code span that holds `{file}`, in a list item or not,
+is named as sitting outside a fenced block, and a Lint heading with no
+line in a fenced block is named in one line that says how a line is
+written. A line beside a fence in any other form, such as a bullet with
+no backticks, reads as prose, so it runs nothing and nothing names it.
+
+Each command has 20 seconds, and one write has 40 seconds over every
+file it touched, so a patch over many files still ends inside the 60
+seconds Claude Code and Gemini CLI give a hook by default, since the
+kit sets no hook timeout of its own. A command past its time is
+stopped with every process it started, its process group, or its
+process tree on Windows, so none writes the file later, and the
+context names it with the seconds it had. Once the 40 seconds are
+spent, the command next in line is named as not run and the file's
+other lines are left. A program that is not installed is named in one
+line, and one that cannot start for another reason with that reason.
+The write stands either way.
+
+Under `lint after that write:`, ahead of the check's slips, the hook
+hands back each command that exited with an error, with the first 30
+lines it printed, standard output then standard error, as what the
+linters could not fix, then each lint line or command it could not
+run, and
+`the linters rewrote <name>, so read it again before the next edit`
+where the file's bytes changed, each line once. It never blocks the
+write and exits 0.
+
+In the kit's own checkout the hook runs the kit's own lines in place of
+section 0's, `ruff format {file}` then `ruff check --fix {file}` on each
+`*.py` file, the brain's own files included, under the `ruff.toml` in
+the scripts folder, which the kit's gates run too. That config holds
+the code to Python 3.9, lets a line run to 320 characters, selects
+ruff's rules F, E9, TID251 and RET505, bans
+`from __future__ import annotations`, and never removes an unused
+import on its own, since the hook runs on every write and an import is
+often added one edit before its use, so ruff names it and the agent
+removes it. A copy of the kit's tests kept in a project, under
+`.agents/skills/agent-brain/scripts/tests/`, makes the hook take the
+project for the kit's checkout, so section 0's lines do not run there.

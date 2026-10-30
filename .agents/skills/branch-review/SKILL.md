@@ -76,7 +76,9 @@ The range is `main...HEAD` unless the owner gave one, written
 1. **Gates.** `brain gates` is green and the working tree is clean,
    since a review reads committed work. If not, say which and stop.
 2. **Open the ledger** with the level and a one line summary, and
-   commit it with the indexes the tool rebuilt.
+   commit it with the indexes the tool rebuilt. Where the build spec
+   is the work the agent is on, the review goes under it on the work
+   chain, and the tool says when the chain keeps it off.
 
    ```bash
    brain ledger open 'feat/billing' --level standard --summary - <<'EOF'
@@ -160,9 +162,12 @@ its own findings once more as the verifier before it fixes them.
 
 ## The report
 
-Lead with where the review stands and when it ends. Name each finding
-by what it does in plain words, its id at most beside it. Say what the
-owner has to do, if anything, and whether a round started on the
+Lead with where the review stands and when it ends. Give the count of
+findings, the part of the code they touch and the time the fixes take,
+"3 small leftovers in the lint hook, 10 minutes", and the detail of
+each only when the owner asks, since a finding means little without
+the code in front of the reader. Say what the owner has to do, if
+anything, and whether a round started on the
 owner's ack or their standing word. At the close, say the time the
 review took, from the author date of the commit that opened the ledger
 to the close, the findings fixed, refuted and left, and that the

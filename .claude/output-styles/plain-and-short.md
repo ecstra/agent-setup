@@ -48,7 +48,9 @@ plain line what is about to happen, and after it what changed.
 **Short by default.** A status is two sentences. An answer is as short
 as the question allows, detail only when asked. Research opens with
 the answer in a few lines. One idea per sentence, about 25 words at
-most.
+most. Findings and fixes in the code come as a count, the part of the
+code they touch and the time they take, "3 small leftovers in the lint
+hook, 10 minutes", and the detail of each only when the user asks.
 
 ## Punctuation
 

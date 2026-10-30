@@ -83,22 +83,23 @@ EOF
 
 The same shape files a todo (`--area`, `--by`), a decision (`--area`),
 a memory (`--type project|feedback|reference`), a doc (`--category`),
-or a review. Each kind's required headings are in
-[the reference](references/commands.md#writing), and the tool names the
-one that is missing.
+a build spec (`--branch`) or a review. Each kind's required headings
+are in [the reference](references/commands.md#writing), and the tool
+names the one that is missing.
 
 A plan is a goal with the steps that reach it, and the steps are a
-table the tool keeps, on a plan always and on a todo or a bug whose
-work has steps. `brain new` turns a numbered Steps list in the prose,
-each line free to open with the id or the name of the todo, bug or
-review it points at, into that table. `brain steps <key> add` appends
-steps as the work teaches them, `brain steps <key> step <n> done`
-marks a step that points at nothing, or one whose pointer reaches
-nothing the brain can read, a pointed step follows its entry on its
-own, and `brain steps <key>` shows the table with its marks. A plan or
-a todo goes done, and a bug fixed, only once every step is done or
-skipped, while dropped, wontfix and refiled close as they are, and a
-closed entry's table is its record, marked no more.
+table the tool keeps, on a plan and a build spec always and on a todo
+or a bug whose work has steps. `brain new` turns a numbered Steps list
+in the prose, each line free to open with the id or the name of the
+build spec, todo, bug or review it points at, into that table.
+`brain steps <key> add` appends steps as the work teaches them,
+`brain steps <key> step <n> done` marks a step that points at nothing,
+or one whose pointer reaches nothing the brain can read, a pointed
+step follows its entry on its own, and `brain steps <key>` shows the
+table with its marks. A plan or
+a todo goes done, a build spec closed and a bug fixed only once every
+step is done or skipped, while dropped, wontfix and refiled close as
+they are, and a closed entry's table is its record, marked no more.
 
 ## Changing something
 
@@ -110,8 +111,11 @@ brain refile BUG-004 --title "Token refresh loops on expiry"
 
 `set` holds to the lifecycle rules. A bug goes `fixed` only once its Fix
 section is written, a todo goes `done` only with a date and a filled
-Done when, and a decision goes `superseded` only when it names what
-replaced it.
+Done when, a build spec goes `closed` or `dropped` only with a date,
+and a decision goes `superseded` only when it names what replaced it.
+A set that drops or refiles an entry names each step of an open entry
+that now reads skipped since it pointed there, so the plan or the
+build spec that lost the step is seen to.
 
 `refile --kind bug` turns a todo into a bug, or the reverse, with the
 new body on standard input. Both files stay and link to each other, the
@@ -175,12 +179,13 @@ Skills standard. Git ignores `.ack`, the owner's standing word, and
   level `quick`, `standard` or `deep`, `open` until every batch is
   done, then `closed`. A ledger from before 2.0.0 keeps its old level
   and its closing pass's batch. Its batches, one per round and five at
-  most beside an old closing pass's, go `pending`, `fixing` on the
-  owner's ack, `verified`, then `done`. A finding takes
-  a bug's grades and goes from `open` to `fixed` with the commit that
-  holds its change, `refuted` where the claim is wrong, `wontfix` where
-  it holds on purpose, or `deferred` on the owner's word into a bug that
-  links the ledger, each of the last three with its reason.
+  most whatever their theme, an old closing pass's counted with the
+  rest, go `pending`, `fixing` on the owner's ack, `verified`, then
+  `done`. A finding takes a bug's grades and goes from `open` to
+  `fixed` with the commit that holds its change, `refuted` where the
+  claim is wrong, `wontfix` where it holds on purpose, or `deferred` on
+  the owner's word into a bug that links the ledger, each of the last
+  three with its reason.
 - The handover note, `handover/handover.md`, is the one note a session
   leaves for the next. A write replaces the note left on its branch or
   one that names no branch, `no git` or `git could not answer`, and
@@ -281,25 +286,33 @@ once a trap quotes a heredoc of its own.
 brain doctor
 brain doctor --fix
 brain check
-brain check src/app.py docs/guide.md
+brain check README.md docs/guide.md
 brain gates
 ```
 
-Doctor reads the brain against its formats. The check reads the project's
-own markdown and Python, and the branch's commits, against the rules of
+Doctor reads the brain against its formats. The check reads the
+project's own markdown and the branch's commits against the rules of
 SYSTEM.md a machine can judge. In prose that is an em dash, a semicolon
-or a colon outside a list item's label. In Python it is a def with any
-parameter but a lone `self` or `cls`, a class whose bases break across
-lines or a call already broken across lines, whose items do not sit one
-per line with a trailing comma, so `def add(a, b):` on one line is a
-slip. In a commit it is a co-author line or an AI attribution. It
-reports and never rewrites. The post write hook runs it on each file the
-agent writes, and `brain new`, `brain refile --kind` and
-`brain steps add` run it on the file they write, so a slip is fixed in
-the same round. `brain gates` is the one command before a review and
-before a merge. It runs the gates section 0 names, then the check and
-doctor. The [reference](references/commands.md#the-check) says which
-files the check reads and where it falls short, and
+or a colon outside a list item's label, and in a commit a co-author
+line or an AI attribution. Code is never the check's, since the
+project's own linters judge it. The check reports and never rewrites.
+The post write hook runs the check on each file the agent writes, and
+`brain new`, `brain refile --kind` and `brain steps add` run it on the
+file they write, so a slip is fixed in the same round.
+
+Before the check, the same hook runs the linters section 0 of
+`AGENTS.md` names under a Lint heading on each file the agent writes
+outside `.agents/`. Under `lint after that write:` it hands back what
+they could not fix, each lint line or command it could not run, and a
+line when they rewrote the file, which is then read again before the
+next edit. It never blocks the write.
+[The lint hook](references/commands.md#the-lint-hook) says how a line
+is written, what is refused and how long a command may run.
+
+`brain gates` is the one command before a review and before a merge.
+It runs the gates section 0 names, then the check and doctor. The
+[reference](references/commands.md#the-check) says which files the
+check reads and where it falls short, and
 [the gates row](references/commands.md#the-gates) says what makes a
 gate, how each runs and what each exit code means.
 
