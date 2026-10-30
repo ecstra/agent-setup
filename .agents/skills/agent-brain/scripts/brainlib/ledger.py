@@ -32,20 +32,17 @@ TABLE_HEADER = re.compile(
 
 FIELDS = ("severity", "found-by", "batch", "status", "fix", "reason")
 NEEDS_REASON = ("wontfix", "deferred", "refuted")
-FOUND_BY = ("review", "hunter")
+FOUND_BY = ("review", "recheck")
 FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred", "refuted")
 BATCH_STATUSES = ("pending", "fixing", "verified", "done")
 LEVELS = schema.REVIEW_LEVELS
-DEFAULT_LEVEL = "high"
+DEFAULT_LEVEL = "standard"
 
-# House rule 7, held here so the report can say when the pass is due:
-# the closing pass files what it finds into a batch of this theme, so
-# the ledger knows the pass ran, and low and a sweep branch skip it.
+# A review before 2.0.0 ended with a closing pass, filed into a batch of
+# this theme outside the cap, so a ledger from then still reads.
 CLOSING_THEME = "closing pass"
-NO_CLOSING_LEVELS = ("low",)
-SWEEP_PREFIX = "sweep/"
 
-# .agents/spec/reviews.md sets this cap on a review's batches and says why.
+# The cap on a review's batches, one per round of fixes and room to spare.
 MAX_BATCHES = 5
 
 # The next step the report gives once nothing else stands, and close
@@ -408,7 +405,7 @@ def reopened(
 ) -> str:
     """The body with the batch put back to fixing when a finding lands in it after it was verified or done.
 
-    A late finding, a hunter's, a reopened one or one moved in already
+    A late finding, a recheck's, a reopened one or one moved in already
     fixed, needs its fix verified like the rest, so the batch goes
     through fixing and verified again. The ack that started the batch
     stays, since the owner's word covered the batch and what it holds.
@@ -593,7 +590,7 @@ def next_step(
     holds findings with no ack recorded, which a hand edit leaves, or a
     finding filed into an empty batch closed without one, asks for that
     ack before anything else, the standing word's while one holds. Then
-    the walk moves on to the closing pass or the close.
+    the ledger closes.
     """
     if entry.field("status") == "closed":
         return "nothing, the ledger is closed"
@@ -635,35 +632,7 @@ def next_step(
         if row["status"] == "verified":
             return f"mark batch {number} done" + ("" if own else ", it holds nothing")
 
-    owed = wants_closing_pass(
-        entry=entry,
-        rows=rows,
-    )
-    if owed:
-        return "the closing pass"
-
     return CLOSE_STEP
-
-
-def wants_closing_pass(
-    entry: store.Entry,
-    rows: list[dict],
-) -> bool:
-    """Whether the review still owes its closing pass.
-
-    The pass is owed at every level above low, on any branch that is
-    not a sweep, until a batch of the closing theme records that it
-    ran. A ledger with no level recorded, one opened before the level
-    was written, is read at the default level.
-    """
-    level = entry.field("level") or DEFAULT_LEVEL
-    if not rows or level in NO_CLOSING_LEVELS:
-        return False
-
-    if (entry.field("branch") or "").startswith(SWEEP_PREFIX):
-        return False
-
-    return not any(row["theme"].casefold() == CLOSING_THEME for row in rows)
 
 
 def known_batch(
@@ -843,7 +812,7 @@ def checked(
         raise LedgerError(f"severity is {' or '.join(schema.SEVERITIES)}, not '{value}'")
 
     if field == "found-by" and value not in FOUND_BY:
-        raise LedgerError(f"found-by is review or hunter, not '{value}'")
+        raise LedgerError(f"found-by is {' or '.join(FOUND_BY)}, not '{value}'")
 
     if field == "status" and value not in FINDING_STATUSES:
         raise LedgerError(f"a finding is {' or '.join(FINDING_STATUSES)}, not '{value}'")

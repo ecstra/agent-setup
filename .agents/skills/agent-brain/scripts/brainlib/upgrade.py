@@ -26,6 +26,11 @@ from urllib.parse import unquote
 from . import doctor, frontmatter, handover, schema, sections, store, style
 
 FOLDER = ".agents"
+
+# The brain's spec files the kit shipped before 2.0.0, which an upgrade
+# takes out of a project, since the tool and the skill sheet carry
+# their rules now.
+RETIRED_SPECS: tuple[str, ...] = tuple(f"{name}.md" for name in ("bugs", "build-specs", "conventions", "decisions", "docs", "handover", "memory", "plans", "reviews", "todos"))
 OLD_FOLDER = ".agent"
 VERSION = schema.VERSION_FILE
 
@@ -263,7 +268,6 @@ class Kit:
         of.
         """
         found = [Path(name) for name in schema.KIT_FILES if name != schema.INDEX]
-        found += sorted(path.relative_to(self.brain) for path in (self.brain / "spec").glob("*.md"))
         skills = store.skill_folders(self.brain)
         found += sorted(path.relative_to(self.brain) for path in (self.brain / schema.SKILLS).rglob("*") if ships(path) and path.relative_to(self.brain / schema.SKILLS).parts[0] in skills and "tests" not in path.relative_to(self.brain / schema.SKILLS).parts)
         found.append(Path(VERSION))
@@ -696,6 +700,13 @@ def install(
             folder=folder,
             keep=keep,
         )
+    retired += retire_specs(
+        project=project,
+        report=report,
+    )
+    retired += retire_definitions(
+        project=project,
+    )
     report.done(f"the kit's {len(shipped)} files under {FOLDER}/, {written} written, {len(retired)} retired")
     for relative in retired:
         report.done(f"retired {relative}, the kit no longer ships it")
@@ -2228,6 +2239,8 @@ def guarded_paths(
 
     brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
     paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
+    paths += [str(path.relative_to(project.root)) for path in kits_specs(brain=brain)]
+    paths += retire_definitions(project=project, remove=False)
     for folder in kit_skill_folders(brain=brain, kit=kit):
         paths += files_under(
             root=project.root,
@@ -2668,6 +2681,65 @@ def write_bytes(
             pass
 
         raise
+
+
+def retire_specs(
+    project: Project,
+    report: Report,
+) -> list[str]:
+    """Remove the brain's spec files the kit shipped before 2.0.0, whose rules the tool and the skill sheet now carry, and the folder once it is empty.
+
+    A file in the folder that the kit never shipped is the project's
+    own, so it stays and is named, with where it belongs now.
+    """
+    spec = project.brain / "spec"
+    if not store.quietly(spec.is_dir) or store.quietly(spec.is_symlink):
+        return []
+
+    retired: list[str] = []
+    for path in kits_specs(brain=project.brain):
+        path.unlink()
+        retired.append(str(path.relative_to(project.root)))
+
+    left = sorted(path.name for path in spec.iterdir())
+    if left:
+        report.done(f"{FOLDER}/spec/ still holds {', '.join(left)}, the project's own, which the kit no longer reads, so file them under docs/ with brain new")
+    else:
+        spec.rmdir()
+
+    return retired
+
+
+def kits_specs(
+    brain: Path,
+) -> list[Path]:
+    """The spec files the kit shipped before 2.0.0 that the brain still holds, which the upgrade removes."""
+    spec = brain / "spec"
+    if not store.quietly(spec.is_dir) or store.quietly(spec.is_symlink):
+        return []
+
+    return [spec / name for name in RETIRED_SPECS if store.readable_file(spec / name)]
+
+
+def retire_definitions(
+    project: Project,
+    remove: bool = True,
+) -> list[str]:
+    """The sub agent definitions the kit wrote into the project and no longer ships, removed unless `remove` is off.
+
+    The project's stamp says whether the kit wrote the file, so one
+    from before the definition shipped or after it retired stays.
+    """
+    stamp = schema.as_tuple(project.version())
+    if schema.carries(since=schema.RETIRED_AT, stamp=stamp):
+        return []
+
+    retired = [definition.path for definition in schema.RETIRED_DEFINITIONS if schema.carries(since=definition.since, stamp=stamp) and store.readable_file(project.root / definition.path)]
+    if remove:
+        for relative in retired:
+            (project.root / relative).unlink()
+
+    return retired
 
 
 def retire(

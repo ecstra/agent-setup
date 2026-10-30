@@ -392,9 +392,6 @@ def refusal(
     if store.quietly(path.exists):
         return header_change(touch=touch, inside=inside) or table_change(brain=brain, touch=touch, inside=inside)
 
-    if Path(inside).parts[0] == "spec":
-        return f"{inside} would nest inside spec/, which holds its files directly"
-
     return f"{inside} would be a new brain file written by hand. File it with brain new so it gets its id, its header block and its index line, with the prose on standard input, or rename an existing one with brain refile."
 
 

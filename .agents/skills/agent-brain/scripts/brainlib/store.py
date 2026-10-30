@@ -223,7 +223,6 @@ class Brain:
     def kit_files(self) -> list[Path]:
         """The kit's own files that exist here, the rulebook excepted."""
         candidates = [self.root / name for name in schema.KIT_FILES if name not in schema.NO_FRONTMATTER]
-        candidates += [path for path in sorted((self.root / "spec").glob("*.md")) if path.name != schema.INDEX and not hidden(Path(path.name))]
         candidates += [self.root / folder / schema.INDEX for folder in schema.INDEXED_FOLDERS]
 
         return [path for path in candidates if readable_file(path)]
