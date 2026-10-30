@@ -303,7 +303,7 @@ def count_by_status(
 def severity_of(
     entry: store.Entry,
 ) -> str:
-    """A severity the spec knows, or the one word for anything else."""
+    """A known severity, or the one word for anything else."""
     severity = entry.field("severity")
     return severity if severity in schema.SEVERITIES else schema.UNKNOWN
 

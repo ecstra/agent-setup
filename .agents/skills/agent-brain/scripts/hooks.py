@@ -977,7 +977,7 @@ def field_names(
 ) -> set[str]:
     """The fields this file's header carries or could carry, the updated date aside.
 
-    What the file holds now plus what its kind's spec allows, so a loose
+    What the file holds now plus what its kind allows, so a loose
     hunk that adds an optional field the file does not yet carry is
     still read as header work, while a prose line with a colon whose
     name is neither is not. A file whose header does not read offers no
@@ -1096,16 +1096,15 @@ def post_write(
 ) -> int:
     """After a write, the check over the file just written and, inside the brain, doctor over the whole of it, each handed back as context so the slip is fixed in the same round.
 
-    A file the check did not judge, one whose attributes git cannot read
-    or one the interpreter running the check cannot parse, is named on
-    standard error and never in the context, as the check says every
-    note, since neither is a slip of the file's and the agent fixes what
-    the context holds, and a standard error that cannot take the notes
-    loses them and nothing else. Where doctor cannot read the brain, its
-    error goes in words in its place, and the hook still answers with
-    exit 0, since the agent says the context to the person, and an exit 1
-    would show the person the error and lose the slips, so a broken brain
-    never hides one.
+    A file the check did not judge, one whose attributes git cannot read,
+    is named on standard error and never in the context, as the check
+    says every note, since that is no slip of the file's and the agent
+    fixes what the context holds, and a standard error that cannot take
+    the notes loses them and nothing else. Where doctor cannot read the
+    brain, its error goes in words in its place, and the hook still
+    answers with exit 0, since the agent says the context to the person,
+    and an exit 1 would show the person the error and lose the slips, so
+    a broken brain never hides one.
     """
     touched = touches(event=event, agent=agent)
     parts: list[str] = []

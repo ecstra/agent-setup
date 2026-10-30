@@ -1,7 +1,7 @@
 """The `## Heading` blocks a body carries, and the code a text holds.
 
 Reading only. Nothing here rewrites prose, it reports what is there so a
-command can refuse to file something the spec says is incomplete. The
+command can refuse to file something its kind's format says is incomplete. The
 reading of code here is the one every reader shares, section 0's cut,
 the gates, the brain's own bodies and doctor alike.
 """

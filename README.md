@@ -132,8 +132,10 @@ after it writes nothing.
 >    [`commands.md`](.agents/skills/agent-brain/references/commands.md#the-gates)
 >    says. The linters go under a `### Lint` heading, in a fenced block,
 >    one line each, a file pattern and then one command with `{file}`
->    where the file goes, such as `*.py ruff check --fix {file}`. The
->    brain runs every line that matches on each file the agent writes
+>    where the file goes, such as
+>    `*.py ruff check --fix --unfixable F401 {file}`, which leaves an
+>    import the agent just added for the edit that uses it. The brain
+>    runs every line that matches on each file the agent writes
 >    outside `.agents/`, with no shell, and hands back what the linters
 >    could not fix, never blocking the write, as
 >    [`commands.md`](.agents/skills/agent-brain/references/commands.md#the-lint-hook)
@@ -300,6 +302,13 @@ The upgrade replaces what is the kit's and leaves what is yours.
   `.agents/`, your own hooks and settings in the agent folders, and every
   line of your `.gitignore`.
 - Rebuilt: the indexes, by the doctor run at the end, never edited.
+
+From 2.0.0 `brain check` judges prose and commit messages only, and no
+longer reads Python. Name your linters under a Lint heading in
+section 0, as
+[the lint hook](.agents/skills/agent-brain/references/commands.md#the-lint-hook)
+says, so they run on each file the agent writes, or your code is
+checked only by whatever your gates run.
 
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it

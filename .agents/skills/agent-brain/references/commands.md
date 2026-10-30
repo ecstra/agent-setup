@@ -49,7 +49,8 @@ Fields by kind, all passed as flags to `new` or as `field=value` to `set`.
 
 - bug: `--severity breaks|bug|debt|nit` and `--area` required. `status`
   is open, branched, fixed, wontfix or refiled, `reported` defaults to
-  today, `parent` optional, `became` the id of the todo a refiled bug
+  today, `parent` optional, the bug or the review finding it came
+  from, `became` the id of the todo a refiled bug
   was filed as, which the refile writes and `set` takes only on a
   refiled entry when it names one todo the brain knows.
 - todo: `--by owner|agent` and `--area` required. `status` is open,
@@ -73,9 +74,11 @@ The body must carry its kind's required headings. A plan carries `Why`
 and `Done when`, with `Steps` added by the tool when the prose has
 none, a build spec `Goal`, `Behaviour`, `Edge cases`, `Out of scope`,
 `Decisions` and `Proof`, with `Changes` optional and `Steps` added the
-same way, a bug `Problem` and `Evidence`, a todo `What` and
-`Done when`, a decision `Decision`, and a review `Summary`, `Batches`
-and `Findings`. An empty standard input writes the headings and
+same way, a bug `Problem` and `Evidence`, with `Steps`, `Fix` and
+`Verification` optional, a todo `What` and `Done when`, with `Why` and
+`Steps` optional, a decision `Decision`, with `Alternatives` and
+`Consequences` optional, and a review `Summary`, `Batches` and
+`Findings`. An empty standard input writes the headings and
 nothing else, for filling in afterwards, a plan and a build spec
 aside, which are filed from their prose or not at all.
 
@@ -84,7 +87,7 @@ aside, which are filed from their prose or not at all.
 The owner's ack is the word to proceed with what the agent proposed
 next. Said once as "auto ack" with an end, it stands until that end,
 and the agent passes the review's gates that normally wait for it,
-house rule 6 names them, saying in each report that it did. It never
+SYSTEM.md rule 9.6 names them, saying in each report that it did. It never
 starts a review, never opens a PR or merges, since those stay on the
 owner's ask, and never passes a gate the rulebook or section 0 holds
 for a person.
@@ -122,8 +125,10 @@ the ack as `auto` with the day, so the ledger says which batches ran
 on the standing word. Any ack that starts with auto, in any case, is
 that call. It is refused on a batch left pending, since the word is
 checked at the batch's start, refused on a batch that already carries
-the owner's own ack, which it never writes over, and off, held or run
-out it is refused anywhere. On a batch that already started on the
+the owner's own ack, which it never writes over, refused on a batch
+past the third of a ledger at quick, standard or deep, a round past
+the third that runs on the owner's own word alone, and off, held or
+run out it is refused anywhere. On a batch that already started on the
 word, the stamp it carries stays. A pending batch that holds findings
 and still carries a stamp from an earlier word takes the standing word
 again when it starts, so a start that gives no ack is refused while
@@ -802,8 +807,12 @@ Section 0 of `AGENTS.md` names them under each heading whose text is
 Lint, such as `### Lint` or `### 0.3 Lint`, at any level, in the fenced
 blocks up to the next heading at its level or above. Each line of a
 block is a file pattern, then one command with `{file}` as a word of
-its own where the file goes, such as `*.py ruff check --fix {file}`,
-and a blank line or one that opens with `#` is passed over. Where
+its own where the file goes, such as
+`*.py ruff check --fix --unfixable F401 {file}`, and a blank line or
+one that opens with `#` is passed over. A fixer that deletes what looks
+unused, such as an import, wants that fix turned off, since the hook
+runs after every write and the agent often adds the import one edit
+before the line that uses it. Where
 section 0 has no Lint heading, or `AGENTS.md` has no section 0, nothing
 runs and nothing is said.
 

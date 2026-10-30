@@ -30,6 +30,10 @@ AGENTS.md section 0 names its exact gates, tooling, and PR rules.
    merge. No step skips, and nothing merges before the review has
    closed. When the PR opens and whether as a draft is the project's
    rule in AGENTS.md section 0, never a question the agent asks.
+5. **A branch leaves no gap.** What the build spec promises is built
+   and proven, and every doc, test and caller the change makes wrong is
+   put right on the branch. A gap that waits on later work is filed as
+   a bug or a todo naming what it waits on, per SYSTEM.md 8.3.
 
 ## The gates
 
@@ -79,8 +83,9 @@ as well, since a review reads committed work only.
 4. **The owner's ack gates each round.** Their word to review starts
    the first round, and each later round starts on their next word,
    recorded on that round's batch. A standing word, `brain ack on` with
-   an end by time or by task, is the ack for every round until that
-   end, and each report says which of the two the round ran on. The
+   an end by time or by task, is the ack for every round up to the
+   third until that end, and each report says which of the two the
+   round ran on. A round past the third needs the owner's own word. The
    close follows the last round with no word. The PR and the merge are
    not the review's gates and stay on the owner's explicit ask, per the
    git rules below. A standing word with no end is not taken, the agent
