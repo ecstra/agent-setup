@@ -16,7 +16,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-from . import autoack, frontmatter, index, links, schema, sections, steps, store, style, task, writes
+from . import autoack, conclude, frontmatter, index, links, schema, sections, steps, store, style, task, writes
 
 # The folders the markdown walk leaves out. It never enters the worktree
 # home or the handover folder, whose one note is the tool's and sits
@@ -292,7 +292,7 @@ def tools_own_write(
     if path.parent == project:
         return target in (*schema.ROOT_FILES, schema.IGNORE_FILE)
 
-    if target.endswith((".md", ".json")) or target in (schema.VERSION_FILE, autoack.FILE, task.FILE):
+    if target.endswith((".md", ".json")) or target in (schema.VERSION_FILE, autoack.FILE, conclude.FILE, task.FILE):
         return True
 
     return store.quietly((path.parent / target).exists)

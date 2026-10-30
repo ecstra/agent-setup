@@ -145,8 +145,10 @@ The range is `main...HEAD` unless the owner gave one, written
    names any finding still there, any new break the fix brought in and
    any fix that hid its symptom, at every level, quick included. What
    it finds is filed with `--found-by recheck` into the next round's
-   batch, which starts on the owner's word or
-   their standing word, `brain ack`. A recheck that reopens a fix, a
+   batch, which starts on the owner's word or their standing word,
+   `brain ack`, but never in the wind down of the conclude word,
+   `brain conclude`, which wins over the standing word. A recheck that
+   reopens a fix, a
    case the fix missed or one it broke, sends the main agent back to
    the cause. It lists every input the mechanism takes before it writes
    the next fix, and where the cases keep coming it picks a simpler

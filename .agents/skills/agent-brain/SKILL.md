@@ -133,8 +133,9 @@ Every file opens with the header block the tool writes, `name`, `kind`,
 `key: value` line each at the margin, nothing quoted, a list as
 `[a, b]`, the name unique and matching the filename, a link a path from
 `.agents/`. `SYSTEM.md` has none, and `skills/` follows the Agent
-Skills standard. Git ignores `.ack`, the owner's standing word, and
-`.task`, the current work, with their writes in flight, `handover/`,
+Skills standard. Git ignores `.ack`, the owner's standing word,
+`.conclude`, the conclude word, and `.task`, the current work, with
+their writes in flight, `handover/`,
 `.worktrees/` and the Python and ruff caches. The rest is committed,
 and a closed bug, todo, plan or ledger is never deleted, since it is
 the record. Every file names the file each claim it makes about the
@@ -256,6 +257,28 @@ a second `brain ack on` does and what each refuses.
 brain ack on --for 8h --until-done 2026-10-feat-search
 brain ledger batch 2026-10-feat-search 1 --status fixing --ack auto
 brain ack off
+```
+
+## The conclude word
+
+When the owner names a time to stop, "stop at 17:15", the agent records
+it, and every hook line counts down to it. From 15 minutes before, the
+line says to wind down, finish the step in hand, start nothing new and
+conclude once it is done, clearing the word with `brain conclude off`
+after the handover that concludes the session, never after one written
+before a compaction, and once the time passes it says to conclude,
+stop the sub agents, commit only what passed the gates, save the
+working paper, write the handover and stop. The conclude word wins over
+the standing word, which covers what the agent may decide and never
+how long it works. An hour past the time the line orders nothing, a
+handover written past the time clears it, and one written earlier
+keeps it.
+[The reference](references/commands.md#the-conclude-word) has the rest.
+
+```bash
+brain conclude at 17:15
+brain conclude in 2h
+brain conclude off
 ```
 
 ## The current work

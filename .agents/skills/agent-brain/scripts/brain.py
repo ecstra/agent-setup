@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import autoack, builds, check, clock, doctor, frontmatter, gates, handover, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
+from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, handover, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
 from brainlib.store import FINDINGS_REMAIN, REFUSED
 
 FIELD_FLAGS = ("status", "severity", "area", "by", "type", "branch", "date")
@@ -77,6 +77,7 @@ def main(
         check.CheckError,
         upgrade.UpgradeError,
         autoack.AckError,
+        conclude.ConcludeError,
         frontmatter.FrontmatterError,
         schema.UnknownKind,
         OSError,
@@ -96,6 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_version(commands)
     add_status(commands)
     add_ack(commands)
+    add_conclude(commands)
     add_task(commands)
     add_handover(commands)
     add_list(commands)
@@ -169,6 +171,38 @@ def run_ack(
 
     print(clock.line())
     print(autoack.describe(brain=brain))
+    return 0
+
+
+def add_conclude(
+    commands: argparse._SubParsersAction,
+) -> None:
+    command = commands.add_parser("conclude", help="the time the session wraps itself up, at a time, in a length of time, off, or where it stands")
+    command.add_argument("action", nargs="?", choices=("at", "in", "off"), help="at a time, in a length of time, off, nothing to see where it stands")
+    command.add_argument("when", nargs="*", help="a time, such as 17:15, tomorrow 09:00 or 2026-11-02 17:00, or a length, such as 2h or 90m")
+    command.set_defaults(handler=run_conclude)
+
+
+def run_conclude(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    when = " ".join(args.when)
+    if (args.action in ("at", "in")) != bool(when):
+        print("at and in take a time, off and nothing take none", file=sys.stderr)
+        return REFUSED
+
+    if args.action == "off":
+        conclude.turn_off(brain=brain)
+
+    if args.action == "at":
+        conclude.turn_on(brain=brain, at_text=when)
+
+    if args.action == "in":
+        conclude.turn_on(brain=brain, in_text=when)
+
+    print(clock.line())
+    print(conclude.describe(brain=brain) or conclude.OFF)
     return 0
 
 
@@ -292,6 +326,13 @@ def run_handover(
     print(
         "the session start hook puts it in front of the next session on this branch, or one that stands the same way on a detached head or before the first commit, or any session where git could not answer for it or for this one, and removes it, a fork aside",
     )
+    # a note written past the time is the session concluding, so it ends the word, while one written before it, a wind down's before a compaction included, keeps it
+    if conclude.passed(brain=brain):
+        try:
+            conclude.turn_off(brain=brain)
+            print("the conclude word is cleared, since the note is written")
+        except (OSError, conclude.ConcludeError) as error:
+            print(f"the conclude word could not be cleared, {store.explain(error)}, and brain conclude off clears it", file=sys.stderr)
     return 0
 
 
@@ -314,6 +355,9 @@ def run_status(
 
     print(clock.line())
     print(autoack.describe(brain=brain))
+    word = conclude.describe(brain=brain)
+    if word is not None:
+        print(word)
     print(task.describe(brain=brain))
     print(reads.render_status(data))
     return 0

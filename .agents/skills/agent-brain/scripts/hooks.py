@@ -33,7 +33,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, TextIO, Union
 
-from brainlib import autoack, check, clock, doctor, frontmatter, handover, links, lint, reads, schema, steps, store, task
+from brainlib import autoack, check, clock, conclude, doctor, frontmatter, handover, links, lint, reads, schema, steps, store, task
 
 BLOCK = 2
 FAILED = 1
@@ -295,8 +295,9 @@ def tick(
 def the_moment(
     brain: store.Brain,
 ) -> str:
-    """The clock, the standing word and the current work, the lines the session start, the prompt hook and the tick carry."""
-    return clock.line() + "\n" + autoack.describe(brain=brain) + "\n" + task.describe(brain=brain)
+    """The clock, the standing word, the conclude word while one stands, and the current work, the lines the session start, the prompt hook and the tick carry."""
+    lines = [clock.line(), autoack.describe(brain=brain), conclude.describe(brain=brain), task.describe(brain=brain)]
+    return "\n".join(line for line in lines if line is not None)
 
 
 def text_of(

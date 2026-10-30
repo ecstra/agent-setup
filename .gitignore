@@ -22,6 +22,12 @@
 .agents/.task
 .agents/..task.*.tmp
 
+# The brain tool keeps the conclude word, the time the session wraps
+# itself up, in this file. It belongs to one machine too, so it never
+# enters git, and neither does its write in flight.
+.agents/.conclude
+.agents/..conclude.*.tmp
+
 # The brain tool writes the one note a session leaves for the next in
 # this folder, through brain handover, and the session start hook reads
 # it once and removes it. It belongs to one machine and one stretch of
