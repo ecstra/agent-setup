@@ -135,11 +135,17 @@ Every file opens with the header block the tool writes, `name`, `kind`,
 `.agents/`. `SYSTEM.md` has none, and `skills/` follows the Agent
 Skills standard. Git ignores `.ack`, the owner's standing word, and
 `.task`, the current work, with their writes in flight, `handover/`,
-`.worktrees/` and the Python and ruff caches. The rest is committed.
+`.worktrees/` and the Python and ruff caches. The rest is committed,
+and a closed bug, todo, plan or ledger is never deleted, since it is
+the record. Every file names the file each claim it makes about the
+code holds in, and stays terse. An `area`, on a bug, a todo or a
+decision, is the word already in use for that part of the project, so
+the todo index groups by it and `brain list --area` finds every entry.
 
 - A doc, in a category folder under `docs/`, is durable knowledge with
-  no status, one fact in one place, each claim about the code naming
-  its file. A change that makes a doc wrong fixes it in the same round,
+  no status, one fact in one place. A category folder is made once
+  three docs fit none of those there, a lone doc going into the
+  nearest. A change that makes a doc wrong fixes it in the same round,
   and a doc for a removed feature is deleted.
 - A memory, in `memory/`, is one lasting project fact no doc owns, never
   a log or a fact about the owner as a person. Its `type` is project,
@@ -151,24 +157,30 @@ Skills standard. Git ignores `.ack`, the owner's standing word, and
   some input or state, `debt` for what works and costs later, `nit` for
   wording. It goes `open`, `branched` while a branch carries the fix,
   named in the body, then `fixed` once Fix names the cause and the
-  commit, `wontfix` with its reason under Problem, or `refiled` as a
-  todo. What reproduces it goes under Evidence.
+  commit and Verification says how the fix was proven, `wontfix` with
+  its reason under Problem, or `refiled` as a todo. What reproduces it
+  goes under Evidence, and `parent`, where set, names the bug or the
+  review finding it came from.
 - A todo, in `todos/`, is work with a Done when, and work of more than
   one step gets one. One the owner wrote anywhere is filed `--by owner`
-  with their words kept under What, cleaned in structure only. It goes
+  with their words kept under What, cleaned in structure only, and a
+  Why of a line or two follows where What leaves the reason out. It goes
   `open`, then `done` with its date and the commits under Done when,
   `dropped` with its date, or `refiled` as a bug. On done, tell the
   owner which of their own notes to tick, by name.
-- A decision, in `decisions/`, records why, the choice, what it beat or
-  the gotcha that forced it, and never a status or a changelog. It is
-  `standing` until a new one reverses it, then `superseded` with
-  `superseded-by` naming the new one.
-- A plan, in `plans/`, is a long goal, its Why, its steps and a Done
-  when beyond them, and a goal with no steps yet means find out. A step
-  row holds its number, what it points at, `owner` or `agent` for who
-  set it, and `pending`, `done` or `skipped`, and is never renumbered
-  or deleted. It goes `open`, then `done` with its date once every step
-  is settled, or `dropped` with its date.
+- A decision, in `decisions/`, records why, and never a status or a
+  changelog. A new one gives the choice, with the gotcha that forced it
+  where one did, under Decision, what it beat and why each lost under
+  Alternatives, and what it commits to and forecloses under
+  Consequences. It is `standing` until a new one reverses it, then
+  `superseded` with `superseded-by` naming the new one.
+- A plan, in `plans/`, is a long goal, its Why in the words of whoever
+  set it, its steps and a Done when beyond them, and a goal with no
+  steps yet means find out. A step row holds its number, what it points
+  at, `owner` or `agent` for who set it, and `pending`, `done` or
+  `skipped`, and is never renumbered or deleted. It goes `open`, then
+  `done` with its date once every step is settled, or `dropped` with
+  its date.
 - A build spec, in `build-specs/`, is one branch's, filed with
   `--branch` before the code, under Goal, Behaviour, Edge cases, Out of
   scope, Decisions, Proof, Changes and Steps. It goes `draft`, `acked`
@@ -196,8 +208,13 @@ Skills standard. Git ignores `.ack`, the owner's standing word, and
   start but a fork, renamed `handover.md.reading` while read, then
   removes it, and leaves a note for another branch in place. Without
   the hook, read `handover.md`, or `handover.md.reading` where
-  `brain status` says it was read before, then delete it. Nothing locks
-  the note, so start one session at a time while it waits.
+  `brain status` says it was read before, then delete it. A session
+  that read a note and writes another carries over what of the old one
+  still holds, the traps and the rules the owner gave in chat above
+  all, since the old one is gone once read. Nothing locks the note, so
+  start one session at a time while it waits, and write one only while
+  no other session starts in the checkout, since a write that meets a
+  start's claim can lose a note or a file of the project's own.
 
 ## A review
 

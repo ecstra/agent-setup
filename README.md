@@ -303,6 +303,13 @@ The upgrade replaces what is the kit's and leaves what is yours.
   line of your `.gitignore`.
 - Rebuilt: the indexes, by the doctor run at the end, never edited.
 
+From 2.0.0 `brain check` judges prose and commit messages only, and no
+longer reads Python. Name your linters under a Lint heading in
+section 0, as
+[the lint hook](.agents/skills/agent-brain/references/commands.md#the-lint-hook)
+says, so they run on each file the agent writes, or your code is
+checked only by whatever your gates run.
+
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
 would replace holds uncommitted work, and names each root file it

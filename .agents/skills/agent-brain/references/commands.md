@@ -49,7 +49,8 @@ Fields by kind, all passed as flags to `new` or as `field=value` to `set`.
 
 - bug: `--severity breaks|bug|debt|nit` and `--area` required. `status`
   is open, branched, fixed, wontfix or refiled, `reported` defaults to
-  today, `parent` optional, `became` the id of the todo a refiled bug
+  today, `parent` optional, the bug or the review finding it came
+  from, `became` the id of the todo a refiled bug
   was filed as, which the refile writes and `set` takes only on a
   refiled entry when it names one todo the brain knows.
 - todo: `--by owner|agent` and `--area` required. `status` is open,
@@ -73,9 +74,11 @@ The body must carry its kind's required headings. A plan carries `Why`
 and `Done when`, with `Steps` added by the tool when the prose has
 none, a build spec `Goal`, `Behaviour`, `Edge cases`, `Out of scope`,
 `Decisions` and `Proof`, with `Changes` optional and `Steps` added the
-same way, a bug `Problem` and `Evidence`, a todo `What` and
-`Done when`, a decision `Decision`, and a review `Summary`, `Batches`
-and `Findings`. An empty standard input writes the headings and
+same way, a bug `Problem` and `Evidence`, with `Steps`, `Fix` and
+`Verification` optional, a todo `What` and `Done when`, with `Why` and
+`Steps` optional, a decision `Decision`, with `Alternatives` and
+`Consequences` optional, and a review `Summary`, `Batches` and
+`Findings`. An empty standard input writes the headings and
 nothing else, for filling in afterwards, a plan and a build spec
 aside, which are filed from their prose or not at all.
 
