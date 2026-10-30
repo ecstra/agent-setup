@@ -200,10 +200,7 @@ FORK = "fork"
 # two, and a lone surrogate, which a file name that is not UTF-8 brings
 # in, is one.
 CLAUDE_SHOWS = 10_000
-PAST_WHAT_CLAUDE_SHOWS = (
-    f"This context is longer than the {CLAUDE_SHOWS:,} characters Claude Code shows from a hook, "
-    "so Claude Code keeps it whole in the file it names here. Read that file whole before you go on."
-)
+PAST_WHAT_CLAUDE_SHOWS = f"This context is longer than the {CLAUDE_SHOWS:,} characters Claude Code shows from a hook, so Claude Code keeps it whole in the file it names here. Read that file whole before you go on."
 
 
 def session_start(
@@ -398,12 +395,7 @@ def refusal(
     if Path(inside).parts[0] == "spec":
         return f"{inside} would nest inside spec/, which holds its files directly"
 
-    return (
-        f"{inside} would be a new brain file written by hand. File it with "
-        "brain new so it gets its id, its header block and its index line, "
-        "with the prose on standard input, or rename an existing one with "
-        "brain refile."
-    )
+    return f"{inside} would be a new brain file written by hand. File it with brain new so it gets its id, its header block and its index line, with the prose on standard input, or rename an existing one with brain refile."
 
 
 def entry_path(
@@ -429,10 +421,7 @@ def markdown_named(
     return os.path.normcase(path.suffix) == ".md"
 
 
-HEADER_IS_THE_TOOLS = (
-    "the header block changes through brain set or brain refile, not by hand. "
-    "The prose below it is yours to edit."
-)
+HEADER_IS_THE_TOOLS = "the header block changes through brain set or brain refile, not by hand. The prose below it is yours to edit."
 
 
 def header_change(
@@ -562,7 +551,7 @@ class TableWrite:
 
     @property
     def added(self) -> list[steps.Step]:
-        return self.rows[len(self.before):]
+        return self.rows[len(self.before) :]
 
 
 def table_write_of(
@@ -883,7 +872,7 @@ def added_row(
     own: set[str],
 ) -> Optional[str]:
     """Why the first row added after the last may not come in that way, held to what add holds a step to, or None when each may."""
-    added = rows[len(before):]
+    added = rows[len(before) :]
     if added and closed:
         return f"{key} is {status}, and a closed table is its record, so no step is added to it"
 
@@ -1129,7 +1118,8 @@ def post_write(
             path=touch.path,
         )
         for touch in touched
-        if not touch.deleted and in_project(
+        if not touch.deleted
+        and in_project(
             brain=brain,
             path=touch.path,
         )
@@ -1421,12 +1411,15 @@ def emit_context(
             os.strerror(errno.EBADF),
         )
 
-    length_in_utf16_units: int = len(
-        text.encode(
-            encoding="utf-16-le",
-            errors="surrogatepass",
-        ),
-    ) // 2
+    length_in_utf16_units: int = (
+        len(
+            text.encode(
+                encoding="utf-16-le",
+                errors="surrogatepass",
+            ),
+        )
+        // 2
+    )
     if agent == "claude" and length_in_utf16_units > CLAUDE_SHOWS:
         text = f"{PAST_WHAT_CLAUDE_SHOWS}\n\n" + text
 

@@ -379,11 +379,7 @@ def chosen(
         project=project,
         relatives=list(targets),
     )
-    notes = list(warned.values()) + [
-        f"{relative} is passed over, {reasons[relative]}"
-        for relative in dict.fromkeys(named)
-        if reasons[relative] is not None
-    ]
+    notes = list(warned.values()) + [f"{relative} is passed over, {reasons[relative]}" for relative in dict.fromkeys(named) if reasons[relative] is not None]
 
     return Listing(
         files=[target for relative, target in targets.items() if reasons[relative] is None],
@@ -861,10 +857,7 @@ def passed_over(
     vendored, which outside git marks no file. Where git cannot read the
     attributes, the check is refused in git's words.
     """
-    reasons: dict[str, Optional[str]] = {
-        relative: None if prose_or_code(relative) else NOT_PROSE_OR_CODE
-        for relative in relatives
-    }
+    reasons: dict[str, Optional[str]] = {relative: None if prose_or_code(relative) else NOT_PROSE_OR_CODE for relative in relatives}
     to_judge = [relative for relative, reason in reasons.items() if reason is None]
     if not to_judge:
         return reasons
@@ -1009,12 +1002,7 @@ def written_by_kit(
         return True
 
     definition: Optional[schema.Definition] = next(
-        (
-            definition
-            for skill in schema.KIT_SKILLS
-            for definition in skill.definitions
-            if definition.path == relative
-        ),
+        (definition for skill in schema.KIT_SKILLS for definition in skill.definitions if definition.path == relative),
         None,
     )
     if definition is not None:
@@ -1239,11 +1227,7 @@ def read_markdown(
         text=body,
         code=sections.blocks_of(body).code,
     )
-    inside: list[tuple[int, int]] = [
-        (plain.origin(quote_start + start), plain.origin(quote_start + end))
-        for quote_start, quote_end in plain.quotes
-        for start, end in sections.code_spans(plain.text[quote_start:quote_end])
-    ]
+    inside: list[tuple[int, int]] = [(plain.origin(quote_start + start), plain.origin(quote_start + end)) for quote_start, quote_end in plain.quotes for start, end in sections.code_spans(plain.text[quote_start:quote_end])]
     code: list[tuple[int, int]] = merged(outside + inside)
     hidden += code + sections.comment_spans(
         text=body,
@@ -1436,10 +1420,7 @@ def headings_in(
         numbers = list(run)
         text = "\n".join("" if number + 1 in blank else bares[number] for number in numbers)
         first = numbers[0] + 1
-        found += [
-            (first + text.count("\n", 0, heading.start), first + text.count("\n", 0, heading.end))
-            for heading in sections.blocks_of(text).headings
-        ]
+        found += [(first + text.count("\n", 0, heading.start), first + text.count("\n", 0, heading.end)) for heading in sections.blocks_of(text).headings]
 
     return found
 
@@ -1695,10 +1676,7 @@ def holds_a_sentence_end(
     codeless: str,
 ) -> bool:
     """Whether a list item's label, read as it renders with what the reading stepped over marked STEPPED_OVER, holds the end of a sentence, the upper case letter after its opening marks read there, or on the line as written, from where `origins` places it, where the marks reach a code span, which `codeless` alone turns to spaces, and each other thing stepped over read as a space."""
-    spaced = "".join(
-        " " if character == STEPPED_OVER and codeless[origins[place]] == written[origins[place]] else character
-        for place, character in enumerate(label)
-    )
+    spaced = "".join(" " if character == STEPPED_OVER and codeless[origins[place]] == written[origins[place]] else character for place, character in enumerate(label))
     for sentence_end in SENTENCE_END.finditer(spaced):
         opened = SENTENCE_OPENING.match(
             string=spaced,

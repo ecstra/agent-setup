@@ -406,10 +406,7 @@ class Brain:
                     continue
             self.kit_read = found
 
-        return [
-            (path, replace(document, lines=list(document.lines)))
-            for path, document in self.kit_read
-        ]
+        return [(path, replace(document, lines=list(document.lines))) for path, document in self.kit_read]
 
     def with_slug(
         self,
@@ -585,11 +582,7 @@ def skill_folders(
     if not quietly(folder.is_dir):
         return []
 
-    return sorted(
-        path.name
-        for path in folder.iterdir()
-        if schema.is_slug(path.name) and readable_file(path / schema.SKILL_FILE)
-    )
+    return sorted(path.name for path in folder.iterdir() if schema.is_slug(path.name) and readable_file(path / schema.SKILL_FILE))
 
 
 def project_skills(

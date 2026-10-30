@@ -953,11 +953,7 @@ def missing(
     kind: schema.Kind,
 ) -> list[str]:
     """The required headings this body does not carry."""
-    return [
-        section.title
-        for section in kind.sections
-        if section.required and not has(body=body, title=section.title)
-    ]
+    return [section.title for section in kind.sections if section.required and not has(body=body, title=section.title)]
 
 
 def lifecycle_gaps(
@@ -1022,8 +1018,6 @@ def skeleton(
     if not kind.sections:
         return f"\n# {title}\n"
 
-    blocks = [
-        f"## {section.title}\n" for section in kind.sections if section.required
-    ]
+    blocks = [f"## {section.title}\n" for section in kind.sections if section.required]
 
     return "\n" + "\n".join(blocks)

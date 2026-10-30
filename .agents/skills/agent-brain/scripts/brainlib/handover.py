@@ -219,8 +219,7 @@ def write(
         if not for_this_branch:
             waiting_since: str = when(moment=waiting_note.written)
             raise HandoverError(
-                f"a handover written on {waiting_note.branch} at {waiting_since} is waiting there "
-                f"for a session on that branch while this one is on {branch}, and --replace writes over it",
+                f"a handover written on {waiting_note.branch} at {waiting_since} is waiting there for a session on that branch while this one is on {branch}, and --replace writes over it",
             )
 
     # the moment in this machine's zone, so the note's lines name the zone the clock line names
@@ -261,8 +260,7 @@ def write(
         except OSError as error:
             why: str = store.explain(error=error)
             raise HandoverError(
-                f"{RELATIVE} is written, and {FOLDER}/{CLAIMED_NAME}, the note it replaces, could not be removed, "
-                f"{why}, so delete it by hand",
+                f"{RELATIVE} is written, and {FOLDER}/{CLAIMED_NAME}, the note it replaces, could not be removed, {why}, so delete it by hand",
             ) from error
 
     return Note(
@@ -388,12 +386,7 @@ def body(
     when_written: str = clock.words(at=at)
     record_text = "\n".join(record)
 
-    return (
-        "\n# Handover\n\n"
-        f"Written {when_written} on {branch}.\n\n"
-        f"## As the tool found it\n\n{record_text}\n\n"
-        f"## As the session left it\n\n{prose}\n"
-    )
+    return f"\n# Handover\n\nWritten {when_written} on {branch}.\n\n## As the tool found it\n\n{record_text}\n\n## As the session left it\n\n{prose}\n"
 
 
 def uncommitted_lines(
@@ -934,11 +927,7 @@ def environment_for(
     if ceiling is None and not unset:
         return None
 
-    environment: dict[str, str] = {
-        name: value
-        for name, value in os.environ.items()
-        if name not in unset
-    }
+    environment: dict[str, str] = {name: value for name, value in os.environ.items() if name not in unset}
     if ceiling is not None:
         environment["GIT_CEILING_DIRECTORIES"] = str(ceiling)
 

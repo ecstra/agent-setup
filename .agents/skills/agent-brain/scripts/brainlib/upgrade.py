@@ -174,12 +174,7 @@ IMPORT_LINE = re.compile(r"^[ \t]*@\S+[ \t]*$", re.MULTILINE)
 # that kit wrote, section 0 ends where that release's first paragraph
 # stood. The paragraph is history and never changes, which is what makes
 # it safe to match, unlike the kit's current wording.
-FIRST_KIT_WORDS = (
-    "The rules for working in this repo are in @.agents/SYSTEM.md and every\n"
-    "agent works by them. Claude Code and Gemini CLI pull that file into\n"
-    "context on their own. Codex gets it from its session start hook. Anything\n"
-    "else that reads this file as plain text opens it first.\n"
-)
+FIRST_KIT_WORDS = "The rules for working in this repo are in @.agents/SYSTEM.md and every\nagent works by them. Claude Code and Gemini CLI pull that file into\ncontext on their own. Codex gets it from its session start hook. Anything\nelse that reads this file as plain text opens it first.\n"
 FIRST_KIT = re.compile(re.escape(FIRST_KIT_WORDS))
 
 
@@ -270,11 +265,7 @@ class Kit:
         found = [Path(name) for name in schema.KIT_FILES if name != schema.INDEX]
         found += sorted(path.relative_to(self.brain) for path in (self.brain / "spec").glob("*.md"))
         skills = store.skill_folders(self.brain)
-        found += sorted(
-            path.relative_to(self.brain)
-            for path in (self.brain / schema.SKILLS).rglob("*")
-            if ships(path) and path.relative_to(self.brain / schema.SKILLS).parts[0] in skills and "tests" not in path.relative_to(self.brain / schema.SKILLS).parts
-        )
+        found += sorted(path.relative_to(self.brain) for path in (self.brain / schema.SKILLS).rglob("*") if ships(path) and path.relative_to(self.brain / schema.SKILLS).parts[0] in skills and "tests" not in path.relative_to(self.brain / schema.SKILLS).parts)
         found.append(Path(VERSION))
 
         return found
@@ -571,10 +562,13 @@ def prepare(
     stamped = schema.as_tuple(project_version)
     for name in store.skill_folders(kit.brain):
         skill = kit_skill_named(name)
-        kits_own_file = skill_folder(
-            brain=kit.brain,
-            name=name,
-        ) / schema.SKILL_FILE
+        kits_own_file = (
+            skill_folder(
+                brain=kit.brain,
+                name=name,
+            )
+            / schema.SKILL_FILE
+        )
         shipped = skill is not None and schema.ships(
             skill=skill,
             stamp=stamped,
@@ -596,22 +590,19 @@ def prepare(
             )
             if not kits_copy and skill is None:
                 raise UpgradeError(
-                    f"the kit ships a skill named {name} this tool does not know, and {folder}/{schema.SKILLS}/{name} differs "
-                    "from it, so run the upgrade with the project's own tool if a kit wrote that folder, else move it aside first",
+                    f"the kit ships a skill named {name} this tool does not know, and {folder}/{schema.SKILLS}/{name} differs from it, so run the upgrade with the project's own tool if a kit wrote that folder, else move it aside first",
                 )
 
             if not kits_copy:
                 raise UpgradeError(
-                    f"the kit now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, "
-                    "move it aside first, or delete it if an interrupted upgrade left it",
+                    f"the kit now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
         linked = project.root / doctor.SKILL_LINKS / name
         own_folder = store.quietly(linked.is_dir) and not store.quietly(linked.is_symlink)
         if not shipped and own_folder and not store.same_bytes(one=linked / schema.SKILL_FILE, other=kits_own_file):
             raise UpgradeError(
-                f"the kit now ships a skill named {name}, and {doctor.SKILL_LINKS / name} holds a folder of the project's own "
-                "where the kit's skill link goes, move it aside first",
+                f"the kit now ships a skill named {name}, and {doctor.SKILL_LINKS / name} holds a folder of the project's own where the kit's skill link goes, move it aside first",
             )
 
         for definition in skill.definitions if skill else ():
@@ -629,8 +620,7 @@ def prepare(
             )
             if not kits_copy:
                 raise UpgradeError(
-                    f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, "
-                    "and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
+                    f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
     stamp = kit.version()
@@ -717,9 +707,7 @@ def install(
     if old_notes:
         report.done(
             f"{FOLDER}/{handover.FOLDER}/ holds {len(old_notes)} from before this release, which the kit no longer "
-            "reads or lists, since the folder now holds the one note brain handover writes and git ignores it: "
-            + ", ".join(old_notes)
-            + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest",
+            "reads or lists, since the folder now holds the one note brain handover writes and git ignores it: " + ", ".join(old_notes) + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest",
         )
 
     for relative in kit.agent_files():
@@ -924,16 +912,8 @@ def candidates(
         arguments=["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"],
     )
     if listed is None or listed.code != 0:
-        found: list[str] = [
-            path.name
-            for path in sorted(project.root.glob("*.md"))
-            if path.name.lower() not in kept and not path.name.startswith(".")
-        ]
-        found += [
-            f"{folder}/"
-            for folder in ("docs", "doc", "notes", "adr", "decisions")
-            if store.quietly((project.root / folder).is_dir)
-        ]
+        found: list[str] = [path.name for path in sorted(project.root.glob("*.md")) if path.name.lower() not in kept and not path.name.startswith(".")]
+        found += [f"{folder}/" for folder in ("docs", "doc", "notes", "adr", "decisions") if store.quietly((project.root / folder).is_dir)]
 
         return found
 
@@ -1019,11 +999,7 @@ def migration_targets(
         paths += [project.root / IGNORE_FILE, *brain_markdown(brain)]
         paths = [path for path in paths if names_old_folder(path)]
 
-    return [
-        path
-        for path in paths
-        if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path)
-    ]
+    return [path for path in paths if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path)]
 
 
 def names_old_folder(
@@ -1094,11 +1070,7 @@ def brain_markdown(
     if not store.quietly(brain.is_dir):
         return []
 
-    return sorted(
-        path
-        for path in brain.rglob("*.md")
-        if path.is_file() and not kits_skill(path.relative_to(brain).parts)
-    )
+    return sorted(path for path in brain.rglob("*.md") if path.is_file() and not kits_skill(path.relative_to(brain).parts))
 
 
 def has_old_folder(
@@ -1949,10 +1921,7 @@ def git_show_line(
     if from_folder_spelled != commands_from_folder:
         return "the old ones are still in git, run from the project's folder: " + commands_from_folder
 
-    return (
-        f"the old ones are still in git, in the folder {as_git_prints(name=place)} as git quotes a path by default, "
-        "whose name no command in this report spells, so from that folder: " + commands_from_folder
-    )
+    return f"the old ones are still in git, in the folder {as_git_prints(name=place)} as git quotes a path by default, whose name no command in this report spells, so from that folder: " + commands_from_folder
 
 
 def show_commands(
@@ -2127,11 +2096,14 @@ def kit_config(
 
     settings["permissions"] = {"deny": list(READ_GUARDS)}
 
-    return json.dumps(
-        obj=settings,
-        indent=indent_of(text),
-        ensure_ascii=False,
-    ) + "\n"
+    return (
+        json.dumps(
+            obj=settings,
+            indent=indent_of(text),
+            ensure_ascii=False,
+        )
+        + "\n"
+    )
 
 
 def put_config(

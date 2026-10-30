@@ -13,11 +13,7 @@ from typing import Callable, Optional
 
 from . import frontmatter, schema, store
 
-SPINE_INTRO = (
-    "The spine. Read this first, then follow into the folder indexes.\n"
-    "Built by the brain tool from the files it lists, so change those files\n"
-    "rather than this one.\n"
-)
+SPINE_INTRO = "The spine. Read this first, then follow into the folder indexes.\nBuilt by the brain tool from the files it lists, so change those files\nrather than this one.\n"
 
 SYSTEM_HOOK = "the rulebook every agent works by, reached through AGENTS.md"
 VERSION_HOOK = "the kit release this brain is on"
@@ -31,10 +27,7 @@ SPINE_LINKS = ("README.md", "spec/conventions.md", "house-rules.md")
 # The handover folder's line never changes, since the folder holds one
 # note that the session start hook removes, so counting it would have
 # the spine change under every session.
-HANDOVER_LINE = (
-    f"- {schema.HANDOVER_FOLDER}/, the one note brain handover leaves for the next session, "
-    f"which the session start hook reads once and removes (spec/{schema.HANDOVER_FOLDER}.md)"
-)
+HANDOVER_LINE = f"- {schema.HANDOVER_FOLDER}/, the one note brain handover leaves for the next session, which the session start hook reads once and removes (spec/{schema.HANDOVER_FOLDER}.md)"
 
 
 def build(
@@ -439,10 +432,7 @@ def todos_body(
 ) -> str:
     lines = header(
         title="Todos Index",
-        intro=(
-            "Open items first, grouped by area. Done, dropped and refiled are\n"
-            "summarized by area with counts."
-        ),
+        intro=("Open items first, grouped by area. Done, dropped and refiled are\nsummarized by area with counts."),
         filed=filed,
     )
     if not entries:

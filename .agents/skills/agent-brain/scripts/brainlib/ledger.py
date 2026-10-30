@@ -77,13 +77,7 @@ def open_ledger(
 
     stamp = stamp or date.today().isoformat()
     title = f"{stamp[:7]} {branch}"
-    body = (
-        "## Summary\n\n"
-        f"{summary}\n\n"
-        "## Batches\n\n"
-        f"{BATCH_HEADER}\n"
-        "## Findings\n"
-    )
+    body = f"## Summary\n\n{summary}\n\n## Batches\n\n{BATCH_HEADER}\n## Findings\n"
 
     return writes.create(
         brain=brain,
@@ -297,15 +291,7 @@ def add_findings(
     )
     first = max((int(record["id"][2:]) for record in findings(entry)), default=0) + 1
     identifiers = [f"F-{first + offset:02d}" for offset in range(len(claims))]
-    blocks = "".join(
-        f"\n### {identifier}: {claim}\n\n"
-        f"- severity: {severity}\n"
-        f"- found-by: {found_by}\n"
-        f"- batch: {batch_cell}\n"
-        "- status: open\n"
-        "- fix:\n"
-        for identifier, claim in zip(identifiers, claims)
-    )
+    blocks = "".join(f"\n### {identifier}: {claim}\n\n- severity: {severity}\n- found-by: {found_by}\n- batch: {batch_cell}\n- status: open\n- fix:\n" for identifier, claim in zip(identifiers, claims))
 
     body = reopened(
         body=entry.document.body,
@@ -516,9 +502,7 @@ def close(
     counts = tally(items)
     summary_end = end_of_section(body=entry.document.body, title="Summary")
     line = f"Closed with {counts}.\n\n"
-    entry.document.body = (
-        entry.document.body[:summary_end].rstrip("\n") + "\n\n" + line + entry.document.body[summary_end:]
-    )
+    entry.document.body = entry.document.body[:summary_end].rstrip("\n") + "\n\n" + line + entry.document.body[summary_end:]
     entry.document.set(key="status", value="closed")
     save(brain=brain, entry=entry, stamp=stamp)
 
@@ -744,10 +728,7 @@ def finding_headings(
 def batches(
     entry: store.Entry,
 ) -> list[dict]:
-    return [
-        {"number": int(match.group(1)), "theme": match.group(2), "status": match.group(3), "ack": match.group(4)}
-        for match in batch_rows(entry.document.body)
-    ]
+    return [{"number": int(match.group(1)), "theme": match.group(2), "status": match.group(3), "ack": match.group(4)} for match in batch_rows(entry.document.body)]
 
 
 def batch_rows(

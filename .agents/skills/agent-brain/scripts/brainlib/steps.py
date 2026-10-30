@@ -971,11 +971,7 @@ def looping(
 
     own = own_keys(entry)
 
-    return [
-        f"step {step.number} points at {step.points_at}, whose steps point back here, and the two wait on each other for good"
-        for step in rows
-        if step.points_at and points_back(brain=brain, key=step.points_at, own=own)
-    ]
+    return [f"step {step.number} points at {step.points_at}, whose steps point back here, and the two wait on each other for good" for step in rows if step.points_at and points_back(brain=brain, key=step.points_at, own=own)]
 
 
 def add(
@@ -1224,12 +1220,7 @@ def repoint(
 
                 continue
 
-            fresh = [
-                Step(number=step.number, text=step.text, points_at=to, by=step.by, status=step.status)
-                if step.points_at.lower() in wanted and step.points_at != to
-                else step
-                for step in rows
-            ]
+            fresh = [Step(number=step.number, text=step.text, points_at=to, by=step.by, status=step.status) if step.points_at.lower() in wanted and step.points_at != to else step for step in rows]
             if fresh != rows:
                 holder.document.body = rewrite(body=holder.document.body, rows=fresh)
                 try:

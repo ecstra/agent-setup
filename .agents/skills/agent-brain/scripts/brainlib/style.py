@@ -74,11 +74,7 @@ def expected(
     A project with no `.codex/` or `.gemini/` folder runs no such agent,
     so it owes no copy there and the tool never conjures the folder.
     """
-    return [
-        relative
-        for relative in COPIES
-        if store.quietly(lambda: (project(brain) / relative.parent).is_dir())
-    ]
+    return [relative for relative in COPIES if store.quietly(lambda: (project(brain) / relative.parent).is_dir())]
 
 
 def stale_against(
