@@ -164,18 +164,20 @@ clears the word, and the command says so, while one written before it,
 in the wind down before a compaction among them, keeps it. Nothing else
 clears it but `brain conclude off`, a session start included.
 
+A time not still to come, an empty one, and one past the year 2999 are
+refused, and so are `at` or `in` with no time and `off` with one. The
+state is one dotted file at the root of the brain, `.agents/.conclude`,
+which git ignores like the standing word's, and a file there that does
+not read as a time gives a line that says so until
+`brain conclude off` clears it.
+
 Two limits stand. The word is one file for the checkout, so two
 sessions open on it share one time, and a handover the second writes
 past the time clears the word for the first, which is why one session
 at a time works a checkout while a word or a note waits. And a session
 whose next hook comes over an hour past the time, a single tool call
 that runs that long, gets the line that orders nothing rather than the
-order to conclude. A time not still to come, an empty one,
-and one past the year 2999 are refused, and so are `at` or `in` with
-no time and `off` with one. The state is one dotted file at the root
-of the brain, `.agents/.conclude`, which git ignores like the standing
-word's, and a file there that does not read as a time gives a line
-that says so until `brain conclude off` clears it.
+order to conclude.
 
 ## The current work
 
