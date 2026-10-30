@@ -143,9 +143,10 @@ decision, is the word already in use for that part of the project, so
 the todo index groups by it and `brain list --area` finds every entry.
 
 - A doc, in a category folder under `docs/`, is durable knowledge with
-  no status, one fact in one place. A category folder is made once
-  three docs fit none of those there, a lone doc going into the
-  nearest. A change that makes a doc wrong fixes it in the same round,
+  no status, one fact in one place. The first docs go in the starting
+  folders, `foundation/`, `systems/`, `ops/` and `research/`, and a new
+  category folder is made once three docs fit none of those there, a
+  lone doc going into the nearest. A change that makes a doc wrong fixes it in the same round,
   and a doc for a removed feature is deleted.
 - A memory, in `memory/`, is one lasting project fact no doc owns, never
   a log or a fact about the owner as a person. Its `type` is project,

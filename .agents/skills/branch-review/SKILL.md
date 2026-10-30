@@ -50,7 +50,7 @@ These are never findings.
 
 | Level | Finders | Verifiers | Rounds |
 |---|---|---|---|
-| quick | 1, angle 1 alone | none, the main agent reads each finding | 3 at most |
+| quick | 1, angle 1 alone | none for the vote, the main agent reads each finding | 3 at most |
 | standard | 4, one per angle | 2 | 3 at most |
 | deep | 8, two per angle, then a fresh read | 2 | 3 at most |
 
@@ -143,10 +143,9 @@ The range is `main...HEAD` unless the owner gave one, written
 7. **Recheck.** One fresh verifier reads only the diff of that commit,
    with [the recheck prompt](references/prompts.md#the-recheck), and
    names any finding still there, any new break the fix brought in and
-   any fix that hid its symptom. At quick the main agent reads its own
-   fix diff once in place of the recheck, and what it finds starts the
-   next round. What either finds is filed with `--found-by recheck`
-   into the next round's batch, which starts on the owner's word or
+   any fix that hid its symptom, at every level, quick included. What
+   it finds is filed with `--found-by recheck` into the next round's
+   batch, which starts on the owner's word or
    their standing word, `brain ack`. A recheck that reopens a fix, a
    case the fix missed or one it broke, sends the main agent back to
    the cause. It lists every input the mechanism takes before it writes
@@ -158,9 +157,11 @@ The range is `main...HEAD` unless the owner gave one, written
    [the docs prompt](references/prompts.md#the-docs-agent), brings every
    doc the branch made false up to the code, and states what the build
    spec's Changes record. The main agent reads its diff once.
-9. **Gates.** The docs are one commit, pushed. `brain gates` runs once,
-   before the close, and a red gate goes back as a finding of a new
-   round.
+9. **Gates.** The docs are one commit, pushed. `brain gates` runs
+   before the close. A red gate is a finding of a new round, or, once
+   three rounds have run, one the review hands the owner with what is
+   left, and the gates run again after its fix, so the ledger closes
+   on green.
 10. **Close.** Each batch goes verified then done, the ledger closes,
     and the build spec's review step settles. The paper is committed.
 

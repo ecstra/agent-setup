@@ -74,7 +74,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 Tests are the agent's success criteria. Strong criteria let it loop on its own, weak ones need someone to check every step.
 
 - Write the tests first, as one set, from the build spec's Behaviour and Edge case lines, each as an input and the output it must give. Avoid mocks of things that do not exist yet.
-- Run the set once and see it fail, then write the code. The tests and the code land in one commit, so no commit on the branch is red.
+- Run the set once and see it fail, then write the code. The tests and the code land in one commit, so the tests never land red on their own.
 - Write the code until the set passes, and never edit a test to make it pass. A test changes only where it was wrong about the behaviour, and the agent says so.
 - A bug fix starts with a test that reproduces the bug and fails, then the fix makes it pass.
 - Test what a user or a caller can see. Never test a case no real input reaches.
