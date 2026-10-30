@@ -165,9 +165,14 @@ def refusal(
 def unquoted_shell(
     raw: str,
 ) -> bool:
-    """Whether the line holds a shell operator outside quotes, which shlex's shell mode splits into a token of its own."""
-    lexer = shlex.shlex(raw, posix=True, punctuation_chars=True)
+    """Whether the line holds a shell operator outside quotes, which shlex's shell mode splits into a token of its own.
+
+    The lexer keeps each quoted word's quotes, so a quoted operator is
+    never a token of operators alone, and reads a # as text.
+    """
+    lexer = shlex.shlex(raw, posix=False, punctuation_chars=True)
     lexer.whitespace_split = True
+    lexer.commenters = ""
     try:
         return any(token and set(token) <= set(lexer.punctuation_chars) for token in lexer)
     except ValueError:
