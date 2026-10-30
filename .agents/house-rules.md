@@ -2,8 +2,8 @@
 name: house-rules-agent
 kind: doc
 description: the branch contract and code review protocol, the agent's operating version
-updated: 2026-10-29
-links: [spec/reviews.md, spec/bugs.md, spec/todos.md, README.md]
+updated: 2026-10-30
+links: [README.md, skills/agent-brain/SKILL.md, skills/branch-review/SKILL.md]
 ---
 
 # House Rules
@@ -33,15 +33,17 @@ AGENTS.md section 0 names its exact gates, tooling, and PR rules.
 
 ## The gates
 
-Before any review, `brain gates` is green. It runs the gates the
-project's AGENTS.md section 0 names under a Gates heading, in order,
-and stops at the first red one, and once all are green it runs
-`brain check` and `brain doctor`, as
+The project's AGENTS.md section 0 names its linters under a Lint
+heading and its gates under a Gates heading. The brain runs the Lint
+lines on every file the agent writes, and `brain gates` runs the Gates
+before a review and before a merge. It runs them in order and stops at
+the first red one, and once all are green it runs `brain check` and
+`brain doctor`, as
 [commands.md](skills/agent-brain/references/commands.md#the-gates)
-says. The review judges code that already works, reviewers never burn
-effort on red suites or a brain with broken links. When the review
-starts the working tree is clean as well, since a review reads
-committed work only.
+says. Before any review it is green. The review judges code that
+already works, reviewers never burn effort on red suites or a brain
+with broken links. When the review starts the working tree is clean
+as well, since a review reads committed work only.
 
 ## The review protocol
 
@@ -49,74 +51,41 @@ committed work only.
    says when a branch gets reviewed and the agent never decides that on
    its own. On the word, the agent runs the review itself with the
    kit's `branch-review` skill
-   ([skills/branch-review/SKILL.md](skills/branch-review/SKILL.md))
-   at the level the branch earns, low or medium for a small or
-   mechanical branch and high or max where the surface is wide or the
-   logic is subtle, and never low for a branch that breaks or changes
-   an interface. The level sets how many angles the finding pass
-   runs and never how hard the model thinks, which is the session's
-   effort and the owner's to set. A tool's own review command, paid or
-   cloud run ones included, is the owner's alone, so the agent neither
-   reaches for one nor asks for it by name. Codex `/review --base main`
-   (GPT) is a second pair of eyes the owner can add. All of it works on
-   the local branch, whether or not a PR is open yet.
-2. **Findings first, whole.** Finder sub agents read the branch all at
-   once, each over a slice of it or over the whole as its angle reads,
-   and further sub agents merge what they found into findings. Every
-   finding is filed, the rare and the small included, and the agent
-   reports them all before touching anything. No fixing during
-   reporting, no silent triage.
-3. **The ledger.** All findings land in
-   `.agents/reviews/<yyyy-mm>-<branch-slug>/ledger.md` per
-   [spec/reviews.md](spec/reviews.md), which holds the grades and the
-   cap on batches. Each is graded breaks, bug, debt or nit and filed
-   into a batch by theme, correctness first and wording last. Every
-   finding leaves the open list as fixed, as refuted where the claim is
-   wrong, as left as it is (wontfix) where the claim is true and the
-   behaviour on purpose, or as deferred, and one that is not fixed
+   ([skills/branch-review/SKILL.md](skills/branch-review/SKILL.md)),
+   which holds the steps, at the level the branch earns. Quick fits a
+   small change, standard is the usual level, and deep fits a release
+   or code that handles money, sign in or data. The level sets how many
+   finders run and never how hard the model thinks, which is the
+   session's effort and the owner's to set. A tool's own review
+   command, paid or cloud run ones included, is the owner's alone, so
+   the agent neither reaches for one nor asks for it by name. Codex
+   `/review --base main` (GPT) is a second pair of eyes the owner can
+   add. All of it works on the local branch, whether or not a PR is
+   open yet.
+2. **Harm only.** A finding is a defect with concrete harm, behaviour
+   that breaks for a user or leaves the build spec, data lost or
+   leaked, a security hole, an edge case a real input reaches, or code
+   the spec never asked for. Style is the linters' and docs are the
+   docs agent's, so neither is a finding. A defect older than the
+   branch goes to `.agents/bugs/`.
+3. **One pass and a short recheck.** Finders read the whole branch,
+   verifiers vote on what they found, and the main agent fixes every
+   confirmed finding itself in one go. A fresh verifier rechecks the
+   diff of the fix, three rounds at most, then one docs agent brings
+   the docs up to the code. The ledger under `.agents/reviews/`, which
+   the brain tool keeps, holds each finding until it leaves as fixed,
+   refuted, left as it is or deferred, and one that is not fixed
    carries its reason, so no future review re litigates it.
-4. **The rounds of fixes.** The batches that have the owner's word are
-   fixed together in rounds, on the path the
-   [skill sheet](skills/branch-review/SKILL.md) gives. In a round one
-   fixer sub agent per group of files fixes the cause of each of its
-   findings, and verifier sub agents check each fix against the code.
-   Once the gates are green each group is one commit, and hunter sub
-   agents read what the round changed for defects the fixes brought
-   in, which the next round fixes, no backlog. The rounds end at the
-   first hunt that finds nothing. The last pass follows that hunt, and
-   nothing hunts it. It brings the docs up to the changed code and
-   holds the new lines to the house style. The skill sheet decides
-   which cases are the branch's, and any other that behaves the same
-   on the base is an older defect, filed in `.agents/bugs/` the moment
-   it is met. Sub agents run in parallel. With sub agents only a fixer
-   edits, and only its group's files, and the commits and the ledger
-   are the main session's. An agent without sub agents takes each
-   step itself, in the same order.
-5. **The close of the batches.** After the last pass the batches are
-   marked verified and done in the ledger, and one report to the owner
-   follows. A finding the fixes did not settle, or one that cannot be
-   fixed inside the branch, is named there, and its batch waits for
-   the owner's word instead of closing. Such a finding leaves for
-   `.agents/bugs/` on that word alone, as its own file, linked both
-   ways, and earns a future branch sparingly.
-6. **The owner's ack gates each batch.** A batch starts only when they
-   say so, in number order, and a word that covers several starts them
-   together. The ack is that word to start a batch, recorded on the
-   batch it starts, and verification is what closes a batch. A
-   standing word, `brain ack on` with an end by time or by task, is the
-   ack for every gate of the review until that end, each batch and the
-   closing pass, a batch the owner acked ahead starting on that ack
-   instead, and each report says which of the two the step ran on. The
-   close follows the last batch with no word. The PR and the merge are
+4. **The owner's ack gates each round.** Their word to review starts
+   the first round, and each later round starts on their next word,
+   recorded on that round's batch. A standing word, `brain ack on` with
+   an end by time or by task, is the ack for every round until that
+   end, and each report says which of the two the round ran on. The
+   close follows the last round with no word. The PR and the merge are
    not the review's gates and stay on the owner's explicit ask, per the
    git rules below. A standing word with no end is not taken, the agent
    proposes one and waits. Nothing starts a review but the owner's own
    word.
-7. **The closing pass.** Above low, the branch gets one more pass over
-   itself, whole, as it stands after the last batch, by fresh finders,
-   to catch what the fixes introduced and what the review missed. What
-   they find is one more batch, fixed on the owner's word in rounds
-   like any other. Sweeps skip this.
 
 ## Git rules
 
@@ -139,8 +108,8 @@ committed work only.
 
 ## The trackers
 
-Defects go to [bugs/](spec/bugs.md), work goes to [todos/](spec/todos.md),
-long horizon work to [plans/](spec/plans.md), a goal with a steps table
+Defects go to `bugs/`, work goes to `todos/`,
+long horizon work to `plans/`, a goal with a steps table
 the tool keeps, and the agent classifies on intake and uses todos
 extensively (multi step work gets filed, not carried in a session's
 head). Owner written todos get picked up, cleaned, and filed with their

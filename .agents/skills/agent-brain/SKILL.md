@@ -43,9 +43,9 @@ The hook prints `brain status` when a session opens, after the note the
 last session left where one waits for it. Every number in it is counted
 from the files at that moment, so trust it over anything remembered. If
 the hook did not run, run `brain status`, and where it names a handover
-waiting, [spec/handover.md](../../spec/handover.md) says whether the
-note is this session's and which file holds it. Read that file yourself,
-since no command shows it, then do with it what the spec says.
+waiting, [the brain's files](#the-brains-files) say whether the note
+is this session's and which file holds it. Read that file yourself,
+since no command shows it, then do with it what that section says.
 
 ```bash
 brain status
@@ -64,8 +64,8 @@ standing word that `status` opens with.
 
 The prose goes in on standard input inside a quoted heredoc, which the
 shell passes through untouched. The tool writes the structure around it
-and refuses anything that breaks the spec, such as a missing heading or
-a value outside the allowed set.
+and refuses anything that breaks its kind's format, such as a missing
+heading or a value outside the allowed set.
 
 ```bash
 brain new bug --title "Token refresh loops after expiry" \
@@ -83,8 +83,9 @@ EOF
 
 The same shape files a todo (`--area`, `--by`), a decision (`--area`),
 a memory (`--type project|feedback|reference`), a doc (`--category`),
-or a review. Each kind's required headings are in its spec under
-`.agents/spec/`, and the tool names the one that is missing.
+or a review. Each kind's required headings are in
+[the reference](references/commands.md#writing), and the tool names the
+one that is missing.
 
 A plan is a goal with the steps that reach it, and the steps are a
 table the tool keeps, on a plan always and on a todo or a bug whose
@@ -121,13 +122,85 @@ stays on the old one as skipped while the new one is open. It is
 refused when a step of the new body would point back, at any remove,
 at an open entry that points at the old one.
 
+## The brain's files
+
+Every file opens with the header block the tool writes, `name`, `kind`,
+`description`, `updated` and `links`, then its kind's own fields, one
+`key: value` line each at the margin, nothing quoted, a list as
+`[a, b]`, the name unique and matching the filename, a link a path from
+`.agents/`. `SYSTEM.md` has none, and `skills/` follows the Agent
+Skills standard. Git ignores `.ack`, the owner's standing word, and
+`.task`, the current work, with their writes in flight, `handover/`,
+`.worktrees/` and the Python and ruff caches. The rest is committed.
+
+- A doc, in a category folder under `docs/`, is durable knowledge with
+  no status, one fact in one place, each claim about the code naming
+  its file. A change that makes a doc wrong fixes it in the same round,
+  and a doc for a removed feature is deleted.
+- A memory, in `memory/`, is one lasting project fact no doc owns, never
+  a log or a fact about the owner as a person. Its `type` is project,
+  feedback for a way of working the owner corrected or confirmed, or
+  reference for a pointer outside, its body the fact, why it matters
+  and how to apply it. A wrong one is fixed or deleted.
+- A bug, in `bugs/`, is wrong behaviour with evidence, graded `breaks`
+  where a user's path fails or loses work, `bug` for a wrong result on
+  some input or state, `debt` for what works and costs later, `nit` for
+  wording. It goes `open`, `branched` while a branch carries the fix,
+  named in the body, then `fixed` once Fix names the cause and the
+  commit, `wontfix` with its reason under Problem, or `refiled` as a
+  todo. What reproduces it goes under Evidence.
+- A todo, in `todos/`, is work with a Done when, and work of more than
+  one step gets one. One the owner wrote anywhere is filed `--by owner`
+  with their words kept under What, cleaned in structure only. It goes
+  `open`, then `done` with its date and the commits under Done when,
+  `dropped` with its date, or `refiled` as a bug. On done, tell the
+  owner which of their own notes to tick, by name.
+- A decision, in `decisions/`, records why, the choice, what it beat or
+  the gotcha that forced it, and never a status or a changelog. It is
+  `standing` until a new one reverses it, then `superseded` with
+  `superseded-by` naming the new one.
+- A plan, in `plans/`, is a long goal, its Why, its steps and a Done
+  when beyond them, and a goal with no steps yet means find out. A step
+  row holds its number, what it points at, `owner` or `agent` for who
+  set it, and `pending`, `done` or `skipped`, and is never renumbered
+  or deleted. It goes `open`, then `done` with its date once every step
+  is settled, or `dropped` with its date.
+- A build spec, in `build-specs/`, is one branch's, filed with
+  `--branch` before the code, under Goal, Behaviour, Edge cases, Out of
+  scope, Decisions, Proof, Changes and Steps. It goes `draft`, `acked`
+  on the owner's word, then `closed` with its date once every step is
+  settled, before the PR, or `dropped` with its date. Work that leaves
+  it adds a line under Changes, the rest catching up before the review.
+- A review ledger is `reviews/<yyyy-mm>-<branch-slug>/ledger.md`, at
+  level `quick`, `standard` or `deep`, `open` until every batch is
+  done, then `closed`. A ledger from before 2.0.0 keeps its old level
+  and its closing pass's batch. Its batches, one per round and five at
+  most beside an old closing pass's, go `pending`, `fixing` on the
+  owner's ack, `verified`, then `done`. A finding takes
+  a bug's grades and goes from `open` to `fixed` with the commit that
+  holds its change, `refuted` where the claim is wrong, `wontfix` where
+  it holds on purpose, or `deferred` on the owner's word into a bug that
+  links the ledger, each of the last three with its reason.
+- The handover note, `handover/handover.md`, is the one note a session
+  leaves for the next. A write replaces the note left on its branch or
+  one that names no branch, `no git` or `git could not answer`, and
+  refuses any other until `--replace`. A note is for a session on its
+  branch, the three just named are for any session, and so is any note
+  for a session whose own branch reads `no git` or
+  `git could not answer`. The session start hook takes it on every
+  start but a fork, renamed `handover.md.reading` while read, then
+  removes it, and leaves a note for another branch in place. Without
+  the hook, read `handover.md`, or `handover.md.reading` where
+  `brain status` says it was read before, then delete it. Nothing locks
+  the note, so start one session at a time while it waits.
+
 ## A review
 
 ```bash
-brain ledger open feat/billing --level high --summary - <<'EOF'
+brain ledger open feat/billing --level standard --summary - <<'EOF'
 The billing branch, six commits.
 EOF
-brain ledger batch 2026-09-feat-billing --theme correctness
+brain ledger batch 2026-09-feat-billing --theme 'round 1'
 brain ledger add 2026-09-feat-billing - --severity breaks --batch 1 <<'EOF'
 the guard is inverted
 checkout fails for a saved card
@@ -137,21 +210,19 @@ brain ledger set 2026-09-feat-billing F-01 F-02 status=fixed fix=abc1234
 brain ledger batch 2026-09-feat-billing 1 --status verified
 brain ledger batch 2026-09-feat-billing 1 --status done
 brain ledger report 2026-09-feat-billing
-brain ledger batch 2026-09-feat-billing --theme "closing pass"
-brain ledger batch 2026-09-feat-billing 2 --status done
 brain ledger close 2026-09-feat-billing
 ```
 
 Findings and batches number themselves, with no more batches than
-[spec/reviews.md](../../spec/reviews.md) allows, and `set` takes every
-finding a group's commit fixed in one call, the findings first and the
-changes after them. A batch that holds findings runs only on the
+[the ledger](#the-brains-files) allows, and `set` takes every
+finding a commit fixed in one call, the findings first and the
+changes after them. A finding the recheck found takes
+`--found-by recheck`. A batch that holds findings runs only on the
 owner's ack, the word that starts it, given as a date or as `auto`
 while the owner's standing word holds. Verification closes a batch,
-`report` says where the review stands and what comes next, the closing
-pass leaves one more batch of its own, outside the cap and empty when
-it found nothing, and `close` refuses while any finding is still open
-or the report names a step before the close. The standing word is
+`report` says where the review stands and what comes next, and `close`
+refuses while any finding is still open or the report names a step
+before the close. The standing word is
 `brain ack on` with an end, by time or by task, `brain ack off` takes
 it back, `brain ack` says where it stands, and the reference says what
 a second `brain ack on` does and what each refuses.
@@ -183,11 +254,12 @@ brain task off
 ## The handover
 
 SYSTEM.md section 8.4 says when a session leaves the note for the next
-one and how the note weighs against a compaction's summary, and
-[spec/handover.md](../../spec/handover.md) says what the note holds, the
-tool's record and the prose on standard input, and which session start
-takes it. The reference gives every refusal, and `--replace`, which
-writes over a note left for another branch, is the owner's call.
+one and how the note weighs against a compaction's summary,
+[the reference](references/commands.md#the-handover) says what the note
+holds, the tool's record and the prose on standard input, and
+[the brain's files](#the-brains-files) say which session start takes
+it. The reference gives every refusal, and `--replace`, which writes
+over a note left for another branch, is the owner's call.
 
 ```bash
 brain handover <<'END_OF_NOTE'
@@ -213,7 +285,7 @@ brain check src/app.py docs/guide.md
 brain gates
 ```
 
-Doctor reads the brain against its specs. The check reads the project's
+Doctor reads the brain against its formats. The check reads the project's
 own markdown and Python, and the branch's commits, against the rules of
 SYSTEM.md a machine can judge. In prose that is an em dash, a semicolon
 or a colon outside a list item's label. In Python it is a def with any

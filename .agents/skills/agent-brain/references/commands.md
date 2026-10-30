@@ -106,9 +106,10 @@ says so. A folder where the word goes, which the tool never made and
 never removes, has `brain ack on` and `brain ack off` refused and
 `brain ack` say so. The state is one dotted file at the root of the
 brain, `.agents/.ack`, the tool's own, which git ignores since it
-belongs to one machine and one stretch of work, and the brain's
-conventions say the rest. A file that does not read as a word, a
-moment with no zone in it included, counts as no word, and the status
+belongs to one machine and one stretch of work, and
+[the brain's files](../SKILL.md#the-brains-files) say the rest. A file
+that does not read as a word, a moment with no zone in it included,
+counts as no word, and the status
 line says so until `brain ack off` clears it, as `brain ack on` does
 too where the file can be written. While it stands,
 `brain ledger batch <ledger> <n> --status fixing --ack auto` records
@@ -126,7 +127,7 @@ the word is off, and the report says it waits for the owner's word.
 ## The current work
 
 The chain from the plan down to the step the agent is on, per
-[spec/conventions.md](../../../spec/conventions.md), which every hook
+[the brain's files](../SKILL.md#the-brains-files), which every hook
 prints under the clock and the standing word, one line per link,
 outermost first, `task none` when nothing is on. A plan prints as
 `plan <name>, step <n> of <m>, <text>`, a todo as
@@ -177,34 +178,53 @@ rules allow, and says on standard error when they keep it off.
 ## The handover
 
 The one note a session leaves for the next, per
-[spec/handover.md](../../../spec/handover.md), which the session start
-hook puts whole in front of the next session and removes, so it is
-read once.
+[the brain's files](../SKILL.md#the-brains-files), which the session
+start hook puts whole in front of the next session and removes, so it
+is read once.
 
 | Command | What it does |
 |---|---|
-| `brain handover [--replace]` | Writes `handover/handover.md` from the prose on standard input, in place of the note there. The header carries the branch, the head and the moment. The body opens with the record the tool reads off the machine, the branch at its head with the commit's subject, the uncommitted files, the standing word as `brain ack` prints it at the note's moment and the current work as `brain task` prints it, then the prose as it came, less the blank lines before and after it, so a first line's indentation and a last line's trailing spaces stay. The uncommitted files are listed one per line with their state, modified, added, deleted, renamed, copied, type changed, unmerged or untracked, git's own letter for any other, the first fifty and then one line, `and N more`, for the rest. A project below its repository's top lists only its own files, named from its own folder, a file renamed out of it reading `moved out of the project` under the name it left, and the note under either of its names is left out, each path matched as git's listing matches it, so where `core.ignorecase` is true two paths that differ in an ASCII letter's case alone are one. A path or a subject that holds a line break or a carriage return is written with it escaped, so each stays one line. A detached head reads as the branch a rebase or a bisect in progress works on, else `detached`. Where the file git keeps for that cannot be read, it reads `git could not answer` with the reason. The branch and the head read `no git` where git is not installed or no `.git` stands at the project's root or above it, `no commits yet` in a repository with none, and `git could not answer` with the first line git gave where it refuses the repository, or with the seconds it waited where git gives no answer in 10. Refused with no words on standard input, and with a folder standing at the note's path or at `handover/handover.md.reading`, or a file standing where their folder goes. Refused too over a file at the note's path the tool never wrote or cannot read, which `--replace` never writes over. Which waiting note a write replaces is in the spec, and one it does not, a note for another branch, is refused with its branch and its moment, which `--replace` writes over on the owner's word. With nothing at the path, a claimed note a session start could not remove, `handover/handover.md.reading`, is the note waiting and is judged the same. The write removes it once the new note is in place. |
+| `brain handover [--replace]` | Writes `handover/handover.md` from the prose on standard input, in place of the note there. The header carries the branch, the head and the moment. The body opens with the record the tool reads off the machine, the branch at its head with the commit's subject, the uncommitted files, the standing word as `brain ack` prints it at the note's moment and the current work as `brain task` prints it, then the prose as it came, less the blank lines before and after it, so a first line's indentation and a last line's trailing spaces stay. The uncommitted files are listed one per line with their state, modified, added, deleted, renamed, copied, type changed, unmerged or untracked, git's own letter for any other, the first fifty and then one line, `and N more`, for the rest. A project below its repository's top lists only its own files, named from its own folder, a file renamed out of it reading `moved out of the project` under the name it left, and the note under either of its names is left out, each path matched as git's listing matches it, so where `core.ignorecase` is true two paths that differ in an ASCII letter's case alone are one. A path or a subject that holds a line break or a carriage return is written with it escaped, so each stays one line. A detached head reads as the branch a rebase or a bisect in progress works on, else `detached`. Where the file git keeps for that cannot be read, it reads `git could not answer` with the reason. The branch and the head read `no git` where git is not installed or no `.git` stands at the project's root or above it, `no commits yet` in a repository with none, and `git could not answer` with the first line git gave where it refuses the repository, or with the seconds it waited where git gives no answer in 10. Refused with no words on standard input, and with a folder standing at the note's path or at `handover/handover.md.reading`, or a file standing where their folder goes. Refused too over a file at the note's path the tool never wrote or cannot read, which `--replace` never writes over. Which waiting note a write replaces is in [the brain's files](../SKILL.md#the-brains-files), and one it does not, a note for another branch, is refused with its branch and its moment, which `--replace` writes over on the owner's word. With nothing at the path, a claimed note a session start could not remove, `handover/handover.md.reading`, is the note waiting and is judged the same. The write removes it once the new note is in place. |
 
-The spec says which session start takes the note, how the hook claims it
-under `handover/handover.md.reading` and removes it, what it leaves for
-another session, and where the tool's reading of git and the disk falls
-short. `brain status` names a waiting note of the tool's whatever branch
-it is for, and never a file under either name that the tool never wrote
-or one it cannot open, which the hook names in one line in the note's
-place. Where the removal fails, the hook says so on standard error
-alone, since the context is out.
+[The brain's files](../SKILL.md#the-brains-files) say which session
+start takes the note, how the hook claims it under
+`handover/handover.md.reading` and removes it, and what it leaves for
+another session. `brain status` names a waiting note of the tool's
+whatever branch it is for, and never a file under either name that the
+tool never wrote or one it cannot open, which the hook names in one
+line in the note's place. Where the removal fails, the hook says so on
+standard error alone, since the context is out.
+
+The tool's git calls keep the environment they are given, so one run
+from inside a git hook reads that hook's `GIT_DIR`. Run from inside a
+brain that is a symlink, the tool finds the brain at the link's target,
+so the note and the git its record reads are the target's. On Windows a
+git that starts a child process holding its output can run past the
+10 second limit, since the tool stops only the git it started.
+
+Branch names and paths compare as git's `core.ignorecase` says, so a
+flag set wrong for the disk takes two spellings for one where the disk
+keeps them apart, or for two where it folds them, and setting the flag
+right is the owner's to do. Where the flag is true, branch names fold
+by Unicode's case folding, which takes a few pairs NTFS keeps apart for
+one, ß and ss among them, so two branches that differ only by such a
+pair share a note there. A branch whose name ends in a character
+Unicode counts as white space, a no break space among them, is named
+without it, the way every header value is read, so two branches that
+differ only by such an ending share a note too.
 
 ## The steps
 
-A plan, a todo or a bug carries its steps as a table the tool keeps,
-per [spec/plans.md](../../../spec/plans.md), a plan always, a todo or
-a bug when its work has steps. Whoever files the entry lists the steps
-as numbered lines under a Steps heading, and `brain new` turns them
-into the table, each line free to open with the id or the name of a
-todo, a bug or a review followed by a comma or a colon, which points
-the step at that entry, the id in any case and stored in upper case,
-`by` being the plan's or the todo's own `by` and agent for a bug. A
-word shaped like an id or a review's name that reaches nothing at all
+A plan, a build spec, a todo or a bug carries its steps as a table the
+tool keeps, per [the brain's files](../SKILL.md#the-brains-files), a
+plan and a build spec always, a todo or a bug when its work has steps.
+Whoever files the entry lists the steps as numbered lines under a Steps
+heading, and `brain new` turns them into the table, each line free to
+open with the id or the name of a build spec, a todo, a bug or a review
+followed by a comma or a colon, which points the step at that entry,
+the id in any case and stored in upper case, `by` being the plan's or
+the todo's own `by` and agent for a build spec or a bug.
+A word shaped like an id or a review's name that reaches nothing at all
 is refused, one that reaches a decision or another kind a step cannot
 point at reads as prose, and so does a plain date. A line under Steps
 that is not a numbered step is refused too, a wrapped step's lines
@@ -216,7 +236,7 @@ dropped without a word. A pipe in a step is written into its cell as
 |---|---|
 | `brain new plan --title T --description D [--by owner\|agent] [--link P] [--category C]` | Files a plan from its prose on standard input, the Why and the Done when at least, its listed steps as the table, or an empty table when it lists none, a goal to find out. The steps go under a heading that reads `## Steps` and nothing more, and a Steps heading at another level or with a colon after it is refused, since the readers would never find it. `by` is owner unless said otherwise, `--link`, `--category` and what it prints work as for any kind, and a field flag a plan does not carry is refused. |
 | `brain steps <key>` | The entry in a few lines, its status and the count of settled steps, then one line per step with what it points at and its mark. |
-| `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers, then any slip the check finds in the entry, as `brain new` does. A todo or a bug with no Steps section gets one where its spec puts it, and a numbered list written under Steps by hand becomes the table first, its rows set by the plan's or the todo's own `by` and by agent on a bug. Refused on an entry that is not open, for a step that points at the entry itself, for one that points at an entry whose steps point back here at any remove, since the two would wait on each other for good, and on a plan whose steps sit under a heading that is not `## Steps`. |
+| `brain steps <key> add "step"`, `brain steps <key> add - [--by owner\|agent]` | Appends one step, or one per line of standard input, numbered after the last, and prints the numbers, then any slip the check finds in the entry, as `brain new` does. A todo or a bug with no Steps section gets one where its kind's sections put it, and a numbered list written under Steps by hand becomes the table first, its rows set by the plan's or the todo's own `by` and by agent on a bug. Refused on an entry that is not open, for a step that points at the entry itself, for one that points at an entry whose steps point back here at any remove, since the two would wait on each other for good, and on a plan whose steps sit under a heading that is not `## Steps`. |
 | `brain steps <key> step <n> pending\|done\|skipped` | Marks a step that points at nothing, or one whose pointer reaches nothing the brain can read, a dead key or an id two files carry after a merge, which doctor reports. A step that points at an entry takes its mark from that entry, done when the todo is done, the bug fixed or wontfix, or the review closed, skipped when the entry was dropped, and a step whose todo or bug was refiled follows it to the entry filed in its place. The tool refreshes it whenever the entry's status changes, a ledger close included, while the holder is open, and a retitle rewrites a cell naming the entry by hand as its id in every holder, or as the new name for a file with no id, which doctor reports, so marking a pointed step by hand is refused. Refused on an entry that is not open, whose table is its record. |
 
 A plan goes done, a todo done and a bug fixed with `brain set` once
@@ -256,13 +276,13 @@ it is.
 
 | Command | What it does |
 |---|---|
-| `brain ledger open <branch> --summary S [--level low\|medium\|high\|max]` | Creates `reviews/<yyyy-mm>-<branch-slug>/ledger.md` with the three sections and an empty batch table, the level recorded in its header, high unless given. The summary is one line, or `-` to read it from standard input inside a quoted heredoc, which keeps the shell off it, and it is refused when empty or when it runs to more than one line. Standard input is read as UTF-8 wherever the tool takes it, and a byte that is not is refused. |
-| `brain ledger batch <ledger> --theme T` | Adds the next batch, numbered past the highest one, status pending, and prints its number. The theme is one line with no pipe. A batch past the cap that [spec/reviews.md](../../../spec/reviews.md) sets is refused, the one themed `closing pass` aside, however it is cased. The tool takes that theme at any step and as often as it is given, and the review says when. |
+| `brain ledger open <branch> --summary S [--level quick\|standard\|deep]` | Creates `reviews/<yyyy-mm>-<branch-slug>/ledger.md` with the three sections and an empty batch table, the level recorded in its header, standard unless given. The old levels, low, medium, high and max, still read in a ledger opened before 2.0.0, and a new one never takes them. The summary is one line, or `-` to read it from standard input inside a quoted heredoc, which keeps the shell off it, and it is refused when empty or when it runs to more than one line. Standard input is read as UTF-8 wherever the tool takes it, and a byte that is not is refused. |
+| `brain ledger batch <ledger> --theme T` | Adds the next batch, numbered past the highest one, status pending, and prints its number. The theme is one line with no pipe. A batch past the cap of five that [the ledger](../SKILL.md#the-brains-files) holds to is refused, the one themed `closing pass` aside, however it is cased, which a ledger from before 2.0.0 may carry. |
 | `brain ledger batch <ledger> <n> [--status pending\|fixing\|verified\|done] [--ack DATE\|auto] [--theme T]` | Sets a batch's status, the owner's ack, or its theme. The ack is the owner's word that starts a batch, recorded on it, so `fixing`, `verified` and `done` on a batch that holds findings are refused until the batch carries one, and verification closes the batch with no further word. An ack of `auto` is the standing word's stamp, and the standing word section says when it is taken, when it is refused, and what a stamp left on a pending batch means. Refuses when given none of them, and refuses `verified` or `done` while a finding in the batch is still open. A batch with no findings runs and closes without an ack. A batch starts whatever the batches before it stand at, since their order is the review's. The one change of theme refused is the batch themed `closing pass` given a theme the cap counts while the cap is full, and the refusal says that batch keeps its theme. An open finding filed into a batch already verified or done, or reopened there, or a finding moved in already fixed, puts the batch back to `fixing` with its ack kept, since the word covered it, so the late fix is verified like the rest. A batch that had none, an empty one closed without an ack and then given a finding, asks for the ack before anything else. The ack, like the theme, is one line with no pipe. |
-| `brain ledger add <ledger> "claim" --severity S [--found-by review\|hunter] [--batch n]` | Records the next finding, numbered past the highest one, and prints its id. The claim is one line. A batch number must name a row of the table, so no finding is filed where the report cannot see it. With `-` in place of the claim, the claims come in on standard input inside a quoted heredoc, one per line, all filed with the same severity, batch and found-by in one write, so they land whole or not at all, and the ids print one per line. That keeps the shell off a backtick or a dollar sign in a claim, and files a batch's worth in one call. Empty standard input is refused. |
+| `brain ledger add <ledger> "claim" --severity S [--found-by review\|recheck] [--batch n]` | Records the next finding, numbered past the highest one, and prints its id. A finding the recheck of a fix found takes `recheck`, and an old ledger's `hunter` still reads. The claim is one line. A batch number must name a row of the table, so no finding is filed where the report cannot see it. With `-` in place of the claim, the claims come in on standard input inside a quoted heredoc, one per line, all filed with the same severity, batch and found-by in one write, so they land whole or not at all, and the ids print one per line. That keeps the shell off a backtick or a dollar sign in a claim, and files a batch's worth in one call. Empty standard input is refused. |
 | `brain ledger set <ledger> F-NN [F-NN ...] field=value ...` | Changes a finding, or every finding named, each value one line taken as written. The findings come first and the changes after them, so no word meant for one finding lands on another. Several findings take the same changes in one write, so the findings a group's commit fixed get its hash in one call, whole or not at all, and a finding the ledger does not have refuses the call. The call is refused too, with a message that names the word, for a finding's id after the first change, a change before the first finding, a field given twice, a finding named twice, and an id in lower case such as `f-03`, and it is refused for findings with no change. A ledger given as a finding's id, in either case, is refused as the ledger's key left out. The fields are severity, found-by, batch, status, fix and reason, and a line a hand edit lost comes back. A fixed finding always names its commit, `fix=<hash>`, a refuted, a wontfix or a deferred one says why in the same call, `reason=<one line>`, and the reason leaves with the status, as the fix does with a status moved away from fixed, save a `fix=` the same call gives, which stands on every finding the call names, whatever its status. A finding that moves into fixed names its commit in the same call or the call is refused whole, whatever fix an earlier call left on it, and one fixed already and set fixed again keeps its commit. A batch must be one the table has. The statuses are open, fixed, refuted, wontfix and deferred, and a refuted finding, like a wontfix, has landed and needs no batch. |
-| `brain ledger report <ledger>` | The ledger's state in a few lines, counted from the file, with a blank status read as open the way close reads it. The first line gives the status and the counts, then one line per batch with its status, ack and counts, then a last line saying what comes next. That last line names an open or a fixed finding filed into no batch the table has before anything else, since a fix is verified by its batch, then walks the batches in order and says what the first unfinished one needs, the owner's word for a pending one, or its start when the ack is already on it or the standing word holds, a stamp from an earlier word counting only while the word holds, the ack on record for one that holds findings and has none, the standing word's while one holds, then its open findings, a late one included, its verification, and its marking done. Once every batch is done it says the closing pass is owed, per house rule 7, until a batch themed `closing pass` records that the pass ran, and then to close the ledger. |
-| `brain ledger close <ledger>` | Flips the ledger to closed and writes the count under Summary. Refuses while a finding is open or has no status, and until the report's next line says to close the ledger, so a batch not yet done or a closing pass still owed holds it open. |
+| `brain ledger report <ledger>` | The ledger's state in a few lines, counted from the file, with a blank status read as open the way close reads it. The first line gives the status and the counts, then one line per batch with its status, ack and counts, then a last line saying what comes next. That last line names an open or a fixed finding filed into no batch the table has before anything else, since a fix is verified by its batch, then walks the batches in order and says what the first unfinished one needs, the owner's word for a pending one, or its start when the ack is already on it or the standing word holds, a stamp from an earlier word counting only while the word holds, the ack on record for one that holds findings and has none, the standing word's while one holds, then its open findings, a late one included, its verification, and its marking done. Once every batch is done it says to close the ledger. |
+| `brain ledger close <ledger>` | Flips the ledger to closed and writes the count under Summary. Refuses while a finding is open or has no status, and until the report's next line says to close the ledger, so a batch not yet done holds it open. |
 
 ## Doctor
 
@@ -276,7 +296,7 @@ there are no stray files, meaning every markdown file under `.agents/`
 outside `handover/` is either an entry the store lists or a file the kit
 owns, frontmatter present and complete, `updated` a real date, names
 matching filenames and unique, kind matching folder, fields and values
-against the spec, required headings, the lifecycle rules, filename
+against the kind, required headings, the lifecycle rules, filename
 patterns kept and no id carried twice, links that resolve, links written
 as paths with each file once, body links that resolve, a link of either
 kind into `handover/` reported as reaching nothing even while the note
@@ -398,7 +418,7 @@ any link standing there. No other file is removed.
 
 ## The check
 
-Doctor reads the brain against its specs. The check reads the project's
+Doctor reads the brain against its formats. The check reads the project's
 own markdown and Python, and the branch's commits, against the rules of
 SYSTEM.md a machine can judge without reading for meaning. It reports
 and never rewrites, since most of its slips need new words that only the
@@ -562,8 +582,6 @@ The check falls short in these places.
 - Git's warning that it could not open a folder is read in git's
   English. Where git still speaks another language, no folder is named,
   and its warning is passed on as a note as it stands.
-- A project's own file under `.agents/spec/` is passed over as the kit's
-  wherever the upgrade takes it for one.
 - The check takes git's `GIT_TRACE` variables out of its git calls, but
   a trace git's own config sends to standard error, such as through
   `trace2.normalTarget`, still reaches the notes as git's words, though
@@ -706,7 +724,7 @@ file, so the move shows as one. The exit code is doctor's, 0 clean and
 right. A finding in a file the install writes whole is the kit's to
 fix, printed apart and never counted, since the install replaces that
 file every time. Such a file is a skill the kit ships, the brain's own
-`SYSTEM.md`, `README.md` or `house-rules.md`, a spec, the version stamp
+`SYSTEM.md`, `README.md` or `house-rules.md`, the version stamp
 `VERSION`, or a file copied into the agent folders, which is a sub
 agent definition, the chat style source or one of its copies. An import
 slip in `CLAUDE.md`, in `GEMINI.md` or in the kit's words of
@@ -749,7 +767,7 @@ standard input.
 | `session-start` | Prints into the agent's context the clock, the standing word and the current work, then the note the last session left in `handover/handover.md`, whole under a line that says how it was taken, or the one line that says why a file there stays, then `brain status`, counted once the note is taken, so it names a note this start read only where the start could not take it aside and read it in place, which the next session reads again. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy after those, for an agent that does not expand imports. The note is taken on every start the event's `source` names but a fork, since a fork carries the context it came from, and the handover section above says how. |
 | `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
 | `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Claude Code fires it once after each round of tool calls, Codex and Gemini CLI after each shell call. |
-| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a file nested under `spec/`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, anything in the `handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files, files directly under `spec/` and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
+| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, anything in the `handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
 | `post-write` | After a write, runs the check on each file just written inside the project, a file reached through a link that leads out of it left out, and hands its slips back as context under `brain check after that write:`, so they are fixed in the same round, a file the check passes over left out as the check leaves it out. A file the check could not judge, since git cannot read its attributes or the interpreter cannot parse it, is named on standard error, in UTF-8, and never in the context, and a standard error that cannot take the note loses it and nothing else. After a write inside `.agents/`, runs doctor too and hands its findings back the same way, or its error in words where it cannot read the brain, and still exits 0, since an exit 1 would show the person the error and lose the slips. |
 
 Context goes back as one JSON object naming the event, which all three

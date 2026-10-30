@@ -25,14 +25,14 @@ written record of what the project knows.
 | `AGENTS.md` | The front door every agent reads. It points at the rulebook, and it holds your project's own rules when you have some. |
 | `CLAUDE.md` and `GEMINI.md` | Short files that pull in `AGENTS.md`, because Claude Code and Gemini CLI look for their own filename. `GEMINI.md` adds its chat style, and `CLAUDE.md` carries the instructions Claude Code compacts a session by, which ask it to keep what a handover carries and the rules you gave in chat, in your words. The port and the upgrade write both whole, so your own rules go in `AGENTS.md`. |
 | `.agents/SYSTEM.md` | The rulebook. How to write code, how to talk to you, where docs go, how a branch gets reviewed, how git is used. |
-| `.agents/` | The project's memory. Docs, plans, todos, bugs, decisions, review ledgers, and small facts the agent learns, plus the note one session leaves for the next, which never enters git. Ships empty apart from the rules that say how each folder is used, and the tool that keeps them. |
-| `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also checks the project's own markdown and Python, runs the project's gates, installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
-| `.agents/skills/branch-review/` | The code review, run on your word. Finder sub agents in parallel, each over a slice of the branch or the whole of it as its angle reads, the findings filed in a ledger, then fixer sub agents in parallel, one per group of files, each group checked by verifiers and each round swept by hunters until clean, and a report that says where things stand first. |
+| `.agents/` | The project's memory. Docs, plans, build specs, todos, bugs, decisions, review ledgers, and small facts the agent learns, plus the note one session leaves for the next, which never enters git. Ships empty apart from the rules and the tool that keeps the rest, whose [skill sheet](.agents/skills/agent-brain/SKILL.md#the-brains-files) says what each folder holds. |
+| `.agents/skills/agent-brain/` | The brain tool. Files, changes, counts and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand. It also checks the project's own markdown and commit messages, runs your linters on each file the agent writes and your gates before a review, installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
+| `.agents/skills/branch-review/` | The code review, run on your word at a quick, standard or deep level. Finder sub agents read the whole branch in parallel, one per angle, and two verifier sub agents vote on each finding, or the main agent alone at the quick level. The main agent fixes every confirmed finding itself in one go, a fresh verifier rechecks the diff of the fix, three rounds at most, and one docs agent brings the docs up to the code at the end. The report says where things stand first. |
 | `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
-| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so each file the agent writes with its edit tools is checked without anyone asking and the clock, your standing word and the work the agent is on stay in front of it, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
+| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so each file the agent writes with its edit tools is linted and checked without anyone asking and the clock, your standing word and the work the agent is on stay in front of it, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
-| `.gitignore` | Keeps your `.env`, your local Claude Code settings and Python's cache out of git, along with what the brain's conventions list as never entering the repo. |
+| `.gitignore` | Keeps your `.env`, your local Claude Code settings and the Python and ruff caches out of git, along with what the agent-brain [skill sheet](.agents/skills/agent-brain/SKILL.md#the-brains-files) says git ignores in `.agents/`. |
 
 Everything is generic on purpose. Anything specific to your project goes
 in a section called `## 0. Project Rules` at the top of `AGENTS.md`, and
@@ -59,8 +59,9 @@ It refuses while a file it would replace has uncommitted changes, so
 commit first. Copy the kit's CODEOWNERS in with my handle in place of
 @ecstra. If this project already has test, build, or lint commands, add
 a "## 0. Project Rules" section at the top of AGENTS.md naming them as
-the gates. Read what the port printed, and tell me what you did and
-what it listed as left to file.
+the gates, and its linters as lint lines, the way <that folder>/README.md
+shows. Read what the port printed, and tell me what you did and what it
+listed as left to file.
 ```
 
 ### Terminal
@@ -89,10 +90,10 @@ It works on the git repository around the folder you run it in, never
 on your home folder, and it refuses while a file it would replace holds
 uncommitted work, so commit first. Then it does all of this in one run.
 
-- The kit's files land: the rulebook and its specs under `.agents/`,
-  the front doors and `CONTRIBUTING.md` at the root, the hooks, the
-  review's sub agent definitions and the chat style in the agent
-  folders, and the version stamp.
+- The kit's files land: the rulebook, the house rules and the kit's two
+  skills under `.agents/`, the front doors and `CONTRIBUTING.md` at the
+  root, the hooks, the review's sub agent definitions and the chat style
+  in the agent folders, and the version stamp.
 - Your own rules are kept. A `## 0. Project Rules` section you already
   had in `AGENTS.md`, `CLAUDE.md` or `GEMINI.md` goes to the top of the
   new `AGENTS.md`. If you had no such section but a rules file of your
@@ -124,20 +125,27 @@ after it writes nothing.
 >    directly under the title and above the comment line, and holds what
 >    the general rules cannot know about your project. The gates (the
 >    exact test suites, analyzers, builds, and validators that must be
->    green before a review), the tooling (how PRs are opened, how the
->    app runs), anything else the general sections do not cover. The
->    gates go under a `### Gates` heading, one fenced `bash` block per
->    gate, and `brain gates` runs them in order, as
+>    green before a review), the linters, the tooling (how PRs are
+>    opened, how the app runs), anything else the general sections do
+>    not cover. The gates go under a `### Gates` heading, one fenced
+>    `bash` block per gate, and `brain gates` runs them in order, as
 >    [`commands.md`](.agents/skills/agent-brain/references/commands.md#the-gates)
->    says. A project with no gates yet has nothing to put there, so skip
->    it and add it when the first gate exists.
+>    says. The linters go under a `### Lint` heading, in a fenced block,
+>    one line each, a file pattern and then one command with `{file}`
+>    where the file goes, such as `*.py ruff check --fix {file}`. The
+>    brain runs every line that matches on each file the agent writes
+>    outside `.agents/`, with no shell, and hands back what the linters
+>    could not fix, never blocking the write. A project with no gates
+>    or linters yet has nothing to put there, so skip it and add it when
+>    the first one exists.
 
 Commit, and start your first session. The agent reads `.agents/INDEX.md`
 on its own, you do not need to point at anything.
 
 From then on `.agents/` fills up as a side effect of the work. The agent
-writes docs as it builds things, files todos and bugs as they come up,
-records decisions when they are made, and keeps small facts it learns.
+writes a build spec before each branch's code, docs as it builds
+things, files todos and bugs as they come up, records decisions when
+they are made, and keeps small facts it learns.
 You will never sit down to "maintain" it.
 
 ## Porting an existing project
@@ -169,8 +177,9 @@ prompt below if the agent did not run the port itself.
    edit tools, no scripts, the structure inside `.agents/` is the tool's,
    and the house style holds throughout.
 2. **Read everything**: the whole project, the code, every doc and note
-   it can find, then the specs in `.agents/spec/` so it knows the target
-   format. It shows you a plan before it moves anything.
+   it can find, then the agent-brain skill sheet, whose section on the
+   brain's files gives the target format. It shows you a plan before it
+   moves anything.
 3. **File each thing where it belongs**: on its own branch, one file at
    a time, through the brain tool, `brain new` with the prose on
    standard input, per the map below. The tool writes the header block,
@@ -195,17 +204,18 @@ prompt below if the agent did not run the port itself.
    the tool's doctor with `--fix` and leaves the brain clean, and runs
    `brain gates`, which a review waits on. It fixes what the check names
    in the files it filed and lists for you whatever else is red, such
-   as the check's slips in your code and in what it left alone.
+   as the check's slips in your other markdown and in what it left
+   alone.
 7. **Hand you the branch**: you say when it is ready for review, and
    the agent runs the review the way the house rules describe, findings
-   in a ledger, fixed in rounds on your ack of the batches. Then it
-   opens the PR and merges, both on your ask. When the PR opens and
-   whether as a draft is your project's own rule in section 0, so the
-   agent never asks. After that the root holds `README.md`, `AGENTS.md`,
-   `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md`, and `CODEOWNERS`, plus
-   your `docs/` folder if you keep one. What a person wrote by hand
-   stays as it is, and anything new in there links into `.agents/docs/`
-   rather than repeating it.
+   confirmed by a vote and filed in a ledger, then fixed in three rounds
+   at most, each on your ack. Then it opens the PR and merges, both on
+   your ask. When the PR opens and whether as a draft is your project's
+   own rule in section 0, so the agent never asks. After that the root
+   holds `README.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`,
+   `CONTRIBUTING.md`, and `CODEOWNERS`, plus your `docs/` folder if you
+   keep one. What a person wrote by hand stays as it is, and anything
+   new in there links into `.agents/docs/` rather than repeating it.
 
 ### Where things go
 
@@ -234,18 +244,18 @@ the proper edit tools, no scripts or heredocs, the header blocks and
 indexes inside .agents/ left to the brain tool, house style throughout.
 Then read the whole project: the code, every doc and note, and every
 TODO list, and the list the port printed of what is left to file, which
-I will paste if you did not run the port. Then read .agents/INDEX.md,
-everything in .agents/spec/, and the agent-brain skill so you know the
-target format and the tool that writes it. Show me a plan of what goes
-where before you move anything. Then file it all into .agents/ (docs,
-decisions, todos, bugs, memory, everything) one file at a time through
-brain new with the prose on standard input, never by hand, keeping my
-wording in todos. Section 0 at the top of AGENTS.md holds what the port
-carried over from our old rules: read it against the new rulebook, drop
-what the general sections already cover, and keep only the truly
-project specific parts, and read every other old rules file the port
-named (CLAUDE.md, GEMINI.md, CONTRIBUTING.md) from git the same way,
-their extra rules into section 0.
+I will paste if you did not run the port. Then read .agents/INDEX.md and
+the agent-brain skill, its section on the brain's files above all, so
+you know the target format and the tool that writes it. Show me a plan
+of what goes where before you move anything. Then file it all into
+.agents/ (docs, decisions, todos, bugs, memory, everything) one file at
+a time through brain new with the prose on standard input, never by
+hand, keeping my wording in todos. Section 0 at the top of AGENTS.md
+holds what the port carried over from our old rules: read it against
+the new rulebook, drop what the general sections already cover, and
+keep only the truly project specific parts, and read every other old
+rules file the port named (CLAUDE.md, GEMINI.md, CONTRIBUTING.md) from
+git the same way, their extra rules into section 0.
 This may be hundreds or thousands of files. Do every one, never a
 sample. If the volume needs it, list everything in a ledger first and
 work in batches, ticking each file off. When it is all filed, delete
@@ -271,11 +281,18 @@ python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py upgrade
 The upgrade replaces what is the kit's and leaves what is yours.
 
 - The kit's: the rulebook, the front doors around your section 0,
-  `CONTRIBUTING.md`, the house rules, the specs, the tool and its
-  skills, the hooks, the review's sub agent definitions, the chat
-  style, and the version stamp. All new over old. A skill folder or a
-  definition under a kit name that you made before the kit shipped it
-  is refused, not replaced, until you move it aside.
+  `CONTRIBUTING.md`, the house rules, the tool and its skills, the
+  hooks, the review's sub agent definitions, the chat style, and the
+  version stamp. All new over old. A skill folder or a definition under
+  a kit name that you made before the kit shipped it is refused, not
+  replaced, until you move it aside.
+- Retired: what the kit wrote in an older release and no longer ships,
+  each named in the report. That takes in the format specs under
+  `.agents/spec/`, whose rules the tool and its
+  [skill sheet](.agents/skills/agent-brain/SKILL.md#the-brains-files)
+  now carry, and the review's old fixer and hunter definitions. A file
+  of your own in `.agents/spec/` stays, and the upgrade names it for
+  you to file under `docs/` through `brain new`.
 - Yours: `## 0. Project Rules`, which stays above the comment line under
   the title of `AGENTS.md`, every file your project filed into
   `.agents/`, your own hooks and settings in the agent folders, and every
@@ -322,10 +339,10 @@ need to, but the commands are short enough to know.
 |---|---|
 | `brain status` | The clock, where your standing word stands, on, held or off, the work the agent is on, then the brain in numbers, what each tracker holds and whether doctor is clean. The session start hook prints this into the agent's context, and two more hooks keep the clock and the work in front of the agent on every prompt and after tool calls, since a model does not know the time on its own and forgets what it was doing. |
 | `brain task on <entry>` | The work the agent is on, one chain at a time from a plan down to the step, which the agent sets before multi step work and moves with `brain task done`, a mark in the entry's own steps table, or which moves of itself when the entry a step points at closes, a refiled one handing the step on to the entry filed in its place. The agent cannot start a second piece of work while one stands, short of `--replace` on your word, and a link falls off the chain when its entry closes. |
-| `brain doctor` and `brain doctor --fix` | Checks every file against its spec, and `--fix` repairs the mechanical slips, a stale index, a link written as a name, a chat style copy that drifted. |
-| `brain check` | Holds the project's own markdown and Python, and the branch's commit messages, to the rules of [`SYSTEM.md`](.agents/SYSTEM.md) a machine can judge, and reports without rewriting. It reads the files given, or with none the project's own files and the branch's commits. The post write hook runs it on each file the agent writes with its edit tools, and the tool on the prose it files, so a slip is fixed in the same round. [`commands.md`](.agents/skills/agent-brain/references/commands.md#the-check) says what it judges and what it passes over. |
+| `brain doctor` and `brain doctor --fix` | Checks every file against its kind's format, and `--fix` repairs the mechanical slips, a stale index, a link written as a name, a chat style copy that drifted. |
+| `brain check` | Holds the project's own markdown and the branch's commit messages to the rules of [`SYSTEM.md`](.agents/SYSTEM.md) a machine can judge, and reports without rewriting. Code is left to your linters. It reads the files given, or with none the project's own markdown and the branch's commits. The post write hook runs your linters and then the check on each file the agent writes with its edit tools, and the tool runs the check on the prose it files, so a slip is fixed in the same round. [`commands.md`](.agents/skills/agent-brain/references/commands.md#the-check) says what it judges and what it passes over. |
 | `brain gates` | The one command before a review and before a merge. It runs the gates your section 0 names, in order, and stops at the first red one, and once all are green it runs `brain check` and `brain doctor`, as [`commands.md`](.agents/skills/agent-brain/references/commands.md#the-gates) says. |
-| `brain new`, `brain set`, `brain refile` | Files a plan, a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
+| `brain new`, `brain set`, `brain refile` | Files a plan, a build spec, a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
 | `brain ledger` | Opens, fills and closes a code review ledger, and `brain ledger report` says where a review stands, counted from the file. |
 | `brain ack on --for 8h` | Your standing word to proceed, for a time or until a task is done, so the agent passes the review's gates that normally wait for you, the house rules name them, and each report says which ack the step ran on. It never starts a review, and the PR and the merge still wait for your ask. `brain ack off` takes it back. |
 | `brain handover` | The note a session leaves for the next when it passes work on or stops mid task, kept on this machine and never in git. Section 8.4 of [`.agents/SYSTEM.md`](.agents/SYSTEM.md) says when the agent writes one and why to ask for one before you compact a session yourself. |
@@ -344,24 +361,15 @@ Here is how it ships, empty and ready.
 .agents/
 ├── SYSTEM.md             the rulebook every agent works by
 ├── VERSION               the kit release this project carries
-├── INDEX.md              the spine, built by the tool, its lines set by the conventions
+├── INDEX.md              the spine, built by the tool from the files it lists
 ├── README.md             what the directory is and how an agent boots from it
 ├── house-rules.md        the branch contract and code review protocol
-├── skills/agent-brain/   the brain tool, as a skill every agent can read
+├── skills/agent-brain/   the brain tool and the format of every file here
 ├── skills/branch-review/ the code review, run on your word
-├── spec/                 the format rules, one per content folder
-│   ├── conventions.md    the shared rules, header block, naming, links, indexes
-│   ├── docs.md
-│   ├── memory.md
-│   ├── bugs.md
-│   ├── todos.md
-│   ├── decisions.md
-│   ├── plans.md
-│   ├── reviews.md
-│   └── handover.md
 ├── docs/INDEX.md         the knowledge library
 ├── memory/INDEX.md       facts learned along the way
 ├── plans/INDEX.md        the plans, each a goal with its steps
+├── build-specs/INDEX.md  one build spec per branch, written before the code
 ├── todos/INDEX.md        the work tracker
 ├── bugs/INDEX.md         the defect tracker
 ├── decisions/INDEX.md    decisions taken and why
@@ -377,7 +385,6 @@ land.
 ├── INDEX.md
 ├── README.md
 ├── house-rules.md
-├── spec/
 ├── docs/
 │   ├── INDEX.md
 │   ├── foundation/
@@ -394,6 +401,9 @@ land.
 ├── plans/
 │   ├── INDEX.md
 │   └── billing-launch.md
+├── build-specs/
+│   ├── INDEX.md
+│   └── BUILD-001-card-checkout.md
 ├── todos/
 │   ├── INDEX.md
 │   ├── TODO-001-export-to-csv.md
@@ -412,20 +422,22 @@ land.
     └── handover.md
 ```
 
-The trackers, the docs library, and memory each carry an `INDEX.md`
-listing what is inside, and `.agents/INDEX.md` at the top names each
-of those folders with its counts. `spec/` and `handover/` carry none,
-the spine covers both. `handover/` holds the note for the next
-session, which [`spec/handover.md`](.agents/spec/handover.md) governs.
-Git ignores the folder, so a fresh clone has none, unless notes from
-an older release are still tracked there.
+The trackers, the build specs, the docs library, and memory each carry
+an `INDEX.md` listing what is inside, and `.agents/INDEX.md` at the top
+names the docs, the trackers, the build specs and memory with their
+counts. `handover/`
+carries none, the spine covers it. It holds the note for the next
+session, which the agent-brain
+[skill sheet](.agents/skills/agent-brain/SKILL.md#the-brains-files)
+governs. Git ignores the folder, so a fresh clone has none, unless
+notes from an older release are still tracked there.
 
 ## Where to read next
 
 - [`.agents/SYSTEM.md`](.agents/SYSTEM.md): the full rulebook.
 - [`.agents/README.md`](.agents/README.md): how a cold agent boots.
 - [`.agents/house-rules.md`](.agents/house-rules.md): the branch contract and review protocol.
-- [`.agents/spec/conventions.md`](.agents/spec/conventions.md): the shared rules every file in `.agents/` obeys.
+- [`.agents/skills/agent-brain/SKILL.md`](.agents/skills/agent-brain/SKILL.md#the-brains-files): the brain tool as the agent uses it, and the format every file in `.agents/` keeps.
 - [`.agents/skills/agent-brain/references/commands.md`](.agents/skills/agent-brain/references/commands.md): every command of the tool, with its flags and refusals.
 - [`.agents/skills/branch-review/SKILL.md`](.agents/skills/branch-review/SKILL.md): the review as the agent runs it, step by step.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): the absolutes on one page.
