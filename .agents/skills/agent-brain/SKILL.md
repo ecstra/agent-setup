@@ -258,6 +258,24 @@ brain ledger batch 2026-10-feat-search 1 --status fixing --ack auto
 brain ack off
 ```
 
+## The conclude word
+
+When the owner names a time to stop, "stop at 17:15", the agent records
+it, and every hook line counts down to it. From 15 minutes before, the
+line says to wind down, finish the step in hand and start nothing new,
+and once the time passes it says to conclude, stop the sub agents,
+commit only what passed the gates, save the working paper, write the
+handover and stop. The conclude word wins over the standing word, which
+covers what the agent may decide and never how long it works. Writing
+the handover clears it, and
+[the reference](references/commands.md#the-conclude-word) has the rest.
+
+```bash
+brain conclude at 17:15
+brain conclude in 2h
+brain conclude off
+```
+
 ## The current work
 
 Work of more than one step starts with `brain task on` before the

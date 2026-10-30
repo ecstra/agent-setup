@@ -134,6 +134,34 @@ and still carries a stamp from an earlier word takes the standing word
 again when it starts, so a start that gives no ack is refused while
 the word is off, and the report says it waits for the owner's word.
 
+## The conclude word
+
+The time the owner names for the session to wrap itself up, "stop at
+17:15". Every hook block that prints the `now:` line adds a line for it
+while it stands, in Claude Code, Codex and Gemini CLI, and so does
+`brain status`.
+
+| Command | What it does |
+|---|---|
+| `brain conclude` | The clock and where the word stands, the time left, or `conclude off`. |
+| `brain conclude at <time>` | Records the time, read the way `brain ack on --until` reads one, so a bare time already past today means tomorrow and the line names the day. A second one replaces the first. |
+| `brain conclude in <length>` | Records the time a length from now, such as 2h or 90m. |
+| `brain conclude off` | Clears the word. |
+
+The line reads `conclude at 17:15 today, 45 min left`. From 15 minutes
+before, it adds that the agent winds down, finishes the step in hand
+and starts no new work, sub agent or round of a review, the standing
+word included. Once the time has passed it reads `conclude now`, and
+says to stop the sub agents, commit only what passed the gates, save
+the working paper, write the handover with `brain handover` and stop,
+whatever is left of the standing word. Writing the handover clears the
+word, and the command says so. A time not still to come, an empty one,
+and one past the year 2999 are refused, and so are `at` or `in` with
+no time and `off` with one. The state is one dotted file at the root
+of the brain, `.agents/.conclude`, which git ignores like the standing
+word's, and a file there that does not read as a time gives a line
+that says so until `brain conclude off` clears it.
+
 ## The current work
 
 The chain from the plan down to the step the agent is on, per

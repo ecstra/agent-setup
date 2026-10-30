@@ -357,6 +357,7 @@ need to, but the commands are short enough to know.
 | `brain new`, `brain set`, `brain refile` | Files a plan, a build spec, a todo, a bug, a decision, a doc or a memory with the prose on standard input, changes a header, retitles or refiles. The tool writes the id, the header block and the index line. |
 | `brain ledger` | Opens, fills and closes a code review ledger, and `brain ledger report` says where a review stands, counted from the file. |
 | `brain ack on --for 8h` | Your standing word to proceed, for a time or until a task is done, so the agent passes the review's gates that normally wait for you, the house rules name them, and each report says which ack the step ran on. It never starts a review, and the PR and the merge still wait for your ask. `brain ack off` takes it back. |
+| `brain conclude at 17:15` | The time the session wraps itself up. The hooks count down to it, the agent winds down in the last 15 minutes, and once it passes the agent stops its sub agents, commits what passed the gates and writes the handover. `brain conclude off` clears it. |
 | `brain handover` | The note a session leaves for the next when it passes work on or stops mid task, kept on this machine and never in git. Section 8.4 of [`.agents/SYSTEM.md`](.agents/SYSTEM.md) says when the agent writes one and why to ask for one before you compact a session yourself. |
 | `brain port` and `brain upgrade` | The two commands above, run from a kit checkout against your project. |
 
