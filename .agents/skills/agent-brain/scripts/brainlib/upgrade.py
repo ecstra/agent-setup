@@ -30,6 +30,8 @@ FOLDER = ".agents"
 # The brain's spec files the kit shipped before 2.0.0, which an upgrade
 # takes out of a project, since the tool and the skill sheet carry
 # their rules now.
+# the release from which code goes to the project's own linters and brain check reads prose alone
+LINT_FROM = "2.0.0"
 RETIRED_SPECS: tuple[str, ...] = tuple(f"{name}.md" for name in ("bugs", "build-specs", "conventions", "decisions", "docs", "handover", "memory", "plans", "reviews", "todos"))
 OLD_FOLDER = ".agent"
 VERSION = schema.VERSION_FILE
@@ -746,8 +748,27 @@ def install(
 
     ignore(project=project, kit=kit, report=report)
 
+    if not schema.carries(since=LINT_FROM, stamp=schema.as_tuple(prepared.project_version)) and not names_linters(project):
+        report.done(f"from {LINT_FROM} brain check judges prose and commit messages only, so name the project's linters under a Lint heading in section 0 of AGENTS.md, as the lint hook section of the brain tool's commands.md says, or its code goes unchecked by the brain")
+
     put(project=project, relative=Path(FOLDER) / VERSION, text=stamp + "\n", report=report, quiet=True)
     report.done(f"stamped {FOLDER}/{VERSION} {stamp}")
+
+
+def names_linters(
+    project: Project,
+) -> bool:
+    """Whether section 0 of the project's AGENTS.md carries a Lint heading."""
+    from . import lint
+
+    try:
+        text = (project.root / "AGENTS.md").read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeDecodeError):
+        return False
+
+    zero: Optional[str] = section_zero_in(text)
+
+    return zero is not None and lint.written_lines(zero) is not None
 
 
 def old_handovers(
