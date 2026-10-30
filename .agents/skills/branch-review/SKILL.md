@@ -152,7 +152,9 @@ The range is `main...HEAD` unless the owner gave one, written
    the next fix, and where the cases keep coming it picks a simpler
    mechanism or names the rest as a limit, rather than patch the case
    named. After three rounds the review stops and tells the owner what
-   is left, and why the approach may need a rethink.
+   is left, and why the approach may need a rethink. A round past the
+   third runs only on the owner's own word, since the cap is a stop the
+   standing word does not lift.
 8. **Docs.** One docs agent, with
    [the docs prompt](references/prompts.md#the-docs-agent), brings every
    doc the branch made false up to the code, and states what the build
@@ -160,8 +162,8 @@ The range is `main...HEAD` unless the owner gave one, written
 9. **Gates.** The docs are one commit, pushed. `brain gates` runs
    before the close. A red gate is filed as a finding of a new round,
    fixed, rechecked and gated again like any round, so the ledger
-   closes on green. Once three rounds have run, that round waits for
-   the owner's word, with what is left in the report.
+   closes on green. Once three rounds have run, that round is one past
+   the third, as step 7 says.
 10. **Close.** Each batch goes verified then done, the ledger closes,
     and the build spec's review step settles. The paper is committed.
 
