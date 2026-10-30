@@ -30,6 +30,10 @@ AGENTS.md section 0 names its exact gates, tooling, and PR rules.
    merge. No step skips, and nothing merges before the review has
    closed. When the PR opens and whether as a draft is the project's
    rule in AGENTS.md section 0, never a question the agent asks.
+5. **A branch leaves no gap.** What the build spec promises is built
+   and proven, and every doc, test and caller the change makes wrong is
+   put right on the branch. A gap that waits on later work is filed as
+   a bug or a todo naming what it waits on, per SYSTEM.md 8.3.
 
 ## The gates
 
