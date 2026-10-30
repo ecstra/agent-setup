@@ -43,11 +43,15 @@ These are never findings.
 | Level | Finders | Verifiers | Rounds |
 |---|---|---|---|
 | quick | 1, angle 1 alone | none, the main agent reads each finding | 1 |
-| standard | 3, one per angle | 2 | 3 at most |
-| deep | 4, the three angles and security | 2 | 3 at most |
+| standard | 4, one per angle | 2 | 3 at most |
+| deep | 8, two per angle, then a fresh read | 2 | 3 at most |
 
 Standard is the usual level. Quick fits a small change. Deep fits a
-release, or code that handles money, sign in or data. The level sets
+release, or code that handles money, sign in or data, and costs about
+twice standard. Its two finders of an angle read apart, since two runs
+miss different things, and once the last round's recheck is done one
+fresh finder per angle reads the finished branch once, its findings
+taking one more round with no fresh read after it. The level sets
 how many finders run and never how hard the model thinks, which is the
 session's effort and the owner's to set.
 
@@ -61,8 +65,8 @@ session's effort and the owner's to set.
 3. **Overbuilding.** Code the spec never asked for, abstractions with
    one caller, dead code, and tests that would pass whatever the code
    did.
-4. **Security**, at deep only. Input crossing a boundary, secrets,
-   auth, permissions, and commands built from strings.
+4. **Security.** Input crossing a boundary, secrets, auth,
+   permissions, and commands built from strings.
 
 ## The steps
 
