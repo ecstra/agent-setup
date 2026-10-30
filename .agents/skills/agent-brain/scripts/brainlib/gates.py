@@ -38,6 +38,14 @@ GATES_WORD = re.compile(
 )
 SET_LINE = re.compile(r"^set(?:[ \t]|$)")
 
+# The word gates as a heading writes it, with no ASCII letter or digit
+# beside it, so a run of `_` or any other mark that the reading of what
+# the heading shows leaves against it still finds it.
+WRITTEN_GATES = re.compile(
+    pattern=r"(?<![A-Za-z0-9])gates(?![A-Za-z0-9])",
+    flags=re.IGNORECASE | re.ASCII,
+)
+
 # What the text a link leaves is cut at in one pass, a run of `*` or `_`
 # that may open or close emphasis and an HTML tag, past the backslash
 # escapes that keep the character after them as written, so an escaped
@@ -247,7 +255,7 @@ def gates_of(
 
     # every Gates heading gives a gate or a line that it holds none, so with neither section 0 has no such heading
     if not in_section_zero.gates and not in_section_zero.empty:
-        return Named(notes=[NO_GATES])
+        return Named(notes=[*in_section_zero.notes, NO_GATES])
 
     return in_section_zero
 
@@ -326,13 +334,17 @@ def same_interpreter(
 def section_gates(
     project: Path,
 ) -> Named:
-    """The gates under each Gates heading of section 0 in AGENTS.md, in order, with a line for each block no gate runs and one for each heading that holds no gate.
+    """The gates under each Gates heading of section 0 in AGENTS.md, in order, with a line for each block no gate runs, one for each heading that holds no gate, and one for each heading that holds the word gates as written and not as shown.
 
     A heading or a block inside code or an HTML comment is neither, a
     heading holds the word gates where either reading of the text it
     shows does, a reference link's label shown or not by whether the
     file defines it, and each Gates heading runs to the next heading at
-    its level or above, or to the end of section 0.
+    its level or above, or to the end of section 0. Any other heading
+    whose text as written holds the word, outside every Gates heading's
+    stretch, is named in a line before the lines on the blocks, since
+    its blocks do not run, so no miss of the reading is silent, while
+    one inside a stretch has its blocks run as that Gates heading's.
     """
     door = project / "AGENTS.md"
     if not store.readable_file(door):
@@ -352,18 +364,24 @@ def section_gates(
 
     taken: list[sections.Fence] = []
     empty: list[str] = []
+    notes: list[str] = []
+    # how far the stretches of the Gates headings read so far reach, since a heading inside one has its blocks run as that Gates heading's
+    covered_until = 0
     for heading in blocks.headings:
         readings: tuple[str, str] = shown(
             text=heading.text,
             labels=labels,
         )
         if not any(GATES_WORD.search(reading) for reading in readings):
+            if heading.start >= covered_until and held_as_written(heading.text):
+                notes.append(f"the heading {heading.text} holds the word gates as written and not as shown, so its blocks do not run")
             continue
 
         stretch_end: int = next(
             (later.start for later in blocks.headings if later.start > heading.start and later.level <= heading.level),
             len(section_zero),
         )
+        covered_until = max(covered_until, stretch_end)
         fences_under = [fence for fence in blocks.fences if heading.end <= fence.start < stretch_end]
         if not any(shell_of(fence) is not None and commands_of(fence) for fence in fences_under):
             empty.append(f"the heading {heading.text} holds no gate, and {GATE_SHAPE}")
@@ -371,7 +389,6 @@ def section_gates(
         taken += [fence for fence in fences_under if fence not in taken]
 
     gates: list[Gate] = []
-    notes: list[str] = []
     for fence in sorted(
         taken,
         key=lambda fence: fence.start,
@@ -481,6 +498,34 @@ def shown(
             pieces=pieces,
             markup=" ",
         ),
+    )
+
+
+def held_as_written(
+    text: str,
+) -> bool:
+    """Whether the heading's text as written, outside its code spans and its HTML comments as the shared reader finds them, holds gates with no ASCII letter or digit beside it, read in one pass over the text."""
+    spans, comments = sections.inline_of(
+        text=text,
+        stretches=[(0, len(text))],
+    )
+    cursor = 0
+    for start, end in sorted(spans + comments):
+        if WRITTEN_GATES.search(
+            string=text,
+            pos=cursor,
+            endpos=start,
+        ):
+            return True
+
+        cursor = end
+
+    return (
+        WRITTEN_GATES.search(
+            string=text,
+            pos=cursor,
+        )
+        is not None
     )
 
 
