@@ -152,7 +152,8 @@ The line reads `conclude at 17:15 today, 45 min left`. From 15 minutes
 before, it adds that the agent winds down, finishes the step in hand
 and starts no new work, sub agent or round of a review, the standing
 word included, and concludes once the step is done, clearing the word
-with `brain conclude off` after its handover. Once the time has
+with `brain conclude off` after the handover that concludes the
+session, never after one written before a compaction. Once the time has
 passed it reads `conclude now`, and says to stop the sub agents, commit
 only what passed the gates, save the working paper, write the handover
 with `brain handover` and stop, whatever is left of the standing word.

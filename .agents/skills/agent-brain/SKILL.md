@@ -265,7 +265,8 @@ When the owner names a time to stop, "stop at 17:15", the agent records
 it, and every hook line counts down to it. From 15 minutes before, the
 line says to wind down, finish the step in hand, start nothing new and
 conclude once it is done, clearing the word with `brain conclude off`
-after the handover, and once the time passes it says to conclude,
+after the handover that concludes the session, never after one written
+before a compaction, and once the time passes it says to conclude,
 stop the sub agents, commit only what passed the gates, save the
 working paper, write the handover and stop. The conclude word wins over
 the standing word, which covers what the agent may decide and never
