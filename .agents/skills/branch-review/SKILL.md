@@ -158,10 +158,10 @@ The range is `main...HEAD` unless the owner gave one, written
    doc the branch made false up to the code, and states what the build
    spec's Changes record. The main agent reads its diff once.
 9. **Gates.** The docs are one commit, pushed. `brain gates` runs
-   before the close. A red gate is a finding of a new round, or, once
-   three rounds have run, one the review hands the owner with what is
-   left, and the gates run again after its fix, so the ledger closes
-   on green.
+   before the close. A red gate is filed as a finding of a new round,
+   fixed, rechecked and gated again like any round, so the ledger
+   closes on green. Once three rounds have run, that round waits for
+   the owner's word, with what is left in the report.
 10. **Close.** Each batch goes verified then done, the ledger closes,
     and the build spec's review step settles. The paper is committed.
 
