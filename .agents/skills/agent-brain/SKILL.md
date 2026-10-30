@@ -242,7 +242,9 @@ finding a commit fixed in one call, the findings first and the
 changes after them. A finding the recheck found takes
 `--found-by recheck`. A batch that holds findings runs only on the
 owner's ack, the word that starts it, given as a date or as `auto`
-while the owner's standing word holds. Verification closes a batch,
+while the owner's standing word holds, a fourth batch of a review at
+quick, standard or deep taking the owner's own dated word alone, since
+it is a round past the third. Verification closes a batch,
 `report` says where the review stands and what comes next, and `close`
 refuses while any finding is still open or the report names a step
 before the close. The standing word is

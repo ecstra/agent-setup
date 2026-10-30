@@ -41,6 +41,10 @@ DEFAULT_LEVEL = "standard"
 # The cap on a review's batches, one per round of fixes and room to spare.
 MAX_BATCHES = 5
 
+# A review runs three rounds on the standing word, and a round past them
+# on the owner's own word alone.
+ROUND_CAP = 3
+
 # The next step the report gives once nothing else stands, and close
 # refuses until the report gives it.
 CLOSE_STEP = "close the ledger"
@@ -147,6 +151,10 @@ def set_batch(
         if auto and old_ack and not is_auto(old_ack):
             raise LedgerError(f"batch {number} already carries the owner's ack {old_ack}")
 
+        beyond = past_the_cap(entry=entry, number=number)
+        if beyond and (auto or (starting and own and not ack and is_auto(old_ack))):
+            raise LedgerError(f"batch {number} is a round past the third, which runs on the owner's own word, give --ack with its date")
+
         # the word is asked for once the ledger and the batch are known, so a
         # bad key or number is reported as that, and a stamp already carried
         # stays past the start while the word still has to stand
@@ -165,7 +173,7 @@ def set_batch(
                 raise LedgerError(f"{', '.join(still_open)} still open, batch {number} is {status} once every finding has landed")
 
             if own and not new_ack:
-                if autoack.current(brain=brain) is not None:
+                if autoack.current(brain=brain) is not None and not beyond:
                     raise LedgerError(f"batch {number} holds findings and runs on the standing word, give --ack auto")
 
                 raise LedgerError(f"batch {number} holds findings and runs on the owner's ack, give --ack")
@@ -185,6 +193,14 @@ def set_batch(
 
     entry.document.body = body
     save(brain=brain, entry=entry)
+
+
+def past_the_cap(
+    entry: store.Entry,
+    number: int,
+) -> bool:
+    """Whether the batch is a round past the third of a review at a 2.0.0 level, one batch a round, which the standing word never starts."""
+    return number > ROUND_CAP and (entry.field("level") or "") in LEVELS
 
 
 def is_auto(
@@ -571,10 +587,14 @@ def next_step(
 
     for row in rows:
         number = row["number"]
+        beyond = past_the_cap(entry=entry, number=number)
         if row["status"] == "pending":
-            standing = autoack.current(brain=brain) is not None
+            standing = autoack.current(brain=brain) is not None and not beyond
             if row["ack"] and not (is_auto(row["ack"]) and not standing):
                 return f"start batch {number}, it has the word"
+
+            if beyond:
+                return f"batch {number} on the owner's own word, a round past the third"
 
             if standing:
                 return f"start batch {number} on the standing word"
@@ -586,7 +606,7 @@ def next_step(
             number=number,
         )
         if own and not row["ack"]:
-            if autoack.current(brain=brain) is not None:
+            if autoack.current(brain=brain) is not None and not beyond:
                 return f"record the standing word on batch {number}, it holds findings and has none"
 
             return f"record the owner's ack of batch {number}, it holds findings and has none"

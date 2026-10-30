@@ -125,8 +125,10 @@ the ack as `auto` with the day, so the ledger says which batches ran
 on the standing word. Any ack that starts with auto, in any case, is
 that call. It is refused on a batch left pending, since the word is
 checked at the batch's start, refused on a batch that already carries
-the owner's own ack, which it never writes over, and off, held or run
-out it is refused anywhere. On a batch that already started on the
+the owner's own ack, which it never writes over, refused on a batch
+past the third of a ledger at quick, standard or deep, a round past
+the third that runs on the owner's own word alone, and off, held or
+run out it is refused anywhere. On a batch that already started on the
 word, the stamp it carries stays. A pending batch that holds findings
 and still carries a stamp from an earlier word takes the standing word
 again when it starts, so a start that gives no ack is refused while
