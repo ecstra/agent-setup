@@ -120,8 +120,13 @@ The range is `main...HEAD` unless the owner gave one, written
    names any finding still there and any new break the fix brought in.
    What it finds is filed with `--found-by recheck` into the next
    round's batch, which starts on the owner's word or their standing
-   word, `brain ack`. After three rounds the review stops and tells the
-   owner what is left, and why the approach may need a rethink.
+   word, `brain ack`. A recheck that reopens a fix, a case the fix
+   missed or one it broke, sends the main agent back to the cause. It
+   lists every input the mechanism takes before it writes the next
+   fix, and where the cases keep coming it picks a simpler mechanism
+   or names the rest as a limit, rather than patch the case named.
+   After three rounds the review stops and tells the owner what is
+   left, and why the approach may need a rethink.
 8. **Docs.** One docs agent, with
    [the docs prompt](references/prompts.md#the-docs-agent), brings every
    doc the branch made false up to the code, and states what the build
