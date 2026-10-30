@@ -120,7 +120,7 @@ FLOOR = Path("/usr/bin/python3")
 FLOOR_VERSION = "3.9"
 PROBE = "import platform, sys; print(sys.executable); print(sys.version_info >= (3, 9)); print(platform.python_version())"
 SCRIPTS = Path(check.BRAIN_FOLDER) / "skills" / "agent-brain" / "scripts"
-SUITE = ("-m", "unittest", "discover", "-s", "tests", "-t", ".")
+SUITE = ("-m", "tests.parallel")
 
 
 class GatesError(Exception):
@@ -263,7 +263,7 @@ def gates_of(
 def kit_gates(
     project: Path,
 ) -> Named:
-    """The tool's tests as an argument list, under the interpreter running this, then under the floor's where it answers at the floor or above and is another one, with a line where it is below the floor."""
+    """The tool's tests as one gate, every test class in a process of its own at once, under the interpreter running this and the floor's where it answers at the floor or above and is another one, with a line where it is below the floor."""
     if not sys.executable:
         raise GatesError("the interpreter running this gives no path of its own in sys.executable, so the tool's tests have nothing to run under, and no gate ran")
 
@@ -279,14 +279,15 @@ def kit_gates(
         else:
             notes.append(f"{FLOOR} is Python {answer.version}, below the kit's floor of {FLOOR_VERSION}, so the tool's tests do not run under it")
 
+    others = [word for interpreter, _ in interpreters[1:] for word in ("--python", interpreter)]
+    versions = ", ".join(version for _, version in interpreters)
     gates = [
         Gate(
-            command=" ".join([interpreter, *SUITE]),
+            command=" ".join([sys.executable, *SUITE, *others]),
             cwd=project / SCRIPTS,
-            name=f"the tool's tests under {interpreter}, Python {version}",
-            argv=(interpreter, *SUITE),
-        )
-        for interpreter, version in interpreters
+            name=f"the tool's tests, every class at once, under Python {versions}",
+            argv=(sys.executable, *SUITE, *others),
+        ),
     ]
 
     ruff: Optional[str] = ruff_path()
