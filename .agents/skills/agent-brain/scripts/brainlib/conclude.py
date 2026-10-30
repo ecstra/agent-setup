@@ -129,7 +129,7 @@ def describe(
 
     line = f"conclude at {when}, {autoack.left(since=at, until=moment)} left"
     if moment - autoack.utc(at) <= WIND_DOWN:
-        line += ", so wind down, finish the step in hand and start no new work, sub agent or round of a review, the standing word included, and conclude once it is done"
+        line += ", so wind down, finish the step in hand and start no new work, sub agent or round of a review, the standing word included, and conclude once it is done and clear the word with brain conclude off after the handover"
 
     return line
 

@@ -151,7 +151,8 @@ while it stands, in Claude Code, Codex and Gemini CLI, and so does
 The line reads `conclude at 17:15 today, 45 min left`. From 15 minutes
 before, it adds that the agent winds down, finishes the step in hand
 and starts no new work, sub agent or round of a review, the standing
-word included, and concludes once the step is done. Once the time has
+word included, and concludes once the step is done, clearing the word
+with `brain conclude off` after its handover. Once the time has
 passed it reads `conclude now`, and says to stop the sub agents, commit
 only what passed the gates, save the working paper, write the handover
 with `brain handover` and stop, whatever is left of the standing word.
@@ -161,7 +162,15 @@ conclude off clears it`, so a session that starts the next day, or one
 beside it, is never told to stop. A handover written past the time
 clears the word, and the command says so, while one written before it,
 in the wind down before a compaction among them, keeps it. Nothing else
-clears it but `brain conclude off`, a session start included. A time not still to come, an empty one,
+clears it but `brain conclude off`, a session start included.
+
+Two limits stand. The word is one file for the checkout, so two
+sessions open on it share one time, and a handover the second writes
+past the time clears the word for the first, which is why one session
+at a time works a checkout while a word or a note waits. And a session
+whose next hook comes over an hour past the time, a single tool call
+that runs that long, gets the line that orders nothing rather than the
+order to conclude. A time not still to come, an empty one,
 and one past the year 2999 are refused, and so are `at` or `in` with
 no time and `off` with one. The state is one dotted file at the root
 of the brain, `.agents/.conclude`, which git ignores like the standing
