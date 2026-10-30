@@ -2,7 +2,7 @@
 name: agent-index
 kind: doc
 description: the spine of the agent directory, what exists and where
-updated: 2026-10-07
+updated: 2026-10-30
 links: [README.md, spec/conventions.md, house-rules.md]
 ---
 
@@ -24,6 +24,7 @@ rather than this one.
 - [spec/todos.md](spec/todos.md), format and lifecycle for .agents/todos, the work tracker
 - [spec/decisions.md](spec/decisions.md), format for .agents/decisions, one decision per file
 - [spec/plans.md](spec/plans.md), format and lifecycle for .agents/plans, a goal with the steps that reach it
+- [spec/build-specs.md](spec/build-specs.md), format and lifecycle for .agents/build-specs, one branch's build spec
 - [spec/reviews.md](spec/reviews.md), format and lifecycle for .agents/reviews, the code review ledgers
 - [spec/handover.md](spec/handover.md), the one note a session leaves for the next in .agents/handover, which brain handover writes and the session start hook reads once and removes
 - [skills/agent-brain/SKILL.md](skills/agent-brain/SKILL.md), the brain tool, the one way anything here is filed, changed or checked

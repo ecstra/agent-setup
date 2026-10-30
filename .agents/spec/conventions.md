@@ -53,8 +53,9 @@ interrupted write there, which `--fix` removes.
 ## Naming and ids
 
 Files are kebab case. Tracked kinds carry the ids `BUG-###`,
-`TODO-###` and `DEC-###`, zero padded, assigned as the next free number
-in that folder, never reused. The filename is `<ID>-<short-slug>.md`.
+`TODO-###`, `DEC-###` and `BUILD-###`, zero padded, assigned as the next
+free number in that folder, never reused. The filename is
+`<ID>-<short-slug>.md`.
 
 ## Links
 

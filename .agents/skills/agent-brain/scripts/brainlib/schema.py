@@ -15,7 +15,7 @@ SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 # A bug's severities, worst first, the one order every reader uses.
 SEVERITIES: tuple[str, ...] = ("breaks", "bug", "debt", "nit")
 
-FILENAME_WITH_ID = re.compile(r"^(BUG|TODO|DEC)-(\d{3})-(.+)\.md$")
+FILENAME_WITH_ID = re.compile(r"^(BUG|TODO|DEC|BUILD)-(\d{3})-(.+)\.md$")
 
 # A review folder is <yyyy-mm>-<branch-slug>, per spec/reviews.md.
 REVIEW_FOLDER = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-[a-z0-9]+(-[a-z0-9]+)*$")
@@ -268,6 +268,44 @@ KINDS: dict[str, Kind] = {
             Rule(
                 status="dropped",
                 says="a plan goes dropped with its closing date, done=YYYY-MM-DD",
+                field="done",
+            ),
+        ),
+    ),
+    "build-spec": Kind(
+        name="build-spec",
+        folder="build-specs",
+        id_prefix="BUILD",
+        columns=("status", "branch"),
+        index_description="index of the build specs, one per branch, open first",
+        fields=(
+            Field(
+                name="status",
+                values=("draft", "acked", "closed", "dropped"),
+            ),
+            Field(name="branch"),
+            Field(name="born", is_date=True),
+            Field(name="done", required=False, is_date=True),
+        ),
+        sections=(
+            Section(title="Goal"),
+            Section(title="Behaviour"),
+            Section(title="Edge cases"),
+            Section(title="Out of scope"),
+            Section(title="Decisions"),
+            Section(title="Proof"),
+            Section(title="Changes", required=False),
+            Section(title="Steps"),
+        ),
+        rules=(
+            Rule(
+                status="closed",
+                says="a build spec closes with its closing date, done=YYYY-MM-DD",
+                field="done",
+            ),
+            Rule(
+                status="dropped",
+                says="a build spec goes dropped with its closing date, done=YYYY-MM-DD",
                 field="done",
             ),
         ),

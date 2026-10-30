@@ -585,6 +585,36 @@ def plans_body(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
+def build_specs_body(
+    entries: list[store.Entry],
+    filed: str,
+) -> str:
+    lines = header(
+        title="Build Specs Index",
+        intro="One build spec per branch, what it builds and how it proves it, open first.",
+        filed=filed,
+    )
+    if not entries:
+        lines.append("Nothing here yet.")
+        return "\n".join(lines) + "\n"
+
+    folder = entries[0].root / "build-specs"
+    statuses = ("draft", "acked", "closed", "dropped")
+    for status in (*statuses, schema.UNKNOWN):
+        if status == schema.UNKNOWN:
+            group = [entry for entry in entries if entry.field("status") not in statuses]
+        else:
+            group = [entry for entry in entries if entry.field("status") == status]
+        if not group:
+            continue
+
+        lines += [f"## {status.title()}", ""]
+        lines += [line_for(entry=entry, from_folder=folder) for entry in sorted(group, key=lambda e: e.name)]
+        lines.append("")
+
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
 def reviews_body(
     entries: list[store.Entry],
     filed: str,
@@ -624,6 +654,7 @@ RENDERERS: dict[str, Callable[..., str]] = {
     "bug": bugs_body,
     "decision": decisions_body,
     "plan": plans_body,
+    "build-spec": build_specs_body,
     "review": reviews_body,
 }
 

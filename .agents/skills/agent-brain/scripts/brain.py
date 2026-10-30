@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import autoack, check, clock, doctor, frontmatter, gates, handover, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
+from brainlib import autoack, builds, check, clock, doctor, frontmatter, gates, handover, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
 from brainlib.store import FINDINGS_REMAIN, REFUSED
 
 FIELD_FLAGS = ("status", "severity", "area", "by", "type", "branch", "date")
@@ -70,6 +70,7 @@ def main(
         writes.WriteError,
         ledger.LedgerError,
         plans.PlanError,
+        builds.BuildError,
         steps.StepsError,
         task.TaskError,
         handover.HandoverError,
@@ -423,16 +424,26 @@ def run_new(
     args: argparse.Namespace,
 ) -> int:
     kind = schema.kind_named(args.kind)
-    if kind.name == "plan":
-        entry = plans.create(
-            brain=brain,
-            title=args.title,
-            description=args.description,
-            body=stdin_text(),
-            values=field_values(args),
-            category=args.category,
-            links=args.link,
-        )
+    if kind.name in ("plan", "build-spec"):
+        if kind.name == "plan":
+            entry = plans.create(
+                brain=brain,
+                title=args.title,
+                description=args.description,
+                body=stdin_text(),
+                values=field_values(args),
+                category=args.category,
+                links=args.link,
+            )
+        else:
+            entry = builds.create(
+                brain=brain,
+                title=args.title,
+                description=args.description,
+                body=stdin_text(),
+                values=field_values(args),
+                links=args.link,
+            )
         index.write(brain)
         print(entry.relative)
 

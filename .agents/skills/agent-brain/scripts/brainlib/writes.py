@@ -542,6 +542,7 @@ def defaults(
         "todo": {"status": "open", "born": stamp},
         "decision": {"status": "standing", "date": stamp},
         "plan": {"status": "open", "born": stamp},
+        "build-spec": {"status": "draft", "born": stamp},
         "review": {"status": "open"},
     }
 
