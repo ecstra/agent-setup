@@ -194,10 +194,6 @@ class CheckError(Exception):
     """The check could not run as asked, with the reason in the message."""
 
 
-class NotChecked(Exception):
-    """A Python file the interpreter running the check cannot parse, so nothing in it is judged, with the file, the interpreter's version and why in the message, which is a note and no slip."""
-
-
 @dataclass(frozen=True)
 class Slip:
     """One thing a file or a commit falls short of, where, in the words the agent fixes it by."""
@@ -254,13 +250,10 @@ def run(
     notes: list[str] = list(listing.notes)
 
     for target in listing.files:
-        try:
-            found += slips_of(
-                project=project,
-                target=target,
-            )
-        except NotChecked as unparsed:
-            notes.append(str(unparsed))
+        found += slips_of(
+            project=project,
+            target=target,
+        )
 
     if paths is None:
         commits: Checked = check_commits(project)
@@ -606,21 +599,11 @@ def check_file(
     if reasons[target.relative] is not None:
         return nothing
 
-    try:
-        found: list[Slip] = slips_of(
+    return Checked(
+        slips=slips_of(
             project=project,
             target=target,
-        )
-    except NotChecked as unparsed:
-        not_parsed = Checked(
-            slips=[],
-            notes=[str(unparsed)],
-        )
-
-        return not_parsed
-
-    return Checked(
-        slips=found,
+        ),
         notes=[],
     )
 

@@ -6,6 +6,8 @@ line-length = 320
 
 [lint]
 select = ["F", "E9", "TID251", "RET505"]
+# the hook runs on every write, and an import added one edit before its use is not dead yet
+unfixable = ["F401"]
 
 [lint.flake8-tidy-imports.banned-api]
 "__future__.annotations".msg = "the kit's code imports no future annotations, it runs on 3.9 with typing.Optional and Union"

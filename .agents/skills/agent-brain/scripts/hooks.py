@@ -28,6 +28,7 @@ import json
 import os
 import re
 import sys
+import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, TextIO, Union
@@ -1159,6 +1160,8 @@ def lint_after(
     project = brain.root.parent
     in_kit = check.is_kit_checkout(project)
     lines: list[str] = []
+    # one budget for the whole write, so a patch over many files still ends inside the agent's hook timeout
+    deadline = time.monotonic() + lint.BUDGET
     for path in paths:
         if not in_project(brain=brain, path=path) or (is_inside(brain=brain, path=path) and not in_kit):
             continue
@@ -1166,6 +1169,9 @@ def lint_after(
         result: lint.Linted = lint.run(
             project=project,
             path=path,
+            per_command=lint.PER_COMMAND,
+            budget=lint.BUDGET,
+            deadline=deadline,
         )
         lines += result.left
         lines += result.notes

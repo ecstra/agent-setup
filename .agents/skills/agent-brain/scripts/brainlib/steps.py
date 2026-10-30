@@ -1088,11 +1088,12 @@ def follows_its_entry(
 
     if status in POINTED_KINDS[kind] or status in POINTED_GONE[kind]:
         mark = "done" if status in POINTED_KINDS[kind] else "skipped"
+        reopened = "acked" if kind == "build-spec" else "open"
         if asked == "pending" and kind == "review":
             return f"which is {status}, so its mark follows that entry, and brain set {key} status=open reopens it"
 
         if asked == "pending":
-            return f"which is {status}, so its mark follows that entry, and brain set {key} status=open reopens it, unless its steps and another open entry's would wait on each other, or its table or one they lead to does not read, which the set refuses"
+            return f"which is {status}, so its mark follows that entry, and brain set {key} status={reopened} reopens it, unless its steps and another open entry's would wait on each other, or its table or one they lead to does not read, which the set refuses"
 
         if asked == mark:
             return f"which is {status}, so its mark follows that entry and is {mark} already"
@@ -1295,6 +1296,32 @@ def refresh_pointing(
         raise first_failure
 
     return changed
+
+
+def skipped_by(
+    brain: store.Brain,
+    key: str,
+) -> list[str]:
+    """Each open entry's step that reads skipped because it points at the entry, as `<id> step <n>`, so a set that drops a covered entry says what lost it."""
+    entry = found(brain=brain, key=key)
+    if entry is None or entry.kind.name not in POINTED_KINDS:
+        return []
+
+    wanted = {answer.lower() for answer in answers_of(entry)}
+    said: list[str] = []
+    for kind_name in STEPPED_KINDS:
+        for holder in brain.entries_of(schema.kind_named(kind_name)):
+            if not is_open(holder):
+                continue
+
+            try:
+                rows = rows_of(brain=brain, entry=holder)
+            except StepsError:
+                continue
+
+            said += [f"{holder.identifier or holder.name} step {step.number}" for step in rows if step.points_at.lower() in wanted and step.status == "skipped"]
+
+    return said
 
 
 def all_settled(

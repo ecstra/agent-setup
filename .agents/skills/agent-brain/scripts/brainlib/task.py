@@ -343,9 +343,9 @@ def may_push(
     chain: list[Item],
     entry: store.Entry,
 ) -> bool:
-    """Whether the entry may go under the innermost link: a review under a todo or a bug, or the entry the innermost link's current step points at under that link."""
+    """Whether the entry may go under the innermost link: a review under a build spec, a todo or a bug, or the entry the innermost link's current step points at under that link."""
     innermost = chain[-1]
-    if innermost.kind in ("todo", "bug") and entry.kind.name == "review":
+    if innermost.kind in ("build-spec", "todo", "bug") and entry.kind.name == "review":
         return True
 
     if innermost.kind not in steps.STEPPED_KINDS:

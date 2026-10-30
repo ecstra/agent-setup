@@ -8,8 +8,11 @@ an option. The hook hands back what the linters could not fix, with one
 line when they rewrote the file, and never blocks the write.
 """
 
+import contextlib
 import fnmatch
+import os
 import shlex
+import signal
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -22,7 +25,8 @@ HEADING = "lint"
 FILE = "{file}"
 PER_COMMAND = 20.0
 BUDGET = 40.0
-SHELL_WORDS = frozenset(("&&", "||", ";", "|", ">", ">>", "<", "&"))
+# a word that opens or closes with one of these, or holds a redirect, is shell the hook never runs
+SHELL_EDGES = (";", "|", "&", ">", "<")
 LEFT_LINES = 30
 
 # the kit's own checkout lints the tool's Python with ruff, from the config beside the scripts
@@ -69,9 +73,16 @@ def lines_of(
     if zero is None:
         return [], []
 
+    written: Optional[list[str]] = written_lines(zero)
+    if written is None:
+        return [], []
+
+    if not written:
+        return [], [f"the Lint heading holds no lint line, so nothing is linted, and each goes in a fenced block as a file pattern then one command with {FILE}"]
+
     lines: list[Line] = []
     refused: list[str] = []
-    for raw in written_lines(zero):
+    for raw in written:
         try:
             words = tuple(shlex.split(raw))
         except ValueError:
@@ -90,14 +101,15 @@ def lines_of(
 
 def written_lines(
     zero: str,
-) -> list[str]:
-    """Every line of the fenced blocks under a Lint heading of section 0, comments and blank lines aside."""
+) -> Optional[list[str]]:
+    """Every line of the fenced blocks under a Lint heading of section 0, comments and blank lines aside, or None with no such heading."""
     blocks: sections.Blocks = sections.blocks_of(zero)
-    found: list[str] = []
+    found: Optional[list[str]] = None
     for heading in blocks.headings:
         if heading_name(heading.text) != HEADING:
             continue
 
+        found = found or []
         stretch_end: int = next(
             (later.start for later in blocks.headings if later.start > heading.start and later.level <= heading.level),
             len(zero),
@@ -128,7 +140,8 @@ def refusal(
         return "a line is a file pattern then a command"
 
     command = words[1:]
-    if any(word in SHELL_WORDS for word in command) or "=" in command[0]:
+    shell = any(word.startswith(SHELL_EDGES) or word.endswith(SHELL_EDGES) or ">" in word or "<" in word for word in command)
+    if shell or "=" in command[0]:
         return "one command per line, with no shell, so write each command on a line of its own"
 
     if FILE not in command:
@@ -141,9 +154,9 @@ def matches(
     pattern: str,
     relative: str,
 ) -> bool:
-    """Whether the file's path from the project matches, a pattern with no slash matching the file's name."""
+    """Whether the file's path from the project matches, a pattern with no slash matching the file's name and `**/` matching no folder too."""
     if "/" in pattern:
-        return fnmatch.fnmatchcase(relative, pattern)
+        return any(fnmatch.fnmatchcase(relative, form) for form in (pattern, pattern.replace("**/", "")))
 
     return fnmatch.fnmatchcase(relative.rsplit("/", 1)[-1], pattern)
 
@@ -153,8 +166,13 @@ def run(
     path: Path,
     per_command: float = PER_COMMAND,
     budget: float = BUDGET,
+    deadline: Optional[float] = None,
 ) -> Linted:
-    """Run every lint line that matches the file, in order, each stopped after its time, the whole stopped once the budget is spent."""
+    """Run every lint line that matches the file, in order, each stopped after its time, the whole stopped once the budget is spent.
+
+    A hook that lints several files passes one `deadline` on the
+    monotonic clock, so the budget covers the whole write.
+    """
     result = Linted()
     lines, refused = lines_of(project)
     result.notes += refused
@@ -170,27 +188,25 @@ def run(
         return result
 
     before: bytes = read_bytes(target)
-    started = time.monotonic()
+    ends = deadline if deadline is not None else time.monotonic() + budget
     for line in matching:
-        spent = time.monotonic() - started
-        if spent >= budget:
+        left = ends - time.monotonic()
+        if left <= 0:
             result.notes.append(f"the lint budget of {budget:g} seconds ran out, so '{' '.join(line.words)}' did not run")
             break
 
         command = [str(target) if word == FILE else word for word in line.words]
         try:
-            done = subprocess.run(
-                command,
+            done = run_alone(
+                command=command,
                 cwd=project,
-                capture_output=True,
-                timeout=min(per_command, budget - spent),
-                check=False,
+                timeout=min(per_command, left),
             )
         except FileNotFoundError:
             result.notes.append(f"{command[0]} is not installed, so {line.pattern} files are not linted with it")
             continue
         except subprocess.TimeoutExpired:
-            result.notes.append(f"'{' '.join(line.words)}' was stopped after {min(per_command, budget - spent):g} seconds")
+            result.notes.append(f"'{' '.join(line.words)}' was stopped after {min(per_command, left):g} seconds")
             continue
         except OSError as error:
             result.notes.append(f"'{' '.join(line.words)}' could not run, {store.explain(error)}")
@@ -203,6 +219,36 @@ def run(
     result.rewrote = read_bytes(target) != before
 
     return result
+
+
+def run_alone(
+    command: list[str],
+    cwd: Path,
+    timeout: float,
+) -> subprocess.CompletedProcess:
+    """Run one command in a process group of its own, so a timeout stops every process it started and none writes the file later."""
+    options: dict = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+    with subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **options) as process:
+        try:
+            out, err = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            stop_group(process)
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                process.communicate(timeout=1)
+            raise
+
+    return subprocess.CompletedProcess(command, process.returncode, out, err)
+
+
+def stop_group(
+    process: subprocess.Popen,
+) -> None:
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True, check=False)
+        return
+
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(process.pid, signal.SIGKILL)
 
 
 def read_bytes(

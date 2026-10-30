@@ -38,10 +38,6 @@ BATCH_STATUSES = ("pending", "fixing", "verified", "done")
 LEVELS = schema.REVIEW_LEVELS
 DEFAULT_LEVEL = "standard"
 
-# A review before 2.0.0 ended with a closing pass, filed into a batch of
-# this theme outside the cap, so a ledger from then still reads.
-CLOSING_THEME = "closing pass"
-
 # The cap on a review's batches, one per round of fixes and room to spare.
 MAX_BATCHES = 5
 
@@ -98,11 +94,7 @@ def add_batch(
 
     entry = ledger_entry(brain=brain, key=key)
     rows = batches(entry=entry)
-    has_room = room_for(
-        rows=rows,
-        theme=theme,
-    )
-    if not has_room:
+    if len(rows) >= MAX_BATCHES:
         raise LedgerError(f"a review has {MAX_BATCHES} batches at most, file the finding into the batch whose theme fits")
 
     number = max((row["number"] for row in rows), default=0) + 1
@@ -114,19 +106,6 @@ def add_batch(
     save(brain=brain, entry=entry)
 
     return number
-
-
-def room_for(
-    rows: list[dict],
-    theme: str,
-) -> bool:
-    """Whether a ledger with the batches `rows` has room for one more batch themed `theme`, the closing pass's batch standing outside the cap."""
-    if theme.casefold() == CLOSING_THEME:
-        return True
-
-    counted_batches = [row for row in rows if row["theme"].casefold() != CLOSING_THEME]
-
-    return len(counted_batches) < MAX_BATCHES
 
 
 def set_batch(
@@ -154,16 +133,6 @@ def set_batch(
         row_number, old_theme, old_status, old_ack = match.groups()
         if int(row_number) != number:
             continue
-
-        # a batch already counted keeps its place under the cap whatever it
-        # is renamed to, so only the closing pass's batch can join the count
-        was_counted = old_theme.casefold() != CLOSING_THEME
-        has_room = was_counted or room_for(
-            rows=batches(entry=entry),
-            theme=theme or old_theme,
-        )
-        if not has_room:
-            raise LedgerError(f"a review has {MAX_BATCHES} batches at most besides the {CLOSING_THEME}, so batch {number} keeps its theme")
 
         new_status = status or old_status
         if auto and new_status == "pending":

@@ -491,6 +491,10 @@ def run_set(
     )
     index.write(brain)
     print(entry.relative)
+    status = entry.field("status") or ""
+    if status in steps.POINTED_GONE.get(entry.kind.name, ()):
+        for step in steps.skipped_by(brain=brain, key=args.key):
+            print(f"{step} now reads skipped, since {args.key} is {status}")
     return 0
 
 
