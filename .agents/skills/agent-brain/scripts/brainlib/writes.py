@@ -504,10 +504,13 @@ def path_links(
     for reference in references:
         path = links.canonical(brain=brain, reference=reference)
         if path is None:
-            said = links.handover_reason(
-                brain=brain,
-                reference=reference,
-            ) or "reaches nothing inside .agents/"
+            said = (
+                links.handover_reason(
+                    brain=brain,
+                    reference=reference,
+                )
+                or "reaches nothing inside .agents/"
+            )
             raise WriteError(f"link '{reference}' {said}")
 
         if path not in found:
@@ -542,6 +545,7 @@ def defaults(
         "todo": {"status": "open", "born": stamp},
         "decision": {"status": "standing", "date": stamp},
         "plan": {"status": "open", "born": stamp},
+        "build-spec": {"status": "draft", "born": stamp},
         "review": {"status": "open"},
     }
 
@@ -553,11 +557,7 @@ def render_lines(
     fields: dict[str, str],
 ) -> list[str]:
     """Frontmatter lines in the order the spec lists them, each value as written, trimmed."""
-    return [
-        f"{item.name}: {fields[item.name].strip()}"
-        for item in schema.fields_for(kind)
-        if item.name in fields
-    ]
+    return [f"{item.name}: {fields[item.name].strip()}" for item in schema.fields_for(kind) if item.name in fields]
 
 
 def check(

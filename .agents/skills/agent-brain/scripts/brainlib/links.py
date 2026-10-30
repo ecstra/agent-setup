@@ -341,12 +341,7 @@ def body_targets(
     """Every link target in the prose, inline and reference style, code stepped over."""
     spans = sections.code_spans(body)
 
-    return [
-        bare(match.group(1))
-        for pattern in (MARKDOWN_LINK, REFERENCE_LINK)
-        for match in pattern.finditer(body)
-        if not sections.in_code(spans=spans, position=match.start())
-    ]
+    return [bare(match.group(1)) for pattern in (MARKDOWN_LINK, REFERENCE_LINK) for match in pattern.finditer(body) if not sections.in_code(spans=spans, position=match.start())]
 
 
 def bare(

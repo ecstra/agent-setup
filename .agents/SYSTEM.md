@@ -67,280 +67,34 @@ For multi-step tasks, state a brief plan.
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-### 1.5 Tests That Can Fail
+### 1.5 Tests First
 
-**Write tests that can fail. Make the code pass them, not the other way around.**
+**Write the tests from the spec before the code, then make the code pass them.**
 
-When you write tests, hold to these.
+Tests are the agent's success criteria. Strong criteria let it loop on its own, weak ones need someone to check every step.
 
-- A test that passes no matter what the code does is testing nothing. Write it so it fails first, which proves it is actually checking something, then make the code turn it green.
-- Don't write tests that already pass against the current code. If a test is green before you change the implementation, it isn't exercising the behavior you came to add.
-- Make the code pass the test, not the test pass the code. Loosening an assertion to match a wrong output is faking the result.
-- The only reason to touch a test is that the test itself is wrong about the expected behavior. When that happens, say so and state what the correct expectation is.
+- Write the tests first, as one set, from the build spec's Behaviour and Edge case lines, each as an input and the output it must give. Avoid mocks of things that do not exist yet.
+- Run the set once and see it fail, then commit it.
+- Write the code until the set passes, and never edit a test to make it pass. A test changes only where it was wrong about the behaviour, and the agent says so.
+- A bug fix starts with a test that reproduces the bug and fails, then the fix makes it pass.
+- Test what a user or a caller can see. Never test a case no real input reaches.
+- Many cases of one function go in one table or in input and expected output files. A rule that must always hold gets a property test where the project has one.
+- Never delete or weaken a test to get green.
 
 > **These guidelines are working if** there are fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 ---
 
 ## 2. Coding Style
 
-The code should explain itself. A reader follows the flow and the intent from the code alone. Names carry meaning, structure carries control flow, and whitespace carries grouping. Comments are reserved for what the code genuinely cannot say.
+The code should explain itself. Names carry meaning and structure carries control flow. How the code is laid out, its types, its argument layout, its spacing and its imports, is the job of the formatter and linter the project names in section 0 under Lint, which the brain runs on every file the agent writes. Two things stay with the agent, since no tool can judge them.
 
-### 2.1 Stateful Comments
+### 2.1 Comments Say Why
 
-**Comments explain what the code cannot. Never restate the code.**
+A comment says what the code cannot, such as the reason, a constraint, a gotcha, or the issue behind a decision. A comment that repeats the line below it goes.
 
-Reserve them for the why, a non-obvious constraint, a gotcha, or a link to the issue or spec behind a decision. A redundant comment is noise. It duplicates the line below it and rots the moment the code changes.
+### 2.2 Names Say What
 
-```python
-# increment the counter by one
-counter += 1
-
-# loop over each user
-for user in users:
-    ...
-```
-
-A stateful comment carries information that isn't recoverable from the code.
-
-```rust
-// Pad to 64 bytes: the DMA controller silently drops transfers
-// that aren't cache-line aligned. See HW errata §4.2.
-let frame = pad_to(payload, 64);
-```
-
-If a comment can be deleted without losing anything, delete it. If the code needs a comment to be understood, first ask whether a better name or an earlier return would remove the need.
-
-### 2.2 Variable Naming
-
-**Names carry the meaning. A good name is a comment you didn't have to write.**
-
-Names do the work comments would otherwise do. A variable should be understandable on its own, so the flow reads top to bottom without a decoder. Name by meaning and intent, not by type or abbreviation.
-
-```go
-// before: the reader has to track what each name holds
-d := time.Since(t)
-if d > x {
-    f(u)
-}
-```
-
-```go
-// after: the logic reads as a sentence
-idleDuration := time.Since(lastSeenAt)
-if idleDuration > sessionTimeout {
-    logOutUser(user)
-}
-```
-
-The second version needs no comment, because the names already say what the first version would have had to explain. Good naming and few comments are the same goal reached from two directions.
-
-### 2.3 Explicit Types
-
-**Annotate everything the language lets you, especially in Python.**
-
-A type annotation is a contract stated at the boundary, checked by the tooling, and read for free by the next person. Statically typed languages force this on you. Python does not, which is exactly why the discipline matters here. Annotate parameters, returns, and any local whose type isn't obvious from its assignment.
-
-```python
-# untyped: the signature hides what goes in and what comes out
-def summarize(events, window, include_empty=False):
-    ...
-```
-
-```python
-# typed: the contract is visible at the boundary
-def summarize(
-    events: list[Event],
-    window: timedelta,
-    include_empty: bool = False,
-) -> Summary:
-    counts: dict[str, int] = defaultdict(int)
-    ...
-    return Summary(counts=counts)
-```
-
-The annotated version needs no docstring to explain its inputs, and a type checker catches a bad call before it runs.
-
-### 2.4 Vertical Stacking
-
-**One argument per line, named where the language allows, with a trailing comma.**
-
-This applies to definitions and calls alike.
-
-- One parameter or argument per line.
-- Name arguments at the call site when the language supports keyword arguments.
-- Leave a trailing comma after the last item.
-
-Applied unconditionally here. A common variant breaks to vertical only when line length or argument count crosses a threshold, keeping short calls inline.
-
-Python and Dart have true named arguments, so name everything.
-
-```python
-transfer(
-    source=checking,
-    target=savings,
-    amount=amount,
-    memo=memo,
-)
-```
-
-```dart
-Padding(
-  padding: const EdgeInsets.all(16),
-  child: Text(
-    label,
-    style: theme.bodyLarge,
-  ),
-)
-```
-
-Rust and Go are positional at the call site. Keep the vertical shape and the types, and reach for a struct literal when you want the fields named at the call site, which helps once there are many arguments and the call reads like a config.
-
-```rust
-let receipt = transfer(
-    source,
-    target,
-    amount,
-);
-
-// named-field form
-let receipt = transfer(TransferConfig {
-    source,
-    target,
-    amount,
-});
-```
-
-```go
-receipt := Transfer(
-    source,
-    target,
-    amount,
-)
-
-// named-field form
-receipt := Transfer(TransferConfig{
-    Source: source,
-    Target: target,
-    Amount: amount,
-})
-```
-
-The trailing comma keeps diffs to one line per argument and matches what the formatters (Black, rustfmt, gofmt, dart format) emit once a call breaks across lines.
-
-### 2.5 Early Returns
-
-**Fail fast at the top. Keep the happy path flat.**
-
-Handle invalid states and edge cases up front and return, break, or continue immediately. The happy path stays flat at the lowest indentation instead of sinking into nested branches.
-
-Deep nesting buries the main flow.
-
-```go
-func process(req *Request) error {
-    if req != nil {
-        if req.User != nil {
-            if req.User.Active {
-                // real work, four levels deep
-                return handle(req)
-            } else {
-                return ErrInactive
-            }
-        } else {
-            return ErrNoUser
-        }
-    }
-    return ErrNilRequest
-}
-```
-
-Guard clauses flatten it. Every precondition fails fast, and the real work sits unindented at the bottom.
-
-```go
-func process(req *Request) error {
-    if req == nil {
-        return ErrNilRequest
-    }
-
-    if req.User == nil {
-        return ErrNoUser
-    }
-
-    if !req.User.Active {
-        return ErrInactive
-    }
-
-    return handle(req)
-}
-```
-
-The same instinct uses `?` in Rust and plain early returns in Dart and Python.
-
-```rust
-fn process(req: Option<Request>) -> Result<Receipt> {
-    let req = req.ok_or(Error::NilRequest)?;
-    let user = req.user.ok_or(Error::NoUser)?;
-
-    if !user.active {
-        return Err(Error::Inactive);
-    }
-
-    handle(req)
-}
-```
-
-```dart
-Future<void> submit(FormData? data) async {
-  if (data == null) return;
-
-  if (!data.isValid) {
-    showError('Invalid form');
-    return;
-  }
-
-  await repository.save(data);
-}
-```
-
-### 2.6 Spacing
-
-**Let the code breathe. Blank lines reveal the shape that compression hides.**
-
-Give the code room. Separate logical steps with blank lines so each group reads as a unit. Don't pack unrelated statements together or compress to save space. Vertical whitespace is structure, not waste.
-
-```python
-# compressed: every phase runs into the next
-def checkout(cart: Cart, user: User) -> Order:
-    items = cart.items
-    total = sum(i.price for i in items)
-    tax = total * TAX_RATE
-    order = Order(user=user, total=total + tax)
-    db.save(order)
-    send_receipt(user, order)
-    return order
-```
-
-```python
-# spaced: read it as three beats, compute, persist, notify
-def checkout(
-    cart: Cart,
-    user: User,
-) -> Order:
-    items = cart.items
-    total = sum(i.price for i in items)
-    tax = total * TAX_RATE
-
-    order = Order(
-        user=user,
-        total=total + tax,
-    )
-    db.save(order)
-
-    send_receipt(user, order)
-
-    return order
-```
-
-The blank lines group the computation, the persistence, and the notification into distinct beats, so the shape of the function is visible before you read a single expression.
+A name says what a thing holds or does, so the code reads top to bottom without a decoder. A test's name says what it checks in a few words, and a docstring stays at two or three lines.
 
 ---
 
@@ -457,7 +211,7 @@ The front door is the readme and the house rules, and both point onward instead 
 
 ### 6.2 The Decisions Record
 
-`.agents/decisions/` holds decisions actually taken and the reasoning behind them, one file per decision per its spec. A real entry records a choice made, the alternative it beat, or the gotcha that forced it. It is not a status log, a progress report, a changelog, or a todo list. Write the why behind a real decision, or write nothing.
+`.agents/decisions/` holds decisions actually taken and the reasoning behind them, one file per decision. A real entry records a choice made, the alternative it beat, or the gotcha that forced it. It is not a status log, a progress report, a changelog, or a todo list. Write the why behind a real decision, or write nothing.
 
 Never treat it as the source of truth. The code and the docs are the truth. Read decisions for why something is the way it is, not to learn what the system does.
 
@@ -512,7 +266,15 @@ Blocking one wording does little, because the same shape returns in new words. P
 
 **Open with where things stand. The reader has not read the code, the docs, the ledger or the brain.**
 
-Say the state in plain words first, then what changed, then what is left and what the user has to do. Nothing about your own process, effort, passes or reasoning. A tally that argues for the work and a failed command narrated as news are process too. The one exception is a code review's report, which carries the few lines on the review's own run that `.agents/skills/branch-review/references/report.md` lists, since the user measures the review by them. Name a file once and say what it does. A ledger or a doc is a record and never the answer, so never point at one in place of saying the thing. A finding, a bug, a todo or a decision is named by what it is, in plain words, its id at most beside the words in brackets and never in their place, since the user does not hold the ledger or the brain in their head.
+Say the state in plain words first, then what changed, then what is left and what the user has to do. Nothing about your own process, effort, passes or reasoning. A tally that argues for the work and a failed command narrated as news are process too. The one exception is a code review's report, which leads with where the review stands and when it ends, then carries the few lines on the review's own run that the `branch-review` skill lists under The report, since the user measures the review by them. Name a file once and say what it does. A ledger or a doc is a record and never the answer, so never point at one in place of saying the thing. A finding, a bug, a todo or a decision is named by what it is, in plain words, its id at most beside the words in brackets and never in their place, since the user does not hold the ledger or the brain in their head. Findings and fixes in the code come as a count, the part of the code they touch and the time they take, "3 small leftovers in the lint hook, 10 minutes", and the detail of each only when the user asks, since without the code in front of them even plain words say little.
+
+### 7.7 Progress
+
+While work runs, an update opens with what is left and when it ends, measured from the rate so far, and says why when the estimate moves. It is written in the user's terms, "4 of 6 fixes done, about 20 minutes left", never in the names of the agents, the rounds or the ids. The agent writes when something changed for the user, a step done, a choice to make, a problem, or when asked. It never writes for each sub agent that finishes, never a line before or after each tool call, and never only because the app says the user has not heard from it. A message the user sends while work runs is answered at once, before the work goes on. Before a large step, one that removes or retires something, changes the version, touches many files, starts sub agents or commits, the agent says in one plain line what it is about to do, and after it what changed.
+
+### 7.8 Length
+
+A status is two sentences. An answer is as short as the question allows, with detail only when asked. Research opens with the answer in a few lines. A sentence holds one idea and about 25 words at most.
 
 ---
 
@@ -520,7 +282,7 @@ Say the state in plain words first, then what changed, then what is left and wha
 
 **`.agents/` at the repo root is the project's brain, committed, all but what git ignores there, so any agent on any machine resumes cold.**
 
-Read `.agents/INDEX.md` before working. It is the spine of the knowledge docs, the trackers, the decision history, memory, and the specs that govern them all (`.agents/spec/`). A file that breaks its spec is a bug. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked. Its `check` holds the project's own markdown and Python to the rules of this file a machine can judge, and its `gates` is the one command before a review and before a merge, rule 9.2. The tool's own code, under `.agents/skills/agent-brain/scripts/`, is never read by hand, not through a Read and not through the shell, since the skill sheet and its command reference say what every command does and the code costs context for nothing. The port writes Claude Code the rules that refuse the read. The kit's own checkout is the one place that code is the work, and it carries no such rule, since the tool never installs the kit onto itself.
+Read `.agents/INDEX.md` before working. It is the spine of the knowledge docs, the trackers, the build specs, the decision history and memory. The brain tool, the `agent-brain` skill, is how anything in there gets filed, changed, or counted, and its `doctor` is how it gets checked against the formats the tool and its skill sheet carry, where a file that breaks its format is a bug. The tool's `check` holds the project's prose and commit messages to the rules of this file a machine can judge, its lint hook runs the linters section 0 names under Lint on every file the agent writes, and its `gates` is the one command before a review and before a merge, rule 9.2. The tool's own code, under `.agents/skills/agent-brain/scripts/`, is never read by hand, not through a Read and not through the shell, since the skill sheet and its command reference say what every command does and the code costs context for nothing. The port writes Claude Code the rules that refuse the read. The kit's own checkout is the one place that code is the work, and it carries no such rule, since the tool never installs the kit onto itself.
 
 ### 8.1 Upkeep
 
@@ -530,13 +292,15 @@ The brain is maintained in the same motion as the work, never as a separate chor
 
 - **No secrets in `.agents/`, ever.** It is committed, all but what git ignores there. Same absoluteness as the `.env` rule.
 - **Project truth only.** Facts about the user as a person are not ours to manage and never enter the repo.
-- **The direction rule.** Nothing in `.agents/` references any machine's local state. A machine's local agent memory may point INTO the repo's brain, never the reverse, which is what keeps the repo self contained. What git ignores there, which the brain's conventions list, is the one exception, since it never enters the repo.
+- **The direction rule.** Nothing in `.agents/` references any machine's local state. A machine's local agent memory may point INTO the repo's brain, never the reverse, which is what keeps the repo self contained. What git ignores there, which the kit's ignore lines name, is the one exception, since it never enters the repo.
 
 ### 8.3 The Trackers
 
-Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each, filed through the tool so the id, the header block, and the index line are never typed by hand. The agent classifies on intake without asking (a bug has evidence of wrong behavior, a todo has a done-when) and uses todos extensively. Multi step work gets filed, not carried in a session's head. Any todo the user writes anywhere, the agent picks up, cleans, and files with the user's wording preserved, and on completing one it tells the user which of their own notes to tick. Long horizon work is a plan in `.agents/plans/`, a goal with a steps table the tool keeps, each step pointing at a todo, a bug or a review where one exists, and the agent grows it as the work teaches it.
+Defects go to `.agents/bugs/`, work goes to `.agents/todos/`, one file each, filed through the tool so the id, the header block, and the index line are never typed by hand. The agent classifies on intake without asking (a bug has evidence of wrong behavior, a todo has a done-when) and uses todos extensively. Multi step work gets filed, not carried in a session's head. Any todo the user writes anywhere, the agent picks up, cleans, and files with the user's wording preserved, and on completing one it tells the user which of their own notes to tick. Long horizon work is a plan in `.agents/plans/`, a goal with a steps table the tool keeps, each step pointing at a build spec, a todo, a bug or a review where one exists, and the agent grows it as the work teaches it.
 
-Work that spans more than one step starts with `brain task on <entry>` before the first step and moves with `brain task done`, which marks the step in the entry's own steps table, or of itself when the entry a step points at closes, a refiled one handing the step on to the entry filed in its place, so every hook line says what the agent is on and the file shows what is done. The current work is one chain at a time, a plan, a todo, a bug or a review at the root, a todo, a bug or a review under the step that points at it, a review under the todo or the bug the work is on too, which the agent keeps to the one it reviews, and a link drops off with everything under it the moment its entry closes. A second root while one stands is refused until the chain is done or cleared with `brain task off`, link by link or all at once with `--all`, and `--replace` sets it aside on the user's word only.
+Each branch gets one build spec in `.agents/build-specs/`, written before the code from the todos and the bugs it covers. Its steps table points at them and at the branch's review, and where the branch serves a plan, the plan's step points at the spec. The spec round takes ten minutes at most. The agent drafts the spec and asks the user what it needs, and it gets at most one review, by a fresh sub agent, for a behaviour with no edge case, a line no test can prove, or work outside the branch. The user's ack sets it acked. Work that has to leave the spec goes on, and a line under Changes says what changed and why, the rest of the spec catching up before the review.
+
+Work that spans more than one step starts with `brain task on <entry>` before the first step and moves with `brain task done`, which marks the step in the entry's own steps table, or of itself when the entry a step points at closes, a refiled one handing the step on to the entry filed in its place, so every hook line says what the agent is on and the file shows what is done. The current work is one chain at a time, a plan, a build spec, a todo, a bug or a review at the root, a build spec, a todo, a bug or a review under the step that points at it, a review under the build spec, the todo or the bug the work is on too, which the agent keeps to the one it reviews, and a link drops off with everything under it the moment its entry closes. A second root while one stands is refused until the chain is done or cleared with `brain task off`, link by link or all at once with `--all`, and `--replace` sets it aside on the user's word only.
 
 ### 8.4 The Handover
 
@@ -551,9 +315,9 @@ A session writes the note for the next one with `brain handover` when it passes 
 1. **One branch, one intent** (`feat/`, `fix/`, `sweep/`), sized by intent, never by commit count. A second intent born mid branch forks its own branch immediately. Sweeps group small work by surface and never carry a breaking change.
 2. **Gates first, then review, then merge.** `brain gates` runs the gates section 0 names under a Gates heading, then `brain check` and `brain doctor`, and is green before a review opens and before a merge. No step skips, and nothing merges before the branch's review has closed. When the PR opens and whether as a draft is a project rule in `## 0. Project Rules`, and the agent never asks about it. Without such a rule a plain PR opens on the user's ask, and merge still waits for the review.
 3. **The user calls the timing, the agent runs the review.** The agent never decides on its own that a branch is ready for review, and on the user's word it runs one itself with the kit's `branch-review` skill at the level the branch earns, which names how wide the finding pass goes and never how hard the model thinks. A tool's own review command, paid or cloud run ones included, is the user's alone, so never reach for one and never answer a review request by asking for it by name.
-4. **Findings first, whole**, before anything is fixed. Every finding lands in a ledger under `.agents/reviews/`, batched by theme with correctness first, and ends fixed, refuted, left as it is or deferred with its reason, never dropped for being rare or small.
-5. **The round of fixes**: the batches that have the user's word are fixed in rounds, by one fixer sub agent per group of files whose work verifier sub agents check, each round followed by hunters until a hunt finds nothing. With sub agents only a fixer edits, and only its group's files, and the main agent alone commits and writes the ledger.
-6. **The user's ack gates each batch.** The ack is the word to start what the report proposed next, recorded on the batch it starts. A standing word the user gave with an end, `brain ack on`, is that ack at every gate of the review until the end, each batch and the closing pass, a batch the user acked ahead starting on that ack instead. The close follows the last batch with no word, and the PR and the merge stay on the user's explicit ask per rule 10.1. A standing word with no end is not taken, the agent proposes one and waits. A word that covers several batches starts them together. Unfixables are named, never buried. They defer into `.agents/bugs/` and earn a future branch sparingly, on the user's call alone.
+4. **Findings of concrete harm only, confirmed by a vote.** Finder sub agents read the whole branch at once and report what breaks for a user, data lost or leaked, a security hole, an edge case a real input reaches, or code the build spec never asked for, each with its scenario. Style and docs are never findings. Two verifier sub agents vote on each, the main agent alone at the quick level. A confirmed finding lands in a ledger under `.agents/reviews/` and ends fixed, refuted, left as it is or deferred with its reason. A defect older than the branch goes to `.agents/bugs/`.
+5. **One fix, a short recheck.** The main agent fixes every confirmed finding itself, in one go, the cause and every place the same cause reaches. One fresh verifier reads only the diff of the fix, and what it finds the next round fixes. After three rounds at most the review stops and tells the user what is left. Then one docs agent brings every doc the branch made false up to the code. The finders and verifiers only read and report, the docs agent edits docs alone, and the main agent alone edits code, commits and writes the ledger.
+6. **The user's ack gates each round.** The ack is the word to start what the report proposed next, recorded on the round's batch, and the user's word to review is the first round's. A standing word the user gave with an end, `brain ack on`, is that ack at every round of the review until the end, a round the user acked ahead starting on that ack instead. The close follows the last round with no word, and the PR and the merge stay on the user's explicit ask per rule 10.1. A standing word with no end is not taken, the agent proposes one and waits. Unfixables are named, never buried. They defer into `.agents/bugs/` and earn a future branch sparingly, on the user's call alone.
 
 ---
 

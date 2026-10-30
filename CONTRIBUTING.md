@@ -31,7 +31,8 @@ behavior.
 
 ## The short loop
 
-Branch from fresh main, work in small undoable commits and keep the
-gates green. The owner calls the review and the agent runs it, then
-merges on their ask. The PR follows section 0, on their ask. The
+Branch from fresh main, write the branch's build spec in
+`.agents/build-specs/` before the code, then work in small undoable
+commits and keep the gates green. The owner calls the review and the
+agent runs it, then merges on their ask. The PR follows section 0, on their ask. The
 branch dies after merge, its ledger is the record.

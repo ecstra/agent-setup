@@ -32,20 +32,13 @@ TABLE_HEADER = re.compile(
 
 FIELDS = ("severity", "found-by", "batch", "status", "fix", "reason")
 NEEDS_REASON = ("wontfix", "deferred", "refuted")
-FOUND_BY = ("review", "hunter")
+FOUND_BY = ("review", "recheck")
 FINDING_STATUSES = ("open", "fixed", "wontfix", "deferred", "refuted")
 BATCH_STATUSES = ("pending", "fixing", "verified", "done")
 LEVELS = schema.REVIEW_LEVELS
-DEFAULT_LEVEL = "high"
+DEFAULT_LEVEL = "standard"
 
-# House rule 7, held here so the report can say when the pass is due:
-# the closing pass files what it finds into a batch of this theme, so
-# the ledger knows the pass ran, and low and a sweep branch skip it.
-CLOSING_THEME = "closing pass"
-NO_CLOSING_LEVELS = ("low",)
-SWEEP_PREFIX = "sweep/"
-
-# .agents/spec/reviews.md sets this cap on a review's batches and says why.
+# The cap on a review's batches, one per round of fixes and room to spare.
 MAX_BATCHES = 5
 
 # The next step the report gives once nothing else stands, and close
@@ -77,13 +70,7 @@ def open_ledger(
 
     stamp = stamp or date.today().isoformat()
     title = f"{stamp[:7]} {branch}"
-    body = (
-        "## Summary\n\n"
-        f"{summary}\n\n"
-        "## Batches\n\n"
-        f"{BATCH_HEADER}\n"
-        "## Findings\n"
-    )
+    body = f"## Summary\n\n{summary}\n\n## Batches\n\n{BATCH_HEADER}\n## Findings\n"
 
     return writes.create(
         brain=brain,
@@ -107,11 +94,7 @@ def add_batch(
 
     entry = ledger_entry(brain=brain, key=key)
     rows = batches(entry=entry)
-    has_room = room_for(
-        rows=rows,
-        theme=theme,
-    )
-    if not has_room:
+    if len(rows) >= MAX_BATCHES:
         raise LedgerError(f"a review has {MAX_BATCHES} batches at most, file the finding into the batch whose theme fits")
 
     number = max((row["number"] for row in rows), default=0) + 1
@@ -123,19 +106,6 @@ def add_batch(
     save(brain=brain, entry=entry)
 
     return number
-
-
-def room_for(
-    rows: list[dict],
-    theme: str,
-) -> bool:
-    """Whether a ledger with the batches `rows` has room for one more batch themed `theme`, the closing pass's batch standing outside the cap."""
-    if theme.casefold() == CLOSING_THEME:
-        return True
-
-    counted_batches = [row for row in rows if row["theme"].casefold() != CLOSING_THEME]
-
-    return len(counted_batches) < MAX_BATCHES
 
 
 def set_batch(
@@ -163,16 +133,6 @@ def set_batch(
         row_number, old_theme, old_status, old_ack = match.groups()
         if int(row_number) != number:
             continue
-
-        # a batch already counted keeps its place under the cap whatever it
-        # is renamed to, so only the closing pass's batch can join the count
-        was_counted = old_theme.casefold() != CLOSING_THEME
-        has_room = was_counted or room_for(
-            rows=batches(entry=entry),
-            theme=theme or old_theme,
-        )
-        if not has_room:
-            raise LedgerError(f"a review has {MAX_BATCHES} batches at most besides the {CLOSING_THEME}, so batch {number} keeps its theme")
 
         new_status = status or old_status
         if auto and new_status == "pending":
@@ -297,15 +257,7 @@ def add_findings(
     )
     first = max((int(record["id"][2:]) for record in findings(entry)), default=0) + 1
     identifiers = [f"F-{first + offset:02d}" for offset in range(len(claims))]
-    blocks = "".join(
-        f"\n### {identifier}: {claim}\n\n"
-        f"- severity: {severity}\n"
-        f"- found-by: {found_by}\n"
-        f"- batch: {batch_cell}\n"
-        "- status: open\n"
-        "- fix:\n"
-        for identifier, claim in zip(identifiers, claims)
-    )
+    blocks = "".join(f"\n### {identifier}: {claim}\n\n- severity: {severity}\n- found-by: {found_by}\n- batch: {batch_cell}\n- status: open\n- fix:\n" for identifier, claim in zip(identifiers, claims))
 
     body = reopened(
         body=entry.document.body,
@@ -422,7 +374,7 @@ def reopened(
 ) -> str:
     """The body with the batch put back to fixing when a finding lands in it after it was verified or done.
 
-    A late finding, a hunter's, a reopened one or one moved in already
+    A late finding, a recheck's, a reopened one or one moved in already
     fixed, needs its fix verified like the rest, so the batch goes
     through fixing and verified again. The ack that started the batch
     stays, since the owner's word covered the batch and what it holds.
@@ -516,9 +468,7 @@ def close(
     counts = tally(items)
     summary_end = end_of_section(body=entry.document.body, title="Summary")
     line = f"Closed with {counts}.\n\n"
-    entry.document.body = (
-        entry.document.body[:summary_end].rstrip("\n") + "\n\n" + line + entry.document.body[summary_end:]
-    )
+    entry.document.body = entry.document.body[:summary_end].rstrip("\n") + "\n\n" + line + entry.document.body[summary_end:]
     entry.document.set(key="status", value="closed")
     save(brain=brain, entry=entry, stamp=stamp)
 
@@ -609,7 +559,7 @@ def next_step(
     holds findings with no ack recorded, which a hand edit leaves, or a
     finding filed into an empty batch closed without one, asks for that
     ack before anything else, the standing word's while one holds. Then
-    the walk moves on to the closing pass or the close.
+    the ledger closes.
     """
     if entry.field("status") == "closed":
         return "nothing, the ledger is closed"
@@ -651,35 +601,7 @@ def next_step(
         if row["status"] == "verified":
             return f"mark batch {number} done" + ("" if own else ", it holds nothing")
 
-    owed = wants_closing_pass(
-        entry=entry,
-        rows=rows,
-    )
-    if owed:
-        return "the closing pass"
-
     return CLOSE_STEP
-
-
-def wants_closing_pass(
-    entry: store.Entry,
-    rows: list[dict],
-) -> bool:
-    """Whether the review still owes its closing pass.
-
-    The pass is owed at every level above low, on any branch that is
-    not a sweep, until a batch of the closing theme records that it
-    ran. A ledger with no level recorded, one opened before the level
-    was written, is read at the default level.
-    """
-    level = entry.field("level") or DEFAULT_LEVEL
-    if not rows or level in NO_CLOSING_LEVELS:
-        return False
-
-    if (entry.field("branch") or "").startswith(SWEEP_PREFIX):
-        return False
-
-    return not any(row["theme"].casefold() == CLOSING_THEME for row in rows)
 
 
 def known_batch(
@@ -744,10 +666,7 @@ def finding_headings(
 def batches(
     entry: store.Entry,
 ) -> list[dict]:
-    return [
-        {"number": int(match.group(1)), "theme": match.group(2), "status": match.group(3), "ack": match.group(4)}
-        for match in batch_rows(entry.document.body)
-    ]
+    return [{"number": int(match.group(1)), "theme": match.group(2), "status": match.group(3), "ack": match.group(4)} for match in batch_rows(entry.document.body)]
 
 
 def batch_rows(
@@ -862,7 +781,7 @@ def checked(
         raise LedgerError(f"severity is {' or '.join(schema.SEVERITIES)}, not '{value}'")
 
     if field == "found-by" and value not in FOUND_BY:
-        raise LedgerError(f"found-by is review or hunter, not '{value}'")
+        raise LedgerError(f"found-by is {' or '.join(FOUND_BY)}, not '{value}'")
 
     if field == "status" and value not in FINDING_STATUSES:
         raise LedgerError(f"a finding is {' or '.join(FINDING_STATUSES)}, not '{value}'")

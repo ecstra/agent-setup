@@ -13,11 +13,7 @@ from typing import Callable, Optional
 
 from . import frontmatter, schema, store
 
-SPINE_INTRO = (
-    "The spine. Read this first, then follow into the folder indexes.\n"
-    "Built by the brain tool from the files it lists, so change those files\n"
-    "rather than this one.\n"
-)
+SPINE_INTRO = "The spine. Read this first, then follow into the folder indexes.\nBuilt by the brain tool from the files it lists, so change those files\nrather than this one.\n"
 
 SYSTEM_HOOK = "the rulebook every agent works by, reached through AGENTS.md"
 VERSION_HOOK = "the kit release this brain is on"
@@ -26,15 +22,12 @@ VERSION_HOOK = "the kit release this brain is on"
 CLOSED_BUG = ("fixed", "wontfix", "refiled")
 
 SPINE_DESCRIPTION = "the spine of the agent directory, what exists and where"
-SPINE_LINKS = ("README.md", "spec/conventions.md", "house-rules.md")
+SPINE_LINKS = ("README.md", "house-rules.md")
 
 # The handover folder's line never changes, since the folder holds one
 # note that the session start hook removes, so counting it would have
 # the spine change under every session.
-HANDOVER_LINE = (
-    f"- {schema.HANDOVER_FOLDER}/, the one note brain handover leaves for the next session, "
-    f"which the session start hook reads once and removes (spec/{schema.HANDOVER_FOLDER}.md)"
-)
+HANDOVER_LINE = f"- {schema.HANDOVER_FOLDER}/, the one note brain handover leaves for the next session, which the session start hook reads once and removes"
 
 
 def build(
@@ -65,7 +58,7 @@ def build(
             body=folder_body(brain=brain, kind=kind),
             name=f"{kind.folder}-index",
             description=kind.index_description,
-            links=["INDEX.md", f"spec/{kind.folder}.md"],
+            links=["INDEX.md"],
         )
 
     return wanted
@@ -231,6 +224,7 @@ def spine_body(
 
     lines += ["", "## The trackers", ""]
     lines.append(spine_line(brain=brain, kind_name="plan", label="the plans", counter=count_by_status))
+    lines.append(spine_line(brain=brain, kind_name="build-spec", label="the build specs", counter=count_by_status))
     lines.append(spine_line(brain=brain, kind_name="todo", label="the work tracker", counter=count_by_status))
     lines.append(spine_line(brain=brain, kind_name="bug", label="the defect tracker", counter=count_bugs))
     lines.append(spine_line(brain=brain, kind_name="decision", label="the decision record", counter=count_by_status))
@@ -247,14 +241,7 @@ def kit_listing(
     brain: store.Brain,
 ) -> list[str]:
     """The kit files the spine names, in the order a reader meets them."""
-    listing = ["README.md", "house-rules.md", "spec/conventions.md"]
-    folders = [kind.folder for kind in schema.KINDS.values()]
-    folders.append(schema.HANDOVER_FOLDER)
-
-    for folder in folders:
-        spec = f"spec/{folder}.md"
-        if spec not in listing and store.readable_file(brain.root / spec):
-            listing.append(spec)
+    listing = ["README.md", "house-rules.md"]
 
     return [relative for relative in listing if store.readable_file(brain.root / relative)]
 
@@ -347,7 +334,7 @@ def folder_body(
     brain: store.Brain,
     kind: schema.Kind,
 ) -> str:
-    return RENDERERS[kind.name](entries=brain.entries_of(kind), filed=filed_per(brain=brain, kind=kind))
+    return RENDERERS[kind.name](entries=brain.entries_of(kind))
 
 
 def line_for(
@@ -364,36 +351,16 @@ def line_for(
 def header(
     title: str,
     intro: str,
-    filed: str,
 ) -> list[str]:
-    lines = [f"# {title}", "", intro]
-    if filed:
-        lines.append(filed)
-    lines += ["Built by the brain tool from the folder it lists.", ""]
-
-    return lines
-
-
-def filed_per(
-    brain: store.Brain,
-    kind: schema.Kind,
-) -> str:
-    """The line naming the folder's spec, or nothing when the spec is not there to link."""
-    spec = f"spec/{kind.folder}.md"
-    if not store.readable_file(brain.root / spec):
-        return ""
-
-    return f"Filed per [{spec}](../{spec})."
+    return [f"# {title}", "", intro, "Built by the brain tool from the folder it lists.", ""]
 
 
 def docs_body(
     entries: list[store.Entry],
-    filed: str,
 ) -> str:
     lines = header(
         title="Docs Index",
         intro="The knowledge library, one line per doc, grouped by category folder.",
-        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -416,12 +383,10 @@ def docs_body(
 
 def memory_body(
     entries: list[store.Entry],
-    filed: str,
 ) -> str:
     lines = header(
         title="Memory Index",
         intro="Project facts, one line each.",
-        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -435,15 +400,10 @@ def memory_body(
 
 def todos_body(
     entries: list[store.Entry],
-    filed: str,
 ) -> str:
     lines = header(
         title="Todos Index",
-        intro=(
-            "Open items first, grouped by area. Done, dropped and refiled are\n"
-            "summarized by area with counts."
-        ),
-        filed=filed,
+        intro=("Open items first, grouped by area. Done, dropped and refiled are\nsummarized by area with counts."),
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -481,12 +441,10 @@ def todos_body(
 
 def bugs_body(
     entries: list[store.Entry],
-    filed: str,
 ) -> str:
     lines = header(
         title="Bugs Index",
         intro="Open bugs first, grouped by severity. Fixed, wontfix and refiled below.",
-        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -529,12 +487,10 @@ def bugs_body(
 
 def decisions_body(
     entries: list[store.Entry],
-    filed: str,
 ) -> str:
     lines = header(
         title="Decisions Index",
         intro="Every decision taken, newest first.",
-        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -558,12 +514,10 @@ def decisions_body(
 
 def plans_body(
     entries: list[store.Entry],
-    filed: str,
 ) -> str:
     lines = header(
         title="Plans Index",
         intro="The plans, each a goal with its steps, open first.",
-        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -585,14 +539,40 @@ def plans_body(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
+def build_specs_body(
+    entries: list[store.Entry],
+) -> str:
+    lines = header(
+        title="Build Specs Index",
+        intro="One build spec per branch, what it builds and how it proves it, open first.",
+    )
+    if not entries:
+        lines.append("Nothing here yet.")
+        return "\n".join(lines) + "\n"
+
+    folder = entries[0].root / "build-specs"
+    statuses = ("draft", "acked", "closed", "dropped")
+    for status in (*statuses, schema.UNKNOWN):
+        if status == schema.UNKNOWN:
+            group = [entry for entry in entries if entry.field("status") not in statuses]
+        else:
+            group = [entry for entry in entries if entry.field("status") == status]
+        if not group:
+            continue
+
+        lines += [f"## {status.title()}", ""]
+        lines += [line_for(entry=entry, from_folder=folder) for entry in sorted(group, key=lambda e: e.name)]
+        lines.append("")
+
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
 def reviews_body(
     entries: list[store.Entry],
-    filed: str,
 ) -> str:
     lines = header(
         title="Reviews Index",
         intro="Code review ledgers, open first.",
-        filed=filed,
     )
     if not entries:
         lines.append("Nothing here yet.")
@@ -624,6 +604,7 @@ RENDERERS: dict[str, Callable[..., str]] = {
     "bug": bugs_body,
     "decision": decisions_body,
     "plan": plans_body,
+    "build-spec": build_specs_body,
     "review": reviews_body,
 }
 

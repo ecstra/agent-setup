@@ -32,6 +32,26 @@ the history. Name it once, then say in plain words what it does and why it
 matters to the user. One idea per sentence. Jargon only when it is the
 only accurate word.
 
+**Progress in the user's terms.** While work runs, an update opens with
+what is left and when it ends, from the rate so far, and says why when
+the estimate moves. Count the way the user counts, "4 of 6 fixes done,
+about 20 minutes left", never in the names of agents, rounds or ids.
+Write when something changed for the user, a step done, a choice to
+make, a problem, or when asked. Never for each sub agent that finishes,
+never a line before or after each tool call, and never only because the
+app says the user has not heard from you. A message the user sends
+while work runs is answered at once, before the work goes on. Before a
+large step, one that removes or retires something, changes the
+version, touches many files, starts sub agents or commits, say in one
+plain line what is about to happen, and after it what changed.
+
+**Short by default.** A status is two sentences. An answer is as short
+as the question allows, detail only when asked. Research opens with
+the answer in a few lines. One idea per sentence, about 25 words at
+most. Findings and fixes in the code come as a count, the part of the
+code they touch and the time they take, "3 small leftovers in the lint
+hook, 10 minutes", and the detail of each only when the user asks.
+
 ## Punctuation
 
 No em-dashes anywhere. No semicolons. Hyphens only in fixed compounds

@@ -223,7 +223,6 @@ class Brain:
     def kit_files(self) -> list[Path]:
         """The kit's own files that exist here, the rulebook excepted."""
         candidates = [self.root / name for name in schema.KIT_FILES if name not in schema.NO_FRONTMATTER]
-        candidates += [path for path in sorted((self.root / "spec").glob("*.md")) if path.name != schema.INDEX and not hidden(Path(path.name))]
         candidates += [self.root / folder / schema.INDEX for folder in schema.INDEXED_FOLDERS]
 
         return [path for path in candidates if readable_file(path)]
@@ -406,10 +405,7 @@ class Brain:
                     continue
             self.kit_read = found
 
-        return [
-            (path, replace(document, lines=list(document.lines)))
-            for path, document in self.kit_read
-        ]
+        return [(path, replace(document, lines=list(document.lines))) for path, document in self.kit_read]
 
     def with_slug(
         self,
@@ -585,11 +581,7 @@ def skill_folders(
     if not quietly(folder.is_dir):
         return []
 
-    return sorted(
-        path.name
-        for path in folder.iterdir()
-        if schema.is_slug(path.name) and readable_file(path / schema.SKILL_FILE)
-    )
+    return sorted(path.name for path in folder.iterdir() if schema.is_slug(path.name) and readable_file(path / schema.SKILL_FILE))
 
 
 def project_skills(

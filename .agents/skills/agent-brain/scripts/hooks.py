@@ -28,11 +28,12 @@ import json
 import os
 import re
 import sys
+import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, TextIO, Union
 
-from brainlib import autoack, check, clock, doctor, frontmatter, handover, links, reads, schema, steps, store, task
+from brainlib import autoack, check, clock, doctor, frontmatter, handover, links, lint, reads, schema, steps, store, task
 
 BLOCK = 2
 FAILED = 1
@@ -200,10 +201,7 @@ FORK = "fork"
 # two, and a lone surrogate, which a file name that is not UTF-8 brings
 # in, is one.
 CLAUDE_SHOWS = 10_000
-PAST_WHAT_CLAUDE_SHOWS = (
-    f"This context is longer than the {CLAUDE_SHOWS:,} characters Claude Code shows from a hook, "
-    "so Claude Code keeps it whole in the file it names here. Read that file whole before you go on."
-)
+PAST_WHAT_CLAUDE_SHOWS = f"This context is longer than the {CLAUDE_SHOWS:,} characters Claude Code shows from a hook, so Claude Code keeps it whole in the file it names here. Read that file whole before you go on."
 
 
 def session_start(
@@ -395,15 +393,7 @@ def refusal(
     if store.quietly(path.exists):
         return header_change(touch=touch, inside=inside) or table_change(brain=brain, touch=touch, inside=inside)
 
-    if Path(inside).parts[0] == "spec":
-        return f"{inside} would nest inside spec/, which holds its files directly"
-
-    return (
-        f"{inside} would be a new brain file written by hand. File it with "
-        "brain new so it gets its id, its header block and its index line, "
-        "with the prose on standard input, or rename an existing one with "
-        "brain refile."
-    )
+    return f"{inside} would be a new brain file written by hand. File it with brain new so it gets its id, its header block and its index line, with the prose on standard input, or rename an existing one with brain refile."
 
 
 def entry_path(
@@ -429,10 +419,7 @@ def markdown_named(
     return os.path.normcase(path.suffix) == ".md"
 
 
-HEADER_IS_THE_TOOLS = (
-    "the header block changes through brain set or brain refile, not by hand. "
-    "The prose below it is yours to edit."
-)
+HEADER_IS_THE_TOOLS = "the header block changes through brain set or brain refile, not by hand. The prose below it is yours to edit."
 
 
 def header_change(
@@ -562,7 +549,7 @@ class TableWrite:
 
     @property
     def added(self) -> list[steps.Step]:
-        return self.rows[len(self.before):]
+        return self.rows[len(self.before) :]
 
 
 def table_write_of(
@@ -883,7 +870,7 @@ def added_row(
     own: set[str],
 ) -> Optional[str]:
     """Why the first row added after the last may not come in that way, held to what add holds a step to, or None when each may."""
-    added = rows[len(before):]
+    added = rows[len(before) :]
     if added and closed:
         return f"{key} is {status}, and a closed table is its record, so no step is added to it"
 
@@ -1123,13 +1110,21 @@ def post_write(
     touched = touches(event=event, agent=agent)
     parts: list[str] = []
 
+    lint_part: Optional[str] = lint_after(
+        brain=brain,
+        paths=[touch.path for touch in touched if not touch.deleted],
+    )
+    if lint_part is not None:
+        parts.append(lint_part)
+
     checks: list[check.Checked] = [
         check.check_file(
             project=brain.root.parent,
             path=touch.path,
         )
         for touch in touched
-        if not touch.deleted and in_project(
+        if not touch.deleted
+        and in_project(
             brain=brain,
             path=touch.path,
         )
@@ -1155,6 +1150,38 @@ def post_write(
         event_name=AFTER_WRITE.get(agent, "PostToolUse"),
     )
     return 0
+
+
+def lint_after(
+    brain: store.Brain,
+    paths: list[Path],
+) -> Optional[str]:
+    """The project's linters over each file written as one part of the context, the brain's own files aside outside the kit's checkout, or None when they leave nothing."""
+    project = brain.root.parent
+    in_kit = check.is_kit_checkout(project)
+    lines: list[str] = []
+    # one budget for the whole write, so a patch over many files still ends inside the agent's hook timeout
+    deadline = time.monotonic() + lint.BUDGET
+    for path in paths:
+        if not in_project(brain=brain, path=path) or (is_inside(brain=brain, path=path) and not in_kit):
+            continue
+
+        result: lint.Linted = lint.run(
+            project=project,
+            path=path,
+            per_command=lint.PER_COMMAND,
+            budget=lint.BUDGET,
+            deadline=deadline,
+        )
+        lines += result.left
+        lines += result.notes
+        if result.rewrote:
+            lines.append(f"the linters rewrote {path.name}, so read it again before the next edit")
+
+    if not lines:
+        return None
+
+    return "lint after that write:\n" + "\n".join(dict.fromkeys(lines))
 
 
 def doctor_after(
@@ -1421,12 +1448,15 @@ def emit_context(
             os.strerror(errno.EBADF),
         )
 
-    length_in_utf16_units: int = len(
-        text.encode(
-            encoding="utf-16-le",
-            errors="surrogatepass",
-        ),
-    ) // 2
+    length_in_utf16_units: int = (
+        len(
+            text.encode(
+                encoding="utf-16-le",
+                errors="surrogatepass",
+            ),
+        )
+        // 2
+    )
     if agent == "claude" and length_in_utf16_units > CLAUDE_SHOWS:
         text = f"{PAST_WHAT_CLAUDE_SHOWS}\n\n" + text
 

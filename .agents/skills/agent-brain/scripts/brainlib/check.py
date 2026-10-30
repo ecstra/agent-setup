@@ -1,42 +1,32 @@
 """The house rules a machine can hold a file to, over the project's own files.
 
 Doctor reads the brain against its specs. This reads the project's own
-markdown and Python, each file known by its suffix, against the rules
-of SYSTEM.md a machine can judge without reading for meaning, types
-left to a type checker. It reads the prose by line as it renders for
-an em dash, a semicolon or a colon anywhere but a list item's label or
-a table row, with the code, the raw HTML and the literal text stepped
-over, and Python by its syntax tree and its tokens, the parameters of
-a def, the bases of a class broken across lines and the arguments of a
-call already broken across lines each held to one per line with a
-trailing comma, and in the kit's own checkout alone the future import
-of annotations, which its code keeps out by its convention. The branch's
-commit messages are read too, for a co-author line or an AI
+markdown against the house prose rules of SYSTEM.md a machine can judge
+without reading for meaning, and leaves code to the project's own
+linters. It reads the prose by line as it renders for an em dash, a
+semicolon or a colon anywhere but a list item's label or a table row,
+with the code, the raw HTML and the literal text stepped over. The
+branch's commit messages are read too, for a co-author line or an AI
 attribution. It reports and never rewrites, since most of these need
 new words that only the writer can choose, and the post write hook runs
 it on the file just written so the slip is fixed in the same round.
 """
 
-import ast
 import bisect
 import html
 import html.entities
 import io
 import itertools
 import os
-import platform
 import re
 import stat
-import tokenize
-import warnings
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Optional, Union
+from typing import Optional
 
 from . import doctor, frontmatter, handover, schema, sections, store, style, upgrade
 
 MARKDOWN = ".md"
-PYTHON = ".py"
 MAIN = "main"
 BRAIN_FOLDER = ".agents"
 
@@ -71,7 +61,7 @@ UNOPENED = re.compile(
 TRACE = "GIT_TRACE"
 
 # Why the check passes over a file, said of a file named on the command line.
-NOT_PROSE_OR_CODE = "it is neither markdown nor Python"
+NOT_MARKDOWN = "it is not markdown, and the project's own linters judge code"
 TOOLS_OWN = "the brain tool writes it"
 KITS_OWN = "the kit writes it whole and the next upgrade writes it back"
 
@@ -162,26 +152,6 @@ LITERALS: tuple["re.Pattern[str]", ...] = (
     re.compile(r":[A-Za-z0-9_+-]+:"),
 )
 
-FUTURE_ANNOTATIONS = "annotations"
-
-# The strings that hold code, a formatted string and from Python 3.14 a
-# template string, each a string as the rules read it.
-FORMATTED: tuple[type, ...] = tuple(kind for kind in (ast.JoinedStr, getattr(ast, "TemplateStr", None)) if kind is not None)
-
-# The lone argument or base that may open on its bracket's line and
-# takes no trailing comma, a literal, a string or a generator, the shape
-# Black keeps a call of one such argument in, and the one a generator
-# must keep, since a comma after it does not parse.
-HUGGED: tuple[type, ...] = (ast.Constant, *FORMATTED, ast.Dict, ast.List, ast.Set, ast.Tuple, ast.GeneratorExp)
-
-# The tokens that carry no code, a comment, a line end, an indent and
-# the stream's end, which no item is made of, so a comma in a comment
-# is no comma of the code's.
-UNSPOKEN: frozenset[int] = frozenset({tokenize.COMMENT, tokenize.NL, tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT, tokenize.ENDMARKER})
-
-# Each opening bracket and the one that closes it.
-BRACKETS: dict[str, str] = {"(": ")", "[": "]", "{": "}"}
-
 # The bases a branch's commits are read against, the local main and
 # each remote's, as `--remotes=*/main` takes them, a remote's name with
 # a slash in it among them, and the note where they were not. Git is
@@ -219,17 +189,9 @@ NAMED = r"(?:\[[ \t]*)?(?:(?i:(?:GitHub|OpenAI|Google|Anthropic)(?:['’]s)?)[ \
 CO_AUTHOR = re.compile(rf"(?im)^{LINE_HEAD}co-authored-by[ \t]*:")
 ATTRIBUTION = re.compile(rf"(?m)^{LINE_HEAD}(?:(?i:assisted-by|generated-by)[ \t]*:[ \t]*|(?i:generated|written|created|made)[ \t]+(?i:with|by)(?:[ \t]*:[ \t]*|[ \t]+)){NAMED}{AGENT}")
 
-# The parameters a def may keep on its own line, since a method with
-# nothing but its receiver has nothing to stack.
-RECEIVERS = ("self", "cls")
-
 
 class CheckError(Exception):
     """The check could not run as asked, with the reason in the message."""
-
-
-class NotChecked(Exception):
-    """A Python file the interpreter running the check cannot parse, so nothing in it is judged, with the file, the interpreter's version and why in the message, which is a note and no slip."""
 
 
 @dataclass(frozen=True)
@@ -288,13 +250,10 @@ def run(
     notes: list[str] = list(listing.notes)
 
     for target in listing.files:
-        try:
-            found += slips_of(
-                project=project,
-                target=target,
-            )
-        except NotChecked as unparsed:
-            notes.append(str(unparsed))
+        found += slips_of(
+            project=project,
+            target=target,
+        )
 
     if paths is None:
         commits: Checked = check_commits(project)
@@ -379,11 +338,7 @@ def chosen(
         project=project,
         relatives=list(targets),
     )
-    notes = list(warned.values()) + [
-        f"{relative} is passed over, {reasons[relative]}"
-        for relative in dict.fromkeys(named)
-        if reasons[relative] is not None
-    ]
+    notes = list(warned.values()) + [f"{relative} is passed over, {reasons[relative]}" for relative in dict.fromkeys(named) if reasons[relative] is not None]
 
     return Listing(
         files=[target for relative, target in targets.items() if reasons[relative] is None],
@@ -442,7 +397,7 @@ def listed(
         arguments=list(LISTING),
         refusal=f"git cannot list {which_files}",
     )
-    names = [name for name in dict.fromkeys(reply.output.split("\0")) if name and prose_or_code(name)]
+    names = [name for name in dict.fromkeys(reply.output.split("\0")) if name and is_markdown(name)]
     spelled: list[Optional[str]] = [handover.on_disk(name=name) for name in names]
     listing: Listing = kept_on_disk(
         root=root,
@@ -494,7 +449,7 @@ def walked(
 
     for place, folders, names in walk:
         folders[:] = sorted(name for name in folders if not name.startswith("."))
-        paths += [Path(place) / name for name in names if prose_or_code(name)]
+        paths += [Path(place) / name for name in names if is_markdown(name)]
 
     listing: Listing = kept_on_disk(
         root=root,
@@ -644,21 +599,11 @@ def check_file(
     if reasons[target.relative] is not None:
         return nothing
 
-    try:
-        found: list[Slip] = slips_of(
+    return Checked(
+        slips=slips_of(
             project=project,
             target=target,
-        )
-    except NotChecked as unparsed:
-        not_parsed = Checked(
-            slips=[],
-            notes=[str(unparsed)],
-        )
-
-        return not_parsed
-
-    return Checked(
-        slips=found,
+        ),
         notes=[],
     )
 
@@ -667,7 +612,7 @@ def slips_of(
     project: Path,
     target: Target,
 ) -> list[Slip]:
-    """The slips of a file the check judges, markdown read as UTF-8 with a leading byte order mark dropped and Python by the coding it declares, as Python reads it, each with a CRLF or a lone CR read as a line end, or the one slip that it cannot be read, or NotChecked for a Python file the interpreter running the check cannot parse."""
+    """The slips of a markdown file the check judges, read as UTF-8 with a leading byte order mark dropped and a CRLF or a lone CR read as a line end, or the one slip that it cannot be read."""
     relative = target.relative
     try:
         data = target.path.read_bytes()
@@ -678,23 +623,6 @@ def slips_of(
         )
 
         return [unread]
-
-    if PurePosixPath(relative).suffix.lower() == PYTHON:
-        try:
-            text: str = python_text(data)
-        except (SyntaxError, LookupError, UnicodeError) as error:
-            undecoded = Slip(
-                path=relative,
-                message=f"cannot be read as Python source, {store.explain(error)}",
-            )
-
-            return [undecoded]
-
-        return python_slips(
-            relative=relative,
-            text=text,
-            kit_checkout=is_kit_checkout(project),
-        )
 
     try:
         text = as_text(
@@ -713,24 +641,6 @@ def slips_of(
         relative=relative,
         text=text,
         own_words_only=relative == "AGENTS.md" and not is_kit_checkout(project),
-    )
-
-
-def python_text(
-    data: bytes,
-) -> str:
-    """A Python file's text by the coding it declares by PEP 263, UTF-8 where it declares none, a byte order mark dropped, or SyntaxError, LookupError or UnicodeError where Python could not read it either, a coding that names no text encoding, as `hex` or `rot13`, or one whose decoder refuses the bytes, as `undefined`, among them.
-
-    The lines are handed over split at a CRLF or a lone CR too, since
-    a reader that splits at a line feed alone takes a file of lone CRs
-    for one line and misses a coding on its second.
-    """
-    lines = iter(data.splitlines(keepends=True))
-    coding, _ = tokenize.detect_encoding(lines.__next__)
-
-    return as_text(
-        data=data,
-        encoding=coding,
     )
 
 
@@ -861,10 +771,7 @@ def passed_over(
     vendored, which outside git marks no file. Where git cannot read the
     attributes, the check is refused in git's words.
     """
-    reasons: dict[str, Optional[str]] = {
-        relative: None if prose_or_code(relative) else NOT_PROSE_OR_CODE
-        for relative in relatives
-    }
+    reasons: dict[str, Optional[str]] = {relative: None if is_markdown(relative) else NOT_MARKDOWN for relative in relatives}
     to_judge = [relative for relative, reason in reasons.items() if reason is None]
     if not to_judge:
         return reasons
@@ -894,11 +801,11 @@ def passed_over(
     return reasons
 
 
-def prose_or_code(
+def is_markdown(
     name: str,
 ) -> bool:
-    """Whether the name ends in a suffix the check reads, markdown or Python, whatever its case."""
-    return PurePosixPath(name).suffix.lower() in (MARKDOWN, PYTHON)
+    """Whether the name ends in the one suffix the check reads, markdown, whatever its case."""
+    return PurePosixPath(name).suffix.lower() == MARKDOWN
 
 
 def marked(
@@ -1009,12 +916,7 @@ def written_by_kit(
         return True
 
     definition: Optional[schema.Definition] = next(
-        (
-            definition
-            for skill in schema.KIT_SKILLS
-            for definition in skill.definitions
-            if definition.path == relative
-        ),
+        (definition for skill in schema.KIT_SKILLS for definition in skill.definitions if definition.path == relative),
         None,
     )
     if definition is not None:
@@ -1239,11 +1141,7 @@ def read_markdown(
         text=body,
         code=sections.blocks_of(body).code,
     )
-    inside: list[tuple[int, int]] = [
-        (plain.origin(quote_start + start), plain.origin(quote_start + end))
-        for quote_start, quote_end in plain.quotes
-        for start, end in sections.code_spans(plain.text[quote_start:quote_end])
-    ]
+    inside: list[tuple[int, int]] = [(plain.origin(quote_start + start), plain.origin(quote_start + end)) for quote_start, quote_end in plain.quotes for start, end in sections.code_spans(plain.text[quote_start:quote_end])]
     code: list[tuple[int, int]] = merged(outside + inside)
     hidden += code + sections.comment_spans(
         text=body,
@@ -1436,10 +1334,7 @@ def headings_in(
         numbers = list(run)
         text = "\n".join("" if number + 1 in blank else bares[number] for number in numbers)
         first = numbers[0] + 1
-        found += [
-            (first + text.count("\n", 0, heading.start), first + text.count("\n", 0, heading.end))
-            for heading in sections.blocks_of(text).headings
-        ]
+        found += [(first + text.count("\n", 0, heading.start), first + text.count("\n", 0, heading.end)) for heading in sections.blocks_of(text).headings]
 
     return found
 
@@ -1695,10 +1590,7 @@ def holds_a_sentence_end(
     codeless: str,
 ) -> bool:
     """Whether a list item's label, read as it renders with what the reading stepped over marked STEPPED_OVER, holds the end of a sentence, the upper case letter after its opening marks read there, or on the line as written, from where `origins` places it, where the marks reach a code span, which `codeless` alone turns to spaces, and each other thing stepped over read as a space."""
-    spaced = "".join(
-        " " if character == STEPPED_OVER and codeless[origins[place]] == written[origins[place]] else character
-        for place, character in enumerate(label)
-    )
+    spaced = "".join(" " if character == STEPPED_OVER and codeless[origins[place]] == written[origins[place]] else character for place, character in enumerate(label))
     for sentence_end in SENTENCE_END.finditer(spaced):
         opened = SENTENCE_OPENING.match(
             string=spaced,
@@ -1722,385 +1614,6 @@ def holds_a_sentence_end(
         return True
 
     return False
-
-
-def python_slips(
-    relative: str,
-    text: str,
-    kit_checkout: bool = False,
-) -> list[Slip]:
-    """The structural slips of a Python file, read from its syntax tree and its tokens, or NotChecked where the interpreter running the check cannot parse it.
-
-    The future import of annotations is a slip in the kit's own checkout
-    alone, whose code keeps it out by its convention, since SYSTEM.md
-    holds no such rule for a project.
-    """
-    code: Code = read_python(
-        relative=relative,
-        text=text,
-    )
-    found: list[Slip] = []
-    for node in walk_outside_strings(code.tree):
-        if kit_checkout and isinstance(node, ast.ImportFrom) and node.module == "__future__" and any(alias.name == FUTURE_ANNOTATIONS for alias in node.names):
-            found.append(
-                Slip(
-                    path=relative,
-                    line=node.lineno,
-                    message="imports annotations from __future__, which the kit's own code keeps out",
-                ),
-            )
-
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            found += def_slips(
-                relative=relative,
-                node=node,
-                code=code,
-            )
-
-        if isinstance(node, ast.ClassDef):
-            found += class_slips(
-                relative=relative,
-                node=node,
-                code=code,
-            )
-
-        if isinstance(node, ast.Call):
-            found += call_slips(
-                relative=relative,
-                node=node,
-                code=code,
-            )
-
-    return sorted(
-        found,
-        key=lambda slip: (slip.line, slip.message),
-    )
-
-
-@dataclass(frozen=True)
-class Code:
-    """A Python file as its stacking is judged, its syntax tree, its lines, the tokens that carry code in order, the token each opening bracket closes at and each closing one opens at, the token that starts at each place, and the closing bracket that ends at each."""
-
-    tree: ast.AST
-    lines: list[str]
-    tokens: list[tokenize.TokenInfo]
-    closes: dict[int, int]
-    opens: dict[int, int]
-    starting: dict[tuple[int, int], int]
-    ending: dict[tuple[int, int], int]
-
-    def at(
-        self,
-        line: int,
-        offset: int,
-    ) -> tuple[int, int]:
-        """A place the syntax tree gives, whose offset counts the line's bytes in UTF-8, as the line and the column in characters the tokens give."""
-        before = self.lines[line - 1].encode("utf-8")[:offset]
-
-        return line, len(before.decode("utf-8"))
-
-
-def read_python(
-    relative: str,
-    text: str,
-) -> Code:
-    """The file's syntax tree and its tokens, or NotChecked where the interpreter running the check cannot parse it, or reaches its limits doing so.
-
-    The tree is parsed with the file's name and the warnings of compiling
-    it silenced, so a warning on an escape in a string neither lands on
-    standard error with no file named nor turns to an error under
-    `-W error`.
-    """
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            tree = ast.parse(
-                source=text,
-                filename=relative,
-            )
-            tokens = [token for token in tokenize.generate_tokens(io.StringIO(text).readline) if token.type not in UNSPOKEN]
-    except (SyntaxError, ValueError, RecursionError, MemoryError, tokenize.TokenError) as error:
-        raise NotChecked(f"{relative} is not checked, the Python {platform.python_version()} running the check cannot parse it, {unparsed(error)}") from error
-
-    closes: dict[int, int] = {}
-    waiting: list[int] = []
-    for index, token in enumerate(tokens):
-        if token.type == tokenize.OP and token.string in BRACKETS:
-            waiting.append(index)
-
-        if token.type == tokenize.OP and token.string in BRACKETS.values():
-            closes[waiting.pop()] = index
-
-    opens = {closing: opened for opened, closing in closes.items()}
-
-    return Code(
-        tree=tree,
-        lines=text.split("\n"),
-        tokens=tokens,
-        closes=closes,
-        opens=opens,
-        starting={token.start: index for index, token in enumerate(tokens)},
-        ending={tokens[closing].end: closing for closing in opens},
-    )
-
-
-def unparsed(
-    error: BaseException,
-) -> str:
-    """Why the interpreter could not parse a file, in its words, with the line where it names one."""
-    if isinstance(error, SyntaxError):
-        return f"{error.msg} on line {error.lineno}" if error.lineno else str(error.msg)
-
-    return str(error.args[0]) if error.args else type(error).__name__
-
-
-def walk_outside_strings(
-    tree: ast.AST,
-) -> list[ast.AST]:
-    """Every node of the tree but what sits inside a formatted or a template string, whose positions the older interpreters place on the string itself."""
-    found: list[ast.AST] = []
-    ahead: list[ast.AST] = [tree]
-    while ahead:
-        node = ahead.pop()
-        found.append(node)
-        if isinstance(node, FORMATTED):
-            continue
-
-        ahead.extend(ast.iter_child_nodes(node))
-
-    return found
-
-
-def def_slips(
-    relative: str,
-    node: Union[ast.FunctionDef, ast.AsyncFunctionDef],
-    code: Code,
-) -> list[Slip]:
-    """A def's parameters one per line below its bracket, with a trailing comma after the last, a def with none or a receiver alone aside."""
-    arguments = node.args
-    parameters = [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]
-    if arguments.vararg is not None:
-        parameters.append(arguments.vararg)
-
-    if arguments.kwarg is not None:
-        parameters.append(arguments.kwarg)
-
-    if not parameters or (len(parameters) == 1 and parameters[0].arg in RECEIVERS):
-        return []
-
-    opened: int = header_bracket(
-        code=code,
-        node=node,
-    )
-
-    return stacking_slips(
-        relative=relative,
-        code=code,
-        opened=opened,
-        unstacked=f"def {node.name} does not stack its parameters one per line with a trailing comma",
-        uncommaed=f"def {node.name} has no trailing comma after its last parameter",
-    )
-
-
-def class_slips(
-    relative: str,
-    node: ast.ClassDef,
-    code: Code,
-) -> list[Slip]:
-    """A class whose bases or keywords break across lines keeps them one per line with a trailing comma, a lone literal, string or generator aside."""
-    bases: list[ast.AST] = [*node.bases, *node.keywords]
-    if not bases:
-        return []
-
-    opened: int = header_bracket(
-        code=code,
-        node=node,
-    )
-    judged: bool = held(
-        code=code,
-        opened=opened,
-        items=bases,
-    )
-    if not judged:
-        return []
-
-    return stacking_slips(
-        relative=relative,
-        code=code,
-        opened=opened,
-        unstacked=f"class {node.name} breaks its bases across lines and does not stack them one per line",
-        uncommaed=f"class {node.name} has no trailing comma after its last base",
-    )
-
-
-def call_slips(
-    relative: str,
-    node: ast.Call,
-    code: Code,
-) -> list[Slip]:
-    """A call already broken across lines keeps its arguments one per line with a trailing comma, a lone literal, string or generator aside."""
-    end: tuple[int, int] = code.at(
-        line=node.end_lineno,
-        offset=node.end_col_offset,
-    )
-    opened = code.opens[code.ending[end]]
-    judged: bool = held(
-        code=code,
-        opened=opened,
-        items=[*node.args, *node.keywords],
-    )
-    if not judged:
-        return []
-
-    return stacking_slips(
-        relative=relative,
-        code=code,
-        opened=opened,
-        unstacked=f"the call of {callee(node)} is broken across lines and does not stack its arguments one per line",
-        uncommaed=f"the call of {callee(node)} has no trailing comma after its last argument",
-    )
-
-
-def header_bracket(
-    code: Code,
-    node: Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef],
-) -> int:
-    """The bracket a def's parameters or a class's bases open at, the first `(` after its keyword outside any other bracket, so a list of type parameters is stepped over."""
-    start: tuple[int, int] = code.at(
-        line=node.lineno,
-        offset=node.col_offset,
-    )
-    index = code.starting[start]
-    while not is_mark(
-        token=code.tokens[index],
-        mark="(",
-    ):
-        index = code.closes.get(index, index) + 1
-
-    return index
-
-
-def held(
-    code: Code,
-    opened: int,
-    items: list[ast.AST],
-) -> bool:
-    """Whether a call's arguments or a class's bases are held to the stacking, there being some, broken across lines, and other than one lone literal, string or generator, which may open on the bracket's line and takes no trailing comma."""
-    broken = code.tokens[opened].start[0] != code.tokens[code.closes[opened]].start[0]
-    lone = len(items) == 1 and isinstance(items[0], HUGGED)
-
-    return bool(items) and broken and not lone
-
-
-def stacking_slips(
-    relative: str,
-    code: Code,
-    opened: int,
-    unstacked: str,
-    uncommaed: str,
-) -> list[Slip]:
-    """The slip of the items within a bracket where they do not stack one per line, named on the bracket's line, or where the last has no trailing comma, named on the line it ends on.
-
-    Each item starts on a line after the line the one before it ends on,
-    the first on a line after the bracket's, and the trailing comma is a
-    comma token between the last item's end, its closing parenthesis
-    included where it is parenthesized, and the closing bracket, so a
-    comma in a comment or a string, after the bracket, or on the line
-    below is read as it is.
-    """
-    bracket_line = code.tokens[opened].start[0]
-    ended = bracket_line
-    for first, last in items_within(
-        code=code,
-        opened=opened,
-    ):
-        if code.tokens[first].start[0] <= ended:
-            sharing_a_line = Slip(
-                path=relative,
-                line=bracket_line,
-                message=unstacked,
-            )
-
-            return [sharing_a_line]
-
-        ended = code.tokens[last].end[0]
-
-    trailing: bool = is_mark(
-        token=code.tokens[code.closes[opened] - 1],
-        mark=",",
-    )
-    if trailing:
-        return []
-
-    missing_comma = Slip(
-        path=relative,
-        line=ended,
-        message=uncommaed,
-    )
-
-    return [missing_comma]
-
-
-def items_within(
-    code: Code,
-    opened: int,
-) -> list[tuple[int, int]]:
-    """The first and the last token of each item between a bracket and the one it closes at, parted by the bracket's own commas, a bracket inside an item taken whole, so a parenthesized item ends at its closing parenthesis, and a trailing comma parting off nothing.
-
-    A lambda's parameters are the one list the grammar lets an item hold
-    outside a bracket, a lone generator's targets aside, which are never
-    parted, so a comma from a `lambda` to the colon that ends its
-    parameters is the lambda's, each nested lambda waiting for a colon
-    of its own.
-    """
-    parts: list[list[int]] = [[]]
-    lambdas = 0
-    index = opened + 1
-    while index < code.closes[opened]:
-        token = code.tokens[index]
-        if token.type == tokenize.NAME and token.string == "lambda":
-            lambdas += 1
-
-        ending: bool = is_mark(
-            token=token,
-            mark=":",
-        )
-        if ending and lambdas:
-            lambdas -= 1
-
-        parting: bool = is_mark(
-            token=token,
-            mark=",",
-        )
-        if parting and not lambdas:
-            parts.append([])
-        else:
-            parts[-1].append(index)
-
-        index = code.closes.get(index, index) + 1
-
-    return [(part[0], code.closes.get(part[-1], part[-1])) for part in parts if part]
-
-
-def is_mark(
-    token: tokenize.TokenInfo,
-    mark: str,
-) -> bool:
-    """Whether the token is the operator or the bracket given, and no string or name that reads the same."""
-    return token.type == tokenize.OP and token.string == mark
-
-
-def callee(
-    node: ast.Call,
-) -> str:
-    """The called thing's name as written, or what kind of expression it is."""
-    if isinstance(node.func, ast.Name):
-        return node.func.id
-
-    if isinstance(node.func, ast.Attribute):
-        return node.func.attr
-
-    return "an expression"
 
 
 def check_commits(

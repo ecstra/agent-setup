@@ -337,9 +337,6 @@ def stray_reason(
     if parts[-1] == schema.INDEX:
         return "no index belongs here, the tool builds one per tracker, docs/ and memory/"
 
-    if parts[0] == "spec":
-        return "spec/ holds its files directly, nothing nested"
-
     return "not a file the brain lists, file it with brain new or move it out"
 
 
@@ -476,9 +473,7 @@ def set_name(
     set_the_field = set_field(path=entry.path, key="name", value=expected)
     # a review is pointed at by its name, and so is a todo or a bug with no id, a file the tool never wrote, so their cells follow the name too
     pointed_by_name = entry.kind.name == "review" or (entry.kind.name in ("todo", "bug") and entry.identifier is None)
-    follows = (entry.kind.name == "plan" or pointed_by_name) and not any(
-        other.path != entry.path and actual in (other.name, task.file_key(other)) for other in brain.entries()
-    )
+    follows = (entry.kind.name == "plan" or pointed_by_name) and not any(other.path != entry.path and actual in (other.name, task.file_key(other)) for other in brain.entries())
 
     def repair() -> None:
         if follows and entry.kind.name in ("plan", "review"):
@@ -554,11 +549,7 @@ def common_slips(
     fields: dict[str, str],
 ) -> list[str]:
     """What the house style bans in the common header values, since each flows into an index."""
-    return [
-        f"{item.name} {slip}"
-        for item in schema.COMMON_FIELDS
-        for slip in sections.style_slips(fields.get(item.name, ""))
-    ]
+    return [f"{item.name} {slip}" for item in schema.COMMON_FIELDS for slip in sections.style_slips(fields.get(item.name, ""))]
 
 
 def check_sections(
@@ -862,10 +853,13 @@ def check_links(
                 continue
 
             if resolved is None:
-                said = links.handover_reason(
-                    brain=brain,
-                    reference=link,
-                ) or links.REACHES_NOTHING
+                said = (
+                    links.handover_reason(
+                        brain=brain,
+                        reference=link,
+                    )
+                    or links.REACHES_NOTHING
+                )
                 found.append(
                     Finding(
                         path=where,
@@ -1511,9 +1505,13 @@ def check_front_doors(
             continue
 
         try:
-            text = (project / name).read_bytes().decode(
-                encoding="utf-8-sig",
-                errors="replace",
+            text = (
+                (project / name)
+                .read_bytes()
+                .decode(
+                    encoding="utf-8-sig",
+                    errors="replace",
+                )
             )
         except OSError as error:
             found.append(
@@ -2244,10 +2242,14 @@ def bare_of(
     token: str,
 ) -> str:
     """The token with trailing emphasis markers, its fragment and trailing punctuation set aside, the form that says whether it is an import at all."""
-    return EMPHASIS_END.sub(
-        repl="",
-        string=token,
-    ).partition("#")[0].rstrip(GLUED)
+    return (
+        EMPHASIS_END.sub(
+            repl="",
+            string=token,
+        )
+        .partition("#")[0]
+        .rstrip(GLUED)
+    )
 
 
 def with_slashes(

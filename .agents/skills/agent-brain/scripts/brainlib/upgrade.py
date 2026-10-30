@@ -26,6 +26,11 @@ from urllib.parse import unquote
 from . import doctor, frontmatter, handover, schema, sections, store, style
 
 FOLDER = ".agents"
+
+# The brain's spec files the kit shipped before 2.0.0, which an upgrade
+# takes out of a project, since the tool and the skill sheet carry
+# their rules now.
+RETIRED_SPECS: tuple[str, ...] = tuple(f"{name}.md" for name in ("bugs", "build-specs", "conventions", "decisions", "docs", "handover", "memory", "plans", "reviews", "todos"))
 OLD_FOLDER = ".agent"
 VERSION = schema.VERSION_FILE
 
@@ -174,12 +179,7 @@ IMPORT_LINE = re.compile(r"^[ \t]*@\S+[ \t]*$", re.MULTILINE)
 # that kit wrote, section 0 ends where that release's first paragraph
 # stood. The paragraph is history and never changes, which is what makes
 # it safe to match, unlike the kit's current wording.
-FIRST_KIT_WORDS = (
-    "The rules for working in this repo are in @.agents/SYSTEM.md and every\n"
-    "agent works by them. Claude Code and Gemini CLI pull that file into\n"
-    "context on their own. Codex gets it from its session start hook. Anything\n"
-    "else that reads this file as plain text opens it first.\n"
-)
+FIRST_KIT_WORDS = "The rules for working in this repo are in @.agents/SYSTEM.md and every\nagent works by them. Claude Code and Gemini CLI pull that file into\ncontext on their own. Codex gets it from its session start hook. Anything\nelse that reads this file as plain text opens it first.\n"
 FIRST_KIT = re.compile(re.escape(FIRST_KIT_WORDS))
 
 
@@ -268,13 +268,8 @@ class Kit:
         of.
         """
         found = [Path(name) for name in schema.KIT_FILES if name != schema.INDEX]
-        found += sorted(path.relative_to(self.brain) for path in (self.brain / "spec").glob("*.md"))
         skills = store.skill_folders(self.brain)
-        found += sorted(
-            path.relative_to(self.brain)
-            for path in (self.brain / schema.SKILLS).rglob("*")
-            if ships(path) and path.relative_to(self.brain / schema.SKILLS).parts[0] in skills and "tests" not in path.relative_to(self.brain / schema.SKILLS).parts
-        )
+        found += sorted(path.relative_to(self.brain) for path in (self.brain / schema.SKILLS).rglob("*") if ships(path) and path.relative_to(self.brain / schema.SKILLS).parts[0] in skills and "tests" not in path.relative_to(self.brain / schema.SKILLS).parts)
         found.append(Path(VERSION))
 
         return found
@@ -322,11 +317,11 @@ class Kit:
 def ships(
     path: Path,
 ) -> bool:
-    """Whether a file in the kit's tree is one the kit ships: a real file, not bytecode, not a dotfile."""
+    """Whether a file in the kit's tree is one the kit ships: a real file, not bytecode or a linter's cache, not a dotfile."""
     if path.is_symlink() or not path.is_file():
         return False
 
-    return "__pycache__" not in path.parts and path.suffix != ".pyc" and not path.name.startswith(".")
+    return "__pycache__" not in path.parts and ".ruff_cache" not in path.parts and path.suffix != ".pyc" and not path.name.startswith(".")
 
 
 @dataclass
@@ -571,10 +566,13 @@ def prepare(
     stamped = schema.as_tuple(project_version)
     for name in store.skill_folders(kit.brain):
         skill = kit_skill_named(name)
-        kits_own_file = skill_folder(
-            brain=kit.brain,
-            name=name,
-        ) / schema.SKILL_FILE
+        kits_own_file = (
+            skill_folder(
+                brain=kit.brain,
+                name=name,
+            )
+            / schema.SKILL_FILE
+        )
         shipped = skill is not None and schema.ships(
             skill=skill,
             stamp=stamped,
@@ -596,22 +594,19 @@ def prepare(
             )
             if not kits_copy and skill is None:
                 raise UpgradeError(
-                    f"the kit ships a skill named {name} this tool does not know, and {folder}/{schema.SKILLS}/{name} differs "
-                    "from it, so run the upgrade with the project's own tool if a kit wrote that folder, else move it aside first",
+                    f"the kit ships a skill named {name} this tool does not know, and {folder}/{schema.SKILLS}/{name} differs from it, so run the upgrade with the project's own tool if a kit wrote that folder, else move it aside first",
                 )
 
             if not kits_copy:
                 raise UpgradeError(
-                    f"the kit now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, "
-                    "move it aside first, or delete it if an interrupted upgrade left it",
+                    f"the kit now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
         linked = project.root / doctor.SKILL_LINKS / name
         own_folder = store.quietly(linked.is_dir) and not store.quietly(linked.is_symlink)
         if not shipped and own_folder and not store.same_bytes(one=linked / schema.SKILL_FILE, other=kits_own_file):
             raise UpgradeError(
-                f"the kit now ships a skill named {name}, and {doctor.SKILL_LINKS / name} holds a folder of the project's own "
-                "where the kit's skill link goes, move it aside first",
+                f"the kit now ships a skill named {name}, and {doctor.SKILL_LINKS / name} holds a folder of the project's own where the kit's skill link goes, move it aside first",
             )
 
         for definition in skill.definitions if skill else ():
@@ -629,8 +624,7 @@ def prepare(
             )
             if not kits_copy:
                 raise UpgradeError(
-                    f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, "
-                    "and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
+                    f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
     stamp = kit.version()
@@ -706,6 +700,13 @@ def install(
             folder=folder,
             keep=keep,
         )
+    retired += retire_specs(
+        project=project,
+        report=report,
+    )
+    retired += retire_definitions(
+        project=project,
+    )
     report.done(f"the kit's {len(shipped)} files under {FOLDER}/, {written} written, {len(retired)} retired")
     for relative in retired:
         report.done(f"retired {relative}, the kit no longer ships it")
@@ -717,9 +718,7 @@ def install(
     if old_notes:
         report.done(
             f"{FOLDER}/{handover.FOLDER}/ holds {len(old_notes)} from before this release, which the kit no longer "
-            "reads or lists, since the folder now holds the one note brain handover writes and git ignores it: "
-            + ", ".join(old_notes)
-            + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest",
+            "reads or lists, since the folder now holds the one note brain handover writes and git ignores it: " + ", ".join(old_notes) + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest",
         )
 
     for relative in kit.agent_files():
@@ -924,16 +923,8 @@ def candidates(
         arguments=["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"],
     )
     if listed is None or listed.code != 0:
-        found: list[str] = [
-            path.name
-            for path in sorted(project.root.glob("*.md"))
-            if path.name.lower() not in kept and not path.name.startswith(".")
-        ]
-        found += [
-            f"{folder}/"
-            for folder in ("docs", "doc", "notes", "adr", "decisions")
-            if store.quietly((project.root / folder).is_dir)
-        ]
+        found: list[str] = [path.name for path in sorted(project.root.glob("*.md")) if path.name.lower() not in kept and not path.name.startswith(".")]
+        found += [f"{folder}/" for folder in ("docs", "doc", "notes", "adr", "decisions") if store.quietly((project.root / folder).is_dir)]
 
         return found
 
@@ -1019,11 +1010,7 @@ def migration_targets(
         paths += [project.root / IGNORE_FILE, *brain_markdown(brain)]
         paths = [path for path in paths if names_old_folder(path)]
 
-    return [
-        path
-        for path in paths
-        if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path)
-    ]
+    return [path for path in paths if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path)]
 
 
 def names_old_folder(
@@ -1094,11 +1081,7 @@ def brain_markdown(
     if not store.quietly(brain.is_dir):
         return []
 
-    return sorted(
-        path
-        for path in brain.rglob("*.md")
-        if path.is_file() and not kits_skill(path.relative_to(brain).parts)
-    )
+    return sorted(path for path in brain.rglob("*.md") if path.is_file() and not kits_skill(path.relative_to(brain).parts))
 
 
 def has_old_folder(
@@ -1949,10 +1932,7 @@ def git_show_line(
     if from_folder_spelled != commands_from_folder:
         return "the old ones are still in git, run from the project's folder: " + commands_from_folder
 
-    return (
-        f"the old ones are still in git, in the folder {as_git_prints(name=place)} as git quotes a path by default, "
-        "whose name no command in this report spells, so from that folder: " + commands_from_folder
-    )
+    return f"the old ones are still in git, in the folder {as_git_prints(name=place)} as git quotes a path by default, whose name no command in this report spells, so from that folder: " + commands_from_folder
 
 
 def show_commands(
@@ -2127,11 +2107,14 @@ def kit_config(
 
     settings["permissions"] = {"deny": list(READ_GUARDS)}
 
-    return json.dumps(
-        obj=settings,
-        indent=indent_of(text),
-        ensure_ascii=False,
-    ) + "\n"
+    return (
+        json.dumps(
+            obj=settings,
+            indent=indent_of(text),
+            ensure_ascii=False,
+        )
+        + "\n"
+    )
 
 
 def put_config(
@@ -2256,6 +2239,8 @@ def guarded_paths(
 
     brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
     paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
+    paths += [str(path.relative_to(project.root)) for path in kits_specs(brain=brain)]
+    paths += retire_definitions(project=project, remove=False)
     for folder in kit_skill_folders(brain=brain, kit=kit):
         paths += files_under(
             root=project.root,
@@ -2696,6 +2681,65 @@ def write_bytes(
             pass
 
         raise
+
+
+def retire_specs(
+    project: Project,
+    report: Report,
+) -> list[str]:
+    """Remove the brain's spec files the kit shipped before 2.0.0, whose rules the tool and the skill sheet now carry, and the folder once it is empty.
+
+    A file in the folder that the kit never shipped is the project's
+    own, so it stays and is named, with where it belongs now.
+    """
+    spec = project.brain / "spec"
+    if not store.quietly(spec.is_dir) or store.quietly(spec.is_symlink):
+        return []
+
+    retired: list[str] = []
+    for path in kits_specs(brain=project.brain):
+        path.unlink()
+        retired.append(str(path.relative_to(project.root)))
+
+    left = sorted(path.name for path in spec.iterdir())
+    if left:
+        report.done(f"{FOLDER}/spec/ still holds {', '.join(left)}, the project's own, which the kit no longer reads, so file them under docs/ with brain new")
+    else:
+        spec.rmdir()
+
+    return retired
+
+
+def kits_specs(
+    brain: Path,
+) -> list[Path]:
+    """The spec files the kit shipped before 2.0.0 that the brain still holds, which the upgrade removes."""
+    spec = brain / "spec"
+    if not store.quietly(spec.is_dir) or store.quietly(spec.is_symlink):
+        return []
+
+    return [spec / name for name in RETIRED_SPECS if store.readable_file(spec / name)]
+
+
+def retire_definitions(
+    project: Project,
+    remove: bool = True,
+) -> list[str]:
+    """The sub agent definitions the kit wrote into the project and no longer ships, removed unless `remove` is off.
+
+    The project's stamp says whether the kit wrote the file, so one
+    from before the definition shipped or after it retired stays.
+    """
+    stamp = schema.as_tuple(project.version())
+    if schema.carries(since=schema.RETIRED_AT, stamp=stamp):
+        return []
+
+    retired = [definition.path for definition in schema.RETIRED_DEFINITIONS if schema.carries(since=definition.since, stamp=stamp) and store.readable_file(project.root / definition.path)]
+    if remove:
+        for relative in retired:
+            (project.root / relative).unlink()
+
+    return retired
 
 
 def retire(

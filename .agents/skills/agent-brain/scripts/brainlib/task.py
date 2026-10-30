@@ -31,6 +31,7 @@ OPEN, CLOSED, AWAY, DOUBLED, UNREADABLE, UNKNOWN = "open", "closed", "away", "do
 # the word each kind is printed under
 WORDS: dict[str, str] = {
     "plan": "plan",
+    "build-spec": "build",
     "todo": "task",
     "bug": "bug",
     "review": "review",
@@ -294,7 +295,7 @@ def resolve(
         raise TaskError(f"nothing in the brain answers to '{key}'")
 
     if entry.kind.name not in steps.OPEN_STATUSES:
-        raise TaskError(f"the work is a plan, a todo, a bug or a review, and {entry.name} is a {entry.kind.name}")
+        raise TaskError(f"the work is a plan, a build spec, a todo, a bug or a review, and {entry.name} is a {entry.kind.name}")
 
     if not steps.is_open(entry):
         raise TaskError(f"{entry.name} is {entry.field('status')}, and the work is on something open")
@@ -342,9 +343,9 @@ def may_push(
     chain: list[Item],
     entry: store.Entry,
 ) -> bool:
-    """Whether the entry may go under the innermost link: a review under a todo or a bug, or the entry the innermost link's current step points at under that link."""
+    """Whether the entry may go under the innermost link: a review under a build spec, a todo or a bug, or the entry the innermost link's current step points at under that link."""
     innermost = chain[-1]
-    if innermost.kind in ("todo", "bug") and entry.kind.name == "review":
+    if innermost.kind in ("build-spec", "todo", "bug") and entry.kind.name == "review":
         return True
 
     if innermost.kind not in steps.STEPPED_KINDS:

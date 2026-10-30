@@ -1,8 +1,9 @@
-"""The rules in .agents/spec/, written so the tool can check them.
+"""The brain's file formats, written so the tool can check them.
 
-The prose specs stay the law a person reads. This module is the same law
-in the form doctor and the write commands need, so a rule lives in one
-place here rather than being rediscovered by every command.
+Each kind of file, its folder, its fields, its sections and the rules
+its statuses hold to live here, so a rule lives in one place rather
+than being rediscovered by every command. The agent-brain skill sheet
+says the same in words.
 """
 
 import re
@@ -15,7 +16,7 @@ SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 # A bug's severities, worst first, the one order every reader uses.
 SEVERITIES: tuple[str, ...] = ("breaks", "bug", "debt", "nit")
 
-FILENAME_WITH_ID = re.compile(r"^(BUG|TODO|DEC)-(\d{3})-(.+)\.md$")
+FILENAME_WITH_ID = re.compile(r"^(BUG|TODO|DEC|BUILD)-(\d{3})-(.+)\.md$")
 
 # A review folder is <yyyy-mm>-<branch-slug>, per spec/reviews.md.
 REVIEW_FOLDER = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-[a-z0-9]+(-[a-z0-9]+)*$")
@@ -33,9 +34,11 @@ class Field:
     is_date: bool = False
 
 
-# How wide a review's finding pass goes, the one list the ledger's
-# header field and the tool's --level share.
-REVIEW_LEVELS: tuple[str, ...] = ("low", "medium", "high", "max")
+# How wide a review's finding pass goes, the levels the tool's --level
+# opens a ledger at. A ledger opened before 2.0.0 carries one of the old
+# levels, which its header still takes so it reads.
+REVIEW_LEVELS: tuple[str, ...] = ("quick", "standard", "deep")
+OLD_REVIEW_LEVELS: tuple[str, ...] = ("low", "medium", "high", "max")
 
 
 @dataclass(frozen=True)
@@ -272,6 +275,44 @@ KINDS: dict[str, Kind] = {
             ),
         ),
     ),
+    "build-spec": Kind(
+        name="build-spec",
+        folder="build-specs",
+        id_prefix="BUILD",
+        columns=("status", "branch"),
+        index_description="index of the build specs, one per branch, open first",
+        fields=(
+            Field(
+                name="status",
+                values=("draft", "acked", "closed", "dropped"),
+            ),
+            Field(name="branch"),
+            Field(name="born", is_date=True),
+            Field(name="done", required=False, is_date=True),
+        ),
+        sections=(
+            Section(title="Goal"),
+            Section(title="Behaviour"),
+            Section(title="Edge cases"),
+            Section(title="Out of scope"),
+            Section(title="Decisions"),
+            Section(title="Proof"),
+            Section(title="Changes", required=False),
+            Section(title="Steps"),
+        ),
+        rules=(
+            Rule(
+                status="closed",
+                says="a build spec closes with its closing date, done=YYYY-MM-DD",
+                field="done",
+            ),
+            Rule(
+                status="dropped",
+                says="a build spec goes dropped with its closing date, done=YYYY-MM-DD",
+                field="done",
+            ),
+        ),
+    ),
     "review": Kind(
         name="review",
         folder="reviews",
@@ -286,7 +327,7 @@ KINDS: dict[str, Kind] = {
             Field(
                 name="level",
                 required=False,
-                values=REVIEW_LEVELS,
+                values=REVIEW_LEVELS + OLD_REVIEW_LEVELS,
             ),
         ),
         sections=(
@@ -357,15 +398,11 @@ KIT_SKILLS: tuple[KitSkill, ...] = (
         since="1.2.0",
         definitions=(
             Definition(
+                path=".claude/agents/review-docs.md",
+                since="2.0.0",
+            ),
+            Definition(
                 path=".claude/agents/review-finder.md",
-                since="1.2.0",
-            ),
-            Definition(
-                path=".claude/agents/review-fixer.md",
-                since="1.4.0",
-            ),
-            Definition(
-                path=".claude/agents/review-hunter.md",
                 since="1.2.0",
             ),
             Definition(
@@ -376,6 +413,21 @@ KIT_SKILLS: tuple[KitSkill, ...] = (
     ),
 )
 KIT_SKILL_NAMES: tuple[str, ...] = tuple(skill.name for skill in KIT_SKILLS)
+
+# Definitions the kit shipped from `since` and stopped shipping at 2.0.0.
+# A project stamped in between got the file from the kit, so the
+# upgrade removes it, and one stamped outside that made it itself.
+RETIRED_AT = "2.0.0"
+RETIRED_DEFINITIONS: tuple[Definition, ...] = (
+    Definition(
+        path=".claude/agents/review-fixer.md",
+        since="1.4.0",
+    ),
+    Definition(
+        path=".claude/agents/review-hunter.md",
+        since="1.2.0",
+    ),
+)
 
 # A brain with no stamp to read is on the oldest release as far as the
 # tool can tell, so it carries only what every release shipped, and the
@@ -463,9 +515,9 @@ def is_kit_path(
 ) -> bool:
     """Whether a path inside .agents/ names a file the kit owns.
 
-    That is a root kit file, a spec, or the index of a folder that
-    carries one. Everything else in the brain is an entry or a stray,
-    and a dotted path is neither.
+    That is a root kit file or the index of a folder that carries one.
+    Everything else in the brain is an entry or a stray, and a dotted
+    path is neither.
     """
     if is_hidden(relative):
         return False
@@ -474,9 +526,6 @@ def is_kit_path(
 
     if len(parts) == 1:
         return parts[0] in KIT_FILES
-
-    if len(parts) == 2 and parts[0] == "spec":
-        return parts[1].endswith(".md") and parts[1] != INDEX
 
     return len(parts) == 2 and parts[0] in INDEXED_FOLDERS and parts[1] == INDEX
 
