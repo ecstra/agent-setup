@@ -320,14 +320,21 @@ section 0, as
 says, so they run on each file the agent writes, or your code is
 checked only by whatever your gates run.
 
+From 2.2.0 the note for the next session lives in the hidden
+`.agents/.handover/`, and sessions on one machine take turns on it, so
+only one of them gets the note. The upgrade moves a waiting note there
+from `.agents/handover/`, removes that folder once it is empty and
+drops its old ignore line. Notes of your own left in the old folder
+stay, and the upgrade names them on every run, as doctor does, for you
+to move into `docs/` or `memory/` through `brain new`, or delete.
+[The upgrade's row](.agents/skills/agent-brain/references/commands.md#port-and-upgrade)
+says what stays behind and why.
+
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
 would replace holds uncommitted work, and names each root file it
-replaces with where git keeps the old one. Notes an older release kept
-in `.agents/handover/` stay where they are, and since the kit no longer
-reads them, the upgrade names them on every run for you to move into
-`docs/` or `memory/` through `brain new`, or delete. Run it on its own
-branch and read the diff. Or hand your agent this.
+replaces with where git keeps the old one. Run it on its own branch and
+read the diff. Or hand your agent this.
 
 ```text
 The agent kit at https://forge.example.com/example/agent-setup has a new
@@ -440,19 +447,17 @@ land.
 │   ├── INDEX.md
 │   └── 2026-09-feat-billing/
 │       └── ledger.md
-└── handover/             the note for the next session, never in git
+└── .handover/            the note for the next session, never in git
     └── handover.md
 ```
 
 The trackers, the build specs, the docs library, and memory each carry
 an `INDEX.md` listing what is inside, and `.agents/INDEX.md` at the top
 names the docs, the trackers, the build specs and memory with their
-counts. `handover/`
-carries none, the spine covers it. It holds the note for the next
-session, which the agent-brain
+counts. `.handover/` carries none, the spine covers it. It holds the
+note for the next session, which the agent-brain
 [skill sheet](.agents/skills/agent-brain/SKILL.md#the-brains-files)
-governs. Git ignores the folder, so a fresh clone has none, unless
-notes from an older release are still tracked there.
+governs. Git ignores the folder, so a fresh clone has none.
 
 ## Where to read next
 
