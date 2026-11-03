@@ -352,6 +352,9 @@ before the first write, a project where a file they would write sits
 behind a link that leads out of it, such as a `.claude` folder linked
 into a kit checkout, until you move the link aside, as
 [port and upgrade](.agents/skills/agent-brain/references/commands.md#port-and-upgrade)
+says. Doctor writes nothing behind such a `.claude` link either, and
+names the guard there as yours to write, as
+[the read guard](.agents/skills/agent-brain/references/commands.md#the-read-guard)
 says.
 
 It works on the nearest folder at or above you that carries a brain,

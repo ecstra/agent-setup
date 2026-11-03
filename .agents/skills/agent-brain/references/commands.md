@@ -539,7 +539,7 @@ style copy, a skill link when it is missing, dead, pointing elsewhere
 or a plain file, which the link replaces, a real folder copy of a kit
 skill that fell behind the brain's, which is refreshed from it, and a
 rule or a sandbox entry of [the read guard](#the-read-guard) missing
-from `.claude/settings.json`.
+from `.claude/settings.json` while `.claude` stays inside the project.
 Each repaired file gets today's date, and a repaired entry the name of
 whoever runs the fix as its `editor`, save one whose only repair is
 that fill, which keeps its date. The only things `--fix` removes are
@@ -843,7 +843,10 @@ and `--project` has to name a folder that is there. Both refuse, before
 the first write, a project where a kit file they would write under
 `.agents/` or in the agent folders sits behind a link that leads out of the
 project, naming the file and where the link leads, until the link is
-moved aside. So a `.claude` folder linked into a kit checkout never gets
+moved aside. Each file under `.agents/` is checked at its place under
+`.agent/` too, the brain's folder before 1.0.0, since the upgrade's
+migration renames that folder to `.agents/` before the install writes
+through it. So a `.claude` folder linked into a kit checkout never gets
 the project's settings.
 
 | Command | What it does |
@@ -943,13 +946,24 @@ In a project, doctor names a rule or a sandbox entry of the guard
 missing from `.claude/settings.json` as
 `the read guard is missing from .claude/settings.json, which brain doctor --fix writes`,
 and `--fix` writes both in, the rest of the file kept. So a project an
-older tool upgraded gets the guard at the next fix. Doctor stays silent
-where the file is missing, which the next upgrade writes, and where it
-is not valid JSON or holds one of the keys above in the wrong shape,
-which the next upgrade refuses in words. The kit's own checkout is never
-asked for the guard, since its code is the work there. Doctor knows it
-by the tool's tests under `.agents/skills/agent-brain/scripts/tests`,
-which never ship to a project.
+older tool upgraded gets the guard at the next fix. Doctor asks only
+that the two rules and the two entries be there, in any order among the
+project's own. It stays silent where the file is missing, which the
+next upgrade writes, and where it is not valid JSON, is not a JSON
+object or holds one of the keys above in the wrong shape, which the
+next upgrade refuses in words. The kit's own checkout is never asked
+for the guard, since its code is the work there. Doctor knows it by the
+tool's tests under `.agents/skills/agent-brain/scripts/tests`, which
+never ship to a project.
+
+Where `.claude` is a link that leads out of the project, such as into a
+kit checkout, doctor neither reads nor writes the file, since it is not
+the project's. While the file is there, whatever it holds, doctor names
+it in a flag with no fix,
+`.claude/settings.json sits behind a link that leads out of the project, to <folder>, so the read guard there is yours to write`,
+with `<folder>` the folder the link leads to. The port and the upgrade
+refuse such a project too, as [port and upgrade](#port-and-upgrade)
+says.
 
 ## Hooks
 

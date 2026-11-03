@@ -380,7 +380,8 @@ pointer left on a refiled one or written by name, a numbered list
 under a plan's or a todo's Steps and a plan with no Steps section,
 which get the table, a chat style copy that drifted from the Claude
 Code one, a missing or dead skill link, a read guard rule or sandbox
-entry missing from `.claude/settings.json`, an entry's missing
+entry missing from `.claude/settings.json` while `.claude` stays
+inside the project, an entry's missing
 `author` or `editor`, which it fills from git's history, and stamps
 every file it touches, save one where it only fills a name. Whatever is left needs a
 decision, so read it and act on it. Silencing a finding is never the
