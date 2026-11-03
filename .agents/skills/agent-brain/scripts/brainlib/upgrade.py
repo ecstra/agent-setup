@@ -658,7 +658,8 @@ def prepare(
                     f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
-    for relative in [Path(FOLDER) / name for name in kit.brain_files()] + kit.agent_files():
+    # the folder before 1.0.0 too, which the migration renames to .agents before the install writes through it
+    for relative in [Path(folder) / name for folder in (FOLDER, OLD_FOLDER) for name in kit.brain_files()] + kit.agent_files():
         out: Optional[Path] = leads_out(project=project, relative=relative)
         if out is not None:
             raise UpgradeError(f"{relative.as_posix()} sits behind a link that leads out of the project, to {out}, so move the link aside first")
