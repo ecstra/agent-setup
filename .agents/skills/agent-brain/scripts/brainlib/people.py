@@ -128,16 +128,38 @@ def parse_history(
     return known
 
 
+def top_of(
+    brain: Path,
+) -> tuple[Optional[Path], bool]:
+    """The top of the repository that holds the brain, or None, with whether a repository is there that git will not read.
+
+    Git says a folder is in no repository in words of its own, read here
+    in English, and any other failure is git refusing one, one another
+    user owns for one. Where git is missing, a .git above the brain says
+    a repository is there.
+    """
+    try:
+        done = subprocess.run(["git", "-C", str(brain), "rev-parse", "--show-toplevel"], capture_output=True, timeout=GIT_SECONDS, check=False, env={**os.environ, "LC_ALL": "C"})
+    except subprocess.TimeoutExpired:
+        return None, True
+    except OSError:
+        return None, any(os.path.lexists(folder / ".git") for folder in (brain.resolve(), *brain.resolve().parents))
+
+    top = done.stdout.decode("utf-8", errors="replace").strip()
+    if done.returncode == 0:
+        return (Path(top) if top else None), False
+
+    return None, b"not a git repository" not in done.stderr
+
+
 def history(
     brain: Path,
 ) -> History:
     """One walk of the history of the brain and of the folder it lived in before 1.0.0, names read through the project's mailmap."""
-    top = git_says(folder=brain, arguments=["rev-parse", "--show-toplevel"])
-    if not (top or "").strip():
-        # with a .git above the brain, git refused a repository it should have read, one another user owns for one
-        return History(unread=any(os.path.lexists(folder / ".git") for folder in (brain.resolve(), *brain.resolve().parents)))
+    root, refused = top_of(brain)
+    if root is None:
+        return History(unread=refused)
 
-    root = Path(top.strip())
     try:
         here = brain.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
