@@ -9,6 +9,7 @@ letters as they came.
 """
 
 import getpass
+import os
 import subprocess
 import unicodedata
 from dataclasses import dataclass, field
@@ -133,7 +134,8 @@ def history(
     """One walk of the history of the brain and of the folder it lived in before 1.0.0, names read through the project's mailmap."""
     top = git_says(folder=brain, arguments=["rev-parse", "--show-toplevel"])
     if not (top or "").strip():
-        return History()
+        # with a .git above the brain, git refused a repository it should have read, one another user owns for one
+        return History(unread=any(os.path.lexists(folder / ".git") for folder in (brain.resolve(), *brain.resolve().parents)))
 
     root = Path(top.strip())
     try:
