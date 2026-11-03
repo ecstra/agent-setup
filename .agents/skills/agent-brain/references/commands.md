@@ -961,10 +961,10 @@ kit checkout, doctor still reads the file, silent in the same cases,
 and never writes through the link, since the file is not the project's.
 Where the two rules and the two entries are there it says nothing, and
 where one is missing it names that in a flag with no fix,
-`the read guard is missing from .claude/settings.json, which sits behind a link that leads out of the project, to <folder>, so it is yours to write`,
+`the read guard is missing from .claude/settings.json, which sits behind a link that leads out of the project, to <folder>, so move the link aside and run brain upgrade, which writes the project its own`,
 with `<folder>` the folder the link leads to. The port and the upgrade
-refuse such a project too, as [port and upgrade](#port-and-upgrade)
-says.
+refuse such a project too, with the same advice to move the link aside,
+as [port and upgrade](#port-and-upgrade) says.
 
 ## Hooks
 

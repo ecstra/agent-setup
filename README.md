@@ -354,7 +354,7 @@ into a kit checkout, until you move the link aside, as
 [port and upgrade](.agents/skills/agent-brain/references/commands.md#port-and-upgrade)
 says. Doctor writes nothing behind such a `.claude` link either. It
 reads the settings there and, only where the guard is missing, names
-it as yours to write, as
+it and asks you to move the link aside and run `brain upgrade`, as
 [the read guard](.agents/skills/agent-brain/references/commands.md#the-read-guard)
 says.
 
