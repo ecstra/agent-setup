@@ -1362,11 +1362,6 @@ def check_read_guard(
         return []
 
     where = upgrade.CLAUDE_SETTINGS.as_posix()
-    # a .claude linked into another checkout, the kit's own among them, is that checkout's to guard, as the upgrade refuses it
-    out = upgrade.leads_out(project=upgrade.Project(root=brain.root.parent), relative=upgrade.CLAUDE_SETTINGS)
-    if out is not None:
-        return [Finding(path=where, check="layout", message=f"{where} sits behind a link that leads out of the project, to {out}, so the read guard there is yours to write")]
-
     try:
         have = json.loads(settings.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, ValueError):
@@ -1386,6 +1381,11 @@ def check_read_guard(
 
     if all(rule in deny for rule in upgrade.READ_GUARDS) and all(entry in allowed for entry in upgrade.READ_OPENINGS):
         return []
+
+    # a .claude linked into another checkout, the kit's own among them, is that checkout's to guard, as the upgrade refuses it
+    out = upgrade.leads_out(project=upgrade.Project(root=brain.root.parent), relative=upgrade.CLAUDE_SETTINGS)
+    if out is not None:
+        return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which sits behind a link that leads out of the project, to {out}, so it is yours to write")]
 
     return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which brain doctor --fix writes", repair=write_guard(path=settings, where=where))]
 
