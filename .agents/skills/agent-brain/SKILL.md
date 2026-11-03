@@ -35,7 +35,13 @@ The examples below shorten that to `brain`. Every flag is listed in
   it runs green before any review.
 - The tool's code is never read by hand, save in the kit's own checkout
   where it is the work. SYSTEM.md section 8 carries the rule, and this
-  sheet with the reference is what to read instead.
+  sheet with the reference is what to read instead. In a project Claude
+  Code's settings carry the read guard, deny rules that refuse the read
+  and two entries under `sandbox.filesystem.allowRead` that let every
+  brain command run while Claude Code's sandbox is on. With the sandbox
+  on, a shell read such as `cat` of the code gets through and only the
+  Read tool is refused, so there the rule holds by your word alone.
+  [The read guard](references/commands.md#the-read-guard) says the rest.
 
 ## When a session starts
 
@@ -373,9 +379,11 @@ one header, a pointed step's mark that drifted from its entry or its
 pointer left on a refiled one or written by name, a numbered list
 under a plan's or a todo's Steps and a plan with no Steps section,
 which get the table, a chat style copy that drifted from the Claude
-Code one, a missing or dead skill link, an entry's missing `author` or
-`editor`, which it fills from git's history, and stamps every file it
-touches, save one where it only fills a name. Whatever is left needs a
+Code one, a missing or dead skill link, a read guard rule or sandbox
+entry missing from `.claude/settings.json` while `.claude` stays
+inside the project, an entry's missing
+`author` or `editor`, which it fills from git's history, and stamps
+every file it touches, save one where it only fills a name. Whatever is left needs a
 decision, so read it and act on it. Silencing a finding is never the
 answer.
 

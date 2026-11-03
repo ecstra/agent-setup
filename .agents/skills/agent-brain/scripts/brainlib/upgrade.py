@@ -75,6 +75,14 @@ READ_GUARDS = (
     f"Read(/{FOLDER}/{schema.SKILLS}/agent-brain/scripts/**)",
     f"Read(/{doctor.SKILL_LINKS.as_posix()}/agent-brain/scripts/**)",
 )
+# Claude Code's sandbox takes the Read deny rules as reads it refuses every
+# command it runs, the brain tool's own python among them, so the same
+# folders are opened to it again, project relative as its settings read
+# them. The Read tool still follows the deny rules.
+READ_OPENINGS = (
+    f"{FOLDER}/{schema.SKILLS}/agent-brain/scripts",
+    f"{doctor.SKILL_LINKS.as_posix()}/agent-brain/scripts",
+)
 KIT_RULE = re.compile(
     pattern=r"^Read\(/(?:"
     + "|".join(
@@ -564,6 +572,22 @@ class Prepared:
     layout: str
 
 
+def leads_out(
+    project: Project,
+    relative: Path,
+) -> Optional[Path]:
+    """Where the folder a kit file lands in really is, where a link takes it out of the project, else None, so a `.claude` linked into the kit checkout never gets a project's settings."""
+    try:
+        real: Path = (project.root / relative).parent.resolve()
+        real.relative_to(project.root.resolve())
+    except ValueError:
+        return real
+    except (OSError, RuntimeError):
+        return None
+
+    return None
+
+
 def prepare(
     kit: Kit,
     project: Project,
@@ -633,6 +657,12 @@ def prepare(
                 raise UpgradeError(
                     f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
                 )
+
+    # the folder before 1.0.0 too, which the migration renames to .agents before the install writes through it
+    for relative in [Path(folder) / name for folder in (FOLDER, OLD_FOLDER) for name in kit.brain_files()] + kit.agent_files():
+        out: Optional[Path] = leads_out(project=project, relative=relative)
+        if out is not None:
+            raise UpgradeError(f"{relative.as_posix()} sits behind a link that leads out of the project, to {out}, so move the link aside first")
 
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
@@ -2056,8 +2086,11 @@ def merged_config(
             where=where,
         )
 
+    if isinstance(want.get("sandbox"), dict):
+        merge_openings(have=have, openings=want["sandbox"].get("filesystem", {}).get("allowRead", []), where=where)
+
     for key, value in want.items():
-        if key == "hooks":
+        if key in ("hooks", "sandbox"):
             continue
 
         if isinstance(
@@ -2114,6 +2147,46 @@ def merge_guards(
     permissions["deny"] = [rule for rule in deny if not is_kit_rule(rule)] + guards
 
 
+def merge_openings(
+    have: dict,
+    openings: list,
+    where: str,
+) -> None:
+    """The folders the kit opens to the sandbox into the project's allowed reads, the kit's own entries written once and the project's own kept in their order."""
+    sandbox = have.setdefault("sandbox", {})
+    if not isinstance(sandbox, dict):
+        raise UpgradeError(f"sandbox in {where} is not a JSON object")
+
+    filesystem = sandbox.setdefault("filesystem", {})
+    if not isinstance(filesystem, dict):
+        raise UpgradeError(f"sandbox.filesystem in {where} is not a JSON object")
+
+    allowed = filesystem.setdefault("allowRead", [])
+    if not isinstance(allowed, list):
+        raise UpgradeError(f"sandbox.filesystem.allowRead in {where} is not a JSON list")
+
+    filesystem["allowRead"] = [entry for entry in allowed if entry not in READ_OPENINGS] + openings
+
+
+def guarded(
+    text: str,
+    where: str,
+) -> str:
+    """A project's Claude Code settings with the read guard and the sandbox's openings in them, everything else as it was."""
+    try:
+        have = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise UpgradeError(f"{where} is not valid JSON: {error}") from error
+
+    if not isinstance(have, dict):
+        raise UpgradeError(f"{where} is not a JSON object")
+
+    merge_guards(have=have, guards=list(READ_GUARDS), where=where)
+    merge_openings(have=have, openings=list(READ_OPENINGS), where=where)
+
+    return json.dumps(have, indent=indent_of(text), ensure_ascii=False) + "\n"
+
+
 def is_kit_rule(
     rule: object,
 ) -> bool:
@@ -2148,6 +2221,7 @@ def kit_config(
         raise UpgradeError(f"the kit's {CLAUDE_SETTINGS} is not a JSON object")
 
     settings["permissions"] = {"deny": list(READ_GUARDS)}
+    settings["sandbox"] = {"filesystem": {"allowRead": list(READ_OPENINGS)}}
 
     return (
         json.dumps(

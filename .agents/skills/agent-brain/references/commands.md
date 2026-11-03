@@ -415,7 +415,7 @@ it is.
 
 | Command | What it does |
 |---|---|
-| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill links, the front doors' imports and what a write left behind. |
+| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill links, the front doors' imports, [the read guard](#the-read-guard) in a project and what a write left behind. |
 | `brain doctor --fix` | Applies every fixable repair, in passes until a pass changes nothing, then reports what is left. A repair that fails is reported as a flag with the reason. |
 
 Doctor checks that nothing was left behind by an interrupted write, that
@@ -536,8 +536,10 @@ from its entry or its pointer left behind by a refile or written by
 name, a numbered list under a plan's or a todo's Steps and a plan with
 no Steps section, which get the table, a stale index, a stale chat
 style copy, a skill link when it is missing, dead, pointing elsewhere
-or a plain file, which the link replaces, and a real folder copy of a
-kit skill that fell behind the brain's, which is refreshed from it.
+or a plain file, which the link replaces, a real folder copy of a kit
+skill that fell behind the brain's, which is refreshed from it, and a
+rule or a sandbox entry of [the read guard](#the-read-guard) missing
+from `.claude/settings.json` while `.claude` stays inside the project.
 Each repaired file gets today's date, and a repaired entry the name of
 whoever runs the fix as its `editor`, save one whose only repair is
 that fill, which keeps its date. The only things `--fix` removes are
@@ -549,8 +551,9 @@ to nothing at all, the way a link doctor made for a project skill does
 once that skill is gone. The stray pass never removes a link or a
 folder that still leads somewhere, whatever it holds. A link sitting where a skill link belongs and leading
 elsewhere is replaced by the right one, and a repair that rewrites a
-file, a stale index or chat style copy, writes a real file in place of
-any link standing there. No other file is removed.
+file, a stale index, a chat style copy or the settings the read guard
+goes into, writes a real file in place of any link standing there. No
+other file is removed.
 
 The fill reads the brain's history in one walk of git, names read
 through the project's mailmap. The author is the git author of the
@@ -836,11 +839,19 @@ its own copy with `--kit` pointing at the newer checkout. Without
 current folder and an upgrade on the nearest folder at or above the
 current one that carries a brain, and neither ever works on your home
 folder. The report's first line names the folder either one works on,
-and `--project` has to name a folder that is there.
+and `--project` has to name a folder that is there. Both refuse, before
+the first write, a project where a kit file they would write under
+`.agents/` or in the agent folders sits behind a link that leads out of the
+project, naming the file and where the link leads, until the link is
+moved aside. Each file under `.agents/` is checked at its place under
+`.agent/` too, the brain's folder before 1.0.0, since the upgrade's
+migration renames that folder to `.agents/` before the install writes
+through it. So a `.claude` folder linked into a kit checkout never gets
+the project's settings.
 
 | Command | What it does |
 |---|---|
-| `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain, which means the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, Claude Code's with the rules under `permissions.deny` that refuse reading the kit's code, by the brain's path and by the skill link's, an earlier spelling of the kit's replaced and the project's own rules kept, the review's sub agent definitions, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`, the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
+| `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain, which means the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, Claude Code's with [the read guard](#the-read-guard), the review's sub agent definitions, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`, the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
 | `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Every run removes what the kit wrote and no longer ships, each file named in the report, a file the kit dropped from one of its skill folders, the brain's spec files the kit kept under `.agents/spec/` before 2.0.0, with the folder once it is empty, and the review's fixer and hunter definitions under `.claude/agents/` where the project's stamp says the kit wrote them, from the release each shipped in up to 2.0.0. A file of the project's own in `.agents/spec/` stays, named in the report to file under `docs/` through `brain new`. The doctor run at its end fills the `author` and `editor` of each entry that lacks them from git, as [doctor](#doctor) says, and the report says how many entries it filled. Refuses without a brain, refuses while a file it would replace holds uncommitted work, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills` or in `.claude/skills` where the link goes, and a project stamped before a sub agent definition shipped that keeps a file of its own under that definition's name, each definition counted from its own release since a skill gains them later, until the folder or file is moved aside. A folder or a file the kit itself wrote is known by its bytes and passes. Refuses too a project that is the kit itself, or a worktree or a clone of it, since that is where the tool's code is the work. It knows one by the folder under any spelling, or where the two folders, each the top of its own work tree, meet on walking back through their local origins, at most eight clones and a bare repository among them, to a folder or a remote repository both come from, so a kit vendored inside a project's repository, or a project folder inside the kit's, is no clone of it. The walk looks for a local origin under the names git's clone tries for it, the path with `/.git` after it, the path itself, then with `.git/.git` and with `.git` after it, and goes into the first that is a folder, where git is asked under `GIT_CEILING_DIRECTORIES` set to that folder's parent, so it answers for that folder alone and never for a repository above it. Every git call of the walk runs without the variables `git rev-parse --local-env-vars` names, so a `GIT_DIR` or a `GIT_WORK_TREE` a git hook exported never answers for a folder the walk asks about, while config given in command scope, through `git -c` or `GIT_CONFIG_COUNT` with its keys and values, still holds, so a `safe.directory` or a `safe.bareRepository` given that way reaches every git the walk runs. The walk asks git only `rev-parse` and `remote get-url`, so it opens no transport and runs no command a walked folder's config names. It reaches a folder whose name holds a byte that is not UTF-8 on every POSIX file system, while such a path on Windows, and under a locale that is not UTF-8 a name outside its codec, is taken as not there. It ends where git opens no repository, at a plain folder standing under a name git's clone tries first, such as `/srv/hub` beside the bare `/srv/hub.git` a project was cloned from by `git clone /srv/hub`, and at one git keeps closed for safety, a bare origin while the owner's config sets `safe.bareRepository` to `explicit` or a folder git refuses for its owner. Two clones of one such folder still meet there, since a folder is recorded before git is asked. An origin that is a file naming its repository is no folder to go into, so the walk ends at its path. Two clones that name it by two spellings of that path do not meet. A clone the walk misses in any of these ways is upgraded as any project is, the kit's files written over its copies of them under the refusal over uncommitted work. A walked folder holding a named pipe called `HEAD` holds the walk up as it holds git's own clone up, since the upgrade's git runs with no time limit. Git matches the ceiling against the folder's path as text, in the system's spelling, so an origin spelled another way on a disk that takes two spellings for one, by case or by Unicode form, or reached through a second path to the same volume such as macOS's `/System/Volumes/Data`, leaves git free to answer for a repository above it. Git also reads a `:` in the ceiling, or a `;` on Windows, as a break between folders, so an origin whose parent's path holds that separator does the same. That matters only where one repository holds both the kit and the project, and there the upgrade takes the project for a clone of the kit and installs nothing, which writes over no work. The walk is built for git 2.28 or later. Every run moves the tool's note and its claimed copy for the checkout's branch, `handover.md` and `handover.md.reading`, out of `handover/`, where the note lived before 2.2.0, into `.handover/`, the move a session start makes too under the same branch rules, as [the handover](#the-handover) says. The report names each note it moved, each for another branch, which stays there for that branch, each that waits behind a note `.handover/` already holds under either name until that one is gone, and each the system refused to move, with the reason, to move by hand, and the run goes on. The kit's ignore block keeps the `.agents/handover` line beside `.agents/.handover`, so a note an older session left there never enters git before it moves. Every run names too, while they remain, the notes a project filed under `handover/` before the folder became the tool's, any markdown file there, nested too, that is not the tool's note, one at the note's own path whose header is not the tool's included, and says to move what still matters into `docs/` or `memory/` through `brain new` and delete the rest, which the upgrade never does itself. |
 
 What is the project's stays the project's, which is everything under
@@ -894,6 +905,66 @@ bytes. The refusal over uncommitted work and the list of what is left to
 file show a name from git's answer with the replacement character in
 place of a byte that is not UTF-8, and a name the disk gave, an old note
 under `handover/` among them, is printed as the disk spells it.
+
+## The read guard
+
+The port and the upgrade write the read guard into the project's
+`.claude/settings.json`, merged with what the project keeps there, so
+the agent leaves the tool's code alone, as section 8 of `SYSTEM.md`
+asks. Under `permissions.deny` go two rules that refuse reading that
+code, `Read(/.agents/skills/agent-brain/scripts/**)` by the brain's path
+and `Read(/.claude/skills/agent-brain/scripts/**)` by the skill link's,
+the leading slash anchoring each at the project. A deny rule on Read
+that names that folder at the project, by either path or by the brain's
+old `.agent/` one, counts as the kit's and is replaced, so a release
+that rewords a rule leaves no double. The project's own rules stay in
+their order.
+
+Under `sandbox.filesystem.allowRead` go the same two folders,
+`.agents/skills/agent-brain/scripts` and
+`.claude/skills/agent-brain/scripts`. Claude Code's sandbox takes the
+Read deny rules as reads it refuses every command it runs, the brain
+tool's own Python among them, so without these entries no brain command
+could open its own code while the sandbox is on. With them every brain
+command runs, one that carries a heredoc, such as `brain new` or
+`brain handover`, included. The kit never turns the sandbox on. The
+project's own sandbox settings, `enabled` and its own allowed and
+denied reads among them, stay as they were, and the kit's two entries
+go once after the project's own. A `permissions`, `sandbox` or
+`sandbox.filesystem` that is not a JSON object, or a `permissions.deny`
+or `sandbox.filesystem.allowRead` that is not a JSON list, is refused in
+words before the first write.
+
+The guard leaves one way through. With the sandbox on, the sandbox lets
+every command it runs read the tool's code, so a shell read such as
+`cat` of it gets through, while the Read tool stays refused. With the
+sandbox off nothing changes, and the deny rules refuse both. A live run
+on 2026-11-03 showed this. Under the sandbox, then, the agent's own word
+is all that keeps a shell read off the code.
+
+In a project, doctor names a rule or a sandbox entry of the guard
+missing from `.claude/settings.json` as
+`the read guard is missing from .claude/settings.json, which brain doctor --fix writes`,
+and `--fix` writes both in, the rest of the file kept. So a project an
+older tool upgraded gets the guard at the next fix. Doctor asks only
+that the two rules and the two entries be there, in any order among the
+project's own. It stays silent where the file is missing, which the
+next upgrade writes, and where it is not valid JSON, is not a JSON
+object or holds one of the keys above in the wrong shape, which the
+next upgrade refuses in words. The kit's own checkout is never asked
+for the guard, since its code is the work there. Doctor knows it by the
+tool's tests under `.agents/skills/agent-brain/scripts/tests`, which
+never ship to a project.
+
+Where `.claude` is a link that leads out of the project, such as into a
+kit checkout, doctor still reads the file, silent in the same cases,
+and never writes through the link, since the file is not the project's.
+Where the two rules and the two entries are there it says nothing, and
+where one is missing it names that in a flag with no fix,
+`the read guard is missing from .claude/settings.json, which sits behind a link that leads out of the project, to <folder>, so move the link aside and run brain upgrade, which writes the project its own`,
+with `<folder>` the folder the link leads to. The port and the upgrade
+refuse such a project too, with the same advice to move the link aside,
+as [port and upgrade](#port-and-upgrade) says.
 
 ## Hooks
 

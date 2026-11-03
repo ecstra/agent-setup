@@ -7,6 +7,7 @@ person or an agent to decide.
 """
 
 import errno
+import json
 import os
 import re
 import shutil
@@ -1344,6 +1345,63 @@ def reaches(
     return target is not None and target == resolved(home)
 
 
+def check_read_guard(
+    brain: store.Brain,
+) -> list[Finding]:
+    """A project's Claude Code settings carry the rules that keep the agent out of the tool's code and the folders the sandbox may read, which an older tool's upgrade leaves out.
+
+    The kit's own checkout carries neither, since its code is the work
+    there, and it is known by the tool's tests, which never ship to a
+    project.
+    """
+    # the upgrade reads doctor, so the guard's rules come from it once both are loaded
+    from . import upgrade
+
+    settings = brain.root.parent / upgrade.CLAUDE_SETTINGS
+    if store.quietly(question=(brain.root / schema.SKILLS / "agent-brain" / "scripts" / "tests").is_dir) or not store.readable_file(path=settings):
+        return []
+
+    where = upgrade.CLAUDE_SETTINGS.as_posix()
+    try:
+        have = json.loads(settings.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError):
+        return []
+
+    # a shape Claude Code cannot read is the upgrade's to refuse in words, so doctor says nothing of it
+    if not isinstance(have, dict):
+        return []
+
+    permissions = have.get("permissions", {})
+    sandbox = have.get("sandbox", {})
+    filesystem = sandbox.get("filesystem", {}) if isinstance(sandbox, dict) else None
+    deny = permissions.get("deny", []) if isinstance(permissions, dict) else None
+    allowed = filesystem.get("allowRead", []) if isinstance(filesystem, dict) else None
+    if not isinstance(deny, list) or not isinstance(allowed, list):
+        return []
+
+    if all(rule in deny for rule in upgrade.READ_GUARDS) and all(entry in allowed for entry in upgrade.READ_OPENINGS):
+        return []
+
+    # a .claude linked into another checkout, the kit's own among them, is that checkout's to guard, as the upgrade refuses it
+    out = upgrade.leads_out(project=upgrade.Project(root=brain.root.parent), relative=upgrade.CLAUDE_SETTINGS)
+    if out is not None:
+        return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which sits behind a link that leads out of the project, to {out}, so move the link aside and run brain upgrade, which writes the project its own")]
+
+    return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which brain doctor --fix writes", repair=write_guard(path=settings, where=where))]
+
+
+def write_guard(
+    path: Path,
+    where: str,
+) -> Callable[[], None]:
+    from . import upgrade
+
+    def repair() -> None:
+        frontmatter.write_text(path=str(path), text=upgrade.guarded(text=path.read_text(encoding="utf-8"), where=where))
+
+    return repair
+
+
 def check_style_copies(
     brain: store.Brain,
 ) -> list[Finding]:
@@ -2661,4 +2719,5 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_hygiene,
     check_layout,
     check_front_doors,
+    check_read_guard,
 )

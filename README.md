@@ -106,6 +106,13 @@ uncommitted work, so commit first. Then it does all of this in one run.
   style, the sub agent model, how many tool calls may run at once and
   idle compaction turned off, are added the same way, and a value you
   already set for any of them stays yours.
+- Claude Code gets the read guard, rules that keep the agent from
+  reading the brain tool's code, which it never needs, and two entries
+  that let every brain command run should you turn Claude Code's
+  sandbox on. The kit never turns it on. With the sandbox on, a shell
+  read of the code gets through and only the Read tool is refused, as
+  [the read guard](.agents/skills/agent-brain/references/commands.md#the-read-guard)
+  says.
 - Your `.gitignore` keeps every line it had. The kit's lines go in a
   block at the top, so your own lines sit below them and win.
 - The tool's doctor runs once, builds the indexes and makes the skill
@@ -334,6 +341,22 @@ says when an old note waits its turn and what a branch cut before 2.2.0
 still reads, and
 [the upgrade's row](.agents/skills/agent-brain/references/commands.md#port-and-upgrade)
 says what stays behind and why.
+
+From 2.2.1 the read guard carries two entries under
+`sandbox.filesystem.allowRead` in `.claude/settings.json`, so every
+brain command runs with Claude Code's sandbox on. The upgrade writes
+them beside your own sandbox settings. Where an older copy of the tool
+ran the upgrade and left the guard out, `brain doctor` names it and
+`brain doctor --fix` writes it. The port and the upgrade now refuse,
+before the first write, a project where a file they would write sits
+behind a link that leads out of it, such as a `.claude` folder linked
+into a kit checkout, until you move the link aside, as
+[port and upgrade](.agents/skills/agent-brain/references/commands.md#port-and-upgrade)
+says. Doctor writes nothing behind such a `.claude` link either. It
+reads the settings there and, only where the guard is missing, names
+it and asks you to move the link aside and run `brain upgrade`, as
+[the read guard](.agents/skills/agent-brain/references/commands.md#the-read-guard)
+says.
 
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
