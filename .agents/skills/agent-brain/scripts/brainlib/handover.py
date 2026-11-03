@@ -244,14 +244,15 @@ def write_held(
     aside: Path = path.with_name(name=CLAIMED_NAME)
     waiting_path: Path = path if os.path.lexists(path) else aside
     waiting_note: Optional[Note] = note_in_the_way(path=waiting_path)
-    # with the hidden folder empty, a note an older session left in the folder before 2.2.0 is the one note waiting, so one note waits across both
-    left_before: Optional[Path] = None
+    # with the hidden folder empty, a note an older session left in the folder before 2.2.0 is the one note waiting, so one note waits across both,
+    # and the note written replaces it and the claimed copy beside it, as it replaces both in the hidden folder
+    left_before: list[Path] = []
     if waiting_note is None and not os.path.lexists(aside):
         for name in (FILE, CLAIMED_NAME):
-            waiting_note = note_at(path=brain.root / OLD_FOLDER / name, again=False)
-            if waiting_note is not None:
-                left_before = brain.root / OLD_FOLDER / name
-                break
+            old_note: Optional[Note] = note_at(path=brain.root / OLD_FOLDER / name, again=False)
+            if old_note is not None:
+                waiting_note = waiting_note or old_note
+                left_before.append(brain.root / OLD_FOLDER / name)
 
     if waiting_note is not None and not replace:
         ignore_case: bool = ignore_case_for(
@@ -310,15 +311,22 @@ def write_held(
                 f"{RELATIVE} is written, and {FOLDER}/{CLAIMED_NAME}, the note it replaces, could not be removed, {why}, so delete it by hand",
             ) from error
 
-    if left_before is not None:
+    for replaced in left_before:
         try:
-            left_before.unlink()
+            replaced.unlink()
         except FileNotFoundError:
             pass
         except OSError as error:
             raise HandoverError(
-                f"{RELATIVE} is written, and {OLD_FOLDER}/{left_before.name}, the note it replaces, could not be removed, {store.explain(error=error)}, so delete it by hand",
+                f"{RELATIVE} is written, and {OLD_FOLDER}/{replaced.name}, the note it replaces, could not be removed, {store.explain(error=error)}, so delete it by hand",
             ) from error
+
+    # the old folder goes with its last note, and one that still holds the project's own files stays
+    if left_before:
+        try:
+            (brain.root / OLD_FOLDER).rmdir()
+        except OSError:
+            pass
 
     return Note(
         text=text,
