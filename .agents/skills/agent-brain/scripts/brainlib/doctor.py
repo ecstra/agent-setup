@@ -305,7 +305,7 @@ def where_of(
     if brain.root in path.parents:
         return relative(brain=brain, path=path)
 
-    return str(path.relative_to(brain.root.parent))
+    return path.relative_to(brain.root.parent).as_posix()
 
 
 def remove(
@@ -343,7 +343,7 @@ def relative(
     brain: store.Brain,
     path: Path,
 ) -> str:
-    return str(path.relative_to(brain.root))
+    return path.relative_to(brain.root).as_posix()
 
 
 def check_frontmatter(
@@ -1421,7 +1421,7 @@ def check_style_copies(
 
     return [
         Finding(
-            path=str(relative),
+            path=relative.as_posix(),
             check="layout",
             message="the chat style copy does not match the Claude Code one",
             repair=write_copy(target=style.project(brain) / relative, text=wanted),
@@ -1444,10 +1444,13 @@ def make_skill_link(
     project: Path,
     name: str,
 ) -> Callable[[], None]:
-    """A repair that puts the named skill's symlink in place, clearing a dead link or a stray file first.
+    """A repair that puts the named skill's symlink in place, clearing a dead link or a stray file first, git's stand in for a link among them.
 
     A real folder is never removed here. It is somebody's, and the check
-    leaves it for a person.
+    leaves it for a person. Where the system refuses a symbolic link, as
+    Windows does without Developer Mode, the skill lands as a real copy
+    of its folder, which the check keeps up to the brain's, and git on
+    this machine alone is told to leave the copy out of every commit.
     """
 
     def repair() -> None:
@@ -1464,9 +1467,42 @@ def make_skill_link(
             link=link,
             name=name,
         )
-        os.symlink(target, str(link))
+        try:
+            os.symlink(target, str(link))
+        except OSError:
+            shutil.copytree(project / SKILL_HOMES / name, link)
+            leave_out_of_git(project=project, path=link)
 
     return repair
+
+
+def leave_out_of_git(
+    project: Path,
+    path: Path,
+) -> None:
+    """Tell git on this machine alone to leave a skill's copy out of what it sees as changed, its link's own entry where git tracks one and the copy's files through the repository's own exclude file. Outside git nothing is asked."""
+    exclude = people.git_says(folder=project, arguments=["rev-parse", "--git-path", "info/exclude"])
+    prefix = people.git_says(folder=project, arguments=["rev-parse", "--show-prefix"])
+    if exclude is None or prefix is None:
+        return
+
+    relative = path.relative_to(project).as_posix()
+    if people.git_says(folder=project, arguments=["ls-files", "--error-unmatch", "--", relative]) is not None:
+        people.git_says(folder=project, arguments=["update-index", "--skip-worktree", "--", relative])
+
+    # the exclude file reads its patterns from the top of the repository, which a project below it names by its prefix
+    pattern = f"/{prefix.strip()}{relative}/"
+    excluded = project / exclude.strip()
+    try:
+        existing = excluded.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        existing = ""
+
+    if pattern in existing.splitlines():
+        return
+
+    excluded.parent.mkdir(parents=True, exist_ok=True)
+    frontmatter.write_text(path=str(excluded), text=existing + ("\n" if existing and not existing.endswith("\n") else "") + pattern + "\n")
 
 
 def skill_target(

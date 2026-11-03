@@ -86,7 +86,7 @@ class HookParser(argparse.ArgumentParser):
         self,
         message: str,
     ) -> NoReturn:
-        print(f"the brain hook could not run: {message}", file=sys.stderr)
+        say(line=f"the brain hook could not run: {message}")
         raise SystemExit(FAILED)
 
 
@@ -102,7 +102,7 @@ def main(
     try:
         return run(args)
     except (store.StoreError, frontmatter.FrontmatterError, OSError, ValueError) as error:
-        print(f"the brain hook could not run: {store.explain(error)}", file=sys.stderr)
+        say(line=f"the brain hook could not run: {store.explain(error)}")
         return FAILED
 
 
@@ -247,10 +247,7 @@ def session_start(
         if claim is not None and claim.taken:
             trouble: Optional[str] = handover.release(claim=claim)
             if trouble is not None:
-                print(
-                    f"the brain hook put the handover in this session's context and could not remove its file, {trouble}",
-                    file=sys.stderr,
-                )
+                say(line=f"the brain hook put the handover in this session's context and could not remove its file, {trouble}")
 
     return 0
 
@@ -322,14 +319,14 @@ def pre_write(
         if verdict is None:
             continue
 
-        print(verdict, file=sys.stderr)
+        say(line=verdict)
         return BLOCK
 
     # a patch that reaches several brain files is judged across them too, since each alone reads as fine against the disk
     if len(touched) > 1:
         verdict = loop_across(brain=brain, writes=table_writes_of(brain=brain, touched=touched))
         if verdict is not None:
-            print(verdict, file=sys.stderr)
+            say(line=verdict)
             return BLOCK
 
     emit_nothing(agent)
@@ -1505,6 +1502,25 @@ def say_notes(
             )
     except OSError:
         let_go_of(stream=sys.stderr)
+
+
+def say(
+    line: str,
+) -> None:
+    """Put one line for the agent on standard error as UTF-8 bytes whatever the locale, the way every agent reads it.
+
+    A refusal names the file in whatever characters its name holds, and
+    so does the error of a brain file the hook cannot read. Where there
+    is no standard error, print takes the line as it always has.
+    """
+    if sys.stderr is None:
+        print(line, file=sys.stderr)
+        return
+
+    write_utf8(
+        stream=sys.stderr,
+        text=line + "\n",
+    )
 
 
 def let_go_of(

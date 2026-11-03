@@ -48,7 +48,7 @@ class Entry:
 
     @property
     def relative(self) -> str:
-        return str(self.path.relative_to(self.root))
+        return self.path.relative_to(self.root).as_posix()
 
     @property
     def name(self) -> str:
@@ -652,7 +652,7 @@ def near(
     parts = Path(path).parts
     positions = [position for position, part in enumerate(parts) if part in NEAR_ROOTS]
     if positions:
-        return str(Path(*parts[positions[-1] :]))
+        return Path(*parts[positions[-1] :]).as_posix()
 
     return Path(path).name
 

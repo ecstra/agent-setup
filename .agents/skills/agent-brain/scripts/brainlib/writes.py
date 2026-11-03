@@ -224,7 +224,7 @@ def retitle(
     moved = links.move_links(
         brain=brain,
         old=entry.relative,
-        new=str(target.relative_to(brain.root)),
+        new=target.relative_to(brain.root).as_posix(),
         stamp=stamp,
     )
 
@@ -361,7 +361,7 @@ def holder_of(
 
     for path, document in links.kit_documents(brain):
         if document.get("name") == name:
-            return str(path.relative_to(brain.root))
+            return path.relative_to(brain.root).as_posix()
 
     return None
 

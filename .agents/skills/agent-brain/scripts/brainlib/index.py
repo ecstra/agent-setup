@@ -342,7 +342,8 @@ def line_for(
     from_folder: Path,
 ) -> str:
     label = entry.identifier or entry.name
-    relative = entry.path.relative_to(from_folder)
+    # a markdown link takes forward slashes on every system
+    relative = entry.path.relative_to(from_folder).as_posix()
     hook = entry.field("description") or entry.name
 
     return f"- [{label}]({relative}), {hook}"

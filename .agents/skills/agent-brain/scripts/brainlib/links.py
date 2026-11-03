@@ -246,7 +246,7 @@ def within(
     folded = Path(os.path.normpath(str(path)))
 
     try:
-        return str(folded.relative_to(root))
+        return folded.relative_to(root).as_posix()
     except ValueError:
         return None
 
@@ -523,7 +523,8 @@ def moved_body(
         if os.path.normpath(str(folder / file_part)) != old_target:
             return match.group(0)
 
-        replacement = os.path.relpath(str(brain.root / new), str(folder)) + hash_sign + anchor
+        # a markdown link takes forward slashes on every system
+        replacement = Path(os.path.relpath(str(brain.root / new), str(folder))).as_posix() + hash_sign + anchor
         if target != match.group(1):
             replacement = f"<{replacement}>"
         head = match.group(0)[: match.start(1) - match.start(0)]
