@@ -323,14 +323,15 @@ checked only by whatever your gates run.
 From 2.2.0 the note for the next session lives in the hidden
 `.agents/.handover/`, and sessions on one machine take turns on it, so
 only one of them gets the note. A note waiting in `.agents/handover/`
-moves there at the upgrade, or at the next session start or
-`brain handover` where a pull or a merge brought 2.2.0, and the old
-folder goes once it is empty. Git keeps ignoring the old folder. Notes
-of your own left in it stay, and the upgrade names them on every run,
-as doctor does, for you to move into `docs/` or `memory/` through
-`brain new`, or delete.
+for the branch you are on moves there at the upgrade, or at the next
+session start where a pull or a merge brought 2.2.0, and the old folder
+goes once it is empty. One for another branch stays there for that
+branch. Git keeps ignoring the old folder. Notes of your own left in it
+stay, and the upgrade names them on every run, as doctor does, for you
+to move into `docs/` or `memory/` through `brain new`, or delete.
 [The handover](.agents/skills/agent-brain/references/commands.md#the-handover)
-says when an old note waits its turn, and
+says when an old note waits its turn and what a branch cut before 2.2.0
+still reads, and
 [the upgrade's row](.agents/skills/agent-brain/references/commands.md#port-and-upgrade)
 says what stays behind and why.
 
