@@ -721,11 +721,11 @@ def install(
     for kind in schema.KINDS.values():
         (project.brain / kind.folder).mkdir(parents=True, exist_ok=True)
 
+    move_the_note(project=project, report=report)
     old_notes: list[str] = old_handovers(project=project)
     if old_notes:
         report.done(
-            f"{FOLDER}/{handover.FOLDER}/ holds {len(old_notes)} from before this release, which the kit no longer "
-            "reads or lists, since the folder now holds the one note brain handover writes and git ignores it: " + ", ".join(old_notes) + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest",
+            f"{FOLDER}/{handover.OLD_FOLDER}/ holds {len(old_notes)} the kit never wrote, which it no longer reads or lists, since the one note brain handover writes lives in {FOLDER}/{handover.FOLDER}/: " + ", ".join(old_notes) + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest",
         )
 
     for relative in kit.agent_files():
@@ -783,16 +783,25 @@ def names_linters(
     return zero is not None and lint.written_lines(zero) is not None
 
 
+def move_the_note(
+    project: Project,
+    report: Report,
+) -> None:
+    """Move the tool's note and its claimed copy out of the folder they lived in before 2.2.0, the move a session start and a write make too, and say what moved and what waits."""
+    for line in handover.adopt(brain=store.Brain(root=project.brain)):
+        report.done(line)
+
+
 def old_handovers(
     project: Project,
 ) -> list[str]:
-    """The notes a project filed in the handover folder before the folder became the tool's, by their paths in it.
+    """The notes a project filed in the folder the tool's note lived in before 2.2.0, by their paths in it.
 
     One is any markdown file there, nested too, that is not the tool's
-    note, so a doc filed as handover.md before this release is named
-    with the rest. None is moved or removed.
+    note, so a doc filed as handover.md before the folder became the
+    tool's is named with the rest. None is moved or removed.
     """
-    folder: Path = project.brain / handover.FOLDER
+    folder: Path = project.brain / handover.OLD_FOLDER
     if not store.quietly(question=folder.is_dir):
         return []
 

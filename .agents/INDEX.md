@@ -2,7 +2,7 @@
 name: agent-index
 kind: doc
 description: the spine of the agent directory, what exists and where
-updated: 2026-10-30
+updated: 2026-11-03
 links: [README.md, house-rules.md]
 ---
 
@@ -37,4 +37,4 @@ rather than this one.
 ## Memory and the handover
 
 - [memory/INDEX.md](memory/INDEX.md), project facts: empty
-- handover/, the one note brain handover leaves for the next session, which the session start hook reads once and removes
+- .handover/, the one note brain handover leaves for the next session, which the session start hook reads once and removes

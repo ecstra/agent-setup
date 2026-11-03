@@ -30,9 +30,15 @@
 
 # The brain tool writes the one note a session leaves for the next in
 # this folder, through brain handover, and the session start hook reads
-# it once and removes it. It belongs to one machine and one stretch of
-# work too, so the folder never enters git, and with no slash after its
-# name neither does a link that stands in the folder's place.
+# it once and removes it, with the copy it reads and the lock beside it.
+# It belongs to one machine and one stretch of work too, so the folder
+# never enters git, and with no slash after its name neither does a link
+# that stands in the folder's place.
+.agents/.handover
+
+# The folder the note lived in before 2.2.0 stays ignored, so a note an
+# older session left there never enters git before a session start moves
+# it into the hidden folder.
 .agents/handover
 
 # Python leaves compiled bytecode beside the brain tool, and ruff its

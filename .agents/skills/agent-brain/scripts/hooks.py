@@ -23,6 +23,7 @@ three agents honour.
 """
 
 import argparse
+import contextlib
 import errno
 import json
 import os
@@ -227,29 +228,29 @@ def session_start(
     again. A note for another branch, a file the tool never wrote and
     one it cannot open stay, each said in one line in the note's place.
     """
-    claim: Optional[handover.Claim] = handover.claim(brain=brain) if source != FORK else None
+    # the note's lock is held from the first look to the removal, so a second start waits and finds none, and a fork takes no note and no lock
+    with handover.taken(brain=brain) if source != FORK else contextlib.nullcontext(enter_result=None) as claim:
+        text = the_moment(brain=brain) + handover_text(claim=claim)
+        text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(data=reads.status(brain=brain))
+        if with_rules:
+            rules = brain.root / "SYSTEM.md"
+            if store.readable_file(rules):
+                text += "\n\nThe rules this project works by, from .agents/SYSTEM.md:\n\n" + text_of(rules)
 
-    text = the_moment(brain=brain) + handover_text(claim=claim)
-    text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(data=reads.status(brain=brain))
-    if with_rules:
-        rules = brain.root / "SYSTEM.md"
-        if store.readable_file(rules):
-            text += "\n\nThe rules this project works by, from .agents/SYSTEM.md:\n\n" + text_of(rules)
+            chat_style = brain.root.parent / f".{agent}" / "plain-and-short.md"
+            if store.readable_file(chat_style):
+                text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
 
-        chat_style = brain.root.parent / f".{agent}" / "plain-and-short.md"
-        if store.readable_file(chat_style):
-            text += f"\n\nHow to talk in this project, from .{agent}/plain-and-short.md:\n\n" + text_of(chat_style)
+        emit_context(agent=agent, text=text, event_name="SessionStart")
 
-    emit_context(agent=agent, text=text, event_name="SessionStart")
-
-    # the context has gone out by now, so a file that stays can only be said on standard error
-    if claim is not None and claim.taken:
-        trouble: Optional[str] = handover.release(claim=claim)
-        if trouble is not None:
-            print(
-                f"the brain hook put the handover in this session's context and could not remove its file, {trouble}",
-                file=sys.stderr,
-            )
+        # the context has gone out by now, so a file that stays can only be said on standard error
+        if claim is not None and claim.taken:
+            trouble: Optional[str] = handover.release(claim=claim)
+            if trouble is not None:
+                print(
+                    f"the brain hook put the handover in this session's context and could not remove its file, {trouble}",
+                    file=sys.stderr,
+                )
 
     return 0
 
@@ -370,8 +371,9 @@ def refusal(
     # name, where the brain's own folder, which within names ".", has no part
     parts_inside: tuple[str, ...] = Path(inside).parts
     top_folder: str = parts_inside[0] if parts_inside else ""
-    if top_folder.casefold() == handover.FOLDER and not touch.deleted:
-        return f"{inside}: {handover.BY_HAND}"
+    if top_folder.casefold() == handover.FOLDER:
+        # a delete passes ahead of the rule for dotted paths, since a session without the hook removes the note it read by hand
+        return None if touch.deleted else f"{inside}: {handover.BY_HAND}"
 
     if not markdown_named(path):
         return None

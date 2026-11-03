@@ -14,20 +14,30 @@ path the tool never wrote is the project's own, and the tool neither
 claims nor writes over it.
 """
 
+import contextlib
+import errno
 import functools
 import os
 import re
 import stat
 import string
 import subprocess
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Iterator, Optional
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 from . import autoack, clock, frontmatter, schema, store, task
 
 FOLDER: str = schema.HANDOVER_FOLDER
+# the folder the note lived in before 2.2.0, which the upgrade moves it out of
+OLD_FOLDER = "handover"
 FILE = "handover.md"
 RELATIVE = f"{FOLDER}/{FILE}"
 # the name a claimed note goes by beside the note's own until the context that carries it is out
@@ -42,6 +52,17 @@ FOLDER_IN_THE_WAY = f"{RELATIVE} is a folder the tool never made, move it away b
 CLAIMED_FOLDER_IN_THE_WAY = f"{FOLDER}/{CLAIMED_NAME} is a folder the tool never made, move it away by hand"
 FILE_IN_THE_WAY = f"{FOLDER} is a file the tool never made, where the note's folder goes, move it away by hand"
 BY_HAND = f"{FOLDER}/ holds the one note brain handover writes for the next session, and nothing there is written by hand"
+# the lock a session start holds from its first look for the note to its removal, and a write for its own steps
+LOCK_NAME = "handover.lock"
+LOCK_SECONDS = 10.0
+LOCK_POLL_SECONDS = 0.05
+BUSY_START = "Another session is reading or writing the handover right now, so this one leaves it where it is for the next start."
+BUSY_WRITE = "another session is reading or writing the handover right now, so run brain handover again in a moment"
+# what a lock another process holds says, EACCES on Windows and EAGAIN or EWOULDBLOCK elsewhere
+LOCK_BUSY = frozenset({errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK})
+# the folder's own ignore file, which ignores everything there itself included, so the folder never
+# shows to git on a branch whose ignore file predates 2.2.0
+SELF_IGNORE = ".gitignore"
 
 # the files the record names, the rest counted, so a build folder git
 # does not ignore never floods the next session's context
@@ -188,7 +209,9 @@ def write(
     words that name the branch this one reads, and `replace` writes over
     that on the owner's word. With nothing at the path, a claimed note a
     session could not remove is the note waiting, judged the same, and
-    the note written takes its place.
+    the note written takes its place. The write holds the note's lock
+    from its first look at what waits until the note is written, and is
+    refused where another session holds it through the whole wait.
     """
     trimmed_prose: str = trimmed(prose=prose)
     if not trimmed_prose:
@@ -199,12 +222,38 @@ def write(
     if in_the_way is not None:
         raise HandoverError(in_the_way)
 
+    path.parent.mkdir(exist_ok=True)
+    with locked(folder=path.parent) as turn:
+        if not turn:
+            raise HandoverError(BUSY_WRITE)
+
+        return write_held(brain=brain, path=path, trimmed_prose=trimmed_prose, replace=replace, at=at)
+
+
+def write_held(
+    brain: store.Brain,
+    path: Path,
+    trimmed_prose: str,
+    replace: bool,
+    at: Optional[datetime],
+) -> Note:
+    """The steps of the write that the note's lock covers, from the look at what waits to the removal of the claimed note it replaces."""
     project: Path = project_of(brain=brain)
     branch: str = current_branch(project=project)
 
     aside: Path = path.with_name(name=CLAIMED_NAME)
     waiting_path: Path = path if os.path.lexists(path) else aside
     waiting_note: Optional[Note] = note_in_the_way(path=waiting_path)
+    # with the hidden folder empty, a note an older session left in the folder before 2.2.0 is the one note waiting, so one note waits across both,
+    # and the note written replaces it and the claimed copy beside it, as it replaces both in the hidden folder
+    left_before: list[Path] = []
+    if waiting_note is None and not os.path.lexists(aside):
+        for name in (FILE, CLAIMED_NAME):
+            old_note: Optional[Note] = note_at(path=brain.root / OLD_FOLDER / name, again=False)
+            if old_note is not None:
+                waiting_note = waiting_note or old_note
+                left_before.append(brain.root / OLD_FOLDER / name)
+
     if waiting_note is not None and not replace:
         ignore_case: bool = ignore_case_for(
             note=waiting_note,
@@ -246,7 +295,6 @@ def write(
     )
     text: str = frontmatter.render(document=document)
 
-    path.parent.mkdir(exist_ok=True)
     frontmatter.write_text(
         path=str(path),
         text=text,
@@ -262,6 +310,23 @@ def write(
             raise HandoverError(
                 f"{RELATIVE} is written, and {FOLDER}/{CLAIMED_NAME}, the note it replaces, could not be removed, {why}, so delete it by hand",
             ) from error
+
+    for replaced in left_before:
+        try:
+            replaced.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as error:
+            raise HandoverError(
+                f"{RELATIVE} is written, and {OLD_FOLDER}/{replaced.name}, the note it replaces, could not be removed, {store.explain(error=error)}, so delete it by hand",
+            ) from error
+
+    # the old folder goes with its last note, and one that still holds the project's own files stays
+    if left_before:
+        try:
+            (brain.root / OLD_FOLDER).rmdir()
+        except OSError:
+            pass
 
     return Note(
         text=text,
@@ -369,9 +434,10 @@ def body(
     claimed_path: Path = note_path.with_name(name=CLAIMED_NAME)
     note_name: str = note_path.relative_to(project).as_posix()
     claimed_name: str = claimed_path.relative_to(project).as_posix()
+    lock_name: str = note_path.with_name(name=LOCK_NAME).relative_to(project).as_posix()
     record += uncommitted_lines(
         project=project,
-        notes={note_name, claimed_name},
+        notes={note_name, claimed_name, lock_name},
     )
 
     standing_word: str = autoack.describe(
@@ -1112,6 +1178,182 @@ def moment_of(
         return datetime.fromisoformat(in_the_floors_form)
     except ValueError:
         return None
+
+
+@contextlib.contextmanager
+def locked(
+    folder: Path,
+) -> Iterator[bool]:
+    """Hold the note's lock for the steps inside, True once this process holds it, or where it cannot be had at all, and False where another process kept it through the whole wait.
+
+    The system frees the lock when the process ends, however it ends, so
+    none is ever left stale. With no folder there is no note to meet, and
+    a folder or a file system that cannot hold the lock goes on without
+    it, as the handover did before 2.2.0.
+    """
+    kept_out_of_git(folder=folder)
+    try:
+        handle: Optional[int] = os.open(folder / LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o600)
+    except OSError:
+        handle = None
+
+    held = False
+    turn = True
+    deadline: float = time.monotonic() + LOCK_SECONDS
+    while handle is not None:
+        try:
+            take_the_lock(handle=handle)
+            held = True
+            break
+        except OSError as error:
+            if error.errno not in LOCK_BUSY:
+                break
+
+            if time.monotonic() >= deadline:
+                turn = False
+                break
+
+        time.sleep(LOCK_POLL_SECONDS)
+
+    try:
+        yield turn
+    finally:
+        if handle is not None:
+            if held:
+                give_the_lock_back(handle=handle)
+            os.close(handle)
+
+
+def take_the_lock(
+    handle: int,
+) -> None:
+    """Take the lock on the open file now or raise, never waiting, `msvcrt.locking` on Windows over the file's first byte and `fcntl.flock` elsewhere."""
+    if os.name == "nt":
+        os.lseek(handle, 0, os.SEEK_SET)
+        msvcrt.locking(handle, msvcrt.LK_NBLCK, 1)
+    else:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def give_the_lock_back(
+    handle: int,
+) -> None:
+    if os.name == "nt":
+        os.lseek(handle, 0, os.SEEK_SET)
+        msvcrt.locking(handle, msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def kept_out_of_git(
+    folder: Path,
+) -> None:
+    """Give the note's folder an ignore file of its own where it has none, one that ignores everything there, itself included."""
+    try:
+        handle: int = os.open(folder / SELF_IGNORE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    except OSError:
+        return
+
+    # the kit's own ignore line still keeps the folder out of git on every branch of 2.2.0 or later, so a file that cannot be written costs nothing there
+    try:
+        os.write(handle, b"*\n")
+    except OSError:
+        pass
+    finally:
+        os.close(handle)
+
+
+def adopt(
+    brain: store.Brain,
+) -> list[str]:
+    """Move this branch's note and its claimed copy out of the folder they lived in before 2.2.0 into the hidden one, and say what moved and what waits.
+
+    A checkout that came to 2.2.0 through a pull or a merge has run no
+    upgrade, so the session start moves them too. A note for another
+    branch stays where that branch's own hook reads it while the branch
+    is on a kit before 2.2.0, and moves in at a start on that branch. A
+    note waiting in the hidden folder under either name holds the one
+    slot, so an old one waits behind it until it is gone. The old folder
+    goes once nothing is left in it.
+    """
+    project: Path = project_of(brain=brain)
+    old: Path = brain.root / OLD_FOLDER
+    new: Path = brain.root / FOLDER
+    notes: list[tuple[str, Note]] = []
+    for name in (FILE, CLAIMED_NAME):
+        note: Optional[Note] = note_at(path=old / name, again=False)
+        if note is not None:
+            notes.append((name, note))
+    if not notes:
+        return []
+
+    branch: str = current_branch(project=project)
+    case_flag: Callable[[], bool] = asked_once(project=project)
+    held: Optional[str] = next((name for name in (FILE, CLAIMED_NAME) if os.path.lexists(new / name)), None)
+    said: list[str] = []
+    for name, note in notes:
+        was, now = (old / name).relative_to(project).as_posix(), (new / name).relative_to(project).as_posix()
+        if not is_for(note=note, branch=branch, ignore_case=ignore_case_for(note=note, branch=branch, case_flag=case_flag)):
+            said.append(f"A handover written on {note.branch} at {when(moment=note.written)} waits in {was} for a session on that branch, and this one is on {branch}.")
+            continue
+
+        if held is not None:
+            said.append(f"{was} waits, since {(new / held).relative_to(project).as_posix()} already holds a note, and moves in once that one is gone.")
+            continue
+
+        try:
+            new.mkdir(exist_ok=True)
+            kept_out_of_git(folder=new)
+            os.replace(src=old / name, dst=new / name)
+        except FileNotFoundError:
+            # another start moved it a moment before
+            continue
+        except OSError as error:
+            said.append(f"{was} could not move to {now}, {store.explain(error=error)}, so move it by hand.")
+            continue
+
+        said.append(f"moved {was} to {now}, where the note lives from 2.2.0")
+
+    # an empty folder goes with its note, and one that still holds the project's own files stays
+    try:
+        old.rmdir()
+    except OSError:
+        pass
+
+    return said
+
+
+@contextlib.contextmanager
+def taken(
+    brain: store.Brain,
+) -> Iterator[Optional[Claim]]:
+    """The claim on the note, made and held under the note's lock until the caller is done with it, the release among its steps.
+
+    So a second start waits until the first has removed the note and
+    finds none, and a write waits until a start's move back is done.
+    Where another process holds the lock through the whole wait, the
+    note stays where it is with the line that says so. A note left in
+    the folder before 2.2.0 moves in first.
+    """
+    folder: Path = path_of(brain=brain).parent
+    if not os.path.isdir(folder):
+        # the first touch on this machine makes the folder the lock lives in, so the lock below holds
+        adopt(brain=brain)
+
+    with locked(folder=folder) as turn:
+        if not turn:
+            yield left(path=path_of(brain=brain), again=False, waiting=BUSY_START)
+            return
+
+        said: list[str] = [line for line in adopt(brain=brain) if not line.startswith("moved ")]
+        found: Optional[Claim] = claim(brain=brain)
+        # a note that stays in the old folder is said beside whatever line the start says in the note's place, and waits for the next start where a note is read
+        if said and found is None:
+            found = left(path=brain.root / OLD_FOLDER / FILE, again=False, waiting=" ".join(said))
+        elif said and found is not None and found.note is None:
+            found = left(path=found.path, again=found.again, waiting=" ".join([found.waiting or "", *said]).strip())
+
+        yield found
 
 
 def claim(
