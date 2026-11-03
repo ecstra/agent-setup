@@ -140,7 +140,8 @@ the `by` of a todo or a plan, which still says whether the owner asked
 for it or the agent raised it. Git ignores `.ack`, the owner's
 standing word, `.conclude`, the conclude word, and `.task`, the current
 work, with their writes in flight, `.handover/`, the note for the next
-session, `.worktrees/` and the Python and ruff caches. The rest is
+session, and `handover/`, its folder before 2.2.0, `.worktrees/` and
+the Python and ruff caches. The rest is
 committed, and a closed bug, todo, plan or ledger is never deleted,
 since it is the record. Every file
 names the file each claim it makes about the code holds in, and stays
@@ -220,8 +221,9 @@ and `brain list --area` finds every entry.
   still holds, the traps and the rules the owner gave in chat above
   all, since the old one is gone once read. Sessions on one machine
   take turns on the note's lock, so only one of them gets the note and
-  none loses one, as [the reference](references/commands.md#the-handover)
-  says.
+  none loses one, and a note left in `handover/` before 2.2.0 moves in
+  at a start or a write, as
+  [the reference](references/commands.md#the-handover) says.
 
 ## A review
 

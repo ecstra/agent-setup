@@ -52,8 +52,8 @@ the repo root when the project keeps one, agents read this.
   the same way.
 - `.handover/`: the note for the next session, which `brain handover`
   writes and the session start hook reads once, with the copy the hook
-  reads and the lock the two take turns on beside it, the tool's own
-  and ignored the same way.
+  reads, the lock the two take turns on and an ignore file of its own
+  beside it, the tool's own and ignored the same way.
 
 ## Two absolutes
 
