@@ -14,20 +14,30 @@ path the tool never wrote is the project's own, and the tool neither
 claims nor writes over it.
 """
 
+import contextlib
+import errno
 import functools
 import os
 import re
 import stat
 import string
 import subprocess
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Iterator, Optional
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 from . import autoack, clock, frontmatter, schema, store, task
 
 FOLDER: str = schema.HANDOVER_FOLDER
+# the folder the note lived in before 2.2.0, which the upgrade moves it out of
+OLD_FOLDER = "handover"
 FILE = "handover.md"
 RELATIVE = f"{FOLDER}/{FILE}"
 # the name a claimed note goes by beside the note's own until the context that carries it is out
@@ -42,6 +52,14 @@ FOLDER_IN_THE_WAY = f"{RELATIVE} is a folder the tool never made, move it away b
 CLAIMED_FOLDER_IN_THE_WAY = f"{FOLDER}/{CLAIMED_NAME} is a folder the tool never made, move it away by hand"
 FILE_IN_THE_WAY = f"{FOLDER} is a file the tool never made, where the note's folder goes, move it away by hand"
 BY_HAND = f"{FOLDER}/ holds the one note brain handover writes for the next session, and nothing there is written by hand"
+# the lock a session start holds from its first look for the note to its removal, and a write for its own steps
+LOCK_NAME = "handover.lock"
+LOCK_SECONDS = 10.0
+LOCK_POLL_SECONDS = 0.05
+BUSY_START = "Another session is reading or writing the handover right now, so this one leaves it where it is for the next start."
+BUSY_WRITE = "another session is reading or writing the handover right now, so run brain handover again in a moment"
+# what a lock another process holds says, EACCES on Windows and EAGAIN or EWOULDBLOCK elsewhere
+LOCK_BUSY = frozenset({errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK})
 
 # the files the record names, the rest counted, so a build folder git
 # does not ignore never floods the next session's context
@@ -188,7 +206,9 @@ def write(
     words that name the branch this one reads, and `replace` writes over
     that on the owner's word. With nothing at the path, a claimed note a
     session could not remove is the note waiting, judged the same, and
-    the note written takes its place.
+    the note written takes its place. The write holds the note's lock
+    from its first look at what waits until the note is written, and is
+    refused where another session holds it through the whole wait.
     """
     trimmed_prose: str = trimmed(prose=prose)
     if not trimmed_prose:
@@ -199,6 +219,22 @@ def write(
     if in_the_way is not None:
         raise HandoverError(in_the_way)
 
+    path.parent.mkdir(exist_ok=True)
+    with locked(folder=path.parent) as turn:
+        if not turn:
+            raise HandoverError(BUSY_WRITE)
+
+        return write_held(brain=brain, path=path, trimmed_prose=trimmed_prose, replace=replace, at=at)
+
+
+def write_held(
+    brain: store.Brain,
+    path: Path,
+    trimmed_prose: str,
+    replace: bool,
+    at: Optional[datetime],
+) -> Note:
+    """The steps of the write that the note's lock covers, from the look at what waits to the removal of the claimed note it replaces."""
     project: Path = project_of(brain=brain)
     branch: str = current_branch(project=project)
 
@@ -246,7 +282,6 @@ def write(
     )
     text: str = frontmatter.render(document=document)
 
-    path.parent.mkdir(exist_ok=True)
     frontmatter.write_text(
         path=str(path),
         text=text,
@@ -369,9 +404,10 @@ def body(
     claimed_path: Path = note_path.with_name(name=CLAIMED_NAME)
     note_name: str = note_path.relative_to(project).as_posix()
     claimed_name: str = claimed_path.relative_to(project).as_posix()
+    lock_name: str = note_path.with_name(name=LOCK_NAME).relative_to(project).as_posix()
     record += uncommitted_lines(
         project=project,
-        notes={note_name, claimed_name},
+        notes={note_name, claimed_name, lock_name},
     )
 
     standing_word: str = autoack.describe(
@@ -1112,6 +1148,85 @@ def moment_of(
         return datetime.fromisoformat(in_the_floors_form)
     except ValueError:
         return None
+
+
+@contextlib.contextmanager
+def locked(
+    folder: Path,
+) -> Iterator[bool]:
+    """Hold the note's lock for the steps inside, True once this process holds it, or where it cannot be had at all, and False where another process kept it through the whole wait.
+
+    The system frees the lock when the process ends, however it ends, so
+    none is ever left stale. With no folder there is no note to meet, and
+    a folder or a file system that cannot hold the lock goes on without
+    it, as the handover did before 2.2.0.
+    """
+    try:
+        handle: Optional[int] = os.open(folder / LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o600)
+    except OSError:
+        handle = None
+
+    held = False
+    turn = True
+    deadline: float = time.monotonic() + LOCK_SECONDS
+    while handle is not None:
+        try:
+            take_the_lock(handle=handle)
+            held = True
+            break
+        except OSError as error:
+            if error.errno not in LOCK_BUSY:
+                break
+
+            if time.monotonic() >= deadline:
+                turn = False
+                break
+
+        time.sleep(LOCK_POLL_SECONDS)
+
+    try:
+        yield turn
+    finally:
+        if handle is not None:
+            if held:
+                give_the_lock_back(handle=handle)
+            os.close(handle)
+
+
+def take_the_lock(
+    handle: int,
+) -> None:
+    """Take the lock on the open file now or raise, never waiting, `msvcrt.locking` on Windows over the file's first byte and `fcntl.flock` elsewhere."""
+    if os.name == "nt":
+        os.lseek(handle, 0, os.SEEK_SET)
+        msvcrt.locking(handle, msvcrt.LK_NBLCK, 1)
+    else:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def give_the_lock_back(
+    handle: int,
+) -> None:
+    if os.name == "nt":
+        os.lseek(handle, 0, os.SEEK_SET)
+        msvcrt.locking(handle, msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+@contextlib.contextmanager
+def taken(
+    brain: store.Brain,
+) -> Iterator[Optional[Claim]]:
+    """The claim on the note, made and held under the note's lock until the caller is done with it, the release among its steps.
+
+    So a second start waits until the first has removed the note and
+    finds none, and a write waits until a start's move back is done.
+    Where another process holds the lock through the whole wait, the
+    note stays where it is with the line that says so.
+    """
+    with locked(folder=path_of(brain=brain).parent) as turn:
+        yield claim(brain=brain) if turn else left(path=path_of(brain=brain), again=False, waiting=BUSY_START)
 
 
 def claim(
