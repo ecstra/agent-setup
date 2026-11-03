@@ -10,7 +10,7 @@ import re
 from datetime import date
 from typing import Optional
 
-from . import autoack, frontmatter, schema, sections, store, writes
+from . import autoack, frontmatter, people, schema, sections, store, writes
 
 FINDING = re.compile(r"^### (F-\d+): (.+?)[ \t]*$", re.MULTILINE)
 FINDING_ID = re.compile(r"F-\d+")
@@ -845,6 +845,7 @@ def save(
     stamp: str = "",
 ) -> None:
     entry.document.set(key="updated", value=stamp or date.today().isoformat())
+    people.touch(document=entry.document, folder=brain.root.parent)
     frontmatter.write(path=str(entry.path), document=entry.document)
     brain.refresh()
 

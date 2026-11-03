@@ -23,7 +23,7 @@ from pathlib import Path, PurePath
 from typing import Callable, Optional, Protocol, TextIO, Union
 from urllib.parse import unquote
 
-from . import doctor, frontmatter, handover, schema, sections, store, style
+from . import doctor, frontmatter, handover, people, schema, sections, store, style
 
 FOLDER = ".agents"
 
@@ -748,11 +748,28 @@ def install(
 
     ignore(project=project, kit=kit, report=report)
 
+    filled = fill_people(project=project)
+    if filled:
+        report.done(f"filled the author and editor of {filled} {'entry' if filled == 1 else 'entries'} from git")
+
     if not schema.carries(since=LINT_FROM, stamp=schema.as_tuple(prepared.project_version)) and not names_linters(project):
         report.done(f"from {LINT_FROM} brain check judges prose and commit messages only, so name the project's linters under a Lint heading in section 0 of AGENTS.md, as the lint hook section of the brain tool's commands.md says, or its code goes unchecked by the brain")
 
     put(project=project, relative=Path(FOLDER) / VERSION, text=stamp + "\n", report=report, quiet=True)
     report.done(f"stamped {FOLDER}/{VERSION} {stamp}")
+
+
+def fill_people(
+    project: Project,
+) -> int:
+    """Fill the author and editor of every entry that lacks them from git, the count filled, so a brain from before 2.1.0 comes through with nothing flagged."""
+    filled = 0
+    for entry in store.Brain(root=project.brain).entries():
+        if people.missing(entry.document):
+            people.filler(entry.path)()
+            filled += 1
+
+    return filled
 
 
 def names_linters(

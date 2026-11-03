@@ -16,7 +16,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-from . import autoack, conclude, frontmatter, index, links, schema, sections, steps, store, style, task, writes
+from . import autoack, conclude, frontmatter, index, links, people, schema, sections, steps, store, style, task, writes
 
 # The folders the markdown walk leaves out. It never enters the worktree
 # home or the handover folder, whose one note is the tool's and sits
@@ -410,9 +410,22 @@ def stamp_today(
     def repair() -> None:
         document = frontmatter.read(str(path))
         document.set(key="updated", value=date.today().isoformat())
+        people.touch(document=document, folder=path.parent)
         frontmatter.write(path=str(path), document=document)
 
     return repair
+
+
+def check_people(
+    brain: store.Brain,
+) -> list[Finding]:
+    """Every entry names who made it and who last changed it, and a gap is filled from git."""
+    found: list[Finding] = []
+    for entry in brain.entries():
+        if people.missing(entry.document):
+            found.append(Finding(path=entry.relative, check="frontmatter", message="no author or editor, which brain doctor --fix fills from git", repair=people.filler(entry.path)))
+
+    return found
 
 
 def check_names(
@@ -498,6 +511,7 @@ def set_field(
         document = frontmatter.read(str(path))
         document.set(key=key, value=value)
         document.set(key="updated", value=date.today().isoformat())
+        people.touch(document=document, folder=path.parent)
         frontmatter.write(path=str(path), document=document)
 
     return repair
@@ -907,6 +921,7 @@ def set_links(
         document = frontmatter.read(str(path))
         document.set_list(key="links", values=values)
         document.set(key="updated", value=date.today().isoformat())
+        people.touch(document=document, folder=path.parent)
         frontmatter.write(path=str(path), document=document)
 
     return repair
@@ -2619,6 +2634,7 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_names,
     check_kinds,
     check_fields,
+    check_people,
     check_sections,
     check_steps,
     check_filenames,

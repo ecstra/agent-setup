@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
-from . import frontmatter, schema, sections, store
+from . import frontmatter, people, schema, sections, store
 
 STEP_STATUSES: tuple[str, ...] = ("pending", "done", "skipped")
 BY: tuple[str, ...] = ("owner", "agent")
@@ -1151,6 +1151,7 @@ def save(
     stamp: str = "",
 ) -> None:
     entry.document.set(key="updated", value=stamp or date.today().isoformat())
+    people.touch(document=entry.document, folder=brain.root.parent)
     frontmatter.write(path=str(entry.path), document=entry.document)
     brain.refresh()
 
