@@ -129,7 +129,9 @@ at an open entry that points at the old one.
 ## The brain's files
 
 Every file opens with the header block the tool writes, `name`, `kind`,
-`description`, `updated` and `links`, then its kind's own fields, one
+`description`, `updated` and `links`, then on an entry `author` and
+`editor`, the git names of who filed it and who last changed it
+through the tool, then its kind's own fields, one
 `key: value` line each at the margin, nothing quoted, a list as
 `[a, b]`, the name unique and matching the filename, a link a path from
 `.agents/`. `SYSTEM.md` has none, and `skills/` follows the Agent

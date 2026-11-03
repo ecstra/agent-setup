@@ -303,6 +303,11 @@ The upgrade replaces what is the kit's and leaves what is yours.
   `.agents/`, your own hooks and settings in the agent folders, and every
   line of your `.gitignore`.
 - Rebuilt: the indexes, by the doctor run at the end, never edited.
+- Filled: from 2.1.0 every entry names its `author` and its `editor`,
+  the git names of who filed it and who last changed it, beside `by`,
+  which still says whether a person asked for it or the agent raised
+  it. The upgrade fills both from git history for each entry that lacks
+  them and says how many it filled.
 
 From 2.0.0 `brain check` judges prose and commit messages only, and no
 longer reads Python. Name your linters under a Lint heading in
