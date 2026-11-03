@@ -7,6 +7,7 @@ person or an agent to decide.
 """
 
 import errno
+import json
 import os
 import re
 import shutil
@@ -1344,6 +1345,47 @@ def reaches(
     return target is not None and target == resolved(home)
 
 
+def check_read_guard(
+    brain: store.Brain,
+) -> list[Finding]:
+    """A project's Claude Code settings carry the rules that keep the agent out of the tool's code and the folders the sandbox may read, which an older tool's upgrade leaves out.
+
+    The kit's own checkout carries neither, since its code is the work
+    there, and it is known by the tool's tests, which never ship to a
+    project.
+    """
+    # the upgrade reads doctor, so the guard's rules come from it once both are loaded
+    from . import upgrade
+
+    settings = brain.root.parent / upgrade.CLAUDE_SETTINGS
+    if store.quietly(question=(brain.root / schema.SKILLS / "agent-brain" / "scripts" / "tests").is_dir) or not store.readable_file(path=settings):
+        return []
+
+    where = upgrade.CLAUDE_SETTINGS.as_posix()
+    try:
+        text = settings.read_text(encoding="utf-8")
+        wanted = upgrade.guarded(text=text, where=where)
+    except (OSError, UnicodeDecodeError, upgrade.UpgradeError):
+        return []
+
+    if json.loads(wanted) == json.loads(text):
+        return []
+
+    return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which brain doctor --fix writes", repair=write_guard(path=settings, where=where))]
+
+
+def write_guard(
+    path: Path,
+    where: str,
+) -> Callable[[], None]:
+    from . import upgrade
+
+    def repair() -> None:
+        frontmatter.write_text(path=str(path), text=upgrade.guarded(text=path.read_text(encoding="utf-8"), where=where))
+
+    return repair
+
+
 def check_style_copies(
     brain: store.Brain,
 ) -> list[Finding]:
@@ -2661,4 +2703,5 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_hygiene,
     check_layout,
     check_front_doors,
+    check_read_guard,
 )
