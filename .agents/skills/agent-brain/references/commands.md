@@ -957,10 +957,11 @@ tool's tests under `.agents/skills/agent-brain/scripts/tests`, which
 never ship to a project.
 
 Where `.claude` is a link that leads out of the project, such as into a
-kit checkout, doctor neither reads nor writes the file, since it is not
-the project's. While the file is there, whatever it holds, doctor names
-it in a flag with no fix,
-`.claude/settings.json sits behind a link that leads out of the project, to <folder>, so the read guard there is yours to write`,
+kit checkout, doctor still reads the file, silent in the same cases,
+and never writes through the link, since the file is not the project's.
+Where the two rules and the two entries are there it says nothing, and
+where one is missing it names that in a flag with no fix,
+`the read guard is missing from .claude/settings.json, which sits behind a link that leads out of the project, to <folder>, so it is yours to write`,
 with `<folder>` the folder the link leads to. The port and the upgrade
 refuse such a project too, as [port and upgrade](#port-and-upgrade)
 says.
