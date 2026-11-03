@@ -227,9 +227,6 @@ def write(
         if not turn:
             raise HandoverError(BUSY_WRITE)
 
-        # a note left in the folder before 2.2.0 is the note waiting, judged as one in the hidden folder is
-        adopt(brain=brain)
-
         return write_held(brain=brain, path=path, trimmed_prose=trimmed_prose, replace=replace, at=at)
 
 
@@ -247,6 +244,15 @@ def write_held(
     aside: Path = path.with_name(name=CLAIMED_NAME)
     waiting_path: Path = path if os.path.lexists(path) else aside
     waiting_note: Optional[Note] = note_in_the_way(path=waiting_path)
+    # with the hidden folder empty, a note an older session left in the folder before 2.2.0 is the one note waiting, so one note waits across both
+    left_before: Optional[Path] = None
+    if waiting_note is None and not os.path.lexists(aside):
+        for name in (FILE, CLAIMED_NAME):
+            waiting_note = note_at(path=brain.root / OLD_FOLDER / name, again=False)
+            if waiting_note is not None:
+                left_before = brain.root / OLD_FOLDER / name
+                break
+
     if waiting_note is not None and not replace:
         ignore_case: bool = ignore_case_for(
             note=waiting_note,
@@ -302,6 +308,16 @@ def write_held(
             why: str = store.explain(error=error)
             raise HandoverError(
                 f"{RELATIVE} is written, and {FOLDER}/{CLAIMED_NAME}, the note it replaces, could not be removed, {why}, so delete it by hand",
+            ) from error
+
+    if left_before is not None:
+        try:
+            left_before.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as error:
+            raise HandoverError(
+                f"{RELATIVE} is written, and {OLD_FOLDER}/{left_before.name}, the note it replaces, could not be removed, {store.explain(error=error)}, so delete it by hand",
             ) from error
 
     return Note(
@@ -1242,27 +1258,39 @@ def kept_out_of_git(
 def adopt(
     brain: store.Brain,
 ) -> list[str]:
-    """Move the tool's note and its claimed copy out of the folder they lived in before 2.2.0 into the hidden one, and say what moved and what waits.
+    """Move this branch's note and its claimed copy out of the folder they lived in before 2.2.0 into the hidden one, and say what moved and what waits.
 
     A checkout that came to 2.2.0 through a pull or a merge has run no
-    upgrade, so the session start and the write move them too. A note
-    waiting in the hidden folder under either name is read first, so an
-    old one waits behind it and moves in at the start after it. The old
-    folder goes once nothing is left in it.
+    upgrade, so the session start moves them too. A note for another
+    branch stays where that branch's own hook reads it while the branch
+    is on a kit before 2.2.0, and moves in at a start on that branch. A
+    note waiting in the hidden folder under either name holds the one
+    slot, so an old one waits behind it until it is gone. The old folder
+    goes once nothing is left in it.
     """
     project: Path = project_of(brain=brain)
     old: Path = brain.root / OLD_FOLDER
     new: Path = brain.root / FOLDER
-    names: list[str] = [name for name in (FILE, CLAIMED_NAME) if note_at(path=old / name, again=False) is not None]
-    if not names:
+    notes: list[tuple[str, Note]] = []
+    for name in (FILE, CLAIMED_NAME):
+        note: Optional[Note] = note_at(path=old / name, again=False)
+        if note is not None:
+            notes.append((name, note))
+    if not notes:
         return []
 
+    branch: str = current_branch(project=project)
+    case_flag: Callable[[], bool] = asked_once(project=project)
     held: Optional[str] = next((name for name in (FILE, CLAIMED_NAME) if os.path.lexists(new / name)), None)
     said: list[str] = []
-    for name in names:
+    for name, note in notes:
         was, now = (old / name).relative_to(project).as_posix(), (new / name).relative_to(project).as_posix()
+        if not is_for(note=note, branch=branch, ignore_case=ignore_case_for(note=note, branch=branch, case_flag=case_flag)):
+            said.append(f"A handover written on {note.branch} at {when(moment=note.written)} waits in {was} for a session on that branch, and this one is on {branch}.")
+            continue
+
         if held is not None:
-            said.append(f"{was} waits, since {(new / held).relative_to(project).as_posix()} already holds a note, and the session start after that one is read moves it in")
+            said.append(f"{was} waits, since {(new / held).relative_to(project).as_posix()} already holds a note, and moves in once that one is gone.")
             continue
 
         try:
@@ -1273,7 +1301,7 @@ def adopt(
             # another start moved it a moment before
             continue
         except OSError as error:
-            said.append(f"{was} could not move to {now}, {store.explain(error=error)}, so move it by hand")
+            said.append(f"{was} could not move to {now}, {store.explain(error=error)}, so move it by hand.")
             continue
 
         said.append(f"moved {was} to {now}, where the note lives from 2.2.0")
@@ -1305,10 +1333,19 @@ def taken(
         adopt(brain=brain)
 
     with locked(folder=folder) as turn:
-        if turn:
-            adopt(brain=brain)
+        if not turn:
+            yield left(path=path_of(brain=brain), again=False, waiting=BUSY_START)
+            return
 
-        yield claim(brain=brain) if turn else left(path=path_of(brain=brain), again=False, waiting=BUSY_START)
+        said: list[str] = [line for line in adopt(brain=brain) if not line.startswith("moved ")]
+        found: Optional[Claim] = claim(brain=brain)
+        # a note that stays in the old folder is said beside whatever line the start says in the note's place, and waits for the next start where a note is read
+        if said and found is None:
+            found = left(path=brain.root / OLD_FOLDER / FILE, again=False, waiting=" ".join(said))
+        elif said and found is not None and found.note is None:
+            found = left(path=found.path, again=found.again, waiting=" ".join([found.waiting or "", *said]).strip())
+
+        yield found
 
 
 def claim(
