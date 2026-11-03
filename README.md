@@ -304,10 +304,14 @@ The upgrade replaces what is the kit's and leaves what is yours.
   line of your `.gitignore`.
 - Rebuilt: the indexes, by the doctor run at the end, never edited.
 - Filled: from 2.1.0 every entry names its `author` and its `editor`,
-  the git names of who filed it and who last changed it, beside `by`,
-  which still says whether a person asked for it or the agent raised
-  it. The upgrade fills both from git history for each entry that lacks
-  them and says how many it filled.
+  the git names of who filed it and who last changed it, beside the
+  `by` of a todo or a plan, which still says whether a person asked for
+  it or the agent raised it. The upgrade fills both from git history
+  for each entry that lacks them, as
+  [doctor's fill](.agents/skills/agent-brain/references/commands.md#doctor)
+  says, and counts them in its report. An entry the fill cannot name,
+  one whose first commit a shallow clone hides or any where git cannot
+  read the history, stays among what doctor names.
 
 From 2.0.0 `brain check` judges prose and commit messages only, and no
 longer reads Python. Name your linters under a Lint heading in

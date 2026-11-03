@@ -129,21 +129,23 @@ at an open entry that points at the old one.
 ## The brain's files
 
 Every file opens with the header block the tool writes, `name`, `kind`,
-`description`, `updated` and `links`, then on an entry `author` and
-`editor`, the git names of who filed it and who last changed it
-through the tool, then its kind's own fields, one
+`description`, `updated` and `links`, then its kind's own fields, one
 `key: value` line each at the margin, nothing quoted, a list as
 `[a, b]`, the name unique and matching the filename, a link a path from
 `.agents/`. `SYSTEM.md` has none, and `skills/` follows the Agent
-Skills standard. Git ignores `.ack`, the owner's standing word,
-`.conclude`, the conclude word, and `.task`, the current work, with
-their writes in flight, `handover/`,
-`.worktrees/` and the Python and ruff caches. The rest is committed,
-and a closed bug, todo, plan or ledger is never deleted, since it is
-the record. Every file names the file each claim it makes about the
-code holds in, and stays terse. An `area`, on a bug, a todo or a
-decision, is the word already in use for that part of the project, so
-the todo index groups by it and `brain list --area` finds every entry.
+Skills standard. An entry's header also carries `author` and `editor`,
+the git names of who filed it and who last changed it through the
+tool, as [the reference](references/commands.md#writing) says, beside
+the `by` of a todo or a plan, which still says whether the owner asked
+for it or the agent raised it. Git ignores `.ack`, the owner's
+standing word, `.conclude`, the conclude word, and `.task`, the current
+work, with their writes in flight, `handover/`, `.worktrees/` and the
+Python and ruff caches. The rest is committed, and a closed bug, todo,
+plan or ledger is never deleted, since it is the record. Every file
+names the file each claim it makes about the code holds in, and stays
+terse. An `area`, on a bug, a todo or a decision, is the word already
+in use for that part of the project, so the todo index groups by it
+and `brain list --area` finds every entry.
 
 - A doc, in a category folder under `docs/`, is durable knowledge with
   no status, one fact in one place. The first docs go in the starting
@@ -368,9 +370,11 @@ one header, a pointed step's mark that drifted from its entry or its
 pointer left on a refiled one or written by name, a numbered list
 under a plan's or a todo's Steps and a plan with no Steps section,
 which get the table, a chat style copy that drifted from the Claude
-Code one, a missing or dead skill link, and stamps every file it
-touches. Whatever is left needs a decision, so read it and act on it.
-Silencing a finding is never the answer.
+Code one, a missing or dead skill link, an entry's missing `author` or
+`editor`, which it fills from git's history, and stamps every file it
+touches, save one where it only fills a name. Whatever is left needs a
+decision, so read it and act on it. Silencing a finding is never the
+answer.
 
 ## Bringing a project to the kit
 

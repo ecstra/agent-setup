@@ -39,7 +39,7 @@ answers nothing. Every command that takes a key reads it this way.
 
 | Command | What it does |
 |---|---|
-| `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry from the prose on standard input and prints its path, then any slip the check finds in it, as [the check](#the-check) says. The header names `author` and `editor`, both the project's git user.name, or the login name where git names none, each as one line of plain text and never judged by the house style, and every later change through the tool, `set`, `refile`, `steps`, `task`, `ledger` and a doctor repair among them, names whoever runs it as `editor`, while a hand edit of the prose leaves it, since git holds every change. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`, a path into `handover/` included, since no link goes into the folder whose one note is read once. |
+| `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry from the prose on standard input and prints its path, then any slip the check finds in it, as [the check](#the-check) says. The header names whoever files it as `author` and `editor`, as the paragraph under the fields by kind says. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`, a path into `handover/` included, since no link goes into the folder whose one note is read once. |
 | `brain set <key> field=value ...` | Changes fields, checks values and dates, applies the lifecycle rules, stamps `updated`, and prints the entry's path. Where the new status skips the steps that point at the entry, a todo or a build spec dropped or a todo or a bug refiled, it then prints one line for each step of an open entry that now reads skipped, `<id> step <n> now reads skipped, since <key> is <status>`, so the plan or the build spec that lost the step is seen to, and the entry that lost it stays valid. |
 | `brain refile <key> --title T` | Renames for a new title. The id stays, every link follows. |
 | `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input, and prints the new one's path and any slip the check finds in it, as `brain new` does. Both files stay, linked both ways, the old one marked `refiled` with the new one's id in `became`, which every step that pointed at the old one follows, save a step whose own entry the new one's steps point back at, which stays on the old one as skipped while the new one is open and follows once it closes. Refused when a step of the new body points at the old entry, or at an open entry whose steps point back at it at any remove, since the new entry takes the old one's pointers over. |
@@ -69,6 +69,18 @@ Fields by kind, all passed as flags to `new` or as `field=value` to `set`.
 - review: `--branch` required. `status` is open or closed. Prefer
   `brain ledger open`, which writes the body shape too.
 - doc: no extra fields.
+
+Every entry also carries `author` and `editor`, which no flag of `new`
+takes and no index or file of the kit's carries. `brain new` writes
+both as the project's git user.name, or the login name where git names
+none, each one line of plain text the house style never judges. Every
+later write to an entry through the tool, `set`, `refile`, `steps`,
+`task`, `ledger` and every doctor repair but the fill of a missing
+name, sets `editor` to whoever runs it, while a hand edit of the prose
+leaves it, since git holds every change. `set` takes `author=` to put
+a name right, while an `editor=` given to it yields to the name of
+whoever runs it. Doctor fills a name an entry lacks from git, as
+[its section](#doctor) says.
 
 The body must carry its kind's required headings. A plan carries `Why`
 and `Done when`, with `Steps` added by the tool when the prose has
@@ -354,15 +366,7 @@ Doctor checks that nothing was left behind by an interrupted write, that
 there are no stray files, meaning every markdown file under `.agents/`
 outside `handover/` is either an entry the store lists or a file the kit
 owns, frontmatter present and complete, an entry's `author` and
-`editor` present, which `--fix` fills from one walk of git's history,
-names read through the project's mailmap, the author from the commit
-that added the file, a rename and the brain's old `.agent/` folder
-followed, and the editor from the last commit that touched it, a merge
-among them where it resolved a conflict in the file, or the current git
-name for a file git has not seen or a commit with a blank name, while a
-shallow clone that hides the adding commit leaves the author to
-`git fetch --unshallow` and a walk git fails or cannot finish in a
-minute fills nothing and says so, `updated` a real date, names
+`editor` present, `updated` a real date, names
 matching filenames and unique, kind matching folder, fields and values
 against the kind, required headings, the lifecycle rules, filename
 patterns kept and no id carried twice, links that resolve, links written
@@ -463,26 +467,46 @@ items, a comment that opens inside a list item, and an import with no
 `.md` ending that leads nowhere, which reads as a mention.
 
 `--fix` repairs a missing or blank `updated` date, blank `links`
-written as `[]`, a name that disagrees with its filename, a link written
-as a name, a file linked more than once in one header, which keeps the
-first, a pointed step's mark that drifted from its entry or its pointer
-left behind by a refile or written by name, a numbered list under a
-plan's or a todo's Steps and a plan with no Steps section, which get
-the table, a stale index, a stale chat style copy, a skill link when
-it is missing, dead, pointing elsewhere or a plain file, which the link
-replaces, and a real folder copy of a kit skill that fell behind the
-brain's, which is refreshed from it. Each repaired file gets today's
-date. The only things `--fix` removes are what an interrupted write
-left behind, a temporary file or a scratch folder named the way the
-tool names them, the plain file or the wrong link sitting where a skill
-link belongs, and a link under `.claude/skills` into the brain's skills
-folder that dangles, leading to nothing at all, the way a link doctor
-made for a project skill does once that skill is gone. The stray pass
-never removes a link or a folder that still leads somewhere, whatever
-it holds. A link sitting where a skill link belongs and leading
+written as `[]`, an entry's missing `author` or `editor`, which it fills
+from git as the end of this section says, a name that disagrees with
+its filename, a link written as a name, a file linked more than once in
+one header, which keeps the first, a pointed step's mark that drifted
+from its entry or its pointer left behind by a refile or written by
+name, a numbered list under a plan's or a todo's Steps and a plan with
+no Steps section, which get the table, a stale index, a stale chat
+style copy, a skill link when it is missing, dead, pointing elsewhere
+or a plain file, which the link replaces, and a real folder copy of a
+kit skill that fell behind the brain's, which is refreshed from it.
+Each repaired file gets today's date, and a repaired entry the name of
+whoever runs the fix as its `editor`, save one whose only repair is
+that fill, which keeps its date. The only things `--fix` removes are
+what an interrupted write left behind, a temporary file or a scratch
+folder named the way the tool names them, the plain file or the wrong
+link sitting where a skill link belongs, and a link under
+`.claude/skills` into the brain's skills folder that dangles, leading
+to nothing at all, the way a link doctor made for a project skill does
+once that skill is gone. The stray pass never removes a link or a
+folder that still leads somewhere, whatever it holds. A link sitting where a skill link belongs and leading
 elsewhere is replaced by the right one, and a repair that rewrites a
 file, a stale index or chat style copy, writes a real file in place of
 any link standing there. No other file is removed.
+
+The fill reads the brain's history in one walk of git, names read
+through the project's mailmap. The author is the git author of the
+commit that added the file, followed through a rename and through the
+brain's old `.agent/` folder, and the editor the git author of the last
+commit that touched it, a merge among them where it resolved a conflict
+in the file. A file git has not seen, which is every file of a
+repository with no commit yet, and a commit with a blank name take the
+name of whoever runs the fix, the way `brain new` takes it, and so does
+every entry where no repository holds the project. A shallow clone that
+hides the commit that added a file fills only a missing editor and
+flags the author until `git fetch --unshallow` brings that commit in
+for the next fix, or `brain set <key> author=<name>` names it. Where a
+repository holds the project but git is missing, refuses it, as it does
+one another user owns, fails on the walk or cannot finish it in a
+minute, the fill writes nothing and each entry that lacks a name is
+flagged until git can read it.
 
 ## The check
 
@@ -756,7 +780,7 @@ and `--project` has to name a folder that is there.
 | Command | What it does |
 |---|---|
 | `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain, which means the kit's files under `.agents/`, the front doors with the project's `## 0. Project Rules` kept from any old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, or, with no such section anywhere, a front door's own words carried whole under that heading for the agent to read against the rulebook (a port does this, an upgrade never, since a front door without a section is then the kit's own earlier text), the hook configs merged beside the project's own hooks, Claude Code's with the rules under `permissions.deny` that refuse reading the kit's code, by the brain's path and by the skill link's, an earlier spelling of the kit's replaced and the project's own rules kept, the review's sub agent definitions, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`, the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
-| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Every run removes what the kit wrote and no longer ships, each file named in the report, a file the kit dropped from one of its skill folders, the brain's spec files the kit kept under `.agents/spec/` before 2.0.0, with the folder once it is empty, and the review's fixer and hunter definitions under `.claude/agents/` where the project's stamp says the kit wrote them, from the release each shipped in up to 2.0.0. A file of the project's own in `.agents/spec/` stays, named in the report to file under `docs/` through `brain new`. Every run also fills the `author` and `editor` of each entry that lacks them from git, as doctor's repair does, and says how many it filled. Refuses without a brain, refuses while a file it would replace holds uncommitted work, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills` or in `.claude/skills` where the link goes, and a project stamped before a sub agent definition shipped that keeps a file of its own under that definition's name, each definition counted from its own release since a skill gains them later, until the folder or file is moved aside. A folder or a file the kit itself wrote is known by its bytes and passes. Refuses too a project that is the kit itself, or a worktree or a clone of it, since that is where the tool's code is the work. It knows one by the folder under any spelling, or where the two folders, each the top of its own work tree, meet on walking back through their local origins, at most eight clones and a bare repository among them, to a folder or a remote repository both come from, so a kit vendored inside a project's repository, or a project folder inside the kit's, is no clone of it. The walk looks for a local origin under the names git's clone tries for it, the path with `/.git` after it, the path itself, then with `.git/.git` and with `.git` after it, and goes into the first that is a folder, where git is asked under `GIT_CEILING_DIRECTORIES` set to that folder's parent, so it answers for that folder alone and never for a repository above it. Every git call of the walk runs without the variables `git rev-parse --local-env-vars` names, so a `GIT_DIR` or a `GIT_WORK_TREE` a git hook exported never answers for a folder the walk asks about, while config given in command scope, through `git -c` or `GIT_CONFIG_COUNT` with its keys and values, still holds, so a `safe.directory` or a `safe.bareRepository` given that way reaches every git the walk runs. The walk asks git only `rev-parse` and `remote get-url`, so it opens no transport and runs no command a walked folder's config names. It reaches a folder whose name holds a byte that is not UTF-8 on every POSIX file system, while such a path on Windows, and under a locale that is not UTF-8 a name outside its codec, is taken as not there. It ends where git opens no repository, at a plain folder standing under a name git's clone tries first, such as `/srv/hub` beside the bare `/srv/hub.git` a project was cloned from by `git clone /srv/hub`, and at one git keeps closed for safety, a bare origin while the owner's config sets `safe.bareRepository` to `explicit` or a folder git refuses for its owner. Two clones of one such folder still meet there, since a folder is recorded before git is asked. An origin that is a file naming its repository is no folder to go into, so the walk ends at its path. Two clones that name it by two spellings of that path do not meet. A clone the walk misses in any of these ways is upgraded as any project is, the kit's files written over its copies of them under the refusal over uncommitted work. A walked folder holding a named pipe called `HEAD` holds the walk up as it holds git's own clone up, since the upgrade's git runs with no time limit. Git matches the ceiling against the folder's path as text, in the system's spelling, so an origin spelled another way on a disk that takes two spellings for one, by case or by Unicode form, or reached through a second path to the same volume such as macOS's `/System/Volumes/Data`, leaves git free to answer for a repository above it. Git also reads a `:` in the ceiling, or a `;` on Windows, as a break between folders, so an origin whose parent's path holds that separator does the same. That matters only where one repository holds both the kit and the project, and there the upgrade takes the project for a clone of the kit and installs nothing, which writes over no work. The walk is built for git 2.28 or later. Every run names, while they remain, the notes a project filed under `handover/` before the folder became the tool's, any markdown file there, nested too, that is not the tool's note, one at the note's own path whose header is not the tool's included, and says to move what still matters into `docs/` or `memory/` through `brain new` and delete the rest, which the upgrade never does itself. |
+| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Every run removes what the kit wrote and no longer ships, each file named in the report, a file the kit dropped from one of its skill folders, the brain's spec files the kit kept under `.agents/spec/` before 2.0.0, with the folder once it is empty, and the review's fixer and hunter definitions under `.claude/agents/` where the project's stamp says the kit wrote them, from the release each shipped in up to 2.0.0. A file of the project's own in `.agents/spec/` stays, named in the report to file under `docs/` through `brain new`. The doctor run at its end fills the `author` and `editor` of each entry that lacks them from git, as [doctor](#doctor) says, and the report says how many entries it filled. Refuses without a brain, refuses while a file it would replace holds uncommitted work, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills` or in `.claude/skills` where the link goes, and a project stamped before a sub agent definition shipped that keeps a file of its own under that definition's name, each definition counted from its own release since a skill gains them later, until the folder or file is moved aside. A folder or a file the kit itself wrote is known by its bytes and passes. Refuses too a project that is the kit itself, or a worktree or a clone of it, since that is where the tool's code is the work. It knows one by the folder under any spelling, or where the two folders, each the top of its own work tree, meet on walking back through their local origins, at most eight clones and a bare repository among them, to a folder or a remote repository both come from, so a kit vendored inside a project's repository, or a project folder inside the kit's, is no clone of it. The walk looks for a local origin under the names git's clone tries for it, the path with `/.git` after it, the path itself, then with `.git/.git` and with `.git` after it, and goes into the first that is a folder, where git is asked under `GIT_CEILING_DIRECTORIES` set to that folder's parent, so it answers for that folder alone and never for a repository above it. Every git call of the walk runs without the variables `git rev-parse --local-env-vars` names, so a `GIT_DIR` or a `GIT_WORK_TREE` a git hook exported never answers for a folder the walk asks about, while config given in command scope, through `git -c` or `GIT_CONFIG_COUNT` with its keys and values, still holds, so a `safe.directory` or a `safe.bareRepository` given that way reaches every git the walk runs. The walk asks git only `rev-parse` and `remote get-url`, so it opens no transport and runs no command a walked folder's config names. It reaches a folder whose name holds a byte that is not UTF-8 on every POSIX file system, while such a path on Windows, and under a locale that is not UTF-8 a name outside its codec, is taken as not there. It ends where git opens no repository, at a plain folder standing under a name git's clone tries first, such as `/srv/hub` beside the bare `/srv/hub.git` a project was cloned from by `git clone /srv/hub`, and at one git keeps closed for safety, a bare origin while the owner's config sets `safe.bareRepository` to `explicit` or a folder git refuses for its owner. Two clones of one such folder still meet there, since a folder is recorded before git is asked. An origin that is a file naming its repository is no folder to go into, so the walk ends at its path. Two clones that name it by two spellings of that path do not meet. A clone the walk misses in any of these ways is upgraded as any project is, the kit's files written over its copies of them under the refusal over uncommitted work. A walked folder holding a named pipe called `HEAD` holds the walk up as it holds git's own clone up, since the upgrade's git runs with no time limit. Git matches the ceiling against the folder's path as text, in the system's spelling, so an origin spelled another way on a disk that takes two spellings for one, by case or by Unicode form, or reached through a second path to the same volume such as macOS's `/System/Volumes/Data`, leaves git free to answer for a repository above it. Git also reads a `:` in the ceiling, or a `;` on Windows, as a break between folders, so an origin whose parent's path holds that separator does the same. That matters only where one repository holds both the kit and the project, and there the upgrade takes the project for a clone of the kit and installs nothing, which writes over no work. The walk is built for git 2.28 or later. Every run names, while they remain, the notes a project filed under `handover/` before the folder became the tool's, any markdown file there, nested too, that is not the tool's note, one at the note's own path whose header is not the tool's included, and says to move what still matters into `docs/` or `memory/` through `brain new` and delete the rest, which the upgrade never does itself. |
 
 What is the project's stays the project's, which is everything under
 `.agents/` that is not the kit's, section 0, `README.md`, `CODEOWNERS`,
