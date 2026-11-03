@@ -39,7 +39,7 @@ answers nothing. Every command that takes a key reads it this way.
 
 | Command | What it does |
 |---|---|
-| `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry from the prose on standard input and prints its path, then any slip the check finds in it, as [the check](#the-check) says. The header names `author` and `editor`, both the project's git user.name, or the login name where git names none, and every later change through the tool, `set`, `refile`, `steps`, `task`, `ledger` and a doctor repair among them, names whoever runs it as `editor`, while a hand edit of the prose leaves it, since git holds every change. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`, a path into `handover/` included, since no link goes into the folder whose one note is read once. |
+| `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry from the prose on standard input and prints its path, then any slip the check finds in it, as [the check](#the-check) says. The header names `author` and `editor`, both the project's git user.name, or the login name where git names none, each as one line of plain text and never judged by the house style, and every later change through the tool, `set`, `refile`, `steps`, `task`, `ledger` and a doctor repair among them, names whoever runs it as `editor`, while a hand edit of the prose leaves it, since git holds every change. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`, a path into `handover/` included, since no link goes into the folder whose one note is read once. |
 | `brain set <key> field=value ...` | Changes fields, checks values and dates, applies the lifecycle rules, stamps `updated`, and prints the entry's path. Where the new status skips the steps that point at the entry, a todo or a build spec dropped or a todo or a bug refiled, it then prints one line for each step of an open entry that now reads skipped, `<id> step <n> now reads skipped, since <key> is <status>`, so the plan or the build spec that lost the step is seen to, and the entry that lost it stays valid. |
 | `brain refile <key> --title T` | Renames for a new title. The id stays, every link follows. |
 | `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input, and prints the new one's path and any slip the check finds in it, as `brain new` does. Both files stay, linked both ways, the old one marked `refiled` with the new one's id in `became`, which every step that pointed at the old one follows, save a step whose own entry the new one's steps point back at, which stays on the old one as skipped while the new one is open and follows once it closes. Refused when a step of the new body points at the old entry, or at an open entry whose steps point back at it at any remove, since the new entry takes the old one's pointers over. |
@@ -354,10 +354,13 @@ Doctor checks that nothing was left behind by an interrupted write, that
 there are no stray files, meaning every markdown file under `.agents/`
 outside `handover/` is either an entry the store lists or a file the kit
 owns, frontmatter present and complete, an entry's `author` and
-`editor` present, which `--fix` fills from git, the author from the
-commit that added the file, a rename followed, and the editor from the
-last commit that touched it, or the current git name for a file git has
-not seen, `updated` a real date, names
+`editor` present, which `--fix` fills from one walk of git's history,
+names read through the project's mailmap, the author from the commit
+that added the file, a rename and the brain's old `.agent/` folder
+followed, and the editor from the last commit that touched it, or the
+current git name for a file git has not seen, while a shallow clone
+that hides the adding commit leaves the author to
+`git fetch --unshallow`, `updated` a real date, names
 matching filenames and unique, kind matching folder, fields and values
 against the kind, required headings, the lifecycle rules, filename
 patterns kept and no id carried twice, links that resolve, links written

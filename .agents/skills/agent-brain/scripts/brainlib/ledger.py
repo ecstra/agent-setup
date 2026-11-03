@@ -845,7 +845,7 @@ def save(
     stamp: str = "",
 ) -> None:
     entry.document.set(key="updated", value=stamp or date.today().isoformat())
-    people.touch(document=entry.document, folder=brain.root.parent)
+    people.stamp(document=entry.document, folder=brain.root.parent)
     frontmatter.write(path=str(entry.path), document=entry.document)
     brain.refresh()
 

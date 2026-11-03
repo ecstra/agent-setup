@@ -419,11 +419,21 @@ def stamp_today(
 def check_people(
     brain: store.Brain,
 ) -> list[Finding]:
-    """Every entry names who made it and who last changed it, and a gap is filled from git."""
+    """Every entry names who made it and who last changed it, and a gap is filled from one walk of git's history."""
+    gaps = [entry for entry in brain.entries() if people.missing(entry.document)]
+    if not gaps:
+        return []
+
+    known = people.history(brain.root)
     found: list[Finding] = []
-    for entry in brain.entries():
-        if people.missing(entry.document):
-            found.append(Finding(path=entry.relative, check="frontmatter", message="no author or editor, which brain doctor --fix fills from git", repair=people.filler(entry.path)))
+    for entry in gaps:
+        repair = people.filler(path=entry.path, known=known)
+        author, _ = people.names_for(path=entry.path, known=known)
+        if author is None and not entry.document.get(people.AUTHOR):
+            found.append(Finding(path=entry.relative, check="frontmatter", message=people.SHALLOW, repair=repair if not entry.document.get(people.EDITOR) else None))
+            continue
+
+        found.append(Finding(path=entry.relative, check="frontmatter", message="no author or editor, which brain doctor --fix fills from git", repair=repair))
 
     return found
 

@@ -173,7 +173,7 @@ def update(
         entry.document.drop("became")
 
     entry.document.set(key="updated", value=stamp)
-    people.touch(document=entry.document, folder=brain.root.parent)
+    people.stamp(document=entry.document, folder=brain.root.parent)
     frontmatter.write(path=str(entry.path), document=entry.document)
     brain.refresh()
 
@@ -230,7 +230,7 @@ def retitle(
 
     entry.document.set(key="name", value=stem)
     entry.document.set(key="updated", value=stamp)
-    people.touch(document=entry.document, folder=brain.root.parent)
+    people.stamp(document=entry.document, folder=brain.root.parent)
     try:
         frontmatter.write(path=str(entry.path), document=entry.document)
         entry.path.rename(target)
@@ -596,7 +596,8 @@ def check_against(
         if "\n" in value or "\r" in value:
             raise WriteError(f"{item.name} is one line, and this one has a line break in it")
 
-        for slip in sections.style_slips(value):
+        # a person's name is theirs as git gives it, so the house style never judges it
+        for slip in [] if item in schema.PEOPLE_FIELDS else sections.style_slips(value):
             raise WriteError(f"{item.name} {slip}")
 
         if item.required and not value:

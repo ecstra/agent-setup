@@ -450,7 +450,12 @@ def upgrade(
         report.done(f"migrated to {migration.to}: {migration.says}")
 
     install(kit=kit, project=project, prepared=prepared, report=report)
+    # doctor's run fills the names from git, each failure a flag of its own, so the upgrade counts what it filled around it
+    gaps = people_gaps(project=project)
     report.findings, report.kits_own = check(project=project, kit=kit)
+    filled = gaps - people_gaps(project=project)
+    if filled:
+        report.done(f"filled the author and editor of {filled} {'entry' if filled == 1 else 'entries'} from git")
 
     return report
 
@@ -748,10 +753,6 @@ def install(
 
     ignore(project=project, kit=kit, report=report)
 
-    filled = fill_people(project=project)
-    if filled:
-        report.done(f"filled the author and editor of {filled} {'entry' if filled == 1 else 'entries'} from git")
-
     if not schema.carries(since=LINT_FROM, stamp=schema.as_tuple(prepared.project_version)) and not names_linters(project):
         report.done(f"from {LINT_FROM} brain check judges prose and commit messages only, so name the project's linters under a Lint heading in section 0 of AGENTS.md, as the lint hook section of the brain tool's commands.md says, or its code goes unchecked by the brain")
 
@@ -759,17 +760,11 @@ def install(
     report.done(f"stamped {FOLDER}/{VERSION} {stamp}")
 
 
-def fill_people(
+def people_gaps(
     project: Project,
 ) -> int:
-    """Fill the author and editor of every entry that lacks them from git, the count filled, so a brain from before 2.1.0 comes through with nothing flagged."""
-    filled = 0
-    for entry in store.Brain(root=project.brain).entries():
-        if people.missing(entry.document):
-            people.filler(entry.path)()
-            filled += 1
-
-    return filled
+    """How many entries lack an author or an editor, counted around the doctor run that fills them, so the report says how many it filled."""
+    return sum(1 for entry in store.Brain(root=project.brain).entries() if people.missing(entry.document))
 
 
 def names_linters(
