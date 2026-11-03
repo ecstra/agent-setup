@@ -134,7 +134,8 @@ def top_of(
     """The top of the repository that holds the brain, or None, with whether a repository is there that git will not read.
 
     Git says a folder is in no repository in words of its own, read here
-    in English, and any other failure is git refusing one, one another
+    in English and in either case, since older git opens them with a
+    capital, and any other failure is git refusing one, one another
     user owns for one. Where git is missing, a .git above the brain says
     a repository is there.
     """
@@ -149,7 +150,7 @@ def top_of(
     if done.returncode == 0:
         return (Path(top) if top else None), False
 
-    return None, b"not a git repository" not in done.stderr
+    return None, b"not a git repository" not in done.stderr.lower()
 
 
 def history(
