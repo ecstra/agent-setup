@@ -427,7 +427,8 @@ def move_links(
             if item.body is not None:
                 item.document.body = item.body
             item.document.set(key="updated", value=stamp)
-            people.touch(document=item.document, folder=brain.root.parent)
+            if not schema.is_kit_path(item.path.relative_to(brain.root).as_posix()):
+                people.stamp(document=item.document, folder=brain.root.parent)
             frontmatter.write(path=str(item.path), document=item.document)
             written.append(item)
     except OSError as error:

@@ -357,10 +357,12 @@ owns, frontmatter present and complete, an entry's `author` and
 `editor` present, which `--fix` fills from one walk of git's history,
 names read through the project's mailmap, the author from the commit
 that added the file, a rename and the brain's old `.agent/` folder
-followed, and the editor from the last commit that touched it, or the
-current git name for a file git has not seen, while a shallow clone
-that hides the adding commit leaves the author to
-`git fetch --unshallow`, `updated` a real date, names
+followed, and the editor from the last commit that touched it, a merge
+among them where it resolved a conflict in the file, or the current git
+name for a file git has not seen or a commit with a blank name, while a
+shallow clone that hides the adding commit leaves the author to
+`git fetch --unshallow` and a walk git fails or cannot finish in a
+minute fills nothing and says so, `updated` a real date, names
 matching filenames and unique, kind matching folder, fields and values
 against the kind, required headings, the lifecycle rules, filename
 patterns kept and no id carried twice, links that resolve, links written
