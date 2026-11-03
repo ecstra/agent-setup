@@ -36,6 +36,11 @@
 # that stands in the folder's place.
 .agents/.handover
 
+# The folder the note lived in before 2.2.0 stays ignored, so a note an
+# older session left there never enters git before a session start moves
+# it into the hidden folder.
+.agents/handover
+
 # Python leaves compiled bytecode beside the brain tool, and ruff its
 # cache. Neither ever ships.
 __pycache__/

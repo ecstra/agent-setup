@@ -138,8 +138,6 @@ KIT_HOOK = re.compile(
 )
 IGNORE_FILE = schema.IGNORE_FILE
 IGNORE_HEADING = "# The agent kit's own ignores."
-# lines the kit's block carried once and dropped, the note's folder before 2.2.0 among them
-RETIRED_IGNORES: tuple[str, ...] = (f"{FOLDER}/{handover.OLD_FOLDER}",)
 BOM = codecs.BOM_UTF8.decode("utf-8")
 # a carriage return with or without a newline after it, the line ends
 # text mode reads as a newline
@@ -789,53 +787,9 @@ def move_the_note(
     project: Project,
     report: Report,
 ) -> None:
-    """Move the tool's note and its claimed copy out of the folder they lived in before 2.2.0 into the hidden one, then that folder where nothing is left in it.
-
-    A note already waiting in the hidden folder is the newer one, so the
-    old one stays beside the project's own files there, named for the
-    owner to read and delete, and so does one the system refuses to move.
-    """
-    old: Path = project.brain / handover.OLD_FOLDER
-    new: Path = project.brain / handover.FOLDER
-    for name in (handover.FILE, handover.CLAIMED_NAME):
-        source: Path = old / name
-        if not is_the_tools_note(path=source):
-            continue
-
-        was, now = f"{FOLDER}/{handover.OLD_FOLDER}/{name}", f"{FOLDER}/{handover.FOLDER}/{name}"
-        if os.path.lexists(new / name):
-            report.done(f"{was} stays, since {now} already holds a note, so read the old one and delete it by hand")
-            continue
-
-        try:
-            new.mkdir(exist_ok=True)
-            os.replace(src=source, dst=new / name)
-        except OSError as error:
-            report.done(f"{was} could not move to {now}, {store.explain(error=error)}, so move it by hand")
-            continue
-
-        report.done(f"moved {was} to {now}, where the note lives from 2.2.0")
-
-    # an empty folder the kit made goes with its note, and one that still holds the project's own files stays
-    try:
-        old.rmdir()
-    except OSError:
-        pass
-
-
-def is_the_tools_note(
-    path: Path,
-) -> bool:
-    """Whether the file is a note brain handover wrote, judged as the session start judges one."""
-    if not store.readable_file(path=path):
-        return False
-
-    try:
-        text: str = handover.opened(path=path)
-    except OSError:
-        return False
-
-    return handover.note_of(text=text) is not None
+    """Move the tool's note and its claimed copy out of the folder they lived in before 2.2.0, the move a session start and a write make too, and say what moved and what waits."""
+    for line in handover.adopt(brain=store.Brain(root=project.brain)):
+        report.done(line)
 
 
 def old_handovers(
@@ -2284,7 +2238,7 @@ def ignore(
         if not line.strip():
             in_block = False
 
-        if not (in_block and (line in wanted or line in RETIRED_IGNORES)):
+        if not (in_block and line in wanted):
             rest.append(line)
 
     spaced: list[str] = []

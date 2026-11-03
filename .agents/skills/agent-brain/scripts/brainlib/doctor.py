@@ -19,10 +19,10 @@ from typing import Callable, Optional, Union
 from . import autoack, conclude, frontmatter, index, links, people, schema, sections, steps, store, style, task, writes
 
 # The folders the markdown walk leaves out. It never enters the worktree
-# home or the handover folder, whose one note is the tool's and sits
-# outside git, and it enters the skills, which follow their own standard,
-# only where a scan asks for them.
-SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, schema.HANDOVER_FOLDER, ".worktrees"})
+# home, and it enters the skills, which follow their own standard, only
+# where a scan asks for them. The handover folder is a dotted one, which
+# the walk skips with every dotted path.
+SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, ".worktrees"})
 
 MACHINE_PATH = re.compile(r"(/Users/|/home/|[A-Z]:\\)")
 
@@ -183,10 +183,8 @@ def all_markdown(
     skills folder is the tool's own, its files follow the Agent Skills
     standard rather than a kind's, so only the boundary check, hygiene,
     reads them. A skipped folder is known by its name as
-    `links.names_folder` reads it, so where git takes two spellings that
-    differ by case alone for one file, or gives no answer for its flag,
-    `Handover/` is the handover folder and stays unread like it, and git
-    is asked once per run, as `links.case_flag` keeps its answer.
+    `links.names_folder` reads it, and git is asked once per run, as
+    `links.case_flag` keeps its answer.
     """
     skipped_folders = [folder for folder in SKIP_DIRS if not (with_skills and folder == schema.SKILLS)]
     found: list[Path] = []

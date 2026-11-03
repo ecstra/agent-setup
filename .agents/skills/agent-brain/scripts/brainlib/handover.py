@@ -60,6 +60,9 @@ BUSY_START = "Another session is reading or writing the handover right now, so t
 BUSY_WRITE = "another session is reading or writing the handover right now, so run brain handover again in a moment"
 # what a lock another process holds says, EACCES on Windows and EAGAIN or EWOULDBLOCK elsewhere
 LOCK_BUSY = frozenset({errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK})
+# the folder's own ignore file, which ignores everything there itself included, so the folder never
+# shows to git on a branch whose ignore file predates 2.2.0
+SELF_IGNORE = ".gitignore"
 
 # the files the record names, the rest counted, so a build folder git
 # does not ignore never floods the next session's context
@@ -223,6 +226,9 @@ def write(
     with locked(folder=path.parent) as turn:
         if not turn:
             raise HandoverError(BUSY_WRITE)
+
+        # a note left in the folder before 2.2.0 is the note waiting, judged as one in the hidden folder is
+        adopt(brain=brain)
 
         return write_held(brain=brain, path=path, trimmed_prose=trimmed_prose, replace=replace, at=at)
 
@@ -1161,6 +1167,7 @@ def locked(
     a folder or a file system that cannot hold the lock goes on without
     it, as the handover did before 2.2.0.
     """
+    kept_out_of_git(folder=folder)
     try:
         handle: Optional[int] = os.open(folder / LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o600)
     except OSError:
@@ -1214,6 +1221,72 @@ def give_the_lock_back(
         fcntl.flock(handle, fcntl.LOCK_UN)
 
 
+def kept_out_of_git(
+    folder: Path,
+) -> None:
+    """Give the note's folder an ignore file of its own where it has none, one that ignores everything there, itself included."""
+    try:
+        handle: int = os.open(folder / SELF_IGNORE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    except OSError:
+        return
+
+    # the kit's own ignore line still keeps the folder out of git on every branch of 2.2.0 or later, so a file that cannot be written costs nothing there
+    try:
+        os.write(handle, b"*\n")
+    except OSError:
+        pass
+    finally:
+        os.close(handle)
+
+
+def adopt(
+    brain: store.Brain,
+) -> list[str]:
+    """Move the tool's note and its claimed copy out of the folder they lived in before 2.2.0 into the hidden one, and say what moved and what waits.
+
+    A checkout that came to 2.2.0 through a pull or a merge has run no
+    upgrade, so the session start and the write move them too. A note
+    waiting in the hidden folder under either name is read first, so an
+    old one waits behind it and moves in at the start after it. The old
+    folder goes once nothing is left in it.
+    """
+    project: Path = project_of(brain=brain)
+    old: Path = brain.root / OLD_FOLDER
+    new: Path = brain.root / FOLDER
+    names: list[str] = [name for name in (FILE, CLAIMED_NAME) if note_at(path=old / name, again=False) is not None]
+    if not names:
+        return []
+
+    held: Optional[str] = next((name for name in (FILE, CLAIMED_NAME) if os.path.lexists(new / name)), None)
+    said: list[str] = []
+    for name in names:
+        was, now = (old / name).relative_to(project).as_posix(), (new / name).relative_to(project).as_posix()
+        if held is not None:
+            said.append(f"{was} waits, since {(new / held).relative_to(project).as_posix()} already holds a note, and the session start after that one is read moves it in")
+            continue
+
+        try:
+            new.mkdir(exist_ok=True)
+            kept_out_of_git(folder=new)
+            os.replace(src=old / name, dst=new / name)
+        except FileNotFoundError:
+            # another start moved it a moment before
+            continue
+        except OSError as error:
+            said.append(f"{was} could not move to {now}, {store.explain(error=error)}, so move it by hand")
+            continue
+
+        said.append(f"moved {was} to {now}, where the note lives from 2.2.0")
+
+    # an empty folder goes with its note, and one that still holds the project's own files stays
+    try:
+        old.rmdir()
+    except OSError:
+        pass
+
+    return said
+
+
 @contextlib.contextmanager
 def taken(
     brain: store.Brain,
@@ -1223,9 +1296,18 @@ def taken(
     So a second start waits until the first has removed the note and
     finds none, and a write waits until a start's move back is done.
     Where another process holds the lock through the whole wait, the
-    note stays where it is with the line that says so.
+    note stays where it is with the line that says so. A note left in
+    the folder before 2.2.0 moves in first.
     """
-    with locked(folder=path_of(brain=brain).parent) as turn:
+    folder: Path = path_of(brain=brain).parent
+    if not os.path.isdir(folder):
+        # the first touch on this machine makes the folder the lock lives in, so the lock below holds
+        adopt(brain=brain)
+
+    with locked(folder=folder) as turn:
+        if turn:
+            adopt(brain=brain)
+
         yield claim(brain=brain) if turn else left(path=path_of(brain=brain), again=False, waiting=BUSY_START)
 
 
