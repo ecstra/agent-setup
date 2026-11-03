@@ -207,7 +207,7 @@ def retitle(
     stem = f"{entry.identifier}-{slug}" if entry.identifier else slug
     target = entry.path.with_name(f"{stem}.md")
     if occupied(target=target, by=entry.path):
-        raise WriteError(f"{target.relative_to(brain.root)} is already on disk, the brain does not write over it")
+        raise WriteError(f"{target.relative_to(brain.root).as_posix()} is already on disk, the brain does not write over it")
 
     holder = holder_of(brain=brain, name=stem)
     if holder is not None and holder != entry.relative:

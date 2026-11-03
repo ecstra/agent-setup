@@ -49,12 +49,12 @@ def source_body(
     """The style text without the frontmatter only Claude Code reads."""
     source = project(brain) / SOURCE
     if not store.readable_file(source):
-        raise StyleError(f"{SOURCE} is missing, so there is no style to copy")
+        raise StyleError(f"{SOURCE.as_posix()} is missing, so there is no style to copy")
 
     try:
         document = frontmatter.read(str(source))
     except frontmatter.FrontmatterError as error:
-        raise StyleError(f"{SOURCE}: {error}") from error
+        raise StyleError(f"{SOURCE.as_posix()}: {error}") from error
 
     return document.body.lstrip("\n")
 

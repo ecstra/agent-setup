@@ -637,7 +637,7 @@ def prepare(
         own_folder = store.quietly(linked.is_dir) and not store.quietly(linked.is_symlink)
         if not shipped and own_folder and not store.same_bytes(one=linked / schema.SKILL_FILE, other=kits_own_file):
             raise UpgradeError(
-                f"the kit now ships a skill named {name}, and {doctor.SKILL_LINKS / name} holds a folder of the project's own where the kit's skill link goes, move it aside first",
+                f"the kit now ships a skill named {name}, and {(doctor.SKILL_LINKS / name).as_posix()} holds a folder of the project's own where the kit's skill link goes, move it aside first",
             )
 
         for definition in skill.definitions if skill else ():
@@ -2213,13 +2213,13 @@ def kit_config(
     try:
         settings = json.loads(text)
     except json.JSONDecodeError as error:
-        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS} is not valid JSON: {error}") from error
+        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS.as_posix()} is not valid JSON: {error}") from error
 
     if not isinstance(
         settings,
         dict,
     ):
-        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS} is not a JSON object")
+        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS.as_posix()} is not a JSON object")
 
     settings["permissions"] = {"deny": list(READ_GUARDS)}
     settings["sandbox"] = {"filesystem": {"allowRead": list(READ_OPENINGS)}}

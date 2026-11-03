@@ -1055,7 +1055,7 @@ def check_layout(
 
         found.append(
             Finding(
-                path=str(trouble.path),
+                path=trouble.path.as_posix(),
                 check="layout",
                 message=message,
                 repair=repair,
@@ -1128,7 +1128,7 @@ def resolved(
 def skill_missing(
     name: str,
 ) -> str:
-    return f"the skill itself is missing from {SKILL_HOMES / name}, reinstall the kit"
+    return f"the skill itself is missing from {(SKILL_HOMES / name).as_posix()}, reinstall the kit"
 
 
 def stray_skill_links(
@@ -1172,7 +1172,7 @@ def stray_skill_links(
 
         found.append(
             Finding(
-                path=str(SKILL_LINKS / link.name),
+                path=(SKILL_LINKS / link.name).as_posix(),
                 check="layout",
                 message=SKILL_GONE + (SHARED_REMOVAL if shared else ""),
                 repair=None if shared else remove_link(link),
@@ -1417,7 +1417,7 @@ def check_style_copies(
     try:
         wanted = style.source_body(brain)
     except style.StyleError as error:
-        return [Finding(path=str(style.SOURCE), check="layout", message=str(error))]
+        return [Finding(path=style.SOURCE.as_posix(), check="layout", message=str(error))]
 
     return [
         Finding(
