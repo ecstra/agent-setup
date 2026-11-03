@@ -370,8 +370,8 @@ def docs_body(
     folder = entries[0].root / "docs"
     by_category: dict[str, list[store.Entry]] = {}
     for entry in entries:
-        category = entry.path.parent.relative_to(folder)
-        key = str(category) if str(category) != "." else "uncategorized"
+        category = entry.path.parent.relative_to(folder).as_posix()
+        key = category if category != "." else "uncategorized"
         by_category.setdefault(key, []).append(entry)
 
     for category in sorted(by_category):
