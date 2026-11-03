@@ -1076,6 +1076,9 @@ def check_layout(
 
 
 CANNOT_SEE = ", so Claude Code cannot see the skill"
+# a skill link is made under this name beside its place and moved into it, so a refused link touches nothing
+LINK_IN_THE_MAKING = ".link"
+NO_SYMBOLIC_LINKS = "this system refuses symbolic links, so turn on Windows Developer Mode, run git config core.symlinks true, then git checkout -- .claude/skills to bring the skill links back as links, and run brain doctor --fix"
 REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs" + CANNOT_SEE
 ANOTHER_SKILL = "a skill of its own sits where the skill link belongs, so Claude Code loads that one instead"
 STALE_COPY = "a copy of the skill sits where the skill link belongs and is behind the brain's, so Claude Code loads the old text"
@@ -1447,10 +1450,10 @@ def make_skill_link(
     """A repair that puts the named skill's symlink in place, clearing a dead link or a stray file first, git's stand in for a link among them.
 
     A real folder is never removed here. It is somebody's, and the check
-    leaves it for a person. Where the system refuses a symbolic link, as
-    Windows does without Developer Mode, the skill lands as a real copy
-    of its folder, which the check keeps up to the brain's, and git on
-    this machine alone is told to leave the copy out of every commit.
+    leaves it for a person. The link is made under a name of its own and
+    moved into place, so where the system refuses a symbolic link, as
+    Windows does without Developer Mode, what stood there, git's stand in
+    among them, stays as it was and the failure says how to get links.
     """
 
     def repair() -> None:
@@ -1459,50 +1462,23 @@ def make_skill_link(
         if not os.access(str(link.parent), os.W_OK):
             raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), str(link.parent))
 
-        if link.is_symlink() or (link.exists() and not link.is_dir()):
-            link.unlink()
-
         target = skill_target(
             project=project,
             link=link,
             name=name,
         )
+        made = link.with_name(f".{link.name}{LINK_IN_THE_MAKING}")
+        if os.path.lexists(made):
+            made.unlink()
+
         try:
-            os.symlink(target, str(link))
-        except OSError:
-            shutil.copytree(project / SKILL_HOMES / name, link)
-            leave_out_of_git(project=project, path=link)
+            os.symlink(target, str(made))
+        except OSError as error:
+            raise OSError(error.errno, NO_SYMBOLIC_LINKS) from error
+
+        os.replace(str(made), str(link))
 
     return repair
-
-
-def leave_out_of_git(
-    project: Path,
-    path: Path,
-) -> None:
-    """Tell git on this machine alone to leave a skill's copy out of what it sees as changed, its link's own entry where git tracks one and the copy's files through the repository's own exclude file. Outside git nothing is asked."""
-    exclude = people.git_says(folder=project, arguments=["rev-parse", "--git-path", "info/exclude"])
-    prefix = people.git_says(folder=project, arguments=["rev-parse", "--show-prefix"])
-    if exclude is None or prefix is None:
-        return
-
-    relative = path.relative_to(project).as_posix()
-    if people.git_says(folder=project, arguments=["ls-files", "--error-unmatch", "--", relative]) is not None:
-        people.git_says(folder=project, arguments=["update-index", "--skip-worktree", "--", relative])
-
-    # the exclude file reads its patterns from the top of the repository, which a project below it names by its prefix
-    pattern = f"/{prefix.strip()}{relative}/"
-    excluded = project / exclude.strip()
-    try:
-        existing = excluded.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        existing = ""
-
-    if pattern in existing.splitlines():
-        return
-
-    excluded.parent.mkdir(parents=True, exist_ok=True)
-    frontmatter.write_text(path=str(excluded), text=existing + ("\n" if existing and not existing.endswith("\n") else "") + pattern + "\n")
 
 
 def skill_target(
