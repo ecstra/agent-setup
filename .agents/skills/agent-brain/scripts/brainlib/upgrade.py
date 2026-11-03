@@ -23,7 +23,7 @@ from pathlib import Path, PurePath
 from typing import Callable, Optional, Protocol, TextIO, Union
 from urllib.parse import unquote
 
-from . import doctor, frontmatter, handover, schema, sections, store, style
+from . import doctor, frontmatter, handover, people, schema, sections, store, style
 
 FOLDER = ".agents"
 
@@ -450,7 +450,12 @@ def upgrade(
         report.done(f"migrated to {migration.to}: {migration.says}")
 
     install(kit=kit, project=project, prepared=prepared, report=report)
+    # doctor's run fills the names from git, each failure a flag of its own, so the upgrade counts what it filled around it
+    gaps = people_gaps(project=project)
     report.findings, report.kits_own = check(project=project, kit=kit)
+    filled = gaps - people_gaps(project=project)
+    if filled:
+        report.done(f"filled the author and editor of {filled} {'entry' if filled == 1 else 'entries'} from git")
 
     return report
 
@@ -753,6 +758,13 @@ def install(
 
     put(project=project, relative=Path(FOLDER) / VERSION, text=stamp + "\n", report=report, quiet=True)
     report.done(f"stamped {FOLDER}/{VERSION} {stamp}")
+
+
+def people_gaps(
+    project: Project,
+) -> int:
+    """How many entries lack an author or an editor, counted around the doctor run that fills them, so the report says how many it filled."""
+    return sum(1 for entry in store.Brain(root=project.brain).entries() if people.missing(entry.document))
 
 
 def names_linters(

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import unquote
 
-from . import frontmatter, handover, schema, sections, store
+from . import frontmatter, handover, people, schema, sections, store
 
 # The two ways markdown writes a link: inline, `[text](target)`, and by
 # reference, `[label]: target` on a line of its own. Group 1 is the
@@ -427,6 +427,8 @@ def move_links(
             if item.body is not None:
                 item.document.body = item.body
             item.document.set(key="updated", value=stamp)
+            if not schema.is_kit_path(item.path.relative_to(brain.root).as_posix()):
+                people.stamp(document=item.document, folder=brain.root.parent)
             frontmatter.write(path=str(item.path), document=item.document)
             written.append(item)
     except OSError as error:

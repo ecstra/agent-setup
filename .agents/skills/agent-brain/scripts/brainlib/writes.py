@@ -10,7 +10,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from . import frontmatter, links, schema, sections, steps, store, task
+from . import frontmatter, links, people, schema, sections, steps, store, task
 
 
 class WriteError(Exception):
@@ -100,6 +100,8 @@ def create(
         links=path_links(brain=brain, references=links or []),
         stamp=stamp,
     )
+    who = people.current(brain.root.parent)
+    fields.update({people.AUTHOR: who, people.EDITOR: who})
     fields.update(defaults(kind=kind, stamp=stamp))
     fields.update(values or {})
 
@@ -171,6 +173,7 @@ def update(
         entry.document.drop("became")
 
     entry.document.set(key="updated", value=stamp)
+    people.stamp(document=entry.document, folder=brain.root.parent)
     frontmatter.write(path=str(entry.path), document=entry.document)
     brain.refresh()
 
@@ -227,6 +230,7 @@ def retitle(
 
     entry.document.set(key="name", value=stem)
     entry.document.set(key="updated", value=stamp)
+    people.stamp(document=entry.document, folder=brain.root.parent)
     try:
         frontmatter.write(path=str(entry.path), document=entry.document)
         entry.path.rename(target)
@@ -592,7 +596,8 @@ def check_against(
         if "\n" in value or "\r" in value:
             raise WriteError(f"{item.name} is one line, and this one has a line break in it")
 
-        for slip in sections.style_slips(value):
+        # a person's name is theirs as git gives it, so the house style never judges it
+        for slip in [] if item in schema.PEOPLE_FIELDS else sections.style_slips(value):
             raise WriteError(f"{item.name} {slip}")
 
         if item.required and not value:

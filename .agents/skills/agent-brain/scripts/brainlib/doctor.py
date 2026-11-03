@@ -16,7 +16,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-from . import autoack, conclude, frontmatter, index, links, schema, sections, steps, store, style, task, writes
+from . import autoack, conclude, frontmatter, index, links, people, schema, sections, steps, store, style, task, writes
 
 # The folders the markdown walk leaves out. It never enters the worktree
 # home or the handover folder, whose one note is the tool's and sits
@@ -388,15 +388,16 @@ def common_field_gap(
     present: bool,
 ) -> Finding:
     """A common field that is missing or blank. The date and the links can be filled in."""
+    entry = not schema.is_kit_path(where)
     if name == "updated":
-        return Finding(path=where, check="frontmatter", message="no updated date", repair=stamp_today(path))
+        return Finding(path=where, check="frontmatter", message="no updated date", repair=stamp_today(path=path, entry=entry))
 
     if name == "links":
         return Finding(
             path=where,
             check="frontmatter",
             message="links is blank, none is written as []",
-            repair=set_field(path=path, key="links", value="[]"),
+            repair=set_field(path=path, key="links", value="[]", entry=entry),
         )
 
     state = "is blank" if present else "field is missing"
@@ -406,13 +407,41 @@ def common_field_gap(
 
 def stamp_today(
     path: Path,
+    entry: bool,
 ) -> Callable[[], None]:
     def repair() -> None:
         document = frontmatter.read(str(path))
         document.set(key="updated", value=date.today().isoformat())
+        if entry:
+            people.stamp(document=document, folder=path.parent)
         frontmatter.write(path=str(path), document=document)
 
     return repair
+
+
+def check_people(
+    brain: store.Brain,
+) -> list[Finding]:
+    """Every entry names who made it and who last changed it, and a gap is filled from one walk of git's history."""
+    gaps = [entry for entry in brain.entries() if people.missing(entry.document)]
+    if not gaps:
+        return []
+
+    known = people.history(brain.root)
+    if known.unread:
+        return [Finding(path=entry.relative, check="frontmatter", message=people.UNREAD) for entry in gaps]
+
+    found: list[Finding] = []
+    for entry in gaps:
+        repair = people.filler(path=entry.path, known=known)
+        author, _ = people.names_for(path=entry.path, known=known)
+        if author is None and not entry.document.get(people.AUTHOR):
+            found.append(Finding(path=entry.relative, check="frontmatter", message=people.SHALLOW, repair=repair if not entry.document.get(people.EDITOR) else None))
+            continue
+
+        found.append(Finding(path=entry.relative, check="frontmatter", message="no author or editor, which brain doctor --fix fills from git", repair=repair))
+
+    return found
 
 
 def check_names(
@@ -470,7 +499,7 @@ def set_name(
     answers to the old name, a copy that kept it, since they mean that
     file.
     """
-    set_the_field = set_field(path=entry.path, key="name", value=expected)
+    set_the_field = set_field(path=entry.path, key="name", value=expected, entry=True)
     # a review is pointed at by its name, and so is a todo or a bug with no id, a file the tool never wrote, so their cells follow the name too
     pointed_by_name = entry.kind.name == "review" or (entry.kind.name in ("todo", "bug") and entry.identifier is None)
     follows = (entry.kind.name == "plan" or pointed_by_name) and not any(other.path != entry.path and actual in (other.name, task.file_key(other)) for other in brain.entries())
@@ -491,13 +520,16 @@ def set_field(
     path: Path,
     key: str,
     value: str,
+    entry: bool,
 ) -> Callable[[], None]:
-    """A repair that changes one field and stamps the file, per the upkeep rule."""
+    """A repair that changes one field and stamps the file, per the upkeep rule, an entry's editor among it."""
 
     def repair() -> None:
         document = frontmatter.read(str(path))
         document.set(key=key, value=value)
         document.set(key="updated", value=date.today().isoformat())
+        if entry:
+            people.stamp(document=document, folder=path.parent)
         frontmatter.write(path=str(path), document=document)
 
     return repair
@@ -875,7 +907,7 @@ def check_links(
                     path=where,
                     check="link",
                     message="links not written as paths relative to .agents/, each once",
-                    repair=set_links(path=path, values=canonical),
+                    repair=set_links(path=path, values=canonical, entry=not schema.is_kit_path(where)),
                 ),
             )
 
@@ -902,11 +934,14 @@ def check_links(
 def set_links(
     path: Path,
     values: list[str],
+    entry: bool,
 ) -> Callable[[], None]:
     def repair() -> None:
         document = frontmatter.read(str(path))
         document.set_list(key="links", values=values)
         document.set(key="updated", value=date.today().isoformat())
+        if entry:
+            people.stamp(document=document, folder=path.parent)
         frontmatter.write(path=str(path), document=document)
 
     return repair
@@ -2619,6 +2654,7 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_names,
     check_kinds,
     check_fields,
+    check_people,
     check_sections,
     check_steps,
     check_filenames,

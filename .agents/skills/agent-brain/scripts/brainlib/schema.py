@@ -95,6 +95,13 @@ COMMON_FIELDS: tuple[Field, ...] = (
     Field(name="links"),
 )
 
+# Who made an entry and who last changed it, by git name. Indexes and the
+# kit's files carry neither, so doctor asks for them on entries alone.
+PEOPLE_FIELDS: tuple[Field, ...] = (
+    Field(name="author", required=False),
+    Field(name="editor", required=False),
+)
+
 KINDS: dict[str, Kind] = {
     "doc": Kind(
         name="doc",
@@ -557,7 +564,7 @@ def kind_for_folder(
 def fields_for(
     kind: Kind,
 ) -> tuple[Field, ...]:
-    return COMMON_FIELDS + kind.fields
+    return COMMON_FIELDS + PEOPLE_FIELDS + kind.fields
 
 
 def is_slug(
