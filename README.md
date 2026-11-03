@@ -358,6 +358,22 @@ it and asks you to move the link aside and run `brain upgrade`, as
 [the read guard](.agents/skills/agent-brain/references/commands.md#the-read-guard)
 says.
 
+From 2.2.2 the kit is built for Windows too. Every path the tool
+writes, compares, prints or names in a finding or a message is spelled
+with forward slashes there as well, all but the ones it hands the
+system and the few
+[the command reference](.agents/skills/agent-brain/references/commands.md)
+names at its top. Where Windows refuses a symbolic link, as it does
+without Developer Mode, `brain doctor --fix` puts each skill under
+`.claude/skills/` as a real copy and has git on that machine leave the
+copy out of every commit, as
+[doctor](.agents/skills/agent-brain/references/commands.md#doctor)
+says. A `.gitignore` written with carriage returns keeps one per line
+through the port and the upgrade, and the hooks write their refusals
+and errors as UTF-8 whatever the locale. All of this was built and
+tested on macOS with Windows imitated, and has not yet run on Windows
+itself.
+
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
 would replace holds uncommitted work, and names each root file it
