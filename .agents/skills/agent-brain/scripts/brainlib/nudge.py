@@ -5,10 +5,11 @@ The model, each rule with its reason.
 - The tick runs after the calls, so nothing here refuses one, and a
   call the hook cannot read adds nothing and costs nothing else.
 - A shell command is read line by line, a backslash at a line's end
-  joining it to the next and a heredoc's body dropped, since the shell
-  runs each line as its own command and a heredoc's body is text, not
-  shell. A line longer than LONGEST is passed over, so the nudge never
-  costs the tick its moment.
+  joining it to the next, a line break inside quotes, such as a commit
+  message's, kept inside its line, and the body of a heredoc opened
+  outside quotes dropped, since the shell runs each line as its own
+  command and a heredoc's body is text, not shell. A line longer than
+  LONGEST is passed over, so the nudge never costs the tick its moment.
 - A line splits into parts at the shell's separators, and a `cd` part
   moves the folder the later parts count from, on its line and after.
 - A part's program is its first word past `sudo`, `env`, `command`,
@@ -16,13 +17,14 @@ The model, each rule with its reason.
   a path unless it is an option or its value, a number, a word with a
   space in it, a variable, or the pattern or script a reader or an edit
   in place takes first. A part fed by `xargs`, or whose path is a
-  variable such as `$f` or find's `{}`, works on the paths the loops
-  and listings of the same command name, since a loop names the files
-  in one part and works on each in another.
+  variable such as `$f` or find's `{}`, works on the paths the loops,
+  the listings and the `grep -l` of the same command name, since a loop
+  names the files in one part and works on each in another.
 - A read is a field grep, a listing or a print. A field grep is grep,
   egrep, fgrep, rg, awk, or sed without -i, whose pattern names a
   header field the way the field opens its line, `^status`,
-  `^(status|severity)` or `status:`, over paths that reach the brain,
+  `^(status|severity)` or `status:`, and never as one word of a search
+  for either of two, over paths that reach the brain,
   its folder or a tracker's, or over the folder it stands in when it
   searches that. A listing is ls, find, tree or wc over a tracker
   folder or a pattern of its files, or find or tree over the brain's
@@ -57,7 +59,7 @@ START = f"Read the brain through the tool too, {CALL} list <kind> --status <stat
 # such as name, type or description.
 STATE_FIELDS = ("status", "severity", "area", "branch", "born", "done", "reported", "became", "parent", "superseded-by", "author", "editor")
 NAMES = "|".join(re.escape(name) for name in STATE_FIELDS)
-FIELD = re.compile(rf"(?:\^\(?\s*|\|)(?:{NAMES})\b|(?<![\w-])(?:{NAMES})\s*:")
+FIELD = re.compile(rf"\^\(?\s*(?:{NAMES})\b|(?<![\w-])(?:{NAMES})\s*:")
 
 # The brain's own files beside the tracker folders, which the tool alone writes.
 OWN_FILES = (schema.INDEX, autoack.FILE, task.FILE, conclude.FILE, schema.HANDOVER_FOLDER)
@@ -81,13 +83,13 @@ PUNCTUATION = set("();<>|&")
 GLOB = set("*?[{")
 
 # The options that take the word after them as their value, by program,
-# so that word is never read as a path or a pattern. A value that is a
-# number never is, so the options whose values are numbers are left out.
+# so that word is never read as a path or a pattern.
+GREP_VALUED = {"-e", "-f", "--regexp", "--file", "-m", "--max-count", "-A", "-B", "-C", "--after-context", "--before-context", "--context"}
 VALUED = {
-    "grep": {"-e", "-f", "--regexp", "--file"},
-    "egrep": {"-e", "-f", "--regexp", "--file"},
-    "fgrep": {"-e", "-f", "--regexp", "--file"},
-    "rg": {"-e", "-f", "--regexp", "--file", "-g", "--glob", "--iglob", "-t", "--type", "-T", "--type-not"},
+    "grep": GREP_VALUED,
+    "egrep": GREP_VALUED,
+    "fgrep": GREP_VALUED,
+    "rg": GREP_VALUED | {"-g", "--glob", "--iglob", "-t", "--type", "-T", "--type-not", "-j", "--threads", "-M", "--max-columns", "--max-depth"},
     "awk": {"-F", "-f", "-v"},
     "sed": {"-e", "-f", "--expression", "--file"},
     "perl": {"-e", "-E"},
@@ -203,7 +205,7 @@ def shell(
 ) -> tuple[bool, bool]:
     """Whether a command greps the brain's fields, lists a tracker folder or prints several entries, and whether it writes into the brain."""
     parts = list(parts_of(command=command, base=base))
-    produced = [path for part in parts if part.program in PRODUCERS for path in produced_by(part)]
+    produced = [path for part in parts if part.program in PRODUCERS or names_files(part) for path in produced_by(part)]
     read = wrote = False
 
     for part in parts:
@@ -242,23 +244,61 @@ def parts_of(
 def shell_lines(
     command: str,
 ) -> list[str]:
-    """The command's lines as the shell runs them, a backslash before a line break joining two lines, and the body of each heredoc left out."""
+    """The command's lines as the shell runs them, a backslash before a line break joining two lines, a line break inside quotes kept inside its line, and the body of each heredoc opened outside quotes left out."""
     kept: list[str] = []
-    delimiter: Optional[str] = None
-    tabs = False
+    pending: list[str] = []
+    bodies: list[tuple[str, bool]] = []
+    quote: Optional[str] = None
 
     for line in command.replace("\\\n", " ").split("\n"):
-        if delimiter is not None:
+        if bodies:
+            delimiter, tabs = bodies[0]
             if (line.lstrip("\t") if tabs else line) == delimiter:
-                delimiter = None
+                bodies.pop(0)
             continue
 
-        kept.append(line)
-        opened = HEREDOC.search(line)
-        if opened is not None:
-            delimiter, tabs = opened.group("word"), opened.group("dash") == "-"
+        pending.append(line)
+        quote, opened = scanned(line=line, quote=quote)
+        bodies += opened
+        if quote is None:
+            kept.append("\n".join(pending))
+            pending = []
 
-    return kept
+    return kept + (["\n".join(pending)] if pending else [])
+
+
+def scanned(
+    line: str,
+    quote: Optional[str],
+) -> tuple[Optional[str], list[tuple[str, bool]]]:
+    """The quote a line leaves open, starting inside `quote`, and the heredocs it opens outside quotes, each as its closing word and whether tabs may come before it."""
+    opened: list[tuple[str, bool]] = []
+    at = 0
+    while at < len(line):
+        character = line[at]
+        if quote == "'":
+            quote = None if character == "'" else quote
+        elif quote == '"':
+            if character == "\\":
+                at += 1
+            elif character == '"':
+                quote = None
+        elif character == "\\":
+            at += 1
+        elif character in ("'", '"'):
+            quote = character
+        elif character == "#" and (at == 0 or line[at - 1].isspace()):
+            break
+        elif line.startswith("<<", at):
+            heredoc = HEREDOC.match(line, at)
+            if heredoc is not None:
+                opened.append((heredoc.group("word"), heredoc.group("dash") == "-"))
+                at = heredoc.end()
+                continue
+
+        at += 1
+
+    return quote, opened
 
 
 def shlex_tokens(
@@ -556,7 +596,16 @@ def produced_by(
     else:
         words = operands_of(program=part.program, words=part.words, in_place=False)
 
-    return [placed(word=word, base=part.base) for word in words if word and not word.startswith(("-", "$"))]
+    paths = [placed(word=word, base=part.base) for word in words if word and not word.startswith(("-", "$"))]
+
+    return paths or ([part.base] if names_files(part) and recursive(program=part.program, words=part.words) else [])
+
+
+def names_files(
+    part: Part,
+) -> bool:
+    """Whether a reader prints the names of the files it searched rather than their lines, as grep -l and rg -l do, which makes it a source of paths for the parts after it."""
+    return part.program in READERS and any(word in ("--files-with-matches", "--files-without-match") or (word.startswith("-") and not word.startswith("--") and ("l" in word or "L" in word)) for word in part.words)
 
 
 def placed(
