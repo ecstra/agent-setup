@@ -525,7 +525,10 @@ before it too, while a line of nothing but code spans is part of one.
 A blank line is one with nothing on it as written, so a line that holds
 only a comment never ends a block. A block nothing closes runs to the
 end of the file. So an `@AGENTS.md` on the line under `<details>` is no
-import, while one set off from the tags by blank lines is.
+import, while one set off from the tags by blank lines is. Whether a
+paragraph is open is the shared reader's word, and that reader knows no
+raw HTML block, so a lone tag on the line right after a one line
+`<pre>` block, with no blank line between, opens no block.
 
 Only an import line is judged. That is a line that holds one `@path`
 and nothing else once its code and comments are blanked, with nothing
