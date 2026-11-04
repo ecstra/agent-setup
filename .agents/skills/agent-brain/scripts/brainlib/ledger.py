@@ -637,7 +637,7 @@ def findings(
     entry: store.Entry,
 ) -> list[dict]:
     body = entry.document.body
-    spans = sections.code_spans(body)
+    spans = sections.hidden_spans(body)
     found: list[dict] = []
 
     for match in finding_headings(body=body, spans=spans):

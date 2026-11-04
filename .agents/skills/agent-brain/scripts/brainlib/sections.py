@@ -44,6 +44,7 @@ THEMATIC_BREAK = re.compile(r"([-*_])(?:[ \t]*\1){2,}\s*$")
 ATX_OPEN = re.compile(r"(#{1,6})(?:[ \t]+|$)")
 ATX_CLOSE = re.compile(r"(?:^|[ \t]+)#+$")
 SETEXT_UNDERLINE = re.compile(r"(?:=+|-+)\s*$")
+UNESCAPED_PIPE = re.compile(r"(?<!\\)\|")
 DELIMITER_ROW = re.compile(r"[ \t]*(?:\|[ \t]*)?:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*(?:\|[ \t]*)?$")
 INLINE_OPEN = re.compile(r"\\[\s\S]|<!--|`+")
 BACKTICKS = re.compile(r"`+")
@@ -315,6 +316,7 @@ def comment_close(
 def blocks_of(
     text: str,
     depth: int = 0,
+    unclosed_hides_rest: bool = False,
 ) -> Blocks:
     """The code blocks, the fences and the headings of the text, read line by line in the order they come.
 
@@ -344,7 +346,9 @@ def blocks_of(
     many quotes the text already sits in, and at QUOTE_DEPTH a `>` opens
     no quote and is the innermost quote's text. The stretches of
     paragraph, heading and row text are where the spans and the comments
-    inside a sentence are read.
+    inside a sentence are read. `unclosed_hides_rest` runs a comment that
+    opens a line at the margin and never closes to the end of the text,
+    as markdown does, where by default it is no comment.
     """
     code: list[tuple[int, int]] = []
     fences: list[Fence] = []
@@ -437,6 +441,7 @@ def blocks_of(
                     text=text,
                     opened=opened,
                     item=item_ends[kept_to] if kept_to else None,
+                    unclosed_hides_rest=unclosed_hides_rest,
                 )
 
             quoted = depth < QUOTE_DEPTH and bare.startswith(QUOTE_MARK)
@@ -454,7 +459,7 @@ def blocks_of(
                 break
 
             if in_table and not interrupts and "|" in bare:
-                inline.append((opened, end))
+                inline.extend(cells_of(text=text, start=opened, end=end))
                 break
 
             in_table = False
@@ -462,7 +467,7 @@ def blocks_of(
                 head = max(paragraph.start, text.rfind("\n", 0, paragraph.end) + 1)
                 if head > paragraph.start:
                     inline.append((paragraph.start, head - 1))
-                inline.append((head, paragraph.end))
+                inline.extend(cells_of(text=text, start=head, end=paragraph.end))
                 paragraph = None
                 in_table = True
                 break
@@ -532,6 +537,7 @@ def blocks_of(
                     mark=opened,
                     margin=margin,
                     depth=depth,
+                    unclosed_hides_rest=unclosed_hides_rest,
                 )
                 code += quote.code
                 comments += quote.comments
@@ -599,6 +605,7 @@ def quote_at(
     mark: int,
     margin: int,
     depth: int,
+    unclosed_hides_rest: bool,
 ) -> tuple[Blocks, int]:
     """The blocks of the block quote whose first line starts at `start` with its `>` at `mark`, in a text that sits `depth` quotes deep, where they stand in the text, and where the quote's last line ends.
 
@@ -639,6 +646,7 @@ def quote_at(
     inner: Blocks = blocks_of(
         text="\n".join(lines),
         depth=depth + 1,
+        unclosed_hides_rest=unclosed_hides_rest,
     )
 
     return (
@@ -710,6 +718,7 @@ def comment_at(
     text: str,
     opened: int,
     item: Optional[int],
+    unclosed_hides_rest: bool,
 ) -> Optional[tuple[int, int]]:
     """Where the HTML comment whose `<!--` opens a line at `opened` ends and where the reading of the lines goes on, or None where it is no comment.
 
@@ -718,8 +727,10 @@ def comment_at(
     that is not blank and sits left of the item's text, it ends there if
     no `-->` comes first, as CommonMark ends an HTML block with its
     container, and the reading goes on at that line. At the margin of
-    the text, where `item` is None, an opener with no closer is no
-    comment, so a stray one never hides the rest of the text.
+    the text, where `item` is None, an opener with no closer runs to the
+    end of the text where `unclosed_hides_rest` says so, as markdown and
+    the agents read it, and is otherwise no comment, so a stray one never
+    hides the rest of the text from the style check.
     """
     closed: int = comment_close(
         text=text,
@@ -730,7 +741,7 @@ def comment_at(
         return closed, closed
 
     if item is None:
-        return None
+        return (len(text), len(text)) if unclosed_hides_rest else None
 
     # walked back over the white space alone, since a copy of the text up to the item's end would cost the whole text above it for each item
     hidden = item
@@ -860,6 +871,22 @@ def blanked(
     return "".join(kept)
 
 
+def cells_of(
+    text: str,
+    start: int,
+    end: int,
+) -> list[tuple[int, int]]:
+    """The cells of one table row, split at each pipe no backslash escapes, since a row splits into its cells before any span is read."""
+    cells: list[tuple[int, int]] = []
+    opened = start
+    for pipe in UNESCAPED_PIPE.finditer(text, start, end):
+        cells.append((opened, pipe.start()))
+        opened = pipe.end()
+    cells.append((opened, end))
+
+    return [(left, right) for left, right in cells if right > left]
+
+
 def heading_after(
     body: str,
     start: int,
@@ -870,11 +897,12 @@ def heading_after(
 
     `depth` is the deepest heading level that counts, so 2 finds the
     next `#` or `##` line and steps over the `###` lines under it. A
-    caller that walks many headings of one body passes the code spans
-    it already has, so the body is scanned for code once.
+    caller that walks many headings of one body passes the spans it
+    already has, so the body is scanned once, and a heading inside an
+    HTML comment is none.
     """
     if spans is None:
-        spans = code_spans(body)
+        spans = hidden_spans(body)
 
     heading = re.compile(rf"^#{{1,{depth}}}[ \t]", re.MULTILINE)
 
@@ -888,10 +916,19 @@ def heading_after(
 def heading_matches(
     body: str,
 ) -> list[re.Match]:
-    """Every `## Heading` line outside code, in order."""
-    spans = code_spans(body)
+    """Every `## Heading` line outside code and HTML comments, in order."""
+    spans = hidden_spans(body)
 
     return [match for match in HEADING.finditer(body) if not in_code(spans=spans, position=match.start())]
+
+
+def hidden_spans(
+    body: str,
+) -> list[tuple[int, int]]:
+    """Where the code and the HTML comments sit, which a heading inside never opens."""
+    spans = code_spans(body)
+
+    return sorted(spans + comment_spans(text=body, spans=spans))
 
 
 def headings(

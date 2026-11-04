@@ -235,13 +235,21 @@ def find_closing_fence(
 
     The body of a brain file often carries `---` as a rule between
     sections, so only a fence reached before any body content counts.
+    A line that is no field once a blank line has passed is the body's
+    own, while a blank line or a stray line before the fence stays the
+    header's, for the words that name it.
     """
     offset = 0
+    past_blank = False
 
     for line in rest.split("\n"):
         if line == FENCE:
             return offset
 
+        if past_blank and line.strip() and split_field(line)[0] is None:
+            return None
+
+        past_blank = past_blank or not line.strip()
         offset += len(line) + 1
 
     return None
