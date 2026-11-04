@@ -1,8 +1,9 @@
 """The line the tick adds when an agent did by hand what the brain tool does, so the habit is named where it shows.
 
 The tick runs after the calls, so nothing here refuses one. A read is a
-grep of the brain's header fields over the brain, or a listing or a
-count of a tracker folder. A write is a redirect, an edit in place or a
+grep of the brain's header fields over the brain, a listing or a count
+of a tracker folder, or a print of several of its entries at once,
+which `brain list` gives a line each. A write is a redirect, an edit in place or a
 file command onto a path in a tracker folder or one of the brain's own
 files. The kit's own files in the brain's folder are none of these, and
 a call to the tool itself or to git's reading and committing says
@@ -31,6 +32,8 @@ OWN_FILES = (schema.INDEX, autoack.FILE, task.FILE, conclude.FILE, schema.HANDOV
 
 READERS = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "awk", "gawk", "sed", "perl"}
 LISTERS = {"ls", "find", "fd", "tree", "wc", "du"}
+PRINTERS = {"cat", "head", "tail", "less", "more", "bat"}
+GLOB_CHARACTERS = set("*?[{")
 WRITERS = {"mv", "rm", "rmdir", "touch", "mkdir", "tee"}
 COPIERS = {"cp", "ln", "install"}
 IN_PLACE = {"sed", "perl"}
@@ -133,18 +136,20 @@ def shell(
     base: str,
     root: str,
 ) -> tuple[bool, bool]:
-    """Whether a command line greps the brain's fields or lists a tracker folder, and whether it writes into the brain.
+    """Whether a command line greps the brain's fields, lists a tracker folder or prints several entries, and whether it writes into the brain.
 
     A field grep counts once any segment of the line reaches the brain,
-    since a loop names the folder in one segment and greps each file in
-    another. A line the shell could not split says nothing.
+    and a print once any segment names a tracker's files by a pattern,
+    since a loop names the files in one segment and greps or prints each
+    in another. A line the shell could not split says nothing.
     """
     try:
         tokens = shlex_tokens(command)
     except ValueError:
         return False, False
 
-    field = reached = listed = wrote = False
+    field = reached = listed = wrote = printed = patterned = False
+    printed_entries = 0
     for words in segments(tokens):
         program, args = program_of(words)
         if program is None:
@@ -177,10 +182,14 @@ def shell(
             listed = listed or any(in_tracker(path=path, root=root) for path in paths or [base])
         elif program in READERS:
             field = field or any(FIELD.search(arg) for arg in rest)
+        elif program in PRINTERS:
+            printed = True
+            printed_entries += sum(in_tracker(path=path, root=root) for path in paths)
 
         reached = reached or any(reaches(path=path, root=root) for path in paths)
+        patterned = patterned or any(GLOB_CHARACTERS & set(arg) and in_tracker(path=placed(token=arg, base=base), root=root) for arg in rest if not arg.startswith(("-", "$")))
 
-    return (field and reached) or listed, wrote
+    return (field and reached) or listed or (printed and (patterned or printed_entries > 1)), wrote
 
 
 def shlex_tokens(
