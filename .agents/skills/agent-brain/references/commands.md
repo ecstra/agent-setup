@@ -489,7 +489,9 @@ name is read, one that is there but cannot be read, and one that is not
 a regular file, such as a folder or a named pipe, which doctor never
 opens, so a pipe never holds it waiting. A front door that is not UTF-8
 is still read, each byte it cannot decode taken as the replacement
-character.
+character. A carriage return before a line's end, or alone, reads as
+the line's end, as both agents read it, so a door or a file it imports
+written with Windows line ends is judged like any other.
 
 Doctor first blanks what holds no import, the code, the HTML comments
 and the raw HTML. Both agents find code the same way, and doctor finds
@@ -515,8 +517,11 @@ runs to its closing tag. One that opens with a block tag, opening or
 closing, such as `<details>` or `</div>`, even inside a paragraph, runs
 to the next blank line, and so does one that opens with a line holding
 nothing but one complete tag of any name, such as
-`<span class="rules">`, where no paragraph is open. A block nothing
-closes runs to the end of the file. So an `@AGENTS.md` on the line
+`<span class="rules">`, where no paragraph is open. A heading ends the
+paragraph before it, so such a tag right under a heading opens a block.
+A blank line is one with nothing on it as written, so a line that holds
+only a comment never ends a block. A block nothing closes runs to the
+end of the file. So an `@AGENTS.md` on the line
 under `<details>` is no import, while one set off from the tags by
 blank lines is.
 
@@ -562,9 +567,9 @@ its own case, since another spelling loads only where the file system
 ignores case, and it has to be a regular file, since a folder or a
 named pipe is no file to load and is never opened, one that can be
 read, and text, since Claude Code never loads anything else. Doctor
-tells text by the first 8 KB, where a NUL byte or bytes that are not
-UTF-8 say it is not, so a markdown file saved as Latin-1 is not text,
-while a character the 8 KB mark cuts in two still is. A target that is
+tells text by the first 8 KB, where a NUL byte alone says it is not, so
+text in another encoding than UTF-8, such as a markdown file saved as
+Latin-1, is text, as a front door in one is. A target that is
 not there is reported unless git ignores it, such as a
 `@CLAUDE.local.md` each clone keeps for itself, and outside a
 repository, or where git gives no answer, it is reported all the same.
@@ -575,19 +580,23 @@ The rules imports are asked of a door as a whole. `CLAUDE.md` and
 `GEMINI.md` are reported when nothing in them leads to `AGENTS.md`,
 since the rules then never load. Here every `@` an agent may open
 counts, anywhere outside code, comments and raw HTML, at a line's start
-or after whitespace, `*`, `_`, `(` or `[`, in a sentence or on a line of
-its own. Emphasis markers, trailing punctuation and a fragment are set
+or after whitespace, `*`, `_`, `(`, `[` or `>`, in a sentence or on a
+line of its own, so an import line such as `>@AGENTS.md`, its quote
+marker right before the `@`, counts too. Emphasis markers, trailing punctuation and a fragment are set
 aside, an escaped space is read as a space, and the path may reach
 `AGENTS.md` under any spelling of its case, through `./` or through a
 link that resolves to it. The markdown files the door imports are
 followed too, each `@` in one read the same way from that file's own
-folder, up to five imports deep, as deep as Claude Code follows them. A
-path from the root of the disk or the home folder, or one that climbs
+folder, up to five imports deep, as deep as Claude Code follows them,
+and each file once a walk, as Claude Code walks them, so files that
+import each other cost one read each. A path from the root of the disk or the home folder, or one that climbs
 out and back in by the folders' names, never counts, since it leads
 there on one machine alone, and nor does one with any other backslash.
 `GEMINI.md` is not reported while `.gemini/settings.json` names
 `AGENTS.md` under `context.fileName`, alone or in a list, since Gemini
-CLI then loads it as a context file. An import line of `AGENTS.md`
+CLI then loads it as a context file. The settings are read with their
+`//` and `/* */` comments taken out, as Gemini CLI reads them, while a
+string keeps what it holds. An import line of `AGENTS.md`
 with a slip on it, such as glued punctuation or another case, counts
 all the same, so the slip gives its own finding alone, and so does a
 path that reaches `AGENTS.md` where that is no file to load, such as a
