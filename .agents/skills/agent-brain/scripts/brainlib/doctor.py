@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import stat
+from collections import deque
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -1559,6 +1560,7 @@ JSON_COMMENT = re.compile(r'"(?:[^"\\]|\\.)*"|//[^\n]*|/\*.*?\*/', re.DOTALL)
 RAW_TEXT = re.compile(r"^[ \t]{0,3}<(pre|script|style|textarea)(?=[\s>]|$)", re.IGNORECASE)
 BLOCK_TAG = re.compile(r"^[ \t]{0,3}</?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>]|$)")
 ATX_HEADING = re.compile(r"^[ \t]{0,3}#{1,6}(?:[ \t]|$)")
+SETEXT_UNDERLINE = re.compile(r"^[ \t]{0,3}(?:=+|-+)[ \t]*$")
 LONE_TAG = re.compile(r"^[ \t]{0,3}(?:<[A-Za-z][A-Za-z0-9-]*(?:\s+[A-Za-z_:][A-Za-z0-9_.:-]*(?:\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s\"'=<>`]+))?)*\s*/?>|</[A-Za-z][A-Za-z0-9-]*\s*>)[ \t]*$")
 BLOCK_TAGS = frozenset(
     "address article aside base basefont blockquote body caption center col colgroup dd details dialog dir div dl dt fieldset figcaption figure footer form frame frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li link main menu menuitem nav noframes ol optgroup option p param search section summary table tbody td tfoot th thead title tr track ul".split(),
@@ -1705,7 +1707,9 @@ def import_slips(
     visible = visible_text(text)
     found = [finding for line in IMPORT_LINE.finditer(visible) for finding in line_slips(name=name, token=line.group(1), project=project)]
 
-    if name in OWN_DOORS and not leads_to(visible=visible, wanted=project / RULES, base=project, depth=DEEPEST) and not in_gemini_context(name=name, project=project):
+    door = resolved(project / name)
+    walked = set() if door is None else {door}
+    if name in OWN_DOORS and not leads_to(visible=visible, wanted=project / RULES, base=project, depth=DEEPEST, seen=walked) and not in_gemini_context(name=name, project=project):
         found.append(
             import_finding(
                 name=name,
@@ -1828,34 +1832,38 @@ def leads_to(
 
     A path from the root of the disk or the home folder, or one that
     climbs out and back in by the folders' names, never counts, since it
-    leads there on one machine alone. Each imported file is read once a
-    walk, as Claude Code walks them, so files that name each other cost
-    one read each.
+    leads there on one machine alone. The imported files are walked
+    breadth first, so each is reached first by its shortest path and
+    read once, and `seen` holds the files already read, the door's own
+    among them.
     """
     target = resolved(wanted)
     if target is None:
         return False
 
     seen = set() if seen is None else seen
-    for match in ANY_IMPORT.finditer(visible):
-        path = GLUE.sub("", MARKED.sub("", match.group(1).partition("#")[0])).replace("\\ ", " ")
-        if not path or path.startswith(("/", "~")) or "\\" in path or climbs_back_in(path=path, project=base):
-            continue
+    waiting: deque[tuple[str, Path, int]] = deque([(visible, base, depth)])
+    while waiting:
+        text, folder, left = waiting.popleft()
+        for match in ANY_IMPORT.finditer(text):
+            path = GLUE.sub("", MARKED.sub("", match.group(1).partition("#")[0]))
+            if not path or path.startswith(("/", "~")) or "\\" in path or climbs_back_in(path=path, project=folder):
+                continue
 
-        # a path that reaches the wanted file counts even where that is no file to load, since its import line names that trouble already
-        spelled = spelled_on_disk(base=base, path=path)
-        found = base / (spelled or path)
-        if resolved(found) == target:
-            return True
+            # a path that reaches the wanted file counts even where that is no file to load, since its import line names that trouble already
+            spelled = spelled_on_disk(base=folder, path=path)
+            found = folder / (spelled or path)
+            place = resolved(found)
+            if place == target:
+                return True
 
-        place = resolved(found)
-        if spelled is None or depth <= 1 or not spelled.casefold().endswith(".md") or place is None or place in seen:
-            continue
+            if spelled is None or left <= 1 or not spelled.casefold().endswith(".md") or place is None or place in seen:
+                continue
 
-        seen.add(place)
-        nested = nested_text(found)
-        if nested is not None and leads_to(visible=nested, wanted=wanted, base=found.parent, depth=depth - 1, seen=seen):
-            return True
+            seen.add(place)
+            nested = nested_text(found)
+            if nested is not None:
+                waiting.append((nested, found.parent, left - 1))
 
     return False
 
@@ -2110,10 +2118,12 @@ def html_blocks(
             paragraph = False
             continue
 
+        # a line blanked whole was a comment or a fence, which ends a paragraph, or a sentence of code spans, which is one
         if not content.strip():
+            paragraph = not original[line.start() : line.end()].lstrip().startswith(("<!--", "```", "~~~"))
             continue
 
-        if ATX_HEADING.match(content):
+        if ATX_HEADING.match(content) or (paragraph and SETEXT_UNDERLINE.match(content)):
             paragraph = False
             continue
 
