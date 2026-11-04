@@ -703,9 +703,9 @@ and why.
 
 The post write hook runs the check on each file an agent writes, as
 [Hooks](#hooks) says. `brain new`, `brain refile --kind` and
-`brain steps add` write through the shell, which no hook sees, so each
-runs the check over the file it wrote and prints any slip on standard
-output after the path or the numbers, under
+`brain steps add` write through the shell, which the post write hook
+never sees, so each runs the check over the file it wrote and prints
+any slip on standard output after the path or the numbers, under
 `brain check after that write:`, with the notes on standard error. A
 refile that lost a second write prints no path, since its message on
 standard error names the new file and the write it lost, and then prints
@@ -1022,9 +1022,9 @@ standard input.
 
 | Event | What happens |
 |---|---|
-| `session-start` | Prints into the agent's context the clock, the standing word and the current work, then the note the last session left in `.handover/handover.md`, whole under a line that says how it was taken, or the one line that says why a file there stays, another session holding the note's lock among the reasons, then `brain status`, counted once the note is taken, so it names a note this start read only where the start could not take it aside and read it in place, which the next session reads again. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy after those, for an agent that does not expand imports. The note is taken on every start the event's `source` names but a fork, since a fork carries the context it came from, and the handover section above says how, when it waits for the lock, how a note left in `handover/` before 2.2.0 moves in, and what the start says of one that stays. |
+| `session-start` | Prints into the agent's context the clock, the standing word and the current work, then the note the last session left in `.handover/handover.md`, whole under a line that says how it was taken, or the one line that says why a file there stays, another session holding the note's lock among the reasons, then `brain status`, counted once the note is taken, so it names a note this start read only where the start could not take it aside and read it in place, which the next session reads again. Under the counts one line names the full call and the commands that read the brain through it, `list <kind> --status <status>`, `status` and `show <key>`, and says never to read it by a grep of its fields or a listing of its folders. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy after those, for an agent that does not expand imports. The note is taken on every start the event's `source` names but a fork, since a fork carries the context it came from, and the handover section above says how, when it waits for the lock, how a note left in `handover/` before 2.2.0 moves in, and what the start says of one that stays. |
 | `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
-| `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Claude Code fires it once after each round of tool calls, Codex and Gemini CLI after each shell call. |
+| `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Under the moment it adds a line for any call that read or wrote the brain by hand, as [the nudge](#the-nudge) says. Claude Code fires it once after each round of tool calls, whatever the tools, Codex after each shell call, and Gemini CLI after each call to `run_shell_command`, `grep_search`, `search_file_content`, `glob`, `list_directory` or `read_many_files`. |
 | `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, anything in the `.handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
 | `post-write` | After a write, runs the project's own linters on each file just written, as [the lint hook](#the-lint-hook) says, and hands back what they left under `lint after that write:`. Then runs the check on each file just written inside the project, a file reached through a link that leads out of it left out, and hands its slips back as context under `brain check after that write:`, so they are fixed in the same round, a file the check passes over left out as the check leaves it out. A file the check could not judge, since git cannot read its attributes, is named on standard error and never in the context, and a standard error that cannot take the note loses it and nothing else. After a write inside `.agents/`, runs doctor too and hands its findings back the same way, or its error in words where it cannot read the brain, and still exits 0, since an exit 1 would show the person the error and lose the slips. |
 
@@ -1066,6 +1066,87 @@ The port and the upgrade add each where the project lacks the key and
 leave a value the project set, so a project turns idle compaction back
 on with `"idleCompaction": true` in its own `.claude/settings.json`. A
 Claude Code older than 2.1.290 ignores the key.
+
+## The nudge
+
+The tick reads the tool calls its event carries, Claude Code's round of
+them or the one call Codex and Gemini CLI hand over, and adds a line
+under the moment for each kind of hand work on the brain those calls
+did, a read or a write. It runs after the calls, so nothing is refused.
+A tick says each line once however many of its calls match, the read's
+before the write's.
+
+A tracker folder here is one the brain indexes, `docs/`, `memory/`,
+`bugs/`, `todos/`, `decisions/`, `plans/`, `build-specs/` or
+`reviews/`. The brain's own files are `INDEX.md`, `.ack`, `.task`,
+`.conclude` and `.handover/`, which the tool alone writes.
+
+A read is any of these.
+
+- A field grep: a grep of a header field any kind of entry carries,
+  written with its colon as `status:` or `severity: bug`, by grep,
+  egrep, fgrep, rg, ag, ack, awk, gawk, sed or perl, where some part of
+  the command names the brain's folder or a path in a tracker folder or
+  one of the brain's own files, so a loop that names the files in one
+  part and greps each in another counts.
+- A listing: a listing or a count of a tracker folder or of anything in
+  one by ls, find, fd, tree, wc or du, one with no path while the call
+  stands in a tracker folder among them.
+- A print: cat, head, tail, less, more or bat printing several entries
+  at once, where some part of the command names a tracker's files by a
+  pattern, as `cat .agents/bugs/*.md` does and as a loop of `head` over
+  `TODO-0*` after a `cd` into `.agents/todos` does, or where the
+  printers name two files or more in tracker folders.
+- A search tool: Claude Code's Grep and Gemini CLI's `grep_search` and
+  `search_file_content` when the pattern is a field and the folder
+  searched or its glob reaches the brain, Claude Code's Glob and Gemini
+  CLI's `glob` when the pattern, read from its folder, lands in a
+  tracker folder, and Gemini CLI's `list_directory` and
+  `read_many_files` when a path they take lies in one.
+
+After a read the line names, with the full call in front,
+`list <kind> --status <status>` for the entries, `status` for the
+counts and `show <key>` for one.
+
+A write is a shell call that puts a path in a tracker folder or one of
+the brain's own files after a redirect, `>` or `>>`, or hands it to
+`sed -i`, `perl -i`, tee, mv, rm, rmdir, touch, mkdir, `git mv` or
+`git rm`, or a cp, ln or install whose last path, where the copy lands,
+is one, so a copy out of the brain is no write. After a write the line
+names `new`, `set`, `refile`, `steps`, `task`, `ledger`, `handover` and
+`index` as the commands that do that work, and `brain doctor` with the
+full call to see what the hand change left. A write through the edit
+tools adds nothing here, since the `pre-write` hook judges it before it
+lands, as its row says.
+
+A word search in the brain's prose adds nothing, and so do a print of
+one entry, by a printer or Claude Code's Read, a call that reaches
+nothing in the brain, the kit's own files in the brain's folder, `SYSTEM.md`, `README.md`, `house-rules.md`,
+`VERSION` and `skills/`, which are not its entries, a call to the brain
+tool, as `brain` or as python running `brain.py` or `hooks.py`, and git
+but for `git mv` and `git rm`, so `git status`, `diff`, `log`, `add`
+and `commit` over the brain say nothing.
+
+A shell command is split as a POSIX shell splits it and read part by
+part between its separators, pipes and parentheses, a redirect kept
+with its part, the program known by its bare name past `sudo`, `env`,
+`command`, `exec`, the shell's own words and any assignment in front.
+A Codex command handed over as a list, such as `bash -lc` and its
+script, is read as that script. Every path is followed through its
+links.
+
+The limits are plain. The line comes after the call, which has run by
+then. A relative path counts from the call's folder, the event's `cwd`
+or the `dir_path` Gemini CLI's shell names, or from where an earlier
+`cd` in the same command moved, and from nowhere else. A path held in a
+variable, such as `$f`, is never read as one. A write a program makes
+on its own, a python script's among them, goes unseen, since the hook
+reads the command line and not what the program does, so only a
+redirect or one of the commands above shows it. A field grep from above
+the brain's folder, such as one over the whole project from its root,
+names no brain path and adds nothing. A command the shell cannot split,
+or an event the hook cannot read for its calls, adds nothing, and the
+moment still prints.
 
 ## The lint hook
 
