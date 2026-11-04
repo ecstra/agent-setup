@@ -42,7 +42,7 @@
         ]
       },
       {
-        "matcher": "run_shell_command",
+        "matcher": "run_shell_command|grep_search|search_file_content|glob|list_directory|read_many_files",
         "hooks": [
           {
             "type": "command",

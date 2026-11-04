@@ -2,7 +2,7 @@
 name: agent-readme
 kind: doc
 description: what the .agents directory is and how a cold agent boots from it
-updated: 2026-11-03
+updated: 2026-11-04
 links: [INDEX.md, house-rules.md, skills/agent-brain/SKILL.md]
 ---
 
@@ -18,9 +18,9 @@ the repo root when the project keeps one, agents read this.
 1. Read [INDEX.md](INDEX.md), the spine.
 2. Read [house-rules.md](house-rules.md) before any branch, commit, or
    review work.
-3. File, change and check everything here through the brain tool, whose
-   [skill sheet](skills/agent-brain/SKILL.md) says what each kind of
-   file holds and how it moves. The tool writes every file's structure,
+3. Read, list, count, file, change and check everything here through
+   the brain tool, whose [skill sheet](skills/agent-brain/SKILL.md)
+   says what each kind of file holds and how it moves. The tool writes every file's structure,
    and doctor names a file that breaks it.
 
 ## The map
@@ -40,8 +40,8 @@ the repo root when the project keeps one, agents read this.
 - `decisions/`: decisions taken and why, one per file.
 - `reviews/`: one folder per code review, the ledger inside.
 - `skills/`: the kit's skills. `agent-brain` is the brain tool, the one
-  way anything here is filed, changed, counted or checked, and
-  `branch-review` is the code review the agent runs on the owner's
+  way anything here is read, listed, counted, filed, changed or checked,
+  and `branch-review` is the code review the agent runs on the owner's
   word. A project may keep skills of its own here under other names,
   and doctor links them for Claude Code.
 - `VERSION`: the kit release this brain is on, read by the tool.

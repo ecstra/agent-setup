@@ -1,6 +1,6 @@
 ---
 name: agent-brain
-description: The one way to file, change, count or check anything in the project's .agents/ brain. Use it to file a plan, a todo, a bug, a decision, a doc or a memory, to set the work the agent is on and mark its steps, to run a review ledger, to leave the note for the next session, to retitle a file, or to check the brain. Never write a brain file by hand.
+description: The one way to read, list, count, file, change, move or check anything in the project's .agents/ brain. Use it to list or count the open entries, show one, file a plan, todo, bug, decision, doc or memory, set the work in hand and mark its steps, run a review ledger, leave the next session's note, retitle a file, or check the brain. Never grep its fields, list its folders or write it by hand.
 ---
 
 # The brain tool
@@ -25,7 +25,10 @@ The examples below shorten that to `brain`. Every flag is listed in
   and doctor reads the file after. A hook holds all of this in every
   agent that runs hooks, so a new file, an index, a rename, a header
   change or a step row changed by hand is refused. A delete is not,
-  and doctor runs after it.
+  and doctor runs after it. A write into the brain through the shell
+  is not refused either, and the tick names after it the commands that
+  do that work and `brain doctor`, as
+  [the nudge](references/commands.md#the-nudge) says.
 - Ids only go up. A gap left by a moved or deleted file stays a gap.
 - The indexes are generated. `brain index` rebuilds them, doctor rebuilds
   them too, and nobody edits an `INDEX.md`.
@@ -46,11 +49,13 @@ The examples below shorten that to `brain`. Every flag is listed in
 ## When a session starts
 
 The hook prints `brain status` when a session opens, after the note the
-last session left where one waits for it. Every number in it is counted
-from the files at that moment, so trust it over anything remembered. If
-the hook did not run, run `brain status`, and where it names a handover
-waiting, [the brain's files](#the-brains-files) say whether the note
-is this session's and which file holds it. Read that file yourself,
+last session left where one waits for it, and under it a line naming
+`brain list`, `status` and `show` as the way to read the brain. Every
+number in it is counted from the files at that moment, so trust it over
+anything remembered. If the hook did not run, run `brain status`, and
+where it names a handover waiting,
+[the brain's files](#the-brains-files) say whether the note is this
+session's and which file holds it. Read that file yourself,
 since no command shows it, then do with it what that section says.
 
 ```bash
@@ -65,6 +70,14 @@ brain links DEC-012
 `show --meta` prints the frontmatter only. `--json` on `status`, `list`
 and `links` gives the same answer for a script, less the clock and the
 standing word that `status` opens with.
+
+SYSTEM.md section 8 makes these the way the brain is read for its
+fields, its lists and its counts, never a grep of its fields or a
+listing of its folders. A word search in its prose and a read of one
+entry are fine. After a call that greps the fields an entry's state
+lives in, lists a tracker folder or prints several entries at once by
+hand, the tick names the command that does the job, as
+[the nudge](references/commands.md#the-nudge) says.
 
 ## Filing something
 

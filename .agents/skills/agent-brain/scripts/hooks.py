@@ -34,7 +34,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, TextIO, Union
 
-from brainlib import autoack, check, clock, conclude, doctor, frontmatter, handover, links, lint, reads, schema, steps, store, task
+from brainlib import autoack, check, clock, conclude, doctor, frontmatter, handover, links, lint, nudge, reads, schema, steps, store, task
 
 BLOCK = 2
 FAILED = 1
@@ -135,7 +135,7 @@ def run(
         return prompt(brain=brain, agent=args.agent)
 
     if args.event == "tick":
-        return tick(brain=brain, agent=args.agent)
+        return tick(brain=brain, event=event, agent=args.agent)
 
     if args.event == "pre-write":
         return pre_write(brain=brain, event=event, agent=args.agent)
@@ -231,7 +231,7 @@ def session_start(
     # the note's lock is held from the first look to the removal, so a second start waits and finds none, and a fork takes no note and no lock
     with handover.taken(brain=brain) if source != FORK else contextlib.nullcontext(enter_result=None) as claim:
         text = the_moment(brain=brain) + handover_text(claim=claim)
-        text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(data=reads.status(brain=brain))
+        text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(data=reads.status(brain=brain)) + "\n" + nudge.START
         if with_rules:
             rules = brain.root / "SYSTEM.md"
             if store.readable_file(rules):
@@ -283,10 +283,12 @@ def prompt(
 
 def tick(
     brain: store.Brain,
+    event: dict,
     agent: str,
 ) -> int:
-    """After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end."""
-    emit_context(agent=agent, text=the_moment(brain=brain), event_name=TICK.get(agent, "PostToolUse"))
+    """After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end, then a line naming the brain command for any of the calls that did by hand what the tool does."""
+    text = "\n".join([the_moment(brain=brain)] + nudge.lines(brain=brain, event=event))
+    emit_context(agent=agent, text=text, event_name=TICK.get(agent, "PostToolUse"))
     return 0
 
 
