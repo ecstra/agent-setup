@@ -1544,9 +1544,13 @@ IMPORT_LINE = re.compile(
 # an emphasis marker or a bracket, which the rules imports count wherever
 # it stands, since an agent may load it there.
 ANY_IMPORT = re.compile(
-    r"(?:^|(?<=[\s*_(\[]))@(\S+)",
+    r"(?:^|(?<=[\s*_(\[>]))@(\S+)",
     re.MULTILINE,
 )
+
+# A line comment or a block comment in Gemini CLI's settings, which it
+# takes out before it reads them, and a string, which keeps what it holds.
+JSON_COMMENT = re.compile(r'"(?:[^"\\]|\\.)*"|//[^\n]*|/\*.*?\*/', re.DOTALL)
 
 # CommonMark's raw HTML blocks hold no import. The first kind opens with
 # pre, script, style or textarea and runs to its closing tag. The sixth
@@ -1554,6 +1558,7 @@ ANY_IMPORT = re.compile(
 # lone complete tag where no paragraph is open, each to a blank line.
 RAW_TEXT = re.compile(r"^[ \t]{0,3}<(pre|script|style|textarea)(?=[\s>]|$)", re.IGNORECASE)
 BLOCK_TAG = re.compile(r"^[ \t]{0,3}</?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>]|$)")
+ATX_HEADING = re.compile(r"^[ \t]{0,3}#{1,6}(?:[ \t]|$)")
 LONE_TAG = re.compile(r"^[ \t]{0,3}(?:<[A-Za-z][A-Za-z0-9-]*(?:\s+[A-Za-z_:][A-Za-z0-9_.:-]*(?:\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s\"'=<>`]+))?)*\s*/?>|</[A-Za-z][A-Za-z0-9-]*\s*>)[ \t]*$")
 BLOCK_TAGS = frozenset(
     "address article aside base basefont blockquote body caption center col colgroup dd details dialog dir div dl dt fieldset figcaption figure footer form frame frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li link main menu menuitem nav noframes ol optgroup option p param search section summary table tbody td tfoot th thead title tr track ul".split(),
@@ -1694,12 +1699,10 @@ def import_slips(
     itself or through the files the door imports, and GEMINI.md not
     while Gemini CLI's settings name AGENTS.md as a context file. And
     AGENTS.md is named when the brain's rulebook is there and no `@`
-    leads to it.
+    leads to it. A carriage return before a line's end, or alone as one,
+    reads as the line's end, as both agents read it.
     """
-    visible = sections.blanked(
-        text=text,
-        spans=hidden_spans(text),
-    )
+    visible = visible_text(text)
     found = [finding for line in IMPORT_LINE.finditer(visible) for finding in line_slips(name=name, token=line.group(1), project=project)]
 
     if name in OWN_DOORS and not leads_to(visible=visible, wanted=project / RULES, base=project, depth=DEEPEST) and not in_gemini_context(name=name, project=project):
@@ -1794,15 +1797,9 @@ def target_trouble(
     except OSError:
         return "cannot be read"
 
+    # text in another encoding than UTF-8 is still text, as a front door in one is, so a NUL byte alone tells
     if b"\0" in head:
         return "is not a text file, so Claude Code never loads it"
-
-    try:
-        head.decode("utf-8")
-    except UnicodeDecodeError as error:
-        # a character cut by the end of the bytes read, where the file runs on past them, is no sign of anything but text
-        if len(head) < SNIFF or error.reason != "unexpected end of data":
-            return "is not a text file, so Claude Code never loads it"
 
     return None
 
@@ -1825,17 +1822,21 @@ def leads_to(
     wanted: Path,
     base: Path,
     depth: int,
+    seen: Optional[set[Path]] = None,
 ) -> bool:
     """Whether an `@` an agent may open in the text leads to the wanted file, in a sentence or not, through any spelling of its case and with emphasis, glue and a fragment set aside, or, while `depth` allows, through a markdown file it imports, read from that file's own folder.
 
     A path from the root of the disk or the home folder, or one that
     climbs out and back in by the folders' names, never counts, since it
-    leads there on one machine alone.
+    leads there on one machine alone. Each imported file is read once a
+    walk, as Claude Code walks them, so files that name each other cost
+    one read each.
     """
     target = resolved(wanted)
     if target is None:
         return False
 
+    seen = set() if seen is None else seen
     for match in ANY_IMPORT.finditer(visible):
         path = GLUE.sub("", MARKED.sub("", match.group(1).partition("#")[0])).replace("\\ ", " ")
         if not path or path.startswith(("/", "~")) or "\\" in path or climbs_back_in(path=path, project=base):
@@ -1847,10 +1848,14 @@ def leads_to(
         if resolved(found) == target:
             return True
 
-        if spelled is not None and depth > 1 and spelled.casefold().endswith(".md"):
-            nested = nested_text(found)
-            if nested is not None and leads_to(visible=nested, wanted=wanted, base=found.parent, depth=depth - 1):
-                return True
+        place = resolved(found)
+        if spelled is None or depth <= 1 or not spelled.casefold().endswith(".md") or place is None or place in seen:
+            continue
+
+        seen.add(place)
+        nested = nested_text(found)
+        if nested is not None and leads_to(visible=nested, wanted=wanted, base=found.parent, depth=depth - 1, seen=seen):
+            return True
 
     return False
 
@@ -1858,11 +1863,20 @@ def leads_to(
 def nested_text(
     path: Path,
 ) -> Optional[str]:
-    """An imported markdown file's text with its code, comments and raw HTML blanked, or None for one that cannot be read."""
+    """An imported markdown file's text as `visible_text` gives it, or None for one that cannot be read."""
     try:
         text = path.read_bytes().decode(encoding="utf-8-sig", errors="replace")
     except OSError:
         return None
+
+    return visible_text(text)
+
+
+def visible_text(
+    text: str,
+) -> str:
+    """The text an agent reads its imports in, every line ended by a line feed alone and its code, comments and raw HTML blanked."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
 
     return sections.blanked(
         text=text,
@@ -1879,7 +1893,8 @@ def in_gemini_context(
         return False
 
     try:
-        settings = json.loads((project / GEMINI_SETTINGS).read_text(encoding="utf-8"))
+        written = (project / GEMINI_SETTINGS).read_text(encoding="utf-8")
+        settings = json.loads(JSON_COMMENT.sub(lambda part: part.group() if part.group().startswith('"') else "", written))
     except (OSError, ValueError):
         return False
 
@@ -2061,13 +2076,19 @@ def hidden_spans(
     spans, comments = sections.inline_of(text=text, stretches=shared.inline)
     hidden = merged(shared.code + spans + shared.comments + comments)
 
-    return merged(hidden + html_blocks(sections.blanked(text=text, spans=hidden)))
+    return merged(hidden + html_blocks(text=sections.blanked(text=text, spans=hidden), original=text))
 
 
 def html_blocks(
     text: str,
+    original: str,
 ) -> list[tuple[int, int]]:
-    """Where CommonMark's raw HTML blocks sit in a text whose code and comments are blanked, each from the line that opens it."""
+    """Where CommonMark's raw HTML blocks sit, read in a text whose code and comments are blanked, each from the line that opens it.
+
+    A line is blank only where the original text holds nothing on it,
+    so a comment inside a block never ends it, and a heading ends the
+    paragraph before it, so a lone tag right under one opens a block.
+    """
     found: list[tuple[int, int]] = []
     opened: Optional[int] = None
     closer: Optional[re.Pattern] = None
@@ -2075,8 +2096,9 @@ def html_blocks(
 
     for line in sections.LINE.finditer(text):
         content = line.group()
+        blank = not original[line.start() : line.end()].strip()
         if opened is not None:
-            if closer is None and not content.strip():
+            if closer is None and blank:
                 found.append((opened, line.start()))
                 opened, paragraph = None, False
             elif closer is not None and closer.search(content):
@@ -2084,7 +2106,14 @@ def html_blocks(
                 opened, closer = None, None
             continue
 
+        if blank:
+            paragraph = False
+            continue
+
         if not content.strip():
+            continue
+
+        if ATX_HEADING.match(content):
             paragraph = False
             continue
 
