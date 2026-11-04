@@ -568,20 +568,16 @@ file, a stale index, a chat style copy or the settings the read guard
 goes into, writes a real file in place of any link standing there. No
 other file is removed.
 
-Where the system refuses a symbolic link, as Windows does without
-Developer Mode, the skill link's repair lays the skill down in the
-link's place as a real copy of its folder, and tells git on that
-machine alone to leave the copy out of every commit. Where git tracks
-the link, its entry gets `git update-index --skip-worktree`, so git no
-longer sees it as changed, and the copy's folder gets a line in the
-repository's own `info/exclude`, named from the repository's top, such
-as `/.claude/skills/agent-brain/`. Neither enters the repository, so
-`git status` stays clean on that machine and every other one keeps the
-link. Outside git nothing is asked. A copy of a kit skill that falls
-behind the brain's is refreshed as above. A copy of a project skill is
-not, so once that skill's `SKILL.md` changes doctor flags the copy as a
-skill of its own sitting where the link belongs, and removing the
-folder lets the next fix lay it down again.
+The skill link's repair makes the link under a name of its own beside
+its place, `.<name>.link`, clearing one an interrupted repair left
+there, and only then moves it into place. So where the system refuses
+a symbolic link, as Windows does without Developer Mode, whatever stood
+in the link's place stays exactly as it was, git's stand in for the
+link among them. Nothing is copied and git is never asked. The repair
+fails, and its flag says how to get links, which is to turn on Windows
+Developer Mode, run `git config core.symlinks true`, then
+`git checkout -- .claude/skills` to bring the skill links back as
+links, and run `brain doctor --fix`.
 
 The fill reads the brain's history in one walk of git, names read
 through the project's mailmap. The author is the git author of the

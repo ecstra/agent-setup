@@ -385,10 +385,10 @@ inside the project, an entry's missing
 `author` or `editor`, which it fills from git's history, and stamps
 every file it touches, save one where it only fills a name. Where the
 system refuses a link, as Windows does without Developer Mode, a skill
-link it makes is a copy of the skill that git on that machine leaves
-out of every commit, as [doctor](references/commands.md#doctor) says.
-Whatever is left needs a decision, so read it and act on it. Silencing
-a finding is never the answer.
+link's repair leaves what stands in its place as it was and fails with
+the steps that get links, as [doctor](references/commands.md#doctor)
+says. Whatever is left needs a decision, so read it and act on it.
+Silencing a finding is never the answer.
 
 ## Bringing a project to the kit
 

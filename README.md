@@ -364,9 +364,9 @@ with forward slashes there as well, all but the ones it hands the
 system and the few
 [the command reference](.agents/skills/agent-brain/references/commands.md)
 names at its top. Where Windows refuses a symbolic link, as it does
-without Developer Mode, `brain doctor --fix` puts each skill under
-`.claude/skills/` as a real copy and has git on that machine leave the
-copy out of every commit, as
+without Developer Mode, `brain doctor --fix` leaves what stands where
+a skill link belongs under `.claude/skills/` as it was, git's stand in
+for the link included, and says how to get links, as
 [doctor](.agents/skills/agent-brain/references/commands.md#doctor)
 says. A `.gitignore` written with carriage returns keeps one per line
 through the port and the upgrade, and the hooks write their refusals
