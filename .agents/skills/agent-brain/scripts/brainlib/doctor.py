@@ -1559,8 +1559,6 @@ JSON_COMMENT = re.compile(r'"(?:[^"\\]|\\.)*"|//[^\n]*|/\*.*?\*/', re.DOTALL)
 # lone complete tag where no paragraph is open, each to a blank line.
 RAW_TEXT = re.compile(r"^[ \t]{0,3}<(pre|script|style|textarea)(?=[\s>]|$)", re.IGNORECASE)
 BLOCK_TAG = re.compile(r"^[ \t]{0,3}</?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>]|$)")
-ATX_HEADING = re.compile(r"^[ \t]{0,3}#{1,6}(?:[ \t]|$)")
-SETEXT_UNDERLINE = re.compile(r"^[ \t]{0,3}(?:=+|-+)[ \t]*$")
 LONE_TAG = re.compile(r"^[ \t]{0,3}(?:<[A-Za-z][A-Za-z0-9-]*(?:\s+[A-Za-z_:][A-Za-z0-9_.:-]*(?:\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s\"'=<>`]+))?)*\s*/?>|</[A-Za-z][A-Za-z0-9-]*\s*>)[ \t]*$")
 BLOCK_TAGS = frozenset(
     "address article aside base basefont blockquote body caption center col colgroup dd details dialog dir div dl dt fieldset figcaption figure footer form frame frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li link main menu menuitem nav noframes ol optgroup option p param search section summary table tbody td tfoot th thead title tr track ul".split(),
@@ -2084,23 +2082,40 @@ def hidden_spans(
     spans, comments = sections.inline_of(text=text, stretches=shared.inline)
     hidden = merged(shared.code + spans + shared.comments + comments)
 
-    return merged(hidden + html_blocks(text=sections.blanked(text=text, spans=hidden), original=text))
+    return merged(hidden + html_blocks(text=sections.blanked(text=text, spans=hidden), original=text, continued=continued_lines(text=text, stretches=shared.inline)))
+
+
+def continued_lines(
+    text: str,
+    stretches: list[tuple[int, int]],
+) -> set[int]:
+    """Where each line starts that carries on a paragraph, a heading or a row the shared reader found begun on an earlier line, the lines a lone tag cannot open a raw HTML block on."""
+    found: set[int] = set()
+    for start, end in stretches:
+        at = text.find("\n", start, end)
+        while at != -1 and at + 1 < end:
+            found.add(at + 1)
+            at = text.find("\n", at + 1, end)
+
+    return found
 
 
 def html_blocks(
     text: str,
     original: str,
+    continued: set[int],
 ) -> list[tuple[int, int]]:
     """Where CommonMark's raw HTML blocks sit, read in a text whose code and comments are blanked, each from the line that opens it.
 
     A line is blank only where the original text holds nothing on it,
-    so a comment inside a block never ends it, and a heading ends the
-    paragraph before it, so a lone tag right under one opens a block.
+    so a comment inside a block never ends it. A lone tag opens a block
+    only on a line that carries on no paragraph, which the shared reader
+    says, since it already knows what a comment, a fence or a heading
+    of either kind ends.
     """
     found: list[tuple[int, int]] = []
     opened: Optional[int] = None
     closer: Optional[re.Pattern] = None
-    paragraph = False
 
     for line in sections.LINE.finditer(text):
         content = line.group()
@@ -2108,23 +2123,13 @@ def html_blocks(
         if opened is not None:
             if closer is None and blank:
                 found.append((opened, line.start()))
-                opened, paragraph = None, False
+                opened = None
             elif closer is not None and closer.search(content):
                 found.append((opened, line.end()))
                 opened, closer = None, None
             continue
 
-        if blank:
-            paragraph = False
-            continue
-
-        # a line blanked whole was a comment or a fence, which ends a paragraph, or a sentence of code spans, which is one
         if not content.strip():
-            paragraph = not original[line.start() : line.end()].lstrip().startswith(("<!--", "```", "~~~"))
-            continue
-
-        if ATX_HEADING.match(content) or (paragraph and SETEXT_UNDERLINE.match(content)):
-            paragraph = False
             continue
 
         raw = RAW_TEXT.match(content)
@@ -2136,10 +2141,8 @@ def html_blocks(
                 closer = None
             else:
                 opened = line.start()
-        elif (tag is not None and tag.group(1).lower() in BLOCK_TAGS) or (not paragraph and LONE_TAG.match(content)):
+        elif (tag is not None and tag.group(1).lower() in BLOCK_TAGS) or (line.start() not in continued and LONE_TAG.match(content)):
             opened, closer = line.start(), None
-        else:
-            paragraph = True
 
     if opened is not None:
         found.append((opened, len(text)))
