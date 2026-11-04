@@ -925,10 +925,14 @@ def heading_matches(
 def hidden_spans(
     body: str,
 ) -> list[tuple[int, int]]:
-    """Where the code and the HTML comments sit, which a heading inside never opens."""
-    spans = code_spans(body)
+    """Where the code and the HTML comments sit, read once, which a heading, a step or a finding's line inside never opens."""
+    blocks: Blocks = blocks_of(body)
+    spans, comments = inline_of(
+        text=body,
+        stretches=blocks.inline,
+    )
 
-    return sorted(spans + comment_spans(text=body, spans=spans))
+    return sorted(blocks.code + spans + blocks.comments + comments)
 
 
 def headings(
