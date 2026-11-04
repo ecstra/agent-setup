@@ -19,7 +19,8 @@ from . import frontmatter, handover, people, schema, sections, store
 # The two ways markdown writes a link: inline, `[text](target)`, and by
 # reference, `[label]: target` on a line of its own. Group 1 is the
 # target in both, so one rewrite serves both.
-MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\((<[^>\n]*>|[^)\s]+)\)")
+# the target, then the title markdown lets a link carry in double quotes, single quotes or brackets
+MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\((<[^>\n]*>|[^)\s]+)(?:\s+(?:\"[^\"\n]*\"|'[^'\n]*'|\([^)\n]*\)))?\s*\)")
 REFERENCE_LINK = re.compile(r"^\[[^\]]+\]:[ \t]+(<[^>\n]*>|\S+)", re.MULTILINE)
 
 # The scratch folder a symlink is put back through, the prefix and the

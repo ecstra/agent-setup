@@ -1521,23 +1521,11 @@ GLUED = ".,;:!?)"
 ESCAPED_SPACE = "\\ "
 EMPHASIS_END = re.compile(f"[*_]+[{re.escape(GLUED)}]*$")
 
-# The markdown lexer both agents find code with, read line by line for
-# the blocks and in order inside a paragraph for the spans and comments.
 LINE = re.compile(
     r"^.*$",
     re.MULTILINE,
 )
-FENCE_OPEN = re.compile(r"(`{3,}|~{3,})(.*)$")
-FENCE_CLOSE = re.compile(r"(`{3,}|~{3,})\s*$")
-LIST_MARKER = re.compile(r"([-*+]|\d{1,9}[.)])(?:([ \t]+)|$)")
-HEADING = re.compile(r"#{1,6}(?:[ \t]|$)")
-SETEXT_UNDERLINE = re.compile(r"(?:=+|-+)[ \t]*$")
-INLINE_OPEN = re.compile(r"<!--|(?<!\\)`+")
-COMMENT_OPEN = "<!--"
-COMMENT_CLOSE = "-->"
-PARAGRAPH_BREAK = re.compile(r"\n[ \t\r]*\n")
 NOT_A_LINE_END = re.compile(r"[^\n]")
-CODE_INDENT = 4
 
 # A stretch of a front door the lexer holds apart from its text, as its
 # start, its end and whether it is code or an HTML comment.
@@ -2441,255 +2429,23 @@ def spelled_on_disk(
 def hidden_regions(
     text: str,
 ) -> Blocks:
-    """Where the code and the HTML comments sit, the blocks first and then the spans and comments inside what the blocks leave, with the offsets where a block starts."""
-    blocks = block_regions(text)
-    rest = blanked(
+    """Where the code and the HTML comments sit, by the one reading of markdown the rest of the tool uses, with the offsets of the lines a block's text starts on, a list item's and a heading's among them.
+
+    A comment that opens a line and never closes hides the rest of the
+    text, as it does from the agents that read the file.
+    """
+    shared = sections.blocks_of(
         text=text,
-        regions=blocks.regions,
-        kinds=(IN_CODE, IN_COMMENT),
+        unclosed_hides_rest=True,
     )
-    spans = inline_regions(
-        text=rest,
-        starts=blocks.starts,
-    )
+    spans, comments = sections.inline_of(text=text, stretches=shared.inline)
+    regions: list[Region] = [(start, end, IN_CODE) for start, end in shared.code + spans]
+    regions += [(start, end, IN_COMMENT) for start, end in shared.comments + comments]
 
     return Blocks(
-        regions=blocks.regions + spans,
-        starts=blocks.starts,
+        regions=sorted(regions),
+        starts=sorted({text.rfind("\n", 0, start) + 1 for start, _ in shared.inline}),
     )
-
-
-def block_regions(
-    text: str,
-) -> Blocks:
-    """Where the code blocks and the HTML comment blocks sit, read line by line in the order they come.
-
-    A fence runs to the closer that matches it or to the end of the
-    text, and a comment opened at the start of a line runs to its
-    `-->`, so a fence inside a comment opens nothing. A fence opens on a
-    list item's own line too, after its marker. A line indented four
-    columns past its margin is code when no paragraph is open, which is
-    at the start and after a blank line, a heading of either kind, a
-    fence or a comment. The margin is where the text of the list item
-    the line sits in starts, so a list item's paragraph indented four
-    columns is read, and a heading or a fence left of that margin ends
-    every list that is open. Each list item and each heading starts a
-    block of its own, which the spans read later never reach into.
-    """
-    regions: list[Region] = []
-    starts: list[int] = []
-    items: list[int] = []
-    fence: Optional[tuple[str, int]] = None
-    in_comment = False
-    after_break = True
-
-    for match in LINE.finditer(text):
-        line = match.group()
-        start, end = match.span()
-
-        if in_comment:
-            close = line.find(COMMENT_CLOSE)
-            if close == -1:
-                regions.append((start, end, IN_COMMENT))
-                continue
-
-            regions.append((start, start + close + len(COMMENT_CLOSE), IN_COMMENT))
-            in_comment = False
-            after_break = True
-            continue
-
-        if fence is not None:
-            regions.append((start, end, IN_CODE))
-            closes = fence_closes(
-                fence=fence,
-                line=line,
-            )
-            if closes:
-                fence = None
-                after_break = True
-            continue
-
-        if not line.strip():
-            after_break = True
-            continue
-
-        indent = indent_of(line)
-        bare = line.lstrip()
-        marker = LIST_MARKER.match(bare)
-        heading = HEADING.match(bare) is not None
-        underline = not after_break and SETEXT_UNDERLINE.match(bare) is not None
-        opener = fence_opener(bare)
-        interrupts = marker is not None or heading or underline or opener is not None
-        if after_break or interrupts:
-            while items and indent < items[-1]:
-                items.pop()
-
-        margin = items[-1] if items else 0
-        if indent - margin >= CODE_INDENT:
-            if after_break:
-                regions.append((start, end, IN_CODE))
-            continue
-
-        if opener is not None:
-            fence = (opener.group(1), margin)
-            regions.append((start, end, IN_CODE))
-            continue
-
-        if bare.startswith(COMMENT_OPEN):
-            opened = end - len(bare)
-            close = bare.find(
-                COMMENT_CLOSE,
-                len(COMMENT_OPEN),
-            )
-            in_comment = close == -1
-            closed = end if in_comment else opened + close + len(COMMENT_CLOSE)
-            regions.append((opened, closed, IN_COMMENT))
-            after_break = True
-            continue
-
-        if underline:
-            after_break = True
-            starts.append(end + 1)
-            continue
-
-        if heading:
-            after_break = True
-            starts.append(start)
-            starts.append(end + 1)
-            continue
-
-        if marker is not None:
-            item_margin = indent + len(marker.group(1)) + item_gap(marker.group(2))
-            items.append(item_margin)
-            starts.append(start)
-
-            item_fence = fence_opener(bare[marker.end() :])
-            if item_fence is not None:
-                fence = (item_fence.group(1), item_margin)
-                regions.append((start, end, IN_CODE))
-                continue
-
-        after_break = False
-
-    return Blocks(
-        regions=regions,
-        starts=starts,
-    )
-
-
-def fence_opener(
-    bare: str,
-) -> Optional[re.Match]:
-    """The fence the text opens with, or None, since a backtick fence's info string holds no backtick."""
-    opener = FENCE_OPEN.match(bare)
-    if opener is None:
-        return None
-
-    if opener.group(1).startswith("`") and "`" in opener.group(2):
-        return None
-
-    return opener
-
-
-def fence_closes(
-    fence: tuple[str, int],
-    line: str,
-) -> bool:
-    """Whether the line closes the fence, a run of the same character at least as long, indented less than four columns past the fence's margin."""
-    marker, margin = fence
-    closer = FENCE_CLOSE.match(line.lstrip())
-    if closer is None or indent_of(line) - margin >= CODE_INDENT:
-        return False
-
-    return closer.group(1)[0] == marker[0] and len(closer.group(1)) >= len(marker)
-
-
-def item_gap(
-    spacing: Optional[str],
-) -> int:
-    """How far past its marker a list item's text starts, one column when the marker ends the line or the gap would make its text code."""
-    if not spacing or len(spacing) > CODE_INDENT:
-        return 1
-
-    return len(spacing)
-
-
-def indent_of(
-    line: str,
-) -> int:
-    """How many columns the line's leading whitespace spans, a tab reaching the next multiple of four."""
-    columns = 0
-    for character in line:
-        if character == " ":
-            columns += 1
-        elif character == "\t":
-            columns += CODE_INDENT - columns % CODE_INDENT
-        else:
-            break
-
-    return columns
-
-
-def inline_regions(
-    text: str,
-    starts: list[int],
-) -> list[Region]:
-    """Where the code spans and the HTML comments inside the blocks sit, read in the order they come.
-
-    A run of backticks is closed by the next run as long and a comment
-    by its `-->`, each inside its block, and whichever opens first holds
-    what follows, so a backtick inside a comment opens no span. A block
-    ends at a blank line or where `starts` says another begins. An
-    opener with no closer in its block is plain text, and the reading
-    moves on past it.
-    """
-    regions: list[Region] = []
-    position = 0
-
-    while True:
-        opener = INLINE_OPEN.search(
-            string=text,
-            pos=position,
-        )
-        if opener is None:
-            return regions
-
-        closed = inline_end(
-            text=text,
-            opener=opener,
-            starts=starts,
-        )
-        if closed is None:
-            position = opener.end()
-            continue
-
-        kind = IN_COMMENT if opener.group() == COMMENT_OPEN else IN_CODE
-        regions.append((opener.start(), closed, kind))
-        position = closed
-
-
-def inline_end(
-    text: str,
-    opener: re.Match,
-    starts: list[int],
-) -> Optional[int]:
-    """Where the span or the comment the opener starts ends, or None when nothing closes it inside its block."""
-    if opener.group() == COMMENT_OPEN:
-        pattern = re.escape(COMMENT_CLOSE)
-    else:
-        pattern = f"(?<!`){opener.group()}(?!`)"
-
-    closer = re.compile(pattern).search(
-        string=text,
-        pos=opener.end(),
-    )
-    if closer is None or PARAGRAPH_BREAK.search(text[opener.end() : closer.start()]):
-        return None
-
-    if any(opener.start() < start <= closer.start() for start in starts):
-        return None
-
-    return closer.end()
 
 
 def blanked(

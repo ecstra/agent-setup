@@ -182,7 +182,6 @@ MARK_LINE = re.compile(
     pattern=rf"^[ \t]*({re.escape(KIT_MARK)})[ \t]*\r?$",
     flags=re.MULTILINE,
 )
-COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 IMPORT_LINE = re.compile(r"^[ \t]*@\S+[ \t]*$", re.MULTILINE)
 
 # Before 1.1.0 the kit's AGENTS.md carried no marker line, so in a file
@@ -1855,8 +1854,14 @@ def own_words(
     """
     mark: int = kit_mark_in(text)
     own = text if mark == -1 else text[:mark]
-    for pattern in (COMMENT, IMPORT_LINE):
-        own = without(text=own, pattern=pattern)
+    # the comments as markdown closes them, so an opener in a sentence keeps to its paragraph and <!--> closes where it stands
+    code = sections.code_spans(own)
+    kept: list[str] = []
+    cursor = 0
+    for start, end in sections.comment_spans(text=own, spans=code):
+        kept.append(own[cursor:start])
+        cursor = end
+    own = without(text="".join(kept) + own[cursor:], pattern=IMPORT_LINE)
 
     lines = own.strip().split("\n")
     if lines and lines[0].startswith("# "):

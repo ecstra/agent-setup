@@ -420,12 +420,12 @@ def with_bullet(
 ) -> str:
     """The block with its `- field:` line saying `value`.
 
-    The first such line outside code is rewritten. A block that lost the
-    line gets it back, after the last bullet it still has, so a finding
-    edited by hand can be put right through the tool.
+    The first such line outside code and comments is rewritten. A block
+    that lost the line gets it back, after the last bullet it still has,
+    so a finding edited by hand can be put right through the tool.
     """
     line = f"- {field}: {value}"
-    spans = sections.code_spans(block)
+    spans = sections.hidden_spans(block)
     lines = [match for match in BULLET.finditer(block) if not sections.in_code(spans=spans, position=match.start())]
 
     for match in lines:
@@ -444,8 +444,8 @@ def without_bullet(
     block: str,
     field: str,
 ) -> str:
-    """The block without its `- field:` line, the first one outside code, so a value that no longer applies does not linger."""
-    spans = sections.code_spans(block)
+    """The block without its `- field:` line, the first one outside code and comments, so a value that no longer applies does not linger."""
+    spans = sections.hidden_spans(block)
 
     for match in BULLET.finditer(block):
         if match.group(1) != field or sections.in_code(spans=spans, position=match.start()):
@@ -637,7 +637,7 @@ def findings(
     entry: store.Entry,
 ) -> list[dict]:
     body = entry.document.body
-    spans = sections.code_spans(body)
+    spans = sections.hidden_spans(body)
     found: list[dict] = []
 
     for match in finding_headings(body=body, spans=spans):
@@ -657,12 +657,12 @@ def findings(
 def bullets(
     block: str,
 ) -> dict[str, str]:
-    """The `- name: value` lines of a block that sit outside code, each value as written.
+    """The `- name: value` lines of a block that sit outside code and comments, each value as written.
 
     A name that appears twice counts once, by its first line, which is
     the line a change rewrites, so reading and writing agree.
     """
-    spans = sections.code_spans(block)
+    spans = sections.hidden_spans(block)
     found: dict[str, str] = {}
 
     for match in BULLET.finditer(block):
@@ -676,9 +676,9 @@ def finding_headings(
     body: str,
     spans: Optional[list[tuple[int, int]]] = None,
 ) -> list[re.Match]:
-    """Every finding heading outside code, in order, the code spans passed in when the caller already has them."""
+    """Every finding heading outside code and comments, in order, the hidden spans passed in when the caller already has them, so the reader and every writer agree on which heading is the finding."""
     if spans is None:
-        spans = sections.code_spans(body)
+        spans = sections.hidden_spans(body)
 
     return [match for match in FINDING.finditer(body) if not sections.in_code(spans=spans, position=match.start())]
 
@@ -701,14 +701,15 @@ def batch_table(
 ) -> tuple[re.Match, list[re.Match]]:
     """The batch table's header and its rows.
 
-    The header is the first one in the Batches section outside code, and
-    the rows are the lines directly under it, the way markdown reads a
-    table. A row shaped line anywhere else in the section is refused
-    rather than read or ignored, since a table a hand edit pulled apart
-    would otherwise be numbered twice.
+    The header is the first one in the Batches section outside code and
+    comments, and the rows are the lines directly under it, the way
+    markdown reads a table. A row shaped line anywhere else in the
+    section, outside code and comments, is refused rather than read or
+    ignored, since a table a hand edit pulled apart would otherwise be
+    numbered twice.
     """
     start, end = batches_section(body)
-    spans = sections.code_spans(body)
+    spans = sections.hidden_spans(body)
     header = None
 
     for match in TABLE_HEADER.finditer(string=body, pos=start, endpos=end):
@@ -854,7 +855,7 @@ def finding_span(
     body: str,
     identifier: str,
 ) -> Optional[tuple[int, int]]:
-    """Where one finding's block starts and ends, up to the next heading outside code."""
+    """Where one finding's block starts and ends, up to the next heading outside code and comments."""
     for match in finding_headings(body):
         if match.group(1) != identifier:
             continue

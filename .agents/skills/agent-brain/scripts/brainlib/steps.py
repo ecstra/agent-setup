@@ -129,19 +129,20 @@ def table(
 def located(
     body: str,
 ) -> tuple[re.Match, list[re.Match]]:
-    """The table's header and its rows, the lines right under the header outside code, the one reading every reader and every writer of the table shares.
+    """The table's header and its rows, the lines right under the header outside code and comments, the one reading every reader and every writer of the table shares.
 
-    A row shaped line anywhere else in the section, outside code, is
-    refused rather than read or ignored, since a table a hand edit
-    pulled apart would otherwise be written back without the lines
-    between.
+    A row shaped line anywhere else in the section, outside code and
+    comments, is refused rather than read or ignored, since a table a
+    hand edit pulled apart would otherwise be written back without the
+    lines between. The section runs past a heading inside a comment, so
+    the comment's lines are stepped over as well.
     """
     found = span(body)
     if found is None:
         raise StepsError("there is no Steps section")
 
     start, end = found
-    spans = sections.code_spans(body)
+    spans = sections.hidden_spans(body)
     header: Optional[re.Match] = None
     for match in HEADER_LINE.finditer(string=body, pos=start, endpos=end):
         if not sections.in_code(spans=spans, position=match.start()):
@@ -259,12 +260,12 @@ def stored_rows_of(
 def has_table(
     body: str,
 ) -> bool:
-    """Whether the Steps section already holds the table's header, outside code."""
+    """Whether the Steps section already holds the table's header, outside code and comments."""
     found = span(body)
     if found is None:
         return False
 
-    spans = sections.code_spans(body)
+    spans = sections.hidden_spans(body)
 
     return any(not sections.in_code(spans=spans, position=match.start()) for match in HEADER_LINE.finditer(string=body, pos=found[0], endpos=found[1]))
 
@@ -904,12 +905,12 @@ def reopening_gaps(
 def table_shaped(
     body: str,
 ) -> bool:
-    """Whether the Steps section holds a line shaped like a table's, outside code, while no header the tool reads sits there, a table typed with another header, a separator the tool does not read or an indent, an indented line under a numbered one being that step's wrapped line whatever it opens with."""
+    """Whether the Steps section holds a line shaped like a table's, outside code and comments, while no header the tool reads sits there, a table typed with another header, a separator the tool does not read or an indent, an indented line under a numbered one being that step's wrapped line whatever it opens with."""
     where = span(body)
     if where is None:
         return False
 
-    spans = sections.code_spans(body)
+    spans = sections.hidden_spans(body)
     position = where[0]
     under_a_step = False
     for line in body[where[0] : where[1]].split("\n"):
@@ -936,7 +937,7 @@ def listed_rows(
     if where is None:
         return []
 
-    spans = sections.code_spans(body)
+    spans = sections.hidden_spans(body)
     numbered: list[tuple[int, str]] = []
     position = where[0]
     for line in body[where[0] : where[1]].split("\n"):
