@@ -22,9 +22,10 @@ The model, each rule with its reason.
   names the files in one part and works on each in another.
 - A read is a field grep, a listing or a print. A field grep is grep,
   egrep, fgrep, rg, awk, or sed without -i, whose pattern names a
-  header field the way the field opens its line, `^status`,
-  `^(status|severity)` or `status:`, and never as one word of a search
-  for either of two, over paths that reach the brain,
+  header field the way the field opens its line, `^status`, any choice
+  of a group opened there such as `^(title|status)`, or `status:`, and
+  never as one word of an either-or search with no `^` in front, over
+  paths that reach the brain,
   its folder or a tracker's, or over the folder it stands in when it
   searches that. A listing is ls, find, tree or wc over a tracker
   folder or a pattern of its files, or find or tree over the brain's
@@ -59,7 +60,9 @@ START = f"Read the brain through the tool too, {CALL} list <kind> --status <stat
 # such as name, type or description.
 STATE_FIELDS = ("status", "severity", "area", "branch", "born", "done", "reported", "became", "parent", "superseded-by", "author", "editor")
 NAMES = "|".join(re.escape(name) for name in STATE_FIELDS)
-FIELD = re.compile(rf"\^\(?\s*(?:{NAMES})\b|(?<![\w-])(?:{NAMES})\s*:")
+# A state field at the start of a line, alone or as any choice of a group
+# opened there, or a state field and its colon anywhere.
+FIELD = re.compile(rf"\^\s*(?:{NAMES})\b|\^\((?:[^()|]*\|)*\s*(?:{NAMES})\b|(?<![\w-])(?:{NAMES})\s*:")
 
 # The brain's own files beside the tracker folders, which the tool alone writes.
 OWN_FILES = (schema.INDEX, autoack.FILE, task.FILE, conclude.FILE, schema.HANDOVER_FOLDER)
