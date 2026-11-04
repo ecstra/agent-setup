@@ -1079,74 +1079,131 @@ before the write's.
 A tracker folder here is one the brain indexes, `docs/`, `memory/`,
 `bugs/`, `todos/`, `decisions/`, `plans/`, `build-specs/` or
 `reviews/`. The brain's own files are `INDEX.md`, `.ack`, `.task`,
-`.conclude` and `.handover/`, which the tool alone writes.
+`.conclude` and `.handover/`, which the tool alone writes. A pattern in
+place of a folder's name, as in `.agents/*/*.md` or
+`.agents/{bugs,todos}/*.md`, reaches each tracker folder it matches.
+Nothing else in the brain's folder is an entry, the kit's own
+`SYSTEM.md`, `README.md`, `house-rules.md`, `VERSION` and `skills/`
+among them, so a read or a write there adds nothing.
 
 A read is any of these.
 
-- A field grep: a grep of a header field any kind of entry carries,
-  written with its colon as `status:` or `severity: bug`, by grep,
-  egrep, fgrep, rg, ag, ack, awk, gawk, sed or perl, where some part of
-  the command names the brain's folder or a path in a tracker folder or
-  one of the brain's own files, so a loop that names the files in one
-  part and greps each in another counts.
-- A listing: a listing or a count of a tracker folder or of anything in
-  one by ls, find, fd, tree, wc or du, one with no path while the call
-  stands in a tracker folder among them.
-- A print: cat, head, tail, less, more or bat printing several entries
-  at once, where some part of the command names a tracker's files by a
-  pattern, as `cat .agents/bugs/*.md` does and as a loop of `head` over
-  `TODO-0*` after a `cd` into `.agents/todos` does, or where the
-  printers name two files or more in tracker folders.
+- A field grep: grep, egrep, fgrep, rg, awk, or sed without `-i`, whose
+  pattern names a field an entry's state lives in, `status`,
+  `severity`, `area`, `branch`, `born`, `done`, `reported`, `became`,
+  `parent`, `superseded-by`, `author` or `editor`, over the brain's
+  folder, a tracker folder, a path in one or one of the brain's own
+  files. The field counts at a line's start, as `^status`, as any
+  choice of a group opened there, as `^(status|severity)` and
+  `^(title|status)` both are, or with its colon anywhere, as `status:`.
+  One word of a search for either of two with no `^` in front, as
+  `nudge|status` is, counts for nothing, and so does a field prose and
+  code use too, such as `name` or `type`. The pattern is the value of
+  `-e`, or else the first word that is no option or an option's value,
+  an awk or sed script among them. An rg with no path, or a grep with
+  `-r` and none, searches the folder it stands in, so it counts when it
+  stands in the brain's folder or a tracker folder.
+- A listing: ls, find, tree or wc over a tracker folder, a folder in
+  one or a pattern of a tracker's files, or find or tree over the
+  brain's folder. A listing needs a folder or a pattern and never one
+  named file, so `ls -la` or `wc -l` of one entry, or of two, adds
+  nothing. A listing by ls or tree with no path lists the folder it
+  stands in, and a find counts by the folders it starts from, whatever
+  its tests, so `find .agents -name "BUG-*"` is a listing.
+- A print: cat, head or tail over a pattern of a tracker's files, as
+  `cat .agents/bugs/*.md` is, or over two files or more in tracker
+  folders. A printer that a loop, a listing or xargs feeds counts when
+  the paths handed on hold such a pattern, as a loop of `head` over
+  `TODO-0*` after a `cd` into `.agents/todos` does.
 - A search tool: Claude Code's Grep and Gemini CLI's `grep_search` and
-  `search_file_content` when the pattern is a field and the folder
-  searched or its glob reaches the brain, Claude Code's Glob and Gemini
-  CLI's `glob` when the pattern, read from its folder, lands in a
-  tracker folder, and Gemini CLI's `list_directory` and
-  `read_many_files` when a path they take lies in one.
+  `search_file_content` when the pattern names a field as a field grep
+  does and the folder searched, or its glob read from that folder,
+  reaches the brain as a field grep's path does. Claude Code's Glob and
+  Gemini CLI's `glob` when the pattern holds a wildcard and, read from
+  its folder, lands in a tracker folder, so a Glob of one named entry
+  adds nothing. Gemini CLI's `list_directory` of a tracker folder or a
+  folder in one, and its `read_many_files` when what it includes is a
+  pattern of a tracker's files or two files or more in tracker folders.
 
 After a read the line names, with the full call in front,
 `list <kind> --status <status>` for the entries, `status` for the
 counts and `show <key>` for one.
 
-A write is a shell call that puts a path in a tracker folder or one of
-the brain's own files after a redirect, `>` or `>>`, or hands it to
-`sed -i`, `perl -i`, tee, mv, rm, rmdir, touch, mkdir, `git mv` or
-`git rm`, or a cp, ln or install whose last path, where the copy lands,
-is one, so a copy out of the brain is no write. After a write the line
-names `new`, `set`, `refile`, `steps`, `task`, `ledger`, `handover` and
-`index` as the commands that do that work, and `brain doctor` with the
-full call to see what the hand change left. A write through the edit
-tools adds nothing here, since the `pre-write` hook judges it before it
-lands, as its row says.
+A write is tee, mv, rm, touch, mkdir, `sed -i`, `perl -i`, `git mv` or
+`git rm` on a path in a tracker folder, one of the brain's own files or
+the brain's folder itself, a cp whose last path, where the copy lands,
+is one of those, so a copy out of the brain is no write, or a find from
+one of those with `-delete` or with an `-exec` that runs a writer. A
+redirect, `>`, `>>` or `&>`, onto a path in a tracker folder or one of
+the brain's own files is a write too, whatever program it follows.
+After a write the line names `new`, `set`, `refile`, `steps`, `task`,
+`ledger`, `handover` and `index` as the commands that do that work, and
+`brain doctor` with the full call to see what the hand change left. A
+write through the edit tools adds nothing here, since the `pre-write`
+hook judges it before it lands, as its row says.
 
 A word search in the brain's prose adds nothing, and so do a print of
 one entry, by a printer or Claude Code's Read, a call that reaches
-nothing in the brain, the kit's own files in the brain's folder, `SYSTEM.md`, `README.md`, `house-rules.md`,
-`VERSION` and `skills/`, which are not its entries, a call to the brain
-tool, as `brain` or as python running `brain.py` or `hooks.py`, and git
-but for `git mv` and `git rm`, so `git status`, `diff`, `log`, `add`
-and `commit` over the brain say nothing.
+nothing in the brain, and with no redirect into the brain a call to the
+brain tool and git but for `git mv` and `git rm`, so `git status`,
+`diff`, `log`, `add` and `commit` over the brain say nothing, whatever
+a commit message names. The programs and tools named here are the only
+ones the nudge knows.
 
-A shell command is split as a POSIX shell splits it and read part by
-part between its separators, pipes and parentheses, a redirect kept
-with its part, the program known by its bare name past `sudo`, `env`,
-`command`, `exec`, the shell's own words and any assignment in front.
-A Codex command handed over as a list, such as `bash -lc` and its
-script, is read as that script. Every path is followed through its
-links.
+A shell call is any call whose input carries a command, whatever the
+agent names the tool, and a Codex command handed over as a list is read
+as the script after its `-c` or `-lc`, or else as the words it holds.
+The command is read line by line, as the shell runs it. A backslash at
+a line's end joins it to the next, a line break inside quotes, such as
+a commit message's, stays inside its line, a comment is left out, and
+the body of a heredoc opened outside quotes is left out too, since it
+is text and not shell, so prose handed to the brain tool that names
+`rm` or `cat` never reads as a command. A line splits into parts at the
+shell's separators, pipes and parentheses, a redirect kept with its
+part, and a `cd` part moves the folder the later parts count from, on
+its line and after it. A part's program is its first word, known by its
+bare name, past `sudo`, `env`, `command`, `exec`, `xargs` and its
+options, the shell's own words such as `do` or `then`, and any
+assignment. A word is a path unless it is an option or the value an
+option takes, such as grep's `-m 1`, a number, a word with a space in
+it, a variable, or the pattern or script a reader or an edit in place
+takes first.
+
+A loop, a listing, a find and a grep that prints file names hand their
+paths on to the parts that work on them. A loop hands on its words
+after `in`, ls the paths it names, a find the folders it starts from,
+and grep or rg with `-l` or `-L` the paths it searched, or the folder
+it stands in when it searches that. A part that xargs feeds, or whose
+path is a variable such as `$f` or find's `{}`, works on every path
+any of those hands on anywhere in the same command, so a loop that
+names a tracker's files in one part and greps, prints or edits each in
+another counts, and
+`grep -l '^status: done' .agents/todos/*.md | xargs rm` is a read and a
+write. A find's `-exec`, `-execdir`, `-ok` or `-okdir` runs its program
+on the folders the find starts from, and what that program reads or
+writes counts as the find's.
 
 The limits are plain. The line comes after the call, which has run by
 then. A relative path counts from the call's folder, the event's `cwd`
-or the `dir_path` Gemini CLI's shell names, or from where an earlier
-`cd` in the same command moved, and from nowhere else. A path held in a
-variable, such as `$f`, is never read as one. A write a program makes
-on its own, a python script's among them, goes unseen, since the hook
-reads the command line and not what the program does, so only a
-redirect or one of the commands above shows it. A field grep from above
-the brain's folder, such as one over the whole project from its root,
-names no brain path and adds nothing. A command the shell cannot split,
-or an event the hook cannot read for its calls, adds nothing, and the
-moment still prints.
+or the `dir_path` Gemini CLI's shell names, from where an earlier `cd`
+in the same command moved, or for git's paths from the folder its `-C`
+names, and from nowhere else, so a `pushd` moves nothing. A path is
+placed as text, joined to the folder it counts from and normalized, and
+only the call's folder and the brain's are followed through their
+links, so no word of a command touches the disk and a path that reaches
+the brain through any other link goes unseen. For the same reason a
+listing tells a folder from a file by its name alone, a name with no
+dot but those in front taken for a folder. A variable stands only for
+the paths a loop, a listing, a find or a `grep -l` hands on, never for
+the value an assignment gives it, and it stands for every such path in
+the command, its own loop's or not. A write a program makes on its own, a
+python script's among them, goes unseen, since the hook reads the
+command line and not what the program does, so only a redirect or one
+of the commands above shows it. A field grep from above the brain's
+folder, such as one over the whole project from its root, names no
+brain path and adds nothing. A line longer than 10,000 characters, or
+one the hook cannot split, adds nothing, and so does an event the hook
+cannot read for its calls, while the moment still prints.
 
 ## The lint hook
 

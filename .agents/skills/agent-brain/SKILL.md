@@ -74,9 +74,9 @@ standing word that `status` opens with.
 SYSTEM.md section 8 makes these the way the brain is read for its
 fields, its lists and its counts, never a grep of its fields or a
 listing of its folders. A word search in its prose and a read of one
-entry are fine. After a call that greps the fields, lists a tracker
-folder or prints many entries at once by hand, the tick names the
-command that does the job, as
+entry are fine. After a call that greps the fields an entry's state
+lives in, lists a tracker folder or prints several entries at once by
+hand, the tick names the command that does the job, as
 [the nudge](references/commands.md#the-nudge) says.
 
 ## Filing something
