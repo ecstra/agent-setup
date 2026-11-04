@@ -277,7 +277,7 @@ def kit_gates(
         if answer.at_floor:
             interpreters.append((str(FLOOR), answer.version))
         else:
-            notes.append(f"{FLOOR} is Python {answer.version}, below the kit's floor of {FLOOR_VERSION}, so the tool's tests do not run under it")
+            notes.append(f"{FLOOR.as_posix()} is Python {answer.version}, below the kit's floor of {FLOOR_VERSION}, so the tool's tests do not run under it")
 
     others = [word for interpreter, _ in interpreters[1:] for word in ("--python", interpreter)]
     versions = ", ".join(version for _, version in interpreters)

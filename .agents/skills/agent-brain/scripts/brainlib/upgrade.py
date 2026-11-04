@@ -310,7 +310,7 @@ class Kit:
         try:
             return (self.root / relative).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as error:
-            raise UpgradeError(f"the kit's {relative} cannot be read: {error}") from error
+            raise UpgradeError(f"the kit's {Path(relative).as_posix()} cannot be read: {error}") from error
 
     def data(
         self,
@@ -321,7 +321,7 @@ class Kit:
         try:
             return path.read_bytes(), os.stat(path).st_mode & 0o777
         except OSError as error:
-            raise UpgradeError(f"the kit's {relative} cannot be read: {error}") from error
+            raise UpgradeError(f"the kit's {Path(relative).as_posix()} cannot be read: {error}") from error
 
 
 def ships(
@@ -637,7 +637,7 @@ def prepare(
         own_folder = store.quietly(linked.is_dir) and not store.quietly(linked.is_symlink)
         if not shipped and own_folder and not store.same_bytes(one=linked / schema.SKILL_FILE, other=kits_own_file):
             raise UpgradeError(
-                f"the kit now ships a skill named {name}, and {doctor.SKILL_LINKS / name} holds a folder of the project's own where the kit's skill link goes, move it aside first",
+                f"the kit now ships a skill named {name}, and {(doctor.SKILL_LINKS / name).as_posix()} holds a folder of the project's own where the kit's skill link goes, move it aside first",
             )
 
         for definition in skill.definitions if skill else ():
@@ -678,7 +678,7 @@ def prepare(
             merged_config(
                 existing=read_as_is(target),
                 kit=settings if relative == CLAUDE_SETTINGS else kit.text(relative),
-                where=str(relative),
+                where=relative.as_posix(),
             )
             merged.append(relative)
 
@@ -763,7 +763,7 @@ def install(
             merged = merged_config(
                 existing=read_as_is(project.root / relative),
                 kit=prepared.settings if relative == CLAUDE_SETTINGS else kit.text(relative),
-                where=str(relative),
+                where=relative.as_posix(),
             )
             put(project=project, relative=relative, text=merged, report=report)
             continue
@@ -775,11 +775,11 @@ def install(
                 text=prepared.settings,
                 report=report,
             ):
-                report.done(f"wrote {relative}")
+                report.done(f"wrote {relative.as_posix()}")
             continue
 
         if copy(kit=kit, project=project, relative=relative):
-            report.done(f"wrote {relative}")
+            report.done(f"wrote {relative.as_posix()}")
 
     ignore(project=project, kit=kit, report=report)
 
@@ -1192,7 +1192,8 @@ def rewrite_folder_name(
     if wanted == text:
         return False
 
-    frontmatter.write_text(path=str(path), text=wanted)
+    # the text holds the file's own line ends, so the write adds none
+    frontmatter.write_text(path=str(path), text=wanted, newline="")
 
     return True
 
@@ -1221,7 +1222,7 @@ def move(
     """
     moved = git(
         project=project,
-        arguments=["mv", "-f", str(old.relative_to(project.root)), str(new.relative_to(project.root))],
+        arguments=["mv", "-f", old.relative_to(project.root).as_posix(), new.relative_to(project.root).as_posix()],
     )
     if moved is not None and moved.code == 0:
         return
@@ -2212,13 +2213,13 @@ def kit_config(
     try:
         settings = json.loads(text)
     except json.JSONDecodeError as error:
-        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS} is not valid JSON: {error}") from error
+        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS.as_posix()} is not valid JSON: {error}") from error
 
     if not isinstance(
         settings,
         dict,
     ):
-        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS} is not a JSON object")
+        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS.as_posix()} is not a JSON object")
 
     settings["permissions"] = {"deny": list(READ_GUARDS)}
     settings["sandbox"] = {"filesystem": {"allowRead": list(READ_OPENINGS)}}
@@ -2330,7 +2331,8 @@ def ignore(
     if text == existing:
         return
 
-    frontmatter.write_text(path=str(target), text=text)
+    # the text holds the file's own line ends, so the write adds none
+    frontmatter.write_text(path=str(target), text=text, newline="")
     report.done(f"set the kit's ignore block at the top of {IGNORE_FILE}, the project's own lines below it win")
 
 
@@ -2350,12 +2352,12 @@ def guarded_paths(
     listed, unless the migration is about to rewrite them.
     """
     paths = [*ROOT_FILES]
-    paths += [str(relative) for relative in kit.agent_files() if relative.name not in MERGED]
-    paths += [str(relative) for relative in style.COPIES]
+    paths += [relative.as_posix() for relative in kit.agent_files() if relative.name not in MERGED]
+    paths += [relative.as_posix() for relative in style.COPIES]
 
     brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
-    paths += [str(brain.relative_to(project.root) / relative) for relative in kit.brain_files()]
-    paths += [str(path.relative_to(project.root)) for path in kits_specs(brain=brain)]
+    paths += [(brain.relative_to(project.root) / relative).as_posix() for relative in kit.brain_files()]
+    paths += [path.relative_to(project.root).as_posix() for path in kits_specs(brain=brain)]
     paths += retire_definitions(project=project, remove=False)
     for folder in kit_skill_folders(brain=brain, kit=kit):
         paths += files_under(
@@ -2368,7 +2370,7 @@ def guarded_paths(
         targets: list[Path] = migration_targets(
             project=project,
         )
-        paths += [str(path.relative_to(project.root)) for path in targets]
+        paths += [path.relative_to(project.root).as_posix() for path in targets]
 
     return paths
 
@@ -2386,7 +2388,7 @@ def files_under(
     if not store.quietly(folder.is_dir):
         return []
 
-    return [str(path.relative_to(root)) for path in sorted(folder.rglob("*")) if taken(path)]
+    return [path.relative_to(root).as_posix() for path in sorted(folder.rglob("*")) if taken(path)]
 
 
 def retire_takes(
@@ -2712,7 +2714,7 @@ def put(
     frontmatter.write_text(path=str(target), text=text)
 
     if not quiet:
-        report.done(f"{'replaced' if was_there else 'created'} {relative}")
+        report.done(f"{'replaced' if was_there else 'created'} {Path(relative).as_posix()}")
 
     return was_there
 
@@ -2815,7 +2817,7 @@ def retire_specs(
     retired: list[str] = []
     for path in kits_specs(brain=project.brain):
         path.unlink()
-        retired.append(str(path.relative_to(project.root)))
+        retired.append(path.relative_to(project.root).as_posix())
 
     left = sorted(path.name for path in spec.iterdir())
     if left:
@@ -2880,7 +2882,7 @@ def retire(
         relative = path.relative_to(project.root)
         if retire_takes(path) and relative not in keep:
             path.unlink()
-            retired.append(str(relative))
+            retired.append(relative.as_posix())
         elif path.name == "__pycache__" and path.is_dir() and not path.is_symlink() and holds_only_bytecode(path):
             shutil.rmtree(path)
         elif path.is_dir() and not path.is_symlink() and not any(path.iterdir()):

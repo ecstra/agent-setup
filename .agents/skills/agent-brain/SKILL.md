@@ -383,9 +383,12 @@ Code one, a missing or dead skill link, a read guard rule or sandbox
 entry missing from `.claude/settings.json` while `.claude` stays
 inside the project, an entry's missing
 `author` or `editor`, which it fills from git's history, and stamps
-every file it touches, save one where it only fills a name. Whatever is left needs a
-decision, so read it and act on it. Silencing a finding is never the
-answer.
+every file it touches, save one where it only fills a name. Where the
+system refuses a link, as Windows does without Developer Mode, a skill
+link's repair leaves what stands in its place as it was and fails with
+the steps that get links, as [doctor](references/commands.md#doctor)
+says. Whatever is left needs a decision, so read it and act on it.
+Silencing a finding is never the answer.
 
 ## Bringing a project to the kit
 

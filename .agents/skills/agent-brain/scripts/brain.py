@@ -599,7 +599,7 @@ def run_index(
     args: argparse.Namespace,
 ) -> int:
     for path in index.write(brain):
-        print(path.relative_to(brain.root))
+        print(path.relative_to(brain.root).as_posix())
     return 0
 
 

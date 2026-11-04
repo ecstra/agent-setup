@@ -307,8 +307,9 @@ def target_of(
 def write_text(
     path: str,
     text: str,
+    newline: Optional[str] = None,
 ) -> None:
-    """Write text as a real file, whole or not at all.
+    """Write text as a real file, whole or not at all, line feeds in the system's line ends unless `newline` says otherwise, `""` for text that holds its own.
 
     The text goes to a temporary file beside the target and is moved
     into place in one step, so a failure part way leaves the old file
@@ -327,7 +328,7 @@ def write_text(
     handle, temporary = tempfile.mkstemp(dir=folder, prefix=f".{os.path.basename(path)}.", suffix=TEMP_SUFFIX)
 
     try:
-        with os.fdopen(handle, "w", encoding="utf-8") as opened:
+        with os.fdopen(handle, "w", encoding="utf-8", newline=newline) as opened:
             opened.write(text)
             opened.flush()
             os.fsync(opened.fileno())

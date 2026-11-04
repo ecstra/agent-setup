@@ -305,7 +305,7 @@ def where_of(
     if brain.root in path.parents:
         return relative(brain=brain, path=path)
 
-    return str(path.relative_to(brain.root.parent))
+    return path.relative_to(brain.root.parent).as_posix()
 
 
 def remove(
@@ -343,7 +343,7 @@ def relative(
     brain: store.Brain,
     path: Path,
 ) -> str:
-    return str(path.relative_to(brain.root))
+    return path.relative_to(brain.root).as_posix()
 
 
 def check_frontmatter(
@@ -1055,7 +1055,7 @@ def check_layout(
 
         found.append(
             Finding(
-                path=str(trouble.path),
+                path=trouble.path.as_posix(),
                 check="layout",
                 message=message,
                 repair=repair,
@@ -1076,6 +1076,12 @@ def check_layout(
 
 
 CANNOT_SEE = ", so Claude Code cannot see the skill"
+# a skill link is made under this name beside its place and moved into it, so a refused link touches nothing
+LINK_IN_THE_MAKING = ".link"
+# what the system says when it refuses a symbolic link: Windows without Developer Mode in its own number, a disk with no links elsewhere
+PRIVILEGE_NOT_HELD = 1314
+LINKS_REFUSED = frozenset({errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP, errno.ENOSYS})
+NO_SYMBOLIC_LINKS = "this system refuses symbolic links, so turn on Windows Developer Mode, run git config core.symlinks true, then git checkout -- .claude/skills to bring the skill links back as links, and run brain doctor --fix"
 REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs" + CANNOT_SEE
 ANOTHER_SKILL = "a skill of its own sits where the skill link belongs, so Claude Code loads that one instead"
 STALE_COPY = "a copy of the skill sits where the skill link belongs and is behind the brain's, so Claude Code loads the old text"
@@ -1128,7 +1134,7 @@ def resolved(
 def skill_missing(
     name: str,
 ) -> str:
-    return f"the skill itself is missing from {SKILL_HOMES / name}, reinstall the kit"
+    return f"the skill itself is missing from {(SKILL_HOMES / name).as_posix()}, reinstall the kit"
 
 
 def stray_skill_links(
@@ -1172,7 +1178,7 @@ def stray_skill_links(
 
         found.append(
             Finding(
-                path=str(SKILL_LINKS / link.name),
+                path=(SKILL_LINKS / link.name).as_posix(),
                 check="layout",
                 message=SKILL_GONE + (SHARED_REMOVAL if shared else ""),
                 repair=None if shared else remove_link(link),
@@ -1417,11 +1423,11 @@ def check_style_copies(
     try:
         wanted = style.source_body(brain)
     except style.StyleError as error:
-        return [Finding(path=str(style.SOURCE), check="layout", message=str(error))]
+        return [Finding(path=style.SOURCE.as_posix(), check="layout", message=str(error))]
 
     return [
         Finding(
-            path=str(relative),
+            path=relative.as_posix(),
             check="layout",
             message="the chat style copy does not match the Claude Code one",
             repair=write_copy(target=style.project(brain) / relative, text=wanted),
@@ -1444,10 +1450,13 @@ def make_skill_link(
     project: Path,
     name: str,
 ) -> Callable[[], None]:
-    """A repair that puts the named skill's symlink in place, clearing a dead link or a stray file first.
+    """A repair that puts the named skill's symlink in place, clearing a dead link or a stray file first, git's stand in for a link among them.
 
     A real folder is never removed here. It is somebody's, and the check
-    leaves it for a person.
+    leaves it for a person. The link is made under a name of its own and
+    moved into place, so where the system refuses a symbolic link, as
+    Windows does without Developer Mode, what stood there, git's stand in
+    among them, stays as it was and the failure says how to get links.
     """
 
     def repair() -> None:
@@ -1456,15 +1465,26 @@ def make_skill_link(
         if not os.access(str(link.parent), os.W_OK):
             raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), str(link.parent))
 
-        if link.is_symlink() or (link.exists() and not link.is_dir()):
-            link.unlink()
-
         target = skill_target(
             project=project,
             link=link,
             name=name,
         )
-        os.symlink(target, str(link))
+        made = link.with_name(f".{link.name}{LINK_IN_THE_MAKING}")
+        if os.path.lexists(made):
+            made.unlink()
+
+        try:
+            os.symlink(target, str(made))
+        except OSError as error:
+            if getattr(error, "winerror", None) == PRIVILEGE_NOT_HELD or error.errno in LINKS_REFUSED:
+                raise OSError(error.errno, NO_SYMBOLIC_LINKS) from error
+            raise
+
+        # the new link stands, so what stood in its place goes first, since Windows moves nothing over a link to a folder
+        if link.is_symlink() or (link.exists() and not link.is_dir()):
+            link.unlink()
+        os.replace(str(made), str(link))
 
     return repair
 

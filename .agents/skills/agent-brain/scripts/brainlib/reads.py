@@ -42,7 +42,7 @@ def status(
         "open_reviews": [entry.name for entry in reviews],
         "handover": waiting_handover(brain=brain),
         "task": chain_or_none(brain),
-        "unreadable": [str(path.relative_to(brain.root)) for path in brain.unreadable],
+        "unreadable": [path.relative_to(brain.root).as_posix() for path in brain.unreadable],
     }
 
 

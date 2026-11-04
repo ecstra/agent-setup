@@ -11,6 +11,18 @@ failure on standard error, since the command did its work and doctor
 reports what is left, while an index rebuild that fails exits 1 like any
 refusal, the entry written all the same.
 
+Every path the tool writes, into a file, a link or an index line, every
+path it compares, and every path it prints or names in a finding or a
+message, a refusal and the port's and the upgrade's report among them,
+is spelled with forward slashes on every system, Windows included. The
+paths it hands the system or another program keep the system's
+spelling, a file it opens or gives a linter, a folder git runs in, the
+Python the gates run, a skill link's target and two paths the system
+puts in one form before the tool compares them. So does a full path,
+the one `brain path` prints, the project's folder on the report's first
+line or the project's or the kit's folder a refusal names, and so do
+the system's own words on an error a message passes on.
+
 ## Reading
 
 | Command | What it answers |
@@ -536,7 +548,8 @@ from its entry or its pointer left behind by a refile or written by
 name, a numbered list under a plan's or a todo's Steps and a plan with
 no Steps section, which get the table, a stale index, a stale chat
 style copy, a skill link when it is missing, dead, pointing elsewhere
-or a plain file, which the link replaces, a real folder copy of a kit
+or a plain file, git's stand in for a link where `core.symlinks` is off
+among them, which the link replaces, a real folder copy of a kit
 skill that fell behind the brain's, which is refreshed from it, and a
 rule or a sandbox entry of [the read guard](#the-read-guard) missing
 from `.claude/settings.json` while `.claude` stays inside the project.
@@ -554,6 +567,17 @@ elsewhere is replaced by the right one, and a repair that rewrites a
 file, a stale index, a chat style copy or the settings the read guard
 goes into, writes a real file in place of any link standing there. No
 other file is removed.
+
+The skill link's repair makes the link under a name of its own beside
+its place, `.<name>.link`, clearing one an interrupted repair left
+there, and only then moves it into place. So where the system refuses
+a symbolic link, as Windows does without Developer Mode, whatever stood
+in the link's place stays exactly as it was, git's stand in for the
+link among them. Nothing is copied and git is never asked. The repair
+fails, and its flag says how to get links, which is to turn on Windows
+Developer Mode, run `git config core.symlinks true`, then
+`git checkout -- .claude/skills` to bring the skill links back as
+links, and run `brain doctor --fix`.
 
 The fill reads the brain's history in one walk of git, names read
 through the project's mailmap. The author is the git author of the
@@ -868,9 +892,13 @@ project's own that calls the script bare counts as the kit's and goes
 with them, while a group that wraps that call, or calls a copy kept
 elsewhere, is the project's and stays, and an event left with no group
 stays as an empty list. A rename goes through git where git tracks the
-file, so the move shows as one. The exit code is doctor's, 0 clean and
-2 while findings remain, and those are the project's own prose to put
-right. A finding in a file the install writes whole is the kit's to
+file, so the move shows as one. The ignore file is written with a
+carriage return and a line feed at each line's end where any of its
+lines ends that way, else a line feed alone, a new one too, and a file
+the 1.0.0 migration points at `.agents/` keeps its own line ends, so on
+Windows neither gains a second carriage return. The exit code is
+doctor's, 0 clean and 2 while findings remain, and those are the
+project's own prose to put right. A finding in a file the install writes whole is the kit's to
 fix, printed apart and never counted, since the install replaces that
 file every time. Such a file is a skill the kit ships, the brain's own
 `SYSTEM.md`, `README.md` or `house-rules.md`, the version stamp
@@ -977,7 +1005,12 @@ standard input.
 | `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
 | `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Claude Code fires it once after each round of tool calls, Codex and Gemini CLI after each shell call. |
 | `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, anything in the `.handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
-| `post-write` | After a write, runs the project's own linters on each file just written, as [the lint hook](#the-lint-hook) says, and hands back what they left under `lint after that write:`. Then runs the check on each file just written inside the project, a file reached through a link that leads out of it left out, and hands its slips back as context under `brain check after that write:`, so they are fixed in the same round, a file the check passes over left out as the check leaves it out. A file the check could not judge, since git cannot read its attributes, is named on standard error, in UTF-8, and never in the context, and a standard error that cannot take the note loses it and nothing else. After a write inside `.agents/`, runs doctor too and hands its findings back the same way, or its error in words where it cannot read the brain, and still exits 0, since an exit 1 would show the person the error and lose the slips. |
+| `post-write` | After a write, runs the project's own linters on each file just written, as [the lint hook](#the-lint-hook) says, and hands back what they left under `lint after that write:`. Then runs the check on each file just written inside the project, a file reached through a link that leads out of it left out, and hands its slips back as context under `brain check after that write:`, so they are fixed in the same round, a file the check passes over left out as the check leaves it out. A file the check could not judge, since git cannot read its attributes, is named on standard error and never in the context, and a standard error that cannot take the note loses it and nothing else. After a write inside `.agents/`, runs doctor too and hands its findings back the same way, or its error in words where it cannot read the brain, and still exits 0, since an exit 1 would show the person the error and lose the slips. |
+
+What a hook puts on standard error, a refusal, the error that stopped
+it or a note, goes out as UTF-8 whatever the locale's encoding, since
+every agent reads it that way, so a file name the locale cannot
+encode, as a Windows code page often cannot, reaches the agent whole.
 
 Context goes back as one JSON object naming the event, which all three
 agents read on every event. Codex also takes plain text at the start of
