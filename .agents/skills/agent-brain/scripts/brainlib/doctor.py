@@ -1078,6 +1078,9 @@ def check_layout(
 CANNOT_SEE = ", so Claude Code cannot see the skill"
 # a skill link is made under this name beside its place and moved into it, so a refused link touches nothing
 LINK_IN_THE_MAKING = ".link"
+# what the system says when it refuses a symbolic link: Windows without Developer Mode in its own number, a disk with no links elsewhere
+PRIVILEGE_NOT_HELD = 1314
+LINKS_REFUSED = frozenset({errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP, errno.ENOSYS})
 NO_SYMBOLIC_LINKS = "this system refuses symbolic links, so turn on Windows Developer Mode, run git config core.symlinks true, then git checkout -- .claude/skills to bring the skill links back as links, and run brain doctor --fix"
 REAL_FOLDER_WITHOUT_SKILL = "a folder with no SKILL.md sits where the skill link belongs" + CANNOT_SEE
 ANOTHER_SKILL = "a skill of its own sits where the skill link belongs, so Claude Code loads that one instead"
@@ -1474,8 +1477,13 @@ def make_skill_link(
         try:
             os.symlink(target, str(made))
         except OSError as error:
-            raise OSError(error.errno, NO_SYMBOLIC_LINKS) from error
+            if getattr(error, "winerror", None) == PRIVILEGE_NOT_HELD or error.errno in LINKS_REFUSED:
+                raise OSError(error.errno, NO_SYMBOLIC_LINKS) from error
+            raise
 
+        # the new link stands, so what stood in its place goes first, since Windows moves nothing over a link to a folder
+        if link.is_symlink() or (link.exists() and not link.is_dir()):
+            link.unlink()
         os.replace(str(made), str(link))
 
     return repair
