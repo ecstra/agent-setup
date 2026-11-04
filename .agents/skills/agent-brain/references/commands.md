@@ -369,7 +369,10 @@ point at reads as prose, and so does a plain date. A line under Steps
 that is not a numbered step is refused too, a wrapped step's lines
 indented under it aside, since a line the table cannot carry is never
 dropped without a word. A pipe in a step is written into its cell as
-`\|`, the way markdown reads it, and read back as a pipe.
+`\|`, the way markdown reads it, and read back as a pipe. Once the
+section holds the table, a row or a numbered step inside code or an
+HTML comment there reads as nothing, so a draft can wait in a comment
+under the table.
 
 | Command | What it does |
 |---|---|
@@ -424,6 +427,10 @@ it is.
 | `brain ledger set <ledger> F-NN [F-NN ...] field=value ...` | Changes a finding, or every finding named, each value one line taken as written. The findings come first and the changes after them, so no word meant for one finding lands on another. Several findings take the same changes in one write, so the findings a group's commit fixed get its hash in one call, whole or not at all, and a finding the ledger does not have refuses the call. The call is refused too, with a message that names the word, for a finding's id after the first change, a change before the first finding, a field given twice, a finding named twice, and an id in lower case such as `f-03`, and it is refused for findings with no change. A ledger given as a finding's id, in either case, is refused as the ledger's key left out. The fields are severity, found-by, batch, status, fix and reason, and a line a hand edit lost comes back. A fixed finding always names its commit, `fix=<hash>`, a refuted, a wontfix or a deferred one says why in the same call, `reason=<one line>`, and the reason leaves with the status, as the fix does with a status moved away from fixed, save a `fix=` the same call gives, which stands on every finding the call names, whatever its status. A finding that moves into fixed names its commit in the same call or the call is refused whole, whatever fix an earlier call left on it, and one fixed already and set fixed again keeps its commit. A batch must be one the table has. The statuses are open, fixed, refuted, wontfix and deferred, and a refuted finding, like a wontfix, has landed and needs no batch. |
 | `brain ledger report <ledger>` | The ledger's state in a few lines, counted from the file, with a blank status read as open the way close reads it. The first line gives the status and the counts, then one line per batch with its status, ack and counts, then a last line saying what comes next. That last line names an open or a fixed finding filed into no batch the table has before anything else, since a fix is verified by its batch, then walks the batches in order and says what the first unfinished one needs, the owner's word for a pending one, or its start when the ack is already on it or the standing word holds, a stamp from an earlier word counting only while the word holds, the ack on record for one that holds findings and has none, the standing word's while one holds, then its open findings, a late one included, its verification, and its marking done. Once every batch is done it says to close the ledger. |
 | `brain ledger close <ledger>` | Flips the ledger to closed and writes the count under Summary. Refuses while a finding is open or has no status, and until the report's next line says to close the ledger, so a batch not yet done holds it open. |
+
+A batch row, a finding or a finding's `- field:` line inside code or an
+HTML comment reads as nothing, so a draft kept in a comment in the
+ledger is never counted, numbered past or written to.
 
 ## Doctor
 
