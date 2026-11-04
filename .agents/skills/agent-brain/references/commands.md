@@ -518,12 +518,14 @@ closing, such as `<details>` or `</div>`, even inside a paragraph, runs
 to the next blank line, and so does one that opens with a line holding
 nothing but one complete tag of any name, such as
 `<span class="rules">`, where no paragraph is open. A heading ends the
-paragraph before it, so such a tag right under a heading opens a block.
+paragraph before it, a `#` heading or an underlined one, `===` or `---`
+under a paragraph line, so such a tag right under either opens a block.
+A line that holds only a comment or a fence's marks ends the paragraph
+before it too, while a line of nothing but code spans is part of one.
 A blank line is one with nothing on it as written, so a line that holds
 only a comment never ends a block. A block nothing closes runs to the
-end of the file. So an `@AGENTS.md` on the line
-under `<details>` is no import, while one set off from the tags by
-blank lines is.
+end of the file. So an `@AGENTS.md` on the line under `<details>` is no
+import, while one set off from the tags by blank lines is.
 
 Only an import line is judged. That is a line that holds one `@path`
 and nothing else once its code and comments are blanked, with nothing
@@ -582,16 +584,19 @@ since the rules then never load. Here every `@` an agent may open
 counts, anywhere outside code, comments and raw HTML, at a line's start
 or after whitespace, `*`, `_`, `(`, `[` or `>`, in a sentence or on a
 line of its own, so an import line such as `>@AGENTS.md`, its quote
-marker right before the `@`, counts too. Emphasis markers, trailing punctuation and a fragment are set
-aside, an escaped space is read as a space, and the path may reach
+marker right before the `@`, counts too. Emphasis markers, trailing
+punctuation and a fragment are set aside, and the path may reach
 `AGENTS.md` under any spelling of its case, through `./` or through a
 link that resolves to it. The markdown files the door imports are
 followed too, each `@` in one read the same way from that file's own
-folder, up to five imports deep, as deep as Claude Code follows them,
-and each file once a walk, as Claude Code walks them, so files that
-import each other cost one read each. A path from the root of the disk or the home folder, or one that climbs
-out and back in by the folders' names, never counts, since it leads
-there on one machine alone, and nor does one with any other backslash.
+folder, up to five imports deep, as deep as Claude Code follows them.
+They are walked breadth first, so each file is reached first by its
+shortest path and read once a walk, the door itself counted as read,
+and a deeper path to a file never keeps a shorter one from reaching
+what it imports. A path from the root of the disk or the home folder,
+or one that climbs out and back in by the folders' names, never counts,
+since it leads there on one machine alone, and nor does one with a
+backslash, an escaped space such as `@docs/team\ notes.md` among them.
 `GEMINI.md` is not reported while `.gemini/settings.json` names
 `AGENTS.md` under `context.fileName`, alone or in a list, since Gemini
 CLI then loads it as a context file. The settings are read with their
