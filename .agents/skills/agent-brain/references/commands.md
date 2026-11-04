@@ -53,7 +53,7 @@ answers nothing. Every command that takes a key reads it this way.
 |---|---|
 | `brain new <kind> --title T --description D [fields] [--category C] [--link P]...` | Files a new entry from the prose on standard input and prints its path, then any slip the check finds in it, as [the check](#the-check) says. The header names whoever files it as `author` and `editor`, as the paragraph under the fields by kind says. `--category` places a doc in a folder under `docs/`. `--link` repeats, takes a path, an id or a name, and is refused when it reaches nothing inside `.agents/`, a path into `.handover/` included, since no link goes into the folder whose one note is read once. |
 | `brain set <key> field=value ...` | Changes fields, checks values and dates, applies the lifecycle rules, stamps `updated`, and prints the entry's path. Where the new status skips the steps that point at the entry, a todo or a build spec dropped or a todo or a bug refiled, it then prints one line for each step of an open entry that now reads skipped, `<id> step <n> now reads skipped, since <key> is <status>`, so the plan or the build spec that lost the step is seen to, and the entry that lost it stays valid. |
-| `brain refile <key> --title T` | Renames for a new title. The id stays, every link follows. |
+| `brain refile <key> --title T` | Renames for a new title. The id stays, every link follows, and a body link that carries a title after its path, in double quotes, single quotes or round brackets, such as `[x](path "Title")`, keeps it. |
 | `brain refile <key> --kind bug\|todo --description D [fields]` | Turns a todo into a bug or the reverse, new body on standard input, and prints the new one's path and any slip the check finds in it, as `brain new` does. Both files stay, linked both ways, the old one marked `refiled` with the new one's id in `became`, which every step that pointed at the old one follows, save a step whose own entry the new one's steps point back at, which stays on the old one as skipped while the new one is open and follows once it closes. Refused when a step of the new body points at the old entry, or at an open entry whose steps point back at it at any remove, since the new entry takes the old one's pointers over. |
 | `brain index` | Rebuilds every `INDEX.md` and prints the ones that changed. |
 
@@ -104,7 +104,9 @@ same way, a bug `Problem` and `Evidence`, with `Steps`, `Fix` and
 `Consequences` optional, and a review `Summary`, `Batches` and
 `Findings`. An empty standard input writes the headings and
 nothing else, for filling in afterwards, a plan and a build spec
-aside, which are filed from their prose or not at all.
+aside, which are filed from their prose or not at all. A heading inside
+code or an HTML comment is no heading, to the required headings and to
+every section the tool looks up.
 
 ## The standing word
 
@@ -442,11 +444,12 @@ and complete, an entry's `author` and
 matching filenames and unique, kind matching folder, fields and values
 against the kind, required headings, the lifecycle rules, filename
 patterns kept and no id carried twice, links that resolve, links written
-as paths with each file once, body links that resolve, a link of either
-kind into `.handover/` reported as reaching nothing even while the note
-is there, the steps tables as the steps section says, indexes current,
-no dash or semicolon in a header's name, description or links, which
-flow into the indexes, no machine paths, nothing shaped like a secret,
+as paths with each file once, body links that resolve, one with a title
+after its path among them, a link of either kind into `.handover/`
+reported as reaching nothing even while the note is there, the steps
+tables as the steps section says, indexes current, no dash or semicolon
+in a header's name, description or links, which flow into the indexes,
+no machine paths, nothing shaped like a secret,
 the version stamp a version, the chat style copies for Codex and Gemini
 CLI matching the Claude Code one where the project keeps those agents'
 folders, and the skill links Claude Code needs, one per skill the kit
@@ -470,14 +473,25 @@ and Gemini CLI reads `GEMINI.md` and `AGENTS.md` while the project keeps
 a `.gemini/` folder. A front door is judged once for each agent that
 reads it, `AGENTS.md` by Claude Code's rules when the project keeps
 neither folder, and a front door that is a link to `AGENTS.md` is read
-once, as that file. Both agents find code the same way, in a fence of
-backticks or tildes, closed or not, in an indented block, which is a
-line four columns in from the margin where no paragraph is open, the
-margin inside a list item being where its text starts, or in a span,
-which a backtick after a backslash never opens. A comment opened at the
-start of a line runs to its `-->` or to the end of the file, and a fence
-inside it opens nothing. Claude Code skips HTML comments too, while
-Gemini CLI reads them raw.
+once, as that file. Both agents find code the same way, and doctor
+finds it as they do, through the one reader of markdown the rest of the
+tool uses. Code sits in a fence of backticks or tildes, closed or not,
+in an indented block, which is a line four columns in from the margin
+where no paragraph is open, the margin inside a list item being where
+its text starts, or in a span, which a backtick escaped by a backslash
+never opens and which keeps to its cell in a table, inside a block
+quote as much as outside one. A thematic break of any kind, `***`,
+`___`, `---` or a spaced one such as `* * *` or `- - -`, is no list
+item, so an indented line after it is code. A comment that opens a line
+or a list item's text runs to its `-->`, or else to the end of the list
+item or the quote it sits in, or of the file, and a fence inside it
+opens nothing. Outside a list item the tool's other readers, the check
+among them, take such an opener with no `-->` for no comment, and only
+doctor runs it on to the end, as the agents do. An empty comment,
+`<!-->` or `<!--->`, closes where it stands and hides nothing past it,
+and one opened inside a sentence closes inside its paragraph or is
+plain text. Claude Code skips HTML comments too, while Gemini CLI reads
+them raw.
 
 In both agents an `@` at the start or after whitespace opens an import
 whose path runs to the next whitespace. Claude Code reads the lexer's
@@ -532,12 +546,8 @@ exact name is read, and one that is there but cannot be read.
 
 Doctor does not follow the lexer everywhere, and in these cases it may
 stay silent where an agent loads nothing, or report an import no agent
-opens. They are an `@` inside link text or strikethrough, a backtick
-after an escaped backslash, a thematic break of any kind, `***`, `___`,
-`---` or a spaced one such as `* * *` or `- - -`, after which an
-indented block is read as prose and the spaced ones are taken for list
-items, a comment that opens inside a list item, and an import with no
-`.md` ending that leads nowhere, which reads as a mention.
+opens. They are an `@` inside link text or strikethrough and an import
+with no `.md` ending that leads nowhere, which reads as a mention.
 
 `--fix` repairs a missing or blank `updated` date, blank `links`
 written as `[]`, an entry's missing `author` or `editor`, which it fills
@@ -653,7 +663,9 @@ sentence, one past the sentence an item opens with and a second one in
 an item are each a slip. A table row is a line of a table as GitHub
 reads one, the header row straight above a delimiter row, the delimiter
 row and the rows under it up to a blank line, a heading or a line with
-no pipe, and it takes any colon.
+no pipe, and it takes any colon. A row splits into its cells at each
+pipe no backslash escapes before its code spans are read, as GitHub
+splits it, so a span never pairs backticks across two cells.
 
 What carries literal punctuation is stepped over before a line is
 judged. That is the header block, a `---` line that opens the file with
@@ -733,7 +745,9 @@ The check falls short in these places.
   reads as a table whatever its count of cells, and a quote that takes
   up its marker again after a lazy line reads as two quotes. A code span
   across either cut is lost and its punctuation named, so keep the span
-  on one line or the marker on every line.
+  on one line or the marker on every line. A span that holds a pipe in
+  a line read as a table this way is cut at the pipe too, as a cell's
+  would be, and its punctuation named.
 - A tab after a quote's marker can make the text after it read as an
   indented code block, so that line goes unjudged.
 - Git's warning that it could not open a folder is read in git's
