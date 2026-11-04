@@ -1,6 +1,6 @@
 ---
 name: agent-brain
-description: The one way to file, change, count or check anything in the project's .agents/ brain. Use it to file a plan, a todo, a bug, a decision, a doc or a memory, to set the work the agent is on and mark its steps, to run a review ledger, to leave the note for the next session, to retitle a file, or to check the brain. Never write a brain file by hand.
+description: The one way to read, list, count, file, change, move or check anything in the project's .agents/ brain. Use it to list or count the open entries, show one, file a plan, todo, bug, decision, doc or memory, set the work in hand and mark its steps, run a review ledger, leave the next session's note, retitle a file, or check the brain. Never grep its fields, list its folders or write it by hand.
 ---
 
 # The brain tool
