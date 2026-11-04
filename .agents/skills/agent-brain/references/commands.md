@@ -473,16 +473,28 @@ its time limit. A kit folder named in
 another case, such as `Skills/` for `skills/`, is the kit's only where
 git says the flag is true, so where git gives no answer on a disk that
 ignores case, its files are named as strays under that name, the casing
-to put right. Doctor reads the front doors, `AGENTS.md`, `CLAUDE.md` and
-`GEMINI.md`, the way each agent reads its `@` imports. Claude Code reads
-`CLAUDE.md` and `AGENTS.md` while the project keeps a `.claude/` folder,
-and Gemini CLI reads `GEMINI.md` and `AGENTS.md` while the project keeps
-a `.gemini/` folder. A front door is judged once for each agent that
-reads it, `AGENTS.md` by Claude Code's rules when the project keeps
-neither folder, and a front door that is a link to `AGENTS.md` is read
-once, as that file. Both agents find code the same way, and doctor
-finds it as they do, through the one reader of markdown the rest of the
-tool uses. Code sits in a fence of backticks or tildes, closed or not,
+to put right.
+
+Doctor reads the front doors, `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`,
+for their `@` imports. It reads `AGENTS.md` always, `CLAUDE.md` while
+the project keeps a `.claude/` folder and `GEMINI.md` while it keeps a
+`.gemini/` folder, since a project without one runs no such agent. Each
+door is judged once, the same way whichever agents read it, and a front
+door that is a link to `AGENTS.md` is read once, as that file. A front
+door that is not there is reported, `AGENTS.md` always and the other
+two while their agent's folder is there, since the rules then never
+load in that agent, and the next upgrade writes it back. So is a front
+door spelled in another case, such as `Claude.md`, since only the exact
+name is read, one that is there but cannot be read, and one that is not
+a regular file, such as a folder or a named pipe, which doctor never
+opens, so a pipe never holds it waiting. A front door that is not UTF-8
+is still read, each byte it cannot decode taken as the replacement
+character.
+
+Doctor first blanks what holds no import, the code, the HTML comments
+and the raw HTML. Both agents find code the same way, and doctor finds
+it as they do, through the one reader of markdown the rest of the tool
+uses. Code sits in a fence of backticks or tildes, closed or not,
 in an indented block, which is a line four columns in from the margin
 where no paragraph is open, the margin inside a list item being where
 its text starts, or in a span, which a backtick escaped by a backslash
@@ -497,64 +509,103 @@ among them, take such an opener with no `-->` for no comment, and only
 doctor runs it on to the end, as the agents do. An empty comment,
 `<!-->` or `<!--->`, closes where it stands and hides nothing past it,
 and one opened inside a sentence closes inside its paragraph or is
-plain text. Claude Code skips HTML comments too, while Gemini CLI reads
-them raw.
+plain text. A raw HTML block, as CommonMark reads one, holds no import
+either. One that opens with `<pre`, `<script`, `<style` or `<textarea`
+runs to its closing tag. One that opens with a block tag, opening or
+closing, such as `<details>` or `</div>`, even inside a paragraph, runs
+to the next blank line, and so does one that opens with a line holding
+nothing but one complete tag of any name, such as
+`<span class="rules">`, where no paragraph is open. A block nothing
+closes runs to the end of the file. So an `@AGENTS.md` on the line
+under `<details>` is no import, while one set off from the tags by
+blank lines is.
 
-In both agents an `@` at the start or after whitespace opens an import
-whose path runs to the next whitespace. Claude Code reads the lexer's
-text, where a run of `*` or `_` is emphasis only when markdown pairs
-it. A run can open when a character that is not whitespace follows it
-and can close when one stands before it, a run of `_` inside a word
-does neither, and a run that can close pairs with the nearest open run
-of the same marker and length before it in its block. The lines of a
-paragraph are read together, so a pair may open on one line and close
-on a later one, but never across a blank line, a list item's start, a
-heading or a fence. So an `@` right after a run used as an opener opens
-an import too, a run used as a closer comes off the end of the path,
-and a run left without a partner opens nothing and stays in the path. A
-backslash before a space keeps the space, any other backslash ends the
-path, and the path is cut at its first `#`. Gemini CLI reads the raw
-text, so an `@` right after `*` or `_` opens nothing, markers after the
-path are part of its name, a backslash before a space ends the path and
-any other backslash is part of the name, and a `#` fragment stays in
-the name it looks for. A token is an import when it opens with `~`,
-`/`, `./` or `../`, names a markdown file, or leads to a file under any
-spelling of its case, so a handle such as `@alice`, a package such as
-`@tanstack/query@5.59.0` or a decorator such as `@pytest.fixture` is
-passed over.
+Only an import line is judged. That is a line that holds one `@path`
+and nothing else once its code and comments are blanked, with nothing
+before it but quote markers such as `>` or `> >`, a list marker such as
+`-`, `*`, `+`, `1.` or `1)`, or quote markers and then a list marker.
+So `<!-- note --> @AGENTS.md`, `- @docs/setup.md` and
+`> @docs/setup.md` are import lines, while `# @docs/setup.md`, a line
+with two imports and an `@` inside a sentence are not. Every other `@`
+in a front door is silent, since each agent reads the rest by rules of
+its own and a check that cannot tell says nothing.
 
-Doctor reports an import with punctuation glued to its path, which the
-parser takes as part of the name so the file never loads, an import
-that reaches no file, one found only under another spelling of its
-case, which loads only where the file system ignores case, one with a
-backslash in its path, where Claude Code's path ends, and a `CLAUDE.md`
-or `GEMINI.md` with no import that resolves to the project's
-`AGENTS.md`, whether in a sentence or on a line of its own. Under
-Gemini CLI's reading it reports too an escaped space, a backslash kept
-in the name, emphasis markers glued to the path, a fragment kept in the
-name and, in a file both agents read, an import right after an emphasis
-marker, which Gemini CLI never opens. A finding names the agent only
-where the two read differently, and one both give is named once. An
-import from the home folder, one that opens with `~`, is checked for
-glued punctuation and never for being there, since it is there on one
-machine and missing on the next. An import from the root of the disk,
-one that opens with `/`, is reported for that same reason, never looked
-up and never taken for the rules import. So is one that climbs out of
-the project's folder and comes back in by retracing the folders it
-climbed out of, such as `@../../apps/web/x.md` in a project at
-`repo/apps/web`, since another checkout may go by other names, while
-one that climbs out and stays out, such as
-`@../../packages/web/README.md` there, is looked up like any other. A
-front door that is not there is reported, `AGENTS.md` always and the
-other two while their agent's folder is there, since the rules then
-never load in that agent, and the next upgrade writes it back. So is a
-front door spelled in another case, such as `Claude.md`, since only the
-exact name is read, and one that is there but cannot be read.
+A line whose path holds an escaped space, such as
+`@docs/team\ notes.md`, or a `#` fragment, such as
+`@docs/style.md#setup`, is not judged, since the two agents read those
+differently. Nor is one whose path ends in emphasis markers, `*` or
+`_`, punctuation after them or not, since Claude Code takes them off
+only when an opener earlier in the paragraph pairs them, which a line
+alone cannot tell. Nor is one whose token is no import. A token is an
+import when it opens with `~`, `/`, `./` or `../`, names a markdown
+file, or leads to a file under any spelling of its case, its trailing
+punctuation set aside and a backslash read as a slash, so a handle such
+as `@alice`, a package such as `@tanstack/query@5.59.0` or a decorator
+such as `@pytest.fixture` is no import, even alone on its line.
 
-Doctor does not follow the lexer everywhere, and in these cases it may
-stay silent where an agent loads nothing, or report an import no agent
-opens. They are an `@` inside link text or strikethrough and an import
-with no `.md` ending that leads nowhere, which reads as a mention.
+On an import line doctor reports punctuation glued to the path, any of
+`.`, `,`, `;`, `:`, `!`, `?` and `)`, which the parser takes as part of
+the name so the file never loads, and a backslash in the path, which no
+agent reads as a folder's slash, in one message whichever agents read
+the door. It reports an import from the root of the disk, one that
+opens with `/`, since it is there on one machine and missing on the
+next, and one that climbs out of the project's folder and comes back in
+by retracing the folders it climbed out of, such as
+`@../../apps/web/x.md` in a project at `repo/apps/web`, since another
+checkout may go by other names. Neither is looked up. One that climbs
+out and stays out, such as `@../../packages/web/README.md` there, is
+looked up like any other. An import from the home folder, one that
+opens with `~`, is checked for those first two slips alone and never
+for being there, since it is there on one machine and missing on the
+next. Every other import is looked up. Its target has to be there under
+its own case, since another spelling loads only where the file system
+ignores case, and it has to be a regular file, since a folder or a
+named pipe is no file to load and is never opened, one that can be
+read, and text, since Claude Code never loads anything else. Doctor
+tells text by the first 8 KB, where a NUL byte or bytes that are not
+UTF-8 say it is not, so a markdown file saved as Latin-1 is not text,
+while a character the 8 KB mark cuts in two still is. A target that is
+not there is reported unless git ignores it, such as a
+`@CLAUDE.local.md` each clone keeps for itself, and outside a
+repository, or where git gives no answer, it is reported all the same.
+Each import line gives one finding at most, and a slip written on two
+lines is named twice.
+
+The rules imports are asked of a door as a whole. `CLAUDE.md` and
+`GEMINI.md` are reported when nothing in them leads to `AGENTS.md`,
+since the rules then never load. Here every `@` an agent may open
+counts, anywhere outside code, comments and raw HTML, at a line's start
+or after whitespace, `*`, `_`, `(` or `[`, in a sentence or on a line of
+its own. Emphasis markers, trailing punctuation and a fragment are set
+aside, an escaped space is read as a space, and the path may reach
+`AGENTS.md` under any spelling of its case, through `./` or through a
+link that resolves to it. The markdown files the door imports are
+followed too, each `@` in one read the same way from that file's own
+folder, up to five imports deep, as deep as Claude Code follows them. A
+path from the root of the disk or the home folder, or one that climbs
+out and back in by the folders' names, never counts, since it leads
+there on one machine alone, and nor does one with any other backslash.
+`GEMINI.md` is not reported while `.gemini/settings.json` names
+`AGENTS.md` under `context.fileName`, alone or in a list, since Gemini
+CLI then loads it as a context file. An import line of `AGENTS.md`
+with a slip on it, such as glued punctuation or another case, counts
+all the same, so the slip gives its own finding alone, and so does a
+path that reaches `AGENTS.md` where that is no file to load, such as a
+folder. `AGENTS.md` is reported when the brain holds its rulebook,
+`.agents/SYSTEM.md`, and no `@` in `AGENTS.md` itself leads there, read
+the same way, since that import carries the rulebook.
+
+Where doctor cannot judge, it says nothing, which leaves some slips
+unnamed. Every `@` that is not alone on its line is silent, so a slip
+in a sentence, such as the full stop in `See @docs/setup.md.`, goes
+unnamed, and so does a line passed over above. A sentence such as
+`The rules are in @AGENTS.md.` counts as the rules import and gives no
+finding, though the full stop glued on keeps the file from loading. A
+token with no `.md` ending that leads nowhere reads as a mention, so
+`@docs/SETUP.` alone on a line is silent until `docs/SETUP` is there.
+Only a front door's own import lines are judged, never the imports in
+the files it imports, which doctor reads only for the rules import, and
+an `@AGENTS.md` more than five imports deep is never found.
 
 `--fix` repairs a missing or blank `updated` date, blank `links`
 written as `[]`, an entry's missing `author` or `editor`, which it fills
