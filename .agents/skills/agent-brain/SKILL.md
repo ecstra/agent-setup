@@ -7,11 +7,11 @@ description: The one way to read, list, count, file, change, move or check anyth
 
 One command does everything under `.agents/`. It is plain Python with no
 dependencies, and it runs from anywhere inside the project through the
-launcher in the brain's folder, `../.agents/brain` from a folder below
-the root, and `.agents\brain` in cmd or PowerShell.
+launcher in the brain's folder, the same in every shell on every
+system, `python3 ../.agents/brain` from a folder below the root.
 
 ```bash
-.agents/brain status
+python3 .agents/brain status
 ```
 
 The examples below shorten that to `brain`. A kind takes its plural as

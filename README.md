@@ -383,12 +383,12 @@ it is and names it, as
 [doctor](.agents/skills/agent-brain/references/commands.md#doctor)
 says. This too was tested on macOS with Windows imitated.
 
-From 2.6.0 the upgrade brings the launchers `.agents/brain` and
-`.agents/brain.cmd`, and the rules, the skill sheet and the hooks give
-the agent `.agents/brain` in place of the long Python call, which still
-works. Doctor gives `.agents/brain` its executable bit back where a ZIP
-or a checkout left it off. The Windows twin has yet to run on Windows
-itself.
+From 2.6.0 the upgrade brings the launcher `.agents/brain`, a small
+Python file, and the rules, the skill sheet and the hooks give the
+agent `python3 .agents/brain` in place of the long Python call, which
+still works. It runs the same in every shell, Git Bash, PowerShell and
+cmd among them, and doctor writes it back where an upgrade through an
+older tool left it out. It has yet to run on Windows itself.
 
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
@@ -420,11 +420,12 @@ doctor rebuilds every index from the files.
 ## The brain tool
 
 Everything inside `.agents/` goes through `brain`, the script under
-`.agents/skills/agent-brain/scripts/`, which runs as `.agents/brain`
-from the project's root, or `.agents\brain` in cmd or PowerShell. Your
+`.agents/skills/agent-brain/scripts/`, which runs as
+`python3 .agents/brain` from the project's root in any shell. Your
 agent runs it, you rarely need to, but the commands are short enough
-to know. A kind takes its plural too, so `.agents/brain list todos`
-works, and `--open` lists every entry still open in one call.
+to know. A kind takes its plural too, so
+`python3 .agents/brain list todos` works, and `--open` lists every
+entry still open in one call.
 
 | Command | What it does |
 |---|---|

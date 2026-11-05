@@ -1,12 +1,16 @@
 # Every command and flag
 
-All of them run through the launcher in the brain's folder,
-`.agents/brain` from the project's root and `../.agents/brain` from a
-folder below it, in a POSIX shell and in Git Bash, and `.agents\brain`
-in cmd or PowerShell, which runs its twin `.agents/brain.cmd`. Each
-calls `python3 .agents/skills/agent-brain/scripts/brain.py` with every
-argument, standard input and exit code passed through, and that long
-call still works. Both are shortened here to `brain`. A kind takes its
+All of them run through the launcher in the brain's folder, as
+`python3 .agents/brain` from the project's root and
+`python3 ../.agents/brain` from a folder below it, the same in every
+shell on every system. The launcher is a small Python file that runs
+`.agents/skills/agent-brain/scripts/brain.py` with every argument,
+standard input and exit code as they came, and that long call still
+works. A Python file rather than a shell script, since cmd would read a
+batch file's arguments a second time, a `%NAME%` among them, and a shell
+script stops when git checks it out with CRLF line ends, which Python
+reads the same as LF. On macOS and Linux `.agents/brain` alone runs it
+too. Both are shortened here to `brain`. A kind takes its
 plural wherever a command takes a kind, the name of its folder, so
 `list todos` reads as `list todo`. A command exits 0 when done, 1 when refused,
 with the reason on standard error, and 2 while findings remain, doctor's
@@ -484,9 +488,8 @@ or has no header block, with the reason, a stub the kit wrote or a
 dangling link an older kit made for a project skill since gone from
 the brain, a real folder where a stub belongs that holds no SKILL.md
 or a skill of its own, which is a person's, a skills folder it
-cannot list, and a launcher `.agents/brain` that lost its executable
-bit, from a ZIP or a checkout that keeps no modes, which Windows, where
-no such bit is kept, never shows. Doctor reads no file
+cannot list, and a launcher `.agents/brain` that is missing, which an
+upgrade through a tool older than it leaves out. Doctor reads no file
 in `.handover/`, nor in a folder whose name differs from it in case
 alone, since each is a dotted folder. To every link check such a folder
 is `.handover/` itself where git's `core.ignorecase` is true or git
@@ -661,8 +664,9 @@ style copy, a skill stub that is missing or whose header fell behind
 its sheet's, and where a stub belongs a link of any kind or a Windows
 junction, a plain file, git's stand in for a link where
 `core.symlinks` is off among them, or a copy of the sheet, each of
-which the stub replaces, a launcher that lost its executable bit,
-which gets the bit back for whoever may read it, and a
+which the stub replaces, a missing launcher, written from the text the
+tool holds, a link in its place replaced rather than written through,
+and a
 rule or a sandbox entry of [the read guard](#the-read-guard) missing
 from `.claude/settings.json` while `.claude` stays inside the project.
 Each repaired file gets today's date, and a repaired entry the name of
@@ -1041,8 +1045,7 @@ doctor's, 0 clean and 2 while findings remain, and those are the
 project's own prose to put right. A finding in a file the install writes whole is the kit's to
 fix, printed apart and never counted, since the install replaces that
 file every time. Such a file is a skill the kit ships, the brain's own
-`SYSTEM.md`, `README.md` or `house-rules.md`, its launchers `brain` and
-`brain.cmd`, copied whole with their mode so `.agents/brain` runs, the version stamp
+`SYSTEM.md`, `README.md` or `house-rules.md`, its launcher `brain`, the version stamp
 `VERSION`, or a file copied into the agent folders, which is a sub
 agent definition, the chat style source or one of its copies. An import
 slip in `CLAUDE.md`, in `GEMINI.md` or in the kit's words of
@@ -1148,7 +1151,7 @@ standard input.
 
 | Event | What happens |
 |---|---|
-| `session-start` | Prints into the agent's context the clock, the standing word and the current work, then the note the last session left in `.handover/handover.md`, whole under a line that says how it was taken, or the one line that says why a file there stays, another session holding the note's lock among the reasons, then `brain status`, counted once the note is taken, so it names a note this start read only where the start could not take it aside and read it in place, which the next session reads again. Under the counts one line names the launcher, `.agents/brain` and `.agents\brain` for cmd or PowerShell, and the commands that read the brain through it, `list <kind> --open`, `status` and `show <key>`, and says never to read it by a grep of its fields or a listing of its folders. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy after those, for an agent that does not expand imports. The note is taken on every start the event's `source` names but a fork, since a fork carries the context it came from, and the handover section above says how, when it waits for the lock, how a note left in `handover/` before 2.2.0 moves in, and what the start says of one that stays. |
+| `session-start` | Prints into the agent's context the clock, the standing word and the current work, then the note the last session left in `.handover/handover.md`, whole under a line that says how it was taken, or the one line that says why a file there stays, another session holding the note's lock among the reasons, then `brain status`, counted once the note is taken, so it names a note this start read only where the start could not take it aside and read it in place, which the next session reads again. Under the counts one line names the launcher's call, `python3 .agents/brain`, and the commands that read the brain through it, `list <kind> --open`, `status` and `show <key>`, and says never to read it by a grep of its fields or a listing of its folders. `--with-rules` adds `SYSTEM.md` and the agent's own chat style copy after those, for an agent that does not expand imports. The note is taken on every start the event's `source` names but a fork, since a fork carries the context it came from, and the handover section above says how, when it waits for the lock, how a note left in `handover/` before 2.2.0 moves in, and what the start says of one that stays. |
 | `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
 | `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Under the moment it adds a line for any call that read or wrote the brain by hand, as [the nudge](#the-nudge) says. Claude Code fires it once after each round of tool calls, whatever the tools, Codex after each shell call, and Gemini CLI after each call to `run_shell_command`, `grep_search`, `search_file_content`, `glob`, `list_directory` or `read_many_files`. |
 | `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.task` file, which `brain task on` writes, anything in the `.handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. A delete is not refused, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. |
@@ -1251,7 +1254,7 @@ A read is any of these.
   folder in one, and its `read_many_files` when what it includes is a
   pattern of a tracker's files or two files or more in tracker folders.
 
-After a read the line names, with `.agents/brain` in front,
+After a read the line names, with `python3 .agents/brain` in front,
 `list <kind> --open` for what is still open, `--status <status>` for
 one status, `status` for the counts and `show <key>` for one entry.
 
