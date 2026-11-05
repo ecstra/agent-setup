@@ -47,7 +47,14 @@ def source_body(
     brain: store.Brain,
 ) -> str:
     """The style text without the frontmatter only Claude Code reads."""
-    source = project(brain) / SOURCE
+    return body_at(project(brain))
+
+
+def body_at(
+    folder: Path,
+) -> str:
+    """The style text of the project in `folder`, as `source_body` reads it, refused the same way, for a caller that holds the project's folder alone."""
+    source = folder / SOURCE
     if not store.readable_file(source):
         raise StyleError(f"{SOURCE.as_posix()} is missing, so there is no style to copy")
 

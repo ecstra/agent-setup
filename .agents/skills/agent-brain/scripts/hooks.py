@@ -1136,7 +1136,8 @@ def post_write(
 
     say_notes(notes=[note for checked in checks for note in checked.notes])
 
-    inside = [touch for touch in touched if is_inside(brain=brain, path=touch.path)]
+    # a front door's imports are doctor's to judge, so a write to one runs doctor as a write inside the brain does
+    inside = [touch for touch in touched if is_inside(brain=brain, path=touch.path) or is_front_door(brain=brain, path=touch.path)]
     doctor_part: Optional[str] = doctor_after(brain) if inside else None
     if doctor_part is not None:
         parts.append(doctor_part)
@@ -1226,6 +1227,25 @@ def is_inside(
     path: Path,
 ) -> bool:
     return links.within(brain=brain, path=path) is not None
+
+
+def is_front_door(
+    brain: store.Brain,
+    path: Path,
+) -> bool:
+    """Whether the file is one of the project's front doors, AGENTS.md, CLAUDE.md or GEMINI.md at the top of the project, there or just deleted, in any case, since doctor names a door spelled in another case.
+
+    A folder that cannot be resolved, one in a link loop or a path with
+    a null byte, is no front door's, so the hook goes on with its other
+    parts.
+    """
+    if path.name.casefold() not in {door.casefold() for door in schema.FRONT_DOORS}:
+        return False
+
+    try:
+        return path.parent.resolve() == brain.root.parent.resolve()
+    except (OSError, RuntimeError, ValueError):
+        return False
 
 
 def touches(

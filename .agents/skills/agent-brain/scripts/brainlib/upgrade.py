@@ -58,11 +58,12 @@ ORIGIN_HOPS = 8
 # repository, so the walk keeps them too.
 COMMAND_SCOPE_CONFIG: frozenset[str] = frozenset({"GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT"})
 
-# The kit's code is never read by hand in a project, since the skill
-# sheet and its reference say what every command does, so the port
-# writes Claude Code the rules that refuse the read, which hold Edit
-# and Write off the same files too, and those the upgrade replaces
-# whole. The folder is named by both paths Claude Code reaches it
+# The rules that refuse Claude Code's Read of the kit's code in a
+# project, which the port writes and the upgrade replaces whole, for the
+# reason section 8 of SYSTEM.md and the read guard section of the
+# command reference give. Since an Edit needs a Read of its file first,
+# they keep an existing file there from being edited too, while a new
+# file can still be written. The folder is named by both paths Claude Code reaches it
 # through, the brain's and the skill link's, and the leading slash
 # anchors each at the settings file's project, not at the filesystem
 # root. A deny rule on Read is the kit's when it names that folder at
@@ -182,6 +183,9 @@ MARK_LINE = re.compile(
     pattern=rf"^[ \t]*({re.escape(KIT_MARK)})[ \t]*\r?$",
     flags=re.MULTILINE,
 )
+# An import alone at the margin, which the kit's door carries for itself,
+# while a list or a quote line of imports or mentions is the door's own
+# words and goes into section 0 whole, since the door is then replaced.
 IMPORT_LINE = re.compile(r"^[ \t]*@\S+[ \t]*$", re.MULTILINE)
 
 # Before 1.1.0 the kit's AGENTS.md carried no marker line, so in a file
@@ -2617,11 +2621,13 @@ def same_text(
 def kit_source(
     relative: str,
 ) -> Optional[Path]:
-    """The kit file a project path is a copy of, or None when the run composes it.
+    """The kit file at the same path as a project path under the kit's folders or among the root files, or None for any other path.
 
     The front doors count, since without a section 0 they are the kit's
     text verbatim, and with one the bytes differ and the file is
-    guarded as the project's own.
+    guarded as the project's own. A hook config the run merges comes
+    back too, and reads as an untouched copy only where the project
+    added nothing of its own to it.
     """
     parts = Path(relative).parts
     if not parts:
