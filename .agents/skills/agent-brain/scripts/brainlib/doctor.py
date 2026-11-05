@@ -1207,15 +1207,25 @@ def same_entry(
     one: Path,
     other: Path,
 ) -> bool:
-    """Whether the two paths name one entry, a link as itself, by the file system's own id where it gives one and by the spelling of the real folder above it where it does not."""
+    """Whether the two paths name one entry, a link as itself, by the file system's own ids where it gives them and by the spelling of the real folder above it where it does not.
+
+    An entry is a name in a folder, so the file and the folder holding it
+    must both be the same, and two hard links of one file in two folders
+    stay two entries, a write over one leaving the other as it was.
+    """
     try:
         first = os.lstat(one)
         second = os.lstat(other)
+        first_folder = os.stat(os.path.dirname(one))
+        second_folder = os.stat(os.path.dirname(other))
     except OSError:
-        first = second = None
+        first = second = first_folder = second_folder = None
 
-    if first is not None and second is not None and first.st_ino != 0:
-        return (first.st_dev, first.st_ino) == (second.st_dev, second.st_ino)
+    if first is not None and second is not None and first_folder is not None and second_folder is not None and first.st_ino != 0 and first_folder.st_ino != 0:
+        same_file = (first.st_dev, first.st_ino) == (second.st_dev, second.st_ino)
+        same_folder = (first_folder.st_dev, first_folder.st_ino) == (second_folder.st_dev, second_folder.st_ino)
+
+        return same_file and same_folder
 
     def spelled(path: Path) -> str:
         return os.path.normcase(os.path.join(os.path.realpath(os.path.dirname(path)), os.path.basename(path)))
