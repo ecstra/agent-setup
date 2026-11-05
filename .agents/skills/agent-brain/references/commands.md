@@ -10,7 +10,9 @@ works. A Python file rather than a shell script, since cmd would read a
 batch file's arguments a second time, a `%NAME%` among them, and a shell
 script stops when git checks it out with CRLF line ends, which Python
 reads the same as LF. On macOS and Linux `.agents/brain` alone runs it
-too. Both are shortened here to `brain`. A kind takes its
+too while its line ends are LF, since the system reads its first line
+to find Python, and a checkout git made with CRLF line ends runs only
+through `python3 .agents/brain`. Both are shortened here to `brain`. A kind takes its
 plural wherever a command takes a kind, the name of its folder, so
 `list todos` reads as `list todo`. A command exits 0 when done, 1 when refused,
 with the reason on standard error, and 2 while findings remain, doctor's
