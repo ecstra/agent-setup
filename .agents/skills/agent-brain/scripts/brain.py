@@ -393,6 +393,10 @@ def run_list(
 
     found = reads.rows(brain=brain, kind=kind, filters=filters, statuses=statuses)
     print(json.dumps(found, indent=2) if args.json else reads.render_rows(kind=kind, found=found))
+    # a file of the kind that cannot be read may be one the list was asked for, so it is named rather than left out without a word
+    for path, reason in sorted(brain.unreadable.items()):
+        if brain.folder(kind) in path.parents:
+            print(f"not listed, since it cannot be read: {path.relative_to(brain.root).as_posix()}, {reason}", file=sys.stderr)
     return 0
 
 

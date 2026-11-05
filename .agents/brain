@@ -1,5 +1,22 @@
-#!/bin/sh
-# The brain tool, called short as .agents/brain from the project's root, or
-# ../.agents/brain from a folder below it, so an agent reaches for the tool
-# before a grep. The tool finds the brain from the folder it runs in.
-exec python3 "$(dirname "$0")/skills/agent-brain/scripts/brain.py" "$@"
+#!/usr/bin/env python3
+"""The brain tool, called short as python3 .agents/brain from anywhere in the project.
+
+It runs the tool's brain.py with every argument, standard input and exit
+code as they came, the same in every shell on every system, and a line
+that ends in CRLF reads the same as one that ends in LF. Brain doctor
+writes this file back when it is missing.
+"""
+
+import sys
+
+# this file's folder is the brain's, never searched for a module
+if not (getattr(sys.flags, "safe_path", False) or sys.flags.isolated):
+    del sys.path[0]
+
+import os
+import runpy
+
+scripts = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skills", "agent-brain", "scripts")
+sys.path.insert(0, scripts)
+sys.argv[0] = os.path.join(scripts, "brain.py")
+runpy.run_path(sys.argv[0], run_name="__main__")

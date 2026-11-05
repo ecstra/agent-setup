@@ -354,10 +354,37 @@ HANDOVER_FOLDER = ".handover"
 
 # Files the kit owns at the root of .agents/. They carry no project
 # content, so doctor judges them against the kit rather than a kind.
-# The launchers call the brain tool short, .agents/brain from a POSIX
-# shell and Git Bash, .agents\brain from cmd and PowerShell.
+# The launcher calls the brain tool short, python3 .agents/brain, the
+# same in every shell on every system. It is a Python file rather than a
+# shell script, since cmd reads a batch file's arguments a second time,
+# a %NAME% among them, and a shell script breaks when git checks it out
+# with CRLF. Doctor writes it back from this text when it is missing, and
+# the kit's own copy holds this text exactly.
 LAUNCHER = "brain"
-LAUNCHERS: tuple[str, ...] = (LAUNCHER, "brain.cmd")
+LAUNCHERS: tuple[str, ...] = (LAUNCHER,)
+LAUNCHER_TEXT = '''#!/usr/bin/env python3
+"""The brain tool, called short as python3 .agents/brain from anywhere in the project.
+
+It runs the tool's brain.py with every argument, standard input and exit
+code as they came, the same in every shell on every system, and a line
+that ends in CRLF reads the same as one that ends in LF. Brain doctor
+writes this file back when it is missing.
+"""
+
+import sys
+
+# this file's folder is the brain's, never searched for a module
+if not (getattr(sys.flags, "safe_path", False) or sys.flags.isolated):
+    del sys.path[0]
+
+import os
+import runpy
+
+scripts = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skills", "agent-brain", "scripts")
+sys.path.insert(0, scripts)
+sys.argv[0] = os.path.join(scripts, "brain.py")
+runpy.run_path(sys.argv[0], run_name="__main__")
+'''
 KIT_FILES: tuple[str, ...] = (
     "SYSTEM.md",
     "INDEX.md",

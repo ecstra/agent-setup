@@ -1085,35 +1085,26 @@ def check_layout(
 def check_launcher(
     brain: store.Brain,
 ) -> list[Finding]:
-    """The launcher runs only with its executable bit, which a ZIP or a checkout that keeps no modes leaves off.
+    """The launcher the rules and the hooks send the agent to, which an upgrade through a tool older than it never writes.
 
-    Windows keeps no such bit, and runs the launcher's twin, so there is
-    nothing to check there. A launcher that is not there is the
-    upgrade's to write, not doctor's.
+    A missing one is written from the text the tool holds, a link in its
+    place, dangling or not, replaced rather than written through. One
+    that differs is the upgrade's to write back, not doctor's.
     """
     launcher = brain.root / schema.LAUNCHER
-    if os.name == "nt" or not store.readable_file(launcher):
+    if store.readable_file(launcher):
         return []
 
-    try:
-        mode = stat.S_IMODE(os.stat(launcher).st_mode)
-    except OSError:
-        return []
-
-    if mode & stat.S_IXUSR:
-        return []
-
-    return [Finding(path=schema.LAUNCHER, check="layout", message=LAUNCHER_CANNOT_RUN, repair=make_runnable(path=launcher, mode=mode))]
+    return [Finding(path=schema.LAUNCHER, check="layout", message=LAUNCHER_MISSING, repair=write_launcher(launcher))]
 
 
-def make_runnable(
+def write_launcher(
     path: Path,
-    mode: int,
 ) -> Callable[[], None]:
-    """A repair that gives the executable bit to whoever may read the file, the way a fresh checkout of it would."""
-
     def repair() -> None:
-        os.chmod(path, mode | (mode & 0o444) >> 2)
+        frontmatter.write_text(path=str(path), text=schema.LAUNCHER_TEXT, newline="")
+        # so it runs by its own name too where the system reads its first line
+        os.chmod(path, 0o755)
 
     return repair
 
@@ -1132,7 +1123,7 @@ A_PLAIN_FILE = "is a plain file, where the kit writes a stub Claude Code finds t
 A_COPY = "is a copy of the skill's sheet, where the kit writes a stub Claude Code finds the skill through"
 ON_THE_WAY = ", and the brain reaches the skill's sheet through it, so the fix leaves it, keep the sheet under .agents/skills with no link through .claude/skills first"
 STUB_IN_THE_MAKING = ".stub"
-LAUNCHER_CANNOT_RUN = "is not executable, so .agents/brain cannot run, which brain doctor --fix makes it"
+LAUNCHER_MISSING = "the launcher python3 .agents/brain runs is missing, which brain doctor --fix writes"
 # More links than this on the way to one sheet is a loop, or a way the
 # check cannot follow, and the repair is kept back as for one on the way.
 LINK_HOPS = 40
