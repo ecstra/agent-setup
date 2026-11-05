@@ -93,7 +93,7 @@ class Heading:
 
 @dataclass(frozen=True)
 class Blocks:
-    """What a reading of the blocks finds: where the code blocks sit, the fences among them, the headings outside them, the HTML comments that open a line, the stretches of paragraph and heading text the spans are read in, and whether the text ends inside a paragraph, its last stretch, which a lazy line under a quote runs on."""
+    """A reading of the blocks, which finds where the code blocks sit, the fences among them, the headings outside them, the HTML comments that open a line, the stretches of paragraph and heading text the spans are read in, and whether the text ends inside a paragraph, its last stretch, which a lazy line under a quote runs on."""
 
     code: list[tuple[int, int]]
     fences: list[Fence]
@@ -105,7 +105,7 @@ class Blocks:
 
 @dataclass
 class Opened:
-    """A fence still open as the lines are read: where it starts, its run, the margin its closer keeps to, the columns its lines lose, its info string, and its lines so far."""
+    """A fence still open as the lines are read, with where it starts, its run, the margin its closer keeps to, the columns its lines lose, its info string, and its lines so far."""
 
     start: int
     run: str
@@ -117,7 +117,7 @@ class Opened:
 
 @dataclass
 class Paragraph:
-    """A paragraph still open as the lines are read: where its text starts, where its last line ends, the margin of the list item it opened in, which a line under it that is no lazy continuation keeps to, and whether it is a quote's paragraph run on past the quote, which no line under it underlines or makes a table."""
+    """A paragraph still open as the lines are read, with where its text starts, where its last line ends, the margin of the list item it opened in, which a line under it that is no lazy continuation keeps to, and whether it is a quote's paragraph run on past the quote, which no line under it underlines or makes a table."""
 
     start: int
     end: int

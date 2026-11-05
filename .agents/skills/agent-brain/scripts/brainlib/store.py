@@ -296,10 +296,15 @@ class Brain:
         path from the brain, comes back with its backslashes turned and
         nothing else.
         """
-        parts: list[str] = key.replace(
-            "\\",
-            "/",
-        ).split(sep="/")
+        # a folder's path may end in a slash, a review's among them, which names the same folder
+        parts: list[str] = (
+            key.replace(
+                "\\",
+                "/",
+            )
+            .rstrip("/")
+            .split(sep="/")
+        )
         brain_folders: list[int] = [index for index, part in enumerate(parts[:-1]) if part == self.root.name]
         if not brain_folders:
             return "/".join(parts)
@@ -380,9 +385,10 @@ class Brain:
                 # `key_path` turns a key's backslashes to slashes, so on Windows only this spelling of the path can match it
                 with_slashes: str = entry.path.relative_to(entry.root).as_posix()
                 keys = {entry.identifier, entry.name, entry.relative, with_slashes, entry.path.stem} - {None}
-                # a review's file is its folder's ledger, so the folder's name answers for it as a plan's stem does
+                # a review's file is its folder's ledger, so the folder's name and path answer for it as a plan's stem does
                 if entry.kind.name == "review":
                     keys.add(entry.path.parent.name)
+                    keys.add(entry.path.parent.relative_to(entry.root).as_posix())
 
                 for key in keys:
                     keyed.setdefault(key, []).append(entry)

@@ -1577,7 +1577,7 @@ MISSING: dict[str, str] = {
 def check_front_doors(
     brain: store.Brain,
 ) -> list[Finding]:
-    """The imports in the root files the agents read, each reaching a file, none glued to punctuation, and the rules imported.
+    """The findings on the imports of the root files the agents read.
 
     A slip here unloads the rulebook with nothing said, which is what
     bit the kit once. CLAUDE.md is read only while the project keeps a
@@ -1605,7 +1605,7 @@ def check_front_doors(
             found.append(
                 import_finding(
                     name=name,
-                    message=MISSING[name],
+                    message=MISSING.get(name, "is not there, so no agent finds the rules there"),
                 ),
             )
             continue
@@ -1779,7 +1779,8 @@ def line_slips(
         if ignored_by_git(project=project, path=token):
             return []
 
-        return [import_finding(name=name, message=f"imports @{token}, which is not there")]
+        fixed = ", and brain doctor --fix writes it" if fix_writes(project=project, path=token) else ""
+        return [import_finding(name=name, message=f"imports @{token}, which is not there{fixed}")]
 
     if spelled != token:
         return [spelled_otherwise(name=name, path=token, spelled=spelled)]
@@ -1787,6 +1788,14 @@ def line_slips(
     trouble = target_trouble(project / spelled)
 
     return [] if trouble is None else [import_finding(name=name, message=f"imports @{token}, which {trouble}")]
+
+
+def fix_writes(
+    project: Path,
+    path: str,
+) -> bool:
+    """Whether `brain doctor --fix` writes the missing file, a chat style copy the project owes beside its agent's folder while the Claude Code style it copies is there."""
+    return Path(path) in style.COPIES and store.quietly((project / Path(path).parent).is_dir) and store.readable_file(project / style.SOURCE)
 
 
 def target_trouble(

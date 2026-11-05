@@ -409,7 +409,7 @@ def run_show(
 def add_path(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("path", help="the file behind an id or a name")
+    command = commands.add_parser("path", help="the file behind an id, a name or a path")
     command.add_argument("key")
     command.set_defaults(handler=run_path)
 
