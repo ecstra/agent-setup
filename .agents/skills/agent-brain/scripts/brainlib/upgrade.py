@@ -290,17 +290,19 @@ class Kit:
     def agent_files(self) -> list[Path]:
         """The hook configs and the chat style source under the agent folders, relative to the kit root.
 
-        A symlink is the doctor's to make, and so are the chat style
-        copies, from the source, so a copy the project made read only is
-        replaced rather than written through. A personal settings file
-        never ships.
+        The skill stubs under `.claude/skills` are the doctor's to write,
+        from each project's own sheets, and so are the chat style copies,
+        from the source, so a copy the project made read only is replaced
+        rather than written through. A personal settings file never
+        ships.
         """
         found: list[Path] = []
 
         for folder in AGENT_FOLDERS:
             for path in sorted((self.root / folder).rglob("*")):
                 relative = path.relative_to(self.root)
-                if ships(path) and path.name not in NOT_SHIPPED and relative not in style.COPIES:
+                stub = relative.parts[: len(doctor.SKILL_LINKS.parts)] == doctor.SKILL_LINKS.parts
+                if ships(path) and path.name not in NOT_SHIPPED and relative not in style.COPIES and not stub:
                     found.append(relative)
 
         return found
@@ -636,11 +638,12 @@ def prepare(
                     f"the kit now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
-        linked = project.root / doctor.SKILL_LINKS / name
-        own_folder = store.quietly(linked.is_dir) and not store.quietly(linked.is_symlink)
-        if not shipped and own_folder and not store.same_bytes(one=linked / schema.SKILL_FILE, other=kits_own_file):
+        place = project.root / doctor.SKILL_LINKS / name
+        own_folder = store.quietly(place.is_dir) and not store.quietly(place.is_symlink)
+        kits_stub = doctor.is_stub(path=place / schema.SKILL_FILE, name=name) or store.same_bytes(one=place / schema.SKILL_FILE, other=kits_own_file)
+        if not shipped and own_folder and not kits_stub:
             raise UpgradeError(
-                f"the kit now ships a skill named {name}, and {(doctor.SKILL_LINKS / name).as_posix()} holds a folder of the project's own where the kit's skill link goes, move it aside first",
+                f"the kit now ships a skill named {name}, and {(doctor.SKILL_LINKS / name).as_posix()} holds a folder of the project's own where the kit's skill stub goes, move it aside first",
             )
 
         for definition in skill.definitions if skill else ():
@@ -2353,8 +2356,9 @@ def guarded_paths(
 
     The front doors and CONTRIBUTING.md are replaced whole, so are the
     kit's files under the brain and the style files in the agent
-    folders, the kit's skill folders are cleared and rewritten, and the
-    folder migration rewrites every file that names the old folder. On the old
+    folders, the kit's skill folders are cleared and rewritten, the
+    doctor rewrites the stubs of the kit's skills, and the folder
+    migration rewrites every file that names the old folder. On the old
     layout the brain is still .agent/, and git names its files by that
     spelling, so the list uses it too. The ignore file and the hook
     configs keep what they hold, so an edit there is safe and not
@@ -2363,6 +2367,7 @@ def guarded_paths(
     paths = [*ROOT_FILES]
     paths += [relative.as_posix() for relative in kit.agent_files() if relative.name not in MERGED]
     paths += [relative.as_posix() for relative in style.COPIES]
+    paths += [(doctor.SKILL_LINKS / name / schema.SKILL_FILE).as_posix() for name in store.skill_folders(kit.brain)]
 
     brain = project.root / (OLD_FOLDER if project.state() == "old" else FOLDER)
     paths += [(brain.relative_to(project.root) / relative).as_posix() for relative in kit.brain_files()]
@@ -2582,13 +2587,25 @@ def same_as_kit(
     leaves the kit's files there ignored and identical. Only a file that
     maps to one the kit copies whole can be judged this way, and the
     version stamp, which the run never copies but writes as the kit's
-    stamp trimmed, so it is judged against that text.
+    stamp trimmed, so it is judged against that text. A skill's stub is
+    judged against the stub doctor writes from the kit's sheet, which
+    the run copies whole.
     """
     if Path(relative) == Path(FOLDER) / VERSION:
         return says(
             path=project.root / relative,
             text=kit.version() + "\n",
         )
+
+    parts = Path(relative).parts
+    if len(parts) == 4 and parts[:2] == doctor.SKILL_LINKS.parts and parts[3] == schema.SKILL_FILE:
+        try:
+            sheet = frontmatter.load(str(skill_folder(brain=kit.brain, name=parts[2]) / schema.SKILL_FILE))
+            wanted = doctor.stub_text(sheet_text=sheet, name=parts[2])
+        except frontmatter.FrontmatterError:
+            return False
+
+        return says(path=project.root / relative, text=wanted)
 
     source = kit_source(relative)
     if source is None:

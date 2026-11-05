@@ -379,8 +379,8 @@ class Definition:
 class KitSkill:
     """One skill the kit ships under skills/, a folder with a SKILL.md.
 
-    Claude Code finds it through a link under .claude/skills/, which
-    doctor makes, and the port and the upgrade treat the folder as the
+    Claude Code finds it through a stub under .claude/skills/, which
+    doctor writes, and the port and the upgrade treat the folder as the
     kit's own, replaced whole, from the release named in `since` on. A
     project stamped older than that with a folder of the same name made
     it itself, and the upgrade refuses to write over it. The same holds
@@ -494,7 +494,7 @@ INDEX = "INDEX.md"
 LEDGER = "ledger.md"
 
 # Where the skills live under .agents/, one folder each with this file
-# in it, the layout Claude Code loads a skill from through its link.
+# in it, the layout Claude Code loads a skill from through its stub.
 SKILLS = "skills"
 SKILL_FILE = "SKILL.md"
 
