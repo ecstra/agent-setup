@@ -1044,6 +1044,7 @@ def check_layout(
             project=project,
             name=name,
             shared=shared,
+            kits=name in shipped,
         )
         if trouble is None:
             continue
@@ -1089,6 +1090,8 @@ STUB_BEHIND = "the stub is behind the skill's sheet"
 A_LINK = "is a link, where the kit writes a stub Claude Code finds the skill through"
 A_PLAIN_FILE = "is a plain file, where the kit writes a stub Claude Code finds the skill through"
 A_COPY = "is a copy of the skill's sheet, where the kit writes a stub Claude Code finds the skill through"
+SHEET_ITSELF = "holds the skill's sheet itself, which the brain reaches through a link, so a stub written here would land on the sheet, move the sheet into .agents/skills and run the fix again"
+STUB_IN_THE_MAKING = ".stub"
 
 # The body of the stub Claude Code finds a skill through under
 # .claude/skills, below the sheet's own header, so the agent reads the
@@ -1162,8 +1165,9 @@ def stray_skill_links(
 ) -> list[Finding]:
     """A stub the kit wrote, or a link an older kit made, under .claude/skills for a project skill now gone from the brain, with its removal as the repair.
 
-    A stub is the kit's to remove when its folder holds the stub alone
-    and the sheet it names is gone. A link is when it points into the
+    A stub is the kit's to remove once the sheet it names is gone, and
+    its folder goes with it when nothing else is left there, so a file a
+    copy or a person left beside it stays. A link is when it points into the
     brain's skills folder and dangles, leading to nothing at all. One
     that leads to a folder or a file still there is somebody's and is
     left alone, whatever it holds, and so is one the process cannot
@@ -1190,7 +1194,7 @@ def stray_skill_links(
         if place.name in wanted:
             continue
 
-        if store.quietly(place.is_symlink):
+        if is_link(place):
             target = resolved(place)
             if not skill_gone(place) or target is None or not target.is_relative_to(homes):
                 continue
@@ -1216,13 +1220,8 @@ def stray_stub(
     project: Path,
     place: Path,
 ) -> bool:
-    """Whether the folder holds a stub alone, for a skill whose sheet is gone, so nothing in it is anybody's but the kit's."""
-    try:
-        held = [entry.name for entry in place.iterdir()]
-    except OSError:
-        return False
-
-    if held != [schema.SKILL_FILE] or store.quietly((project / SKILL_HOMES / place.name).exists):
+    """Whether the real folder holds a stub for a skill whose sheet is gone, whatever else sits beside it."""
+    if store.quietly((project / SKILL_HOMES / place.name).exists) or not store.quietly(place.is_dir):
         return False
 
     return is_stub(path=place / schema.SKILL_FILE, name=place.name)
@@ -1233,7 +1232,8 @@ def remove_stub(
 ) -> Callable[[], None]:
     def repair() -> None:
         (place / schema.SKILL_FILE).unlink()
-        place.rmdir()
+        if not any(place.iterdir()):
+            place.rmdir()
 
     return repair
 
@@ -1265,16 +1265,22 @@ def skill_stub_trouble(
     project: Path,
     name: str,
     shared: bool,
+    kits: bool,
 ) -> Optional[Trouble]:
     """What is wrong with the named skill's stub under `.claude/skills`, or None when Claude Code finds this skill through it.
 
     What Claude Code needs is `.claude/skills/<name>/SKILL.md`, and the
     kit puts there a stub, the sheet's header over a body that sends the
     agent to the sheet. A stub whose header has fallen behind the
-    sheet's is rewritten. A link of any kind, a plain file git left in a
-    link's place, and a byte copy of the sheet are replaced by the stub.
-    A real folder with no SKILL.md, or one whose SKILL.md is a skill of
-    its own, is a person's and is left. In a skills folder shared
+    sheet's is rewritten. A link of any kind, a Windows junction among
+    them, a plain file git left in a link's place, and a copy of the
+    sheet are replaced by the stub, a copy being one byte for byte or,
+    for a skill the stamp says the kit shipped, `kits`, any SKILL.md of
+    the skill's name, the copy an older release kept up to date. A real
+    folder with no SKILL.md, or one whose SKILL.md is a skill of its
+    own, is a person's and is left, and so is a folder whose SKILL.md is
+    the sheet itself, which the brain reaches through a link, since a
+    stub there would land on the sheet. In a skills folder shared
     outside the project, a link, a copy or a stub of this skill from
     another checkout is how the sharing works and passes. A stub can
     only be written while the sheet is there to copy, and a copy with
@@ -1303,7 +1309,7 @@ def skill_stub_trouble(
         )
 
     write = write_stub(place=place, text=wanted)
-    if store.quietly(place.is_symlink):
+    if is_link(place):
         if shared and carries_skill(folder=place, name=name):
             return None
 
@@ -1314,6 +1320,9 @@ def skill_stub_trouble(
         if not store.readable_file(held):
             return Trouble(message=REAL_FOLDER_WITHOUT_SKILL, path=at_place)
 
+        if store.quietly(lambda: os.path.samefile(held, sheet)):
+            return Trouble(message=SHEET_ITSELF, path=at_place)
+
         if holds_text(path=held, text=wanted):
             return None
 
@@ -1323,7 +1332,7 @@ def skill_stub_trouble(
         if is_stub(path=held, name=name):
             return Trouble(message=STUB_BEHIND, path=at_place, repair=write)
 
-        if store.same_bytes(one=held, other=sheet):
+        if store.same_bytes(one=held, other=sheet) or (kits and carries_skill(folder=place, name=name)):
             return Trouble(message=A_COPY, path=at_place, repair=write)
 
         return Trouble(message=ANOTHER_SKILL, path=at_place)
@@ -1339,17 +1348,30 @@ def stub_text(
     name: str,
 ) -> str:
     """The whole text of a skill's stub, the sheet's header block exactly as the sheet writes it over the stub's fixed body."""
-    if not sheet_text.startswith(frontmatter.FENCE + "\n"):
+    header, _ = split_at_header(sheet_text)
+
+    return header + STUB_BODY.format(name=name)
+
+
+def split_at_header(
+    text: str,
+) -> tuple[str, str]:
+    """The header block exactly as written, both fences included, and the body after it.
+
+    It goes by the fences alone and never reads the lines between, so a
+    header a skill may carry that the brain's own files never do, a
+    folded value or a list among them, splits like any other.
+    """
+    if not text.startswith(frontmatter.FENCE + "\n"):
         raise frontmatter.FrontmatterError("the sheet does not open with a --- fence")
 
-    rest = sheet_text[len(frontmatter.FENCE) + 1 :]
-    closing = frontmatter.find_closing_fence(rest)
+    closing = frontmatter.find_closing_fence(text[len(frontmatter.FENCE) + 1 :])
     if closing is None:
         raise frontmatter.FrontmatterError("the sheet's header fence is never closed")
 
-    header = sheet_text[: len(frontmatter.FENCE) + 1 + closing + len(frontmatter.FENCE) + 1]
+    end = len(frontmatter.FENCE) + 1 + closing + len(frontmatter.FENCE) + 1
 
-    return header + STUB_BODY.format(name=name)
+    return text[:end], text[end:]
 
 
 def is_stub(
@@ -1358,9 +1380,27 @@ def is_stub(
 ) -> bool:
     """Whether the file is a stub the kit wrote for this skill, by its body, whatever its header says."""
     try:
-        return frontmatter.read(str(path)).body == STUB_BODY.format(name=name)
+        _, body = split_at_header(frontmatter.load(str(path)))
     except frontmatter.FrontmatterError:
         return False
+
+    return body == STUB_BODY.format(name=name)
+
+
+def is_link(
+    place: Path,
+) -> bool:
+    """Whether the place is a link of any kind, known by its resolving somewhere other than where it sits, since a Windows junction is no symbolic link to `islink`."""
+    if store.quietly(place.is_symlink):
+        return True
+
+    if not os.path.lexists(place):
+        return False
+
+    target = resolved(place)
+    folder = resolved(place.parent)
+
+    return target is not None and folder is not None and os.path.normcase(target) != os.path.normcase(folder / place.name)
 
 
 def holds_text(
@@ -1377,20 +1417,49 @@ def write_stub(
     place: Path,
     text: str,
 ) -> Callable[[], None]:
-    """A repair that puts the stub at its place, a link or a plain file there taken away first, so nothing is ever written through a link."""
+    """A repair that puts the stub at its place as a real file, never written through a link.
+
+    Into a real folder the stub is written in place, the one file swapped
+    whole. Where a link of any kind, a plain file or nothing stands, the
+    stub is made in a folder of its own beside the place, named
+    `.<name>.stub`, and only once it is written is what stood there taken
+    away and the folder moved in, so a write that fails leaves the place
+    as it was.
+    """
 
     def repair() -> None:
-        place.parent.mkdir(parents=True, exist_ok=True)
-        if not os.access(str(place.parent), os.W_OK):
-            raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), str(place.parent))
+        folder = place.parent
+        folder.mkdir(parents=True, exist_ok=True)
+        if not os.access(str(folder), os.W_OK):
+            raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), str(folder))
 
-        if os.path.islink(place) or (os.path.lexists(place) and not place.is_dir()):
-            place.unlink()
+        if not is_link(place) and store.quietly(place.is_dir):
+            frontmatter.write_text(path=str(place / schema.SKILL_FILE), text=text, newline="")
+            return
 
-        place.mkdir(exist_ok=True)
-        frontmatter.write_text(path=str(place / schema.SKILL_FILE), text=text, newline="")
+        made = folder / f".{place.name}{STUB_IN_THE_MAKING}"
+        clear(made)
+        try:
+            made.mkdir()
+            frontmatter.write_text(path=str(made / schema.SKILL_FILE), text=text, newline="")
+            if os.path.lexists(place):
+                os.unlink(place)
+            os.replace(str(made), str(place))
+        except BaseException:
+            clear(made)
+            raise
 
     return repair
+
+
+def clear(
+    path: Path,
+) -> None:
+    """Take away whatever stands at the path, a link of any kind as the link alone and never what it leads to."""
+    if is_link(path) or (os.path.lexists(path) and not path.is_dir()):
+        os.unlink(path)
+    elif os.path.lexists(path):
+        shutil.rmtree(path)
 
 
 def carries_skill(
