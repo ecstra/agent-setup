@@ -1051,8 +1051,9 @@ def check_layout(
 
         message = trouble.message
         repair = trouble.repair
-        if repair is not None and (shared or inside):
-            message += SHARED_FOLDER if shared else INTO_THE_BRAIN
+        guard = SHARED_FOLDER if shared else INTO_THE_BRAIN if inside else LEADS_OUT if skill_leads_out(brain=brain, name=name) else None
+        if repair is not None and guard is not None:
+            message += guard
             repair = None
 
         found.append(
@@ -1090,7 +1091,7 @@ STUB_BEHIND = "the stub is behind the skill's sheet"
 A_LINK = "is a link, where the kit writes a stub Claude Code finds the skill through"
 A_PLAIN_FILE = "is a plain file, where the kit writes a stub Claude Code finds the skill through"
 A_COPY = "is a copy of the skill's sheet, where the kit writes a stub Claude Code finds the skill through"
-SHEET_ITSELF = "holds the skill's sheet itself, which the brain reaches through a link, so a stub written here would land on the sheet, move the sheet into .agents/skills and run the fix again"
+LEADS_OUT = ", and the skill's folder in the brain is a link that leads out of the brain, so a stub written here could land on the sheet, make the skill's folder under .agents/skills a real folder first"
 STUB_IN_THE_MAKING = ".stub"
 
 # The body of the stub Claude Code finds a skill through under
@@ -1132,6 +1133,25 @@ def skills_folder_in_brain(
     root = resolved(brain.root)
 
     return folder is not None and root is not None and folder.is_relative_to(root)
+
+
+def skill_leads_out(
+    brain: store.Brain,
+    name: str,
+) -> bool:
+    """Whether the skill's folder in the brain resolves out of the brain, so its sheet may lie under `.claude/skills` or be reached through it.
+
+    The stub's place and the brain's way to the sheet may then be one
+    path, and a stub written or a link taken away there would take the
+    sheet with it, so doctor keeps every repair of that place back. It
+    is one rule for every such layout, a skill folder or the whole
+    skills folder linked into `.claude/skills` or through a link there,
+    rather than a test of each path a link might take.
+    """
+    home = resolved(brain.root / schema.SKILLS / name)
+    root = resolved(brain.root)
+
+    return home is not None and root is not None and not home.is_relative_to(root)
 
 
 def resolved(
@@ -1278,9 +1298,9 @@ def skill_stub_trouble(
     for a skill the stamp says the kit shipped, `kits`, any SKILL.md of
     the skill's name, the copy an older release kept up to date. A real
     folder with no SKILL.md, or one whose SKILL.md is a skill of its
-    own, is a person's and is left, and so is a folder whose SKILL.md is
-    the sheet itself, which the brain reaches through a link, since a
-    stub there would land on the sheet. In a skills folder shared
+    own, is a person's and is left. The caller keeps every repair back
+    where the skills folder is shared or leads into the brain, or the
+    skill's folder in the brain leads out of it. In a skills folder shared
     outside the project, a link, a copy or a stub of this skill from
     another checkout is how the sharing works and passes. A stub can
     only be written while the sheet is there to copy, and a copy with
@@ -1319,9 +1339,6 @@ def skill_stub_trouble(
         held = place / schema.SKILL_FILE
         if not store.readable_file(held):
             return Trouble(message=REAL_FOLDER_WITHOUT_SKILL, path=at_place)
-
-        if store.quietly(lambda: os.path.samefile(held, sheet)):
-            return Trouble(message=SHEET_ITSELF, path=at_place)
 
         if holds_text(path=held, text=wanted):
             return None
