@@ -16,7 +16,10 @@ through `python3 .agents/brain`. Both are shortened here to `brain`. A kind take
 plural wherever a command takes a kind, the name of its folder, so
 `list todos` reads as `list todo`. A command exits 0 when done, 1 when refused,
 with the reason on standard error, and 2 while findings remain, doctor's
-or the check's. `brain gates` says why it stopped on standard output,
+or the check's. An argument a command does not take, a kind it does not
+know or `--open` beside `--status` among them, stops it before it runs,
+with its usage and the reason on standard error, and exits 2 as well.
+`brain gates` says why it stopped on standard output,
 among the gates' own output, and [its row](#the-gates) says what each of
 its codes means. A write that landed its entry and then lost a second
 write, a step cell, a step's pointer or the chain, exits 0 with that
@@ -43,7 +46,7 @@ the system's own words on an error a message passes on.
 | `brain version` | The kit version this project carries, from `.agents/VERSION`. |
 | `brain status [--json]` | The clock, the standing word and the current work first, then version, doctor health, counts per kind by status, the build specs among them, open reviews, the note waiting for the next session with the branch it was written on and when, unreadable files. A claimed note a session start could not remove, `.handover/handover.md.reading`, is the note waiting while none sits at `.handover/handover.md`, and its line says it was read before. A note still in `handover/` from before 2.2.0 is named only once it moves in, as [the handover](#the-handover) says. The JSON form carries all of that but the clock and the word. The note is under `handover`, null when none waits, else its `branch` and its `written` moment, the first null where the header names none and the second where the header gives none in the one ISO shape the tool writes a moment in, with `again` beside them, true for a note read before. The chain is under `task`, which is null when the file does not read as a chain. The `latest_handover` key and the `handover` count of 1.4.0 are gone. |
 | `brain ack` | The clock and where the owner's standing word to proceed stands, off, held, or on with what is left of it and what ends it. |
-| `brain list <kind> [--open \| --status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. The kinds are bug, build-spec, decision, doc, memory, plan, review and todo, each by its plural too. `--open` keeps every entry whose status keeps work open, a bug open or branched, a todo or a plan open, a build spec draft or acked, a review open, so one call answers what is still open. It is refused beside `--status`, and for a decision, a doc or memory, which have nothing that stays open. |
+| `brain list <kind> [--open \| --status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. The kinds are bug, build-spec, decision, doc, memory, plan, review and todo, each by its plural too. `--open` keeps every entry whose status keeps work open, a bug open or branched, a todo or a plan open, a build spec draft or acked, a review open, so one call answers what is still open. Beside `--status` it stops as an argument the command does not take, and it is refused for a decision, a doc or memory, which have nothing that stays open. Each file of the kind the list cannot read, and each folder of it the list cannot open, the kind's own folder among them, is named on standard error after the list, `not listed, since it cannot be read:` with its path from `.agents/` and the reason, so no entry is left out without a word, and the list still exits 0. |
 | `brain show <key> [--meta]` | The whole file, or with `--meta` its frontmatter only. |
 | `brain path <key>` | The absolute path behind a key. |
 | `brain links <key> [--json]` | What the entry links to, and every entry that links to it. |
@@ -491,7 +494,8 @@ dangling link an older kit made for a project skill since gone from
 the brain, a real folder where a stub belongs that holds no SKILL.md
 or a skill of its own, which is a person's, a skills folder it
 cannot list, and a launcher `.agents/brain` that is missing, which an
-upgrade through a tool older than it leaves out. Doctor reads no file
+upgrade through a tool older than it leaves out, a link there that
+leads to no file counted as missing. Doctor reads no file
 in `.handover/`, nor in a folder whose name differs from it in case
 alone, since each is a dotted folder. To every link check such a folder
 is `.handover/` itself where git's `core.ignorecase` is true or git
@@ -1214,8 +1218,9 @@ A tracker folder here is one the brain indexes, `docs/`, `memory/`,
 place of a folder's name, as in `.agents/*/*.md` or
 `.agents/{bugs,todos}/*.md`, reaches each tracker folder it matches.
 Nothing else in the brain's folder is an entry, the kit's own
-`SYSTEM.md`, `README.md`, `house-rules.md`, `VERSION` and `skills/`
-among them, so a read or a write there adds nothing.
+`SYSTEM.md`, `README.md`, `house-rules.md`, the launcher `brain`,
+`VERSION` and `skills/` among them, so a read or a write there adds
+nothing.
 
 A read is any of these.
 
@@ -1269,9 +1274,9 @@ redirect, `>`, `>>` or `&>`, onto a path in a tracker folder or one of
 the brain's own files is a write too, whatever program it follows.
 After a write the line names `new`, `set`, `refile`, `steps`, `task`,
 `ledger`, `handover` and `index` as the commands that do that work, and
-`brain doctor` with the full call to see what the hand change left. A
-write through the edit tools adds nothing here, since the `pre-write`
-hook judges it before it lands, as its row says.
+`brain doctor` with `python3 .agents/brain` in front to see what the
+hand change left. A write through the edit tools adds nothing here,
+since the `pre-write` hook judges it before it lands, as its row says.
 
 A word search in the brain's prose adds nothing, and so do a print of
 one entry, by a printer or Claude Code's Read, a call that reaches

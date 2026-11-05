@@ -397,7 +397,8 @@ under a plan's or a todo's Steps and a plan with no Steps section,
 which get the table, a chat style copy that drifted from the Claude
 Code one, a skill stub that is missing or behind its sheet's header, a
 link of any kind, a plain file or a copy of the sheet where a stub
-belongs, which the stub replaces, a read guard rule or sandbox entry
+belongs, which the stub replaces, a missing launcher `.agents/brain`,
+written from the text the tool holds, a read guard rule or sandbox entry
 missing from `.claude/settings.json` while `.claude` stays inside the
 project, an entry's missing `author` or `editor`, which it fills from
 git's history, and stamps every file it touches, save one where it

@@ -90,10 +90,11 @@ It works on the git repository around the folder you run it in, never
 on your home folder, and it refuses while a file it would replace holds
 uncommitted work, so commit first. Then it does all of this in one run.
 
-- The kit's files land: the rulebook, the house rules and the kit's two
-  skills under `.agents/`, the front doors and `CONTRIBUTING.md` at the
-  root, the hooks, the review's sub agent definitions and the chat style
-  in the agent folders, and the version stamp.
+- The kit's files land: the rulebook, the house rules, the brain tool's
+  launcher and the kit's two skills under `.agents/`, the front doors
+  and `CONTRIBUTING.md` at the root, the hooks, the review's sub agent
+  definitions and the chat style in the agent folders, and the version
+  stamp.
 - Your own rules are kept. A `## 0. Project Rules` section you already
   had in `AGENTS.md`, `CLAUDE.md` or `GEMINI.md` goes to the top of the
   new `AGENTS.md`. If you had no such section but a rules file of your
@@ -458,6 +459,7 @@ Here is how it ships, empty and ready.
 ├── INDEX.md              the spine, built by the tool from the files it lists
 ├── README.md             what the directory is and how an agent boots from it
 ├── house-rules.md        the branch contract and code review protocol
+├── brain                 the launcher, python3 .agents/brain runs the brain tool
 ├── skills/agent-brain/   the brain tool and the format of every file here
 ├── skills/branch-review/ the code review, run on your word
 ├── docs/INDEX.md         the knowledge library
