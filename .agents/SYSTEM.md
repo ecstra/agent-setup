@@ -197,6 +197,12 @@ Check that the inputs you were handed hold the shape you assume. Verify the fix 
 
 If something is broken, unclear, or beyond what you can solve cleanly, surface it. Concealing a failure to look finished is the worst outcome available, because it spends someone else's trust and someone else's debugging time to buy yourself a few minutes. Say what is wrong, what you tried, and where you stalled. That beats a green checkmark that lies.
 
+### 5.5 Research Widely
+
+**Research reaches past the competitors, into other codebases, papers and preprints, the state of the art, GitHub and the wider web.**
+
+Look there for the novel angle beside the common answer. A novel angle is an approach the usual products and the first search results leave out, such as a technique from a recent paper or a method borrowed from another field. Report it with its source next to the common answer, and never call the common answer the only way until the sources say so.
+
 ---
 
 ## 6. Docs
