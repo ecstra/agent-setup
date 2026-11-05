@@ -1051,10 +1051,12 @@ def check_layout(
 
         message = trouble.message
         repair = trouble.repair
-        guard = SHARED_FOLDER if shared else INTO_THE_BRAIN if inside else LEADS_OUT if skill_leads_out(brain=brain, name=name) else None
-        if repair is not None and guard is not None:
-            message += guard
-            repair = None
+        if repair is not None:
+            sheet = project / SKILL_HOMES / name / schema.SKILL_FILE
+            guard = SHARED_FOLDER if shared else INTO_THE_BRAIN if inside else ON_THE_WAY if on_the_way(path=sheet, entry=trouble.touches) else None
+            if guard is not None:
+                message += guard
+                repair = None
 
         found.append(
             Finding(
@@ -1091,8 +1093,11 @@ STUB_BEHIND = "the stub is behind the skill's sheet"
 A_LINK = "is a link, where the kit writes a stub Claude Code finds the skill through"
 A_PLAIN_FILE = "is a plain file, where the kit writes a stub Claude Code finds the skill through"
 A_COPY = "is a copy of the skill's sheet, where the kit writes a stub Claude Code finds the skill through"
-LEADS_OUT = ", and the skill's folder in the brain is a link that leads out of the brain, so a stub written here could land on the sheet, make the skill's folder under .agents/skills a real folder first"
+ON_THE_WAY = ", and the brain reaches the skill's sheet through it, so the fix leaves it, keep the sheet under .agents/skills with no link through .claude/skills first"
 STUB_IN_THE_MAKING = ".stub"
+# More links than this on the way to one sheet is a loop, or a way the
+# check cannot follow, and the repair is kept back as for one on the way.
+LINK_HOPS = 40
 
 # The body of the stub Claude Code finds a skill through under
 # .claude/skills, below the sheet's own header, so the agent reads the
@@ -1103,11 +1108,12 @@ STUB_BODY = "\n<!-- The brain tool writes this file from .agents/skills/{name}/S
 
 @dataclass(frozen=True)
 class Trouble:
-    """What is wrong with one skill's stub: the message, the path the finding names, and the repair when doctor may make one."""
+    """What is wrong with one skill's stub: the message, the path the finding names, the repair when doctor may make one, and the entry that repair takes away or writes over."""
 
     message: str
     path: Path
     repair: Optional[Callable[[], None]] = None
+    touches: Optional[Path] = None
 
 
 def skills_folder_outside(
@@ -1135,23 +1141,86 @@ def skills_folder_in_brain(
     return folder is not None and root is not None and folder.is_relative_to(root)
 
 
-def skill_leads_out(
-    brain: store.Brain,
-    name: str,
+def on_the_way(
+    path: Path,
+    entry: Optional[Path],
 ) -> bool:
-    """Whether the skill's folder in the brain resolves out of the brain, so its sheet may lie under `.claude/skills` or be reached through it.
+    """Whether the system passes through the entry on its way to the path, so taking the entry away or writing over it would take the path's file with it.
 
-    The stub's place and the brain's way to the sheet may then be one
-    path, and a stub written or a link taken away there would take the
-    sheet with it, so doctor keeps every repair of that place back. It
-    is one rule for every such layout, a skill folder or the whole
-    skills folder linked into `.claude/skills` or through a link there,
-    rather than a test of each path a link might take.
+    A stub's repair takes away the entry at its place, or writes over the
+    SKILL.md in the folder the place leads to, and either may be a step
+    of the brain's way to its sheet, through a link, a file link or a
+    folder that leaves the brain and comes back. One walk of that way,
+    link by link, answers for every such layout. A way the walk cannot
+    follow to its end counts as on the way, so the repair waits.
     """
-    home = resolved(brain.root / schema.SKILLS / name)
-    root = resolved(brain.root)
+    if entry is None:
+        return False
 
-    return home is not None and root is not None and not home.is_relative_to(root)
+    steps = steps_to(path)
+    if steps is None:
+        return True
+
+    return any(same_entry(one=step, other=entry) for step in steps)
+
+
+def steps_to(
+    path: Path,
+) -> Optional[list[Path]]:
+    """Every entry the system passes through to reach the path, each link followed by what it holds the way the system follows it, or None past LINK_HOPS links."""
+    parts = list(Path(os.path.abspath(path)).parts)
+    current = Path(parts[0])
+    pending = parts[1:]
+    steps: list[Path] = []
+    hops = 0
+    while pending:
+        part = pending.pop(0)
+        if part in ("", "."):
+            continue
+
+        if part == "..":
+            current = current.parent
+            continue
+
+        step = current / part
+        steps.append(step)
+        try:
+            held = Path(os.readlink(step))
+        except OSError:
+            current = step
+            continue
+
+        hops += 1
+        if hops > LINK_HOPS:
+            return None
+
+        if held.is_absolute():
+            current = Path(held.anchor)
+            pending = list(held.parts[1:]) + pending
+        else:
+            pending = list(held.parts) + pending
+
+    return steps
+
+
+def same_entry(
+    one: Path,
+    other: Path,
+) -> bool:
+    """Whether the two paths name one entry, a link as itself, by the file system's own id where it gives one and by the spelling of the real folder above it where it does not."""
+    try:
+        first = os.lstat(one)
+        second = os.lstat(other)
+    except OSError:
+        first = second = None
+
+    if first is not None and second is not None and first.st_ino != 0:
+        return (first.st_dev, first.st_ino) == (second.st_dev, second.st_ino)
+
+    def spelled(path: Path) -> str:
+        return os.path.normcase(os.path.join(os.path.realpath(os.path.dirname(path)), os.path.basename(path)))
+
+    return spelled(one) == spelled(other)
 
 
 def resolved(
@@ -1299,8 +1368,8 @@ def skill_stub_trouble(
     the skill's name, the copy an older release kept up to date. A real
     folder with no SKILL.md, or one whose SKILL.md is a skill of its
     own, is a person's and is left. The caller keeps every repair back
-    where the skills folder is shared or leads into the brain, or the
-    skill's folder in the brain leads out of it. In a skills folder shared
+    where the skills folder is shared or leads into the brain, or where
+    what the repair touches is on the brain's way to its sheet. In a skills folder shared
     outside the project, a link, a copy or a stub of this skill from
     another checkout is how the sharing works and passes. A stub can
     only be written while the sheet is there to copy, and a copy with
@@ -1333,7 +1402,7 @@ def skill_stub_trouble(
         if shared and carries_skill(folder=place, name=name):
             return None
 
-        return Trouble(message=A_LINK, path=at_place, repair=write)
+        return Trouble(message=A_LINK, path=at_place, repair=write, touches=place)
 
     if store.quietly(place.is_dir):
         held = place / schema.SKILL_FILE
@@ -1347,17 +1416,17 @@ def skill_stub_trouble(
             return None
 
         if is_stub(path=held, name=name):
-            return Trouble(message=STUB_BEHIND, path=at_place, repair=write)
+            return Trouble(message=STUB_BEHIND, path=at_place, repair=write, touches=held)
 
         if store.same_bytes(one=held, other=sheet) or (kits and carries_skill(folder=place, name=name)):
-            return Trouble(message=A_COPY, path=at_place, repair=write)
+            return Trouble(message=A_COPY, path=at_place, repair=write, touches=held)
 
         return Trouble(message=ANOTHER_SKILL, path=at_place)
 
-    if store.quietly(place.exists):
-        return Trouble(message=A_PLAIN_FILE, path=at_place, repair=write)
+    if os.path.lexists(place):
+        return Trouble(message=A_PLAIN_FILE, path=at_place, repair=write, touches=place)
 
-    return Trouble(message=STUB_MISSING, path=at_place, repair=write)
+    return Trouble(message=STUB_MISSING, path=at_place, repair=write, touches=place)
 
 
 def stub_text(
