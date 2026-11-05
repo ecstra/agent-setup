@@ -6,14 +6,17 @@ description: The one way to read, list, count, file, change, move or check anyth
 # The brain tool
 
 One command does everything under `.agents/`. It is plain Python with no
-dependencies, and it runs from anywhere inside the project.
+dependencies, and it runs from anywhere inside the project through the
+launcher in the brain's folder, `../.agents/brain` from a folder below
+the root, and `.agents\brain` in cmd or PowerShell.
 
 ```bash
-python3 .agents/skills/agent-brain/scripts/brain.py status
+.agents/brain status
 ```
 
-The examples below shorten that to `brain`. Every flag is listed in
-[references/commands.md](references/commands.md).
+The examples below shorten that to `brain`. A kind takes its plural as
+well, so `brain list todos` reads as `brain list todo`. Every flag is
+listed in [references/commands.md](references/commands.md).
 
 ## What the tool holds to
 
@@ -60,7 +63,7 @@ since no command shows it, then do with it what that section says.
 
 ```bash
 brain status
-brain list bug --status open
+brain list bugs --open
 brain list todo --status open --area auth
 brain show BUG-004
 brain path BUG-004

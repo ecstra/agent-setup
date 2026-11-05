@@ -383,6 +383,13 @@ it is and names it, as
 [doctor](.agents/skills/agent-brain/references/commands.md#doctor)
 says. This too was tested on macOS with Windows imitated.
 
+From 2.6.0 the upgrade brings the launchers `.agents/brain` and
+`.agents/brain.cmd`, and the rules, the skill sheet and the hooks give
+the agent `.agents/brain` in place of the long Python call, which still
+works. Doctor gives `.agents/brain` its executable bit back where a ZIP
+or a checkout left it off. The Windows twin has yet to run on Windows
+itself.
+
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
 would replace holds uncommitted work, and names each root file it
@@ -413,8 +420,11 @@ doctor rebuilds every index from the files.
 ## The brain tool
 
 Everything inside `.agents/` goes through `brain`, the script under
-`.agents/skills/agent-brain/scripts/`. Your agent runs it, you rarely
-need to, but the commands are short enough to know.
+`.agents/skills/agent-brain/scripts/`, which runs as `.agents/brain`
+from the project's root, or `.agents\brain` in cmd or PowerShell. Your
+agent runs it, you rarely need to, but the commands are short enough
+to know. A kind takes its plural too, so `.agents/brain list todos`
+works, and `--open` lists every entry still open in one call.
 
 | Command | What it does |
 |---|---|
