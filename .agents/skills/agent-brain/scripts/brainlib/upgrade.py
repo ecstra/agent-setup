@@ -183,6 +183,10 @@ MARK_LINE = re.compile(
     pattern=rf"^[ \t]*({re.escape(KIT_MARK)})[ \t]*\r?$",
     flags=re.MULTILINE,
 )
+# An import alone at the margin, which the kit's door carries for itself,
+# while a list or a quote line of imports or mentions is the door's own
+# words and goes into section 0 whole, since the door is then replaced.
+IMPORT_LINE = re.compile(r"^[ \t]*@\S+[ \t]*$", re.MULTILINE)
 
 # Before 1.1.0 the kit's AGENTS.md carried no marker line, so in a file
 # that kit wrote, section 0 ends where that release's first paragraph
@@ -1861,8 +1865,7 @@ def own_words(
     for start, end in sections.comment_spans(text=own, spans=code):
         kept.append(own[cursor:start])
         cursor = end
-    # an import line as doctor reads one, behind a list or a quote marker too
-    own = without(text="".join(kept) + own[cursor:], pattern=doctor.IMPORT_LINE)
+    own = without(text="".join(kept) + own[cursor:], pattern=IMPORT_LINE)
 
     lines = own.strip().split("\n")
     if lines and lines[0].startswith("# "):

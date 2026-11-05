@@ -1233,13 +1233,18 @@ def is_front_door(
     brain: store.Brain,
     path: Path,
 ) -> bool:
-    """Whether the file is one of the project's front doors, AGENTS.md, CLAUDE.md or GEMINI.md at the top of the project, there or just deleted."""
-    if path.name not in schema.FRONT_DOORS:
+    """Whether the file is one of the project's front doors, AGENTS.md, CLAUDE.md or GEMINI.md at the top of the project, there or just deleted, in any case, since doctor names a door spelled in another case.
+
+    A folder that cannot be resolved, one in a link loop or a path with
+    a null byte, is no front door's, so the hook goes on with its other
+    parts.
+    """
+    if path.name.casefold() not in {door.casefold() for door in schema.FRONT_DOORS}:
         return False
 
     try:
         return path.parent.resolve() == brain.root.parent.resolve()
-    except OSError:
+    except (OSError, RuntimeError, ValueError):
         return False
 
 

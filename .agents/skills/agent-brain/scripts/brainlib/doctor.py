@@ -1794,8 +1794,16 @@ def fix_writes(
     project: Path,
     path: str,
 ) -> bool:
-    """Whether `brain doctor --fix` writes the missing file, a chat style copy the project owes beside its agent's folder while the Claude Code style it copies is there."""
-    return Path(path) in style.COPIES and store.quietly((project / Path(path).parent).is_dir) and store.readable_file(project / style.SOURCE)
+    """Whether `brain doctor --fix` writes the missing file, a chat style copy the project owes beside its agent's folder while the Claude Code style it copies reads, as `check_style_copies` asks before it offers the repair."""
+    if Path(path) not in style.COPIES or not store.quietly((project / Path(path).parent).is_dir):
+        return False
+
+    try:
+        style.body_at(project)
+    except style.StyleError:
+        return False
+
+    return True
 
 
 def target_trouble(
