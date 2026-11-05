@@ -393,15 +393,17 @@ pointer left on a refiled one or written by name, a numbered list
 under a plan's or a todo's Steps and a plan with no Steps section,
 which get the table, a chat style copy that drifted from the Claude
 Code one, a skill stub that is missing or behind its sheet's header, a
-link, a plain file or a copy of the sheet where a stub belongs, which
-the stub replaces, a read guard rule or sandbox
-entry missing from `.claude/settings.json` while `.claude` stays
-inside the project, an entry's missing
-`author` or `editor`, which it fills from git's history, and stamps
-every file it touches, save one where it only fills a name. The stubs
-are real files, so no system needs a link for them, as
-[doctor](references/commands.md#doctor) says. Whatever is left needs a decision, so read it and act on it.
-Silencing a finding is never the answer.
+link of any kind, a plain file or a copy of the sheet where a stub
+belongs, which the stub replaces, a read guard rule or sandbox entry
+missing from `.claude/settings.json` while `.claude` stays inside the
+project, an entry's missing `author` or `editor`, which it fills from
+git's history, and stamps every file it touches, save one where it
+only fills a name. The stubs are real files, so no system needs a link
+for them, and a stub's repair that would take away or write over a
+step of the brain's own way to its sheet is kept back and named, as
+[doctor](references/commands.md#doctor) says. Whatever is left needs a
+decision, so read it and act on it. Silencing a finding is never the
+answer.
 
 ## Bringing a project to the kit
 

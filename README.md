@@ -29,7 +29,7 @@ written record of what the project knows.
 | `.agents/skills/agent-brain/` | The brain tool. Reads, lists, counts, files, changes and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand and a tracker is never grepped for its fields. It also checks the project's own markdown and commit messages, runs your linters on each file the agent writes and your gates before a review, installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
 | `.agents/skills/branch-review/` | The code review, run on your word at a quick, standard or deep level. Finder sub agents read the whole branch in parallel, one per angle, and two verifier sub agents vote on each finding, or the main agent alone at the quick level. The main agent fixes every confirmed finding itself in one go, a fresh verifier rechecks the diff of the fix, three rounds at most, and one docs agent brings the docs up to the code at the end. The report says where things stand first. |
 | `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
-| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so each file the agent writes with its edit tools is linted and checked without anyone asking, the clock, your standing word and the work the agent is on stay in front of it, and a call that reads or writes the brain by hand is told which brain command does that, the links Claude Code needs to find the skills, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. Claude Code's settings also turn off its idle compaction, so a long session you step away from keeps its full context, and a project can turn it back on in its own settings. |
+| `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so each file the agent writes with its edit tools is linted and checked without anyone asking, the clock, your standing word and the work the agent is on stay in front of it, and a call that reads or writes the brain by hand is told which brain command does that, the stubs Claude Code finds the skills through, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. Claude Code's settings also turn off its idle compaction, so a long session you step away from keeps its full context, and a project can turn it back on in its own settings. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
 | `CODEOWNERS` | Names who owns the repo on the forge. Put your own handle in. |
 | `.gitignore` | Keeps your `.env`, your local Claude Code settings and the Python and ruff caches out of git, along with what the agent-brain [skill sheet](.agents/skills/agent-brain/SKILL.md#the-brains-files) says git ignores in `.agents/`. |
@@ -115,8 +115,8 @@ uncommitted work, so commit first. Then it does all of this in one run.
   says.
 - Your `.gitignore` keeps every line it had. The kit's lines go in a
   block at the top, so your own lines sit below them and win.
-- The tool's doctor runs once, builds the indexes and makes the skill
-  links Claude Code needs.
+- The tool's doctor runs once, builds the indexes and writes the skill
+  stubs Claude Code finds the skills through.
 - The report names each root file it replaced along with where git
   keeps the old one, and ends with what it found that belongs in the
   brain, for your agent to file. Keep that output, nothing prints it
@@ -309,7 +309,8 @@ The upgrade replaces what is the kit's and leaves what is yours.
   the title of `AGENTS.md`, every file your project filed into
   `.agents/`, your own hooks and settings in the agent folders, and every
   line of your `.gitignore`.
-- Rebuilt: the indexes, by the doctor run at the end, never edited.
+- Rebuilt: the indexes and the skill stubs, by the doctor run at the
+  end, never edited.
 - Filled: from 2.1.0 every entry names its `author` and its `editor`,
   the git names of who filed it and who last changed it, beside the
   `by` of a todo or a plan, which still says whether a person asked for
@@ -363,19 +364,24 @@ writes, compares, prints or names in a finding or a message is spelled
 with forward slashes there as well, all but the ones it hands the
 system and the few
 [the command reference](.agents/skills/agent-brain/references/commands.md)
-names at its top. From 2.5.0 Claude Code finds each skill through a
-small stub under `.claude/skills/`, a real file `brain doctor --fix`
-writes from the skill's sheet, so no system needs a symbolic link and
-Windows needs no Developer Mode. A checkout that still holds the old
-links, or the plain files git leaves for them where links are off,
-gets the stubs in their place on the next fix, which leaves the links
-deleted and the stubs new for your next commit, as
+names at its top. A `.gitignore` written with carriage returns keeps
+one per line through the port and the upgrade, and the hooks write
+their refusals and errors as UTF-8 whatever the locale. All of this
+was built and tested on macOS with Windows imitated, and has not yet
+run on Windows itself.
+
+From 2.5.0 Claude Code finds each skill through a small stub under
+`.claude/skills/`, a real file `brain doctor --fix` writes from the
+skill's sheet, so no system needs a symbolic link and Windows needs no
+Developer Mode. The next fix puts a stub in place of each old link, a
+Windows junction included, each plain file git left for one where
+links are off, and each copy of a kit skill's sheet an older release
+kept. Where git still holds the old links, it leaves them deleted and
+the stubs new for your next commit. Where the brain reaches a skill's
+sheet through `.claude/skills/`, the fix leaves that skill's place as
+it is and names it, as
 [doctor](.agents/skills/agent-brain/references/commands.md#doctor)
-says. A `.gitignore` written with carriage returns keeps one per line
-through the port and the upgrade, and the hooks write their refusals
-and errors as UTF-8 whatever the locale. All of this was built and
-tested on macOS with Windows imitated, and has not yet run on Windows
-itself.
+says. This too was tested on macOS with Windows imitated.
 
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
