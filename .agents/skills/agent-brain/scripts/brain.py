@@ -1,8 +1,9 @@
 """The brain tool. Files, changes, counts and checks everything in .agents/.
 
-Run from anywhere inside a project that carries the kit:
+Run from anywhere inside a project that carries the kit, through the
+launcher in the brain's folder:
 
-    python3 .agents/skills/agent-brain/scripts/brain.py status
+    .agents/brain status
 
 Prose for a new file comes in on standard input, so a heredoc in single
 quotes passes it through without the shell touching it. Exit codes: 0
@@ -20,6 +21,7 @@ from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatte
 from brainlib.store import FINDINGS_REMAIN, REFUSED
 
 FIELD_FLAGS = ("status", "severity", "area", "by", "type", "branch", "date")
+KIND_HELP = "one of " + ", ".join(sorted(schema.KINDS)) + ", or its plural"
 
 
 def main(
@@ -367,9 +369,13 @@ def add_list(
     commands: argparse._SubParsersAction,
 ) -> None:
     command = commands.add_parser("list", help="one line per entry of a kind, narrowed by field")
-    command.add_argument("kind", choices=sorted(schema.KINDS))
+    command.add_argument("kind", choices=schema.kind_names(), metavar="kind", help=KIND_HELP)
+    statuses = command.add_mutually_exclusive_group()
+    statuses.add_argument("--open", action="store_true", help="every entry whose status keeps work open, a bug open or branched among them")
+    statuses.add_argument("--status")
     for flag in FIELD_FLAGS:
-        command.add_argument(f"--{flag}")
+        if flag != "status":
+            command.add_argument(f"--{flag}")
     command.add_argument("--json", action="store_true")
     command.set_defaults(handler=run_list)
 
@@ -380,7 +386,12 @@ def run_list(
 ) -> int:
     kind = schema.kind_named(args.kind)
     filters = {flag: getattr(args, flag) for flag in FIELD_FLAGS if getattr(args, flag)}
-    found = reads.rows(brain=brain, kind=kind, filters=filters)
+    statuses = steps.OPEN_STATUSES.get(kind.name) if args.open else None
+    if args.open and statuses is None:
+        print(f"a {kind.name} has nothing that stays open, so list it whole or by --status", file=sys.stderr)
+        return REFUSED
+
+    found = reads.rows(brain=brain, kind=kind, filters=filters, statuses=statuses)
     print(json.dumps(found, indent=2) if args.json else reads.render_rows(kind=kind, found=found))
     return 0
 
@@ -451,7 +462,7 @@ def add_new(
     commands: argparse._SubParsersAction,
 ) -> None:
     command = commands.add_parser("new", help="file a new entry, prose on standard input")
-    command.add_argument("kind", choices=sorted(schema.KINDS))
+    command.add_argument("kind", choices=schema.kind_names(), metavar="kind", help=KIND_HELP)
     command.add_argument("--title", required=True)
     command.add_argument("--description", required=True, help="the one line the index shows")
     command.add_argument("--category", default="", help="for a doc, its category folder")
@@ -548,7 +559,7 @@ def add_refile(
     command = commands.add_parser("refile", help="retitle an entry, or turn a todo into a bug")
     command.add_argument("key")
     command.add_argument("--title", help="the new title, the id stays")
-    command.add_argument("--kind", choices=("todo", "bug"), help="the kind it becomes")
+    command.add_argument("--kind", choices=("todo", "bug", "todos", "bugs"), metavar="{todo,bug}", help="the kind it becomes, by its name or its plural")
     command.add_argument("--description", default="", help="with --kind, the new one line")
     for flag in FIELD_FLAGS:
         command.add_argument(f"--{flag}")

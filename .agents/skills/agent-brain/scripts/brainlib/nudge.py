@@ -50,10 +50,10 @@ from typing import Iterator, Optional
 
 from . import autoack, conclude, schema, store, task
 
-CALL = "python3 .agents/skills/agent-brain/scripts/brain.py"
-READ = f"The brain answers that itself, {CALL} list <kind> --status <status> for its entries, status for its counts and show <key> for one, where a grep of its fields or a listing of its folders only guesses."
+CALL = ".agents/brain"
+READ = f"The brain answers that itself, {CALL} list <kind> --open for what is still open, --status <status> for one status, status for its counts and show <key> for one entry, where a grep of its fields or a listing of its folders only guesses."
 WRITE = f"That call wrote into the brain by hand, which the brain tool does through new, set, refile, steps, task, ledger, handover and index, so run {CALL} doctor to see what it left."
-START = f"Read the brain through the tool too, {CALL} list <kind> --status <status>, status or show <key>, never by a grep of its fields or a listing of its folders."
+START = f"Read the brain through the tool too, {CALL} list <kind> --open, status or show <key>, .agents\\brain in cmd or PowerShell, never by a grep of its fields or a listing of its folders."
 
 # The header fields an entry's state lives in, the ones a grep for the
 # open entries reaches for, and not the words prose and code use too,

@@ -354,11 +354,16 @@ HANDOVER_FOLDER = ".handover"
 
 # Files the kit owns at the root of .agents/. They carry no project
 # content, so doctor judges them against the kit rather than a kind.
+# The launchers call the brain tool short, .agents/brain from a POSIX
+# shell and Git Bash, .agents\brain from cmd and PowerShell.
+LAUNCHER = "brain"
+LAUNCHERS: tuple[str, ...] = (LAUNCHER, "brain.cmd")
 KIT_FILES: tuple[str, ...] = (
     "SYSTEM.md",
     "INDEX.md",
     "README.md",
     "house-rules.md",
+    *LAUNCHERS,
 )
 
 
@@ -478,7 +483,7 @@ def as_tuple(
 # SYSTEM.md is the rulebook. An agent takes it as it stands, so it is the
 # one markdown file at the root of the directory with no frontmatter. The
 # tool's own docs under skills/ follow the Agent Skills standard instead.
-NO_FRONTMATTER: tuple[str, ...] = ("SYSTEM.md",)
+NO_FRONTMATTER: tuple[str, ...] = ("SYSTEM.md", *LAUNCHERS)
 
 # The folders that carry their own INDEX.md, read off the kinds so the
 # table lives in one place.
@@ -545,11 +550,18 @@ class UnknownKind(Exception):
 def kind_named(
     name: str,
 ) -> Kind:
-    if name not in KINDS:
+    """The kind by its name or by its plural, which is the name of its folder, since an agent reaches for `list todos` as often as `list todo`."""
+    kind = KINDS.get(name) or kind_for_folder(name)
+    if kind is None:
         known = ", ".join(sorted(KINDS))
-        raise UnknownKind(f"unknown kind '{name}', expected one of {known}")
+        raise UnknownKind(f"unknown kind '{name}', expected one of {known}, or its plural")
 
-    return KINDS[name]
+    return kind
+
+
+def kind_names() -> list[str]:
+    """Every name a command takes for a kind, each kind's own and its plural."""
+    return sorted(set(KINDS) | {kind.folder for kind in KINDS.values()})
 
 
 def kind_for_folder(

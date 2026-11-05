@@ -140,13 +140,17 @@ def rows(
     brain: store.Brain,
     kind: schema.Kind,
     filters: Optional[dict[str, str]] = None,
+    statuses: Optional[tuple[str, ...]] = None,
 ) -> list[dict]:
-    """One row per entry of `kind`, narrowed by field=value filters."""
+    """One row per entry of `kind`, narrowed by field=value filters and, where `statuses` is given, to an entry whose status is one of them."""
     wanted = filters or {}
     found: list[dict] = []
 
     for entry in brain.entries_of(kind):
         if any(entry.field(field) != value for field, value in wanted.items()):
+            continue
+
+        if statuses is not None and entry.field("status") not in statuses:
             continue
 
         row = {
