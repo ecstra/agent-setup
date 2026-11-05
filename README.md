@@ -363,10 +363,13 @@ writes, compares, prints or names in a finding or a message is spelled
 with forward slashes there as well, all but the ones it hands the
 system and the few
 [the command reference](.agents/skills/agent-brain/references/commands.md)
-names at its top. Where Windows refuses a symbolic link, as it does
-without Developer Mode, `brain doctor --fix` leaves what stands where
-a skill link belongs under `.claude/skills/` as it was, git's stand in
-for the link included, and says how to get links, as
+names at its top. From 2.5.0 Claude Code finds each skill through a
+small stub under `.claude/skills/`, a real file `brain doctor --fix`
+writes from the skill's sheet, so no system needs a symbolic link and
+Windows needs no Developer Mode. A checkout that still holds the old
+links, or the plain files git leaves for them where links are off,
+gets the stubs in their place on the next fix, which leaves the links
+deleted and the stubs new for your next commit, as
 [doctor](.agents/skills/agent-brain/references/commands.md#doctor)
 says. A `.gitignore` written with carriage returns keeps one per line
 through the port and the upgrade, and the hooks write their refusals

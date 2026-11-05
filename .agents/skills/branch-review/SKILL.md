@@ -41,7 +41,7 @@ These are never findings.
 - in a project, a defect in a file the kit writes whole, which is the
   kit's to fix, its skills, `SYSTEM.md`, the brain's `README.md` and
   `house-rules.md`, `.agents/VERSION`, the definitions under
-  `.claude/agents/`, the skill links under `.claude/skills/`, the chat
+  `.claude/agents/`, the skill stubs under `.claude/skills/`, the chat
   style `plain-and-short.md` under `.claude/output-styles/` and its
   copies in `.codex/` and `.gemini/`, `CLAUDE.md`, `GEMINI.md` and
   `CONTRIBUTING.md`

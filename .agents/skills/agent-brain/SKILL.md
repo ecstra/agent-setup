@@ -392,15 +392,15 @@ one header, a pointed step's mark that drifted from its entry or its
 pointer left on a refiled one or written by name, a numbered list
 under a plan's or a todo's Steps and a plan with no Steps section,
 which get the table, a chat style copy that drifted from the Claude
-Code one, a missing or dead skill link, a read guard rule or sandbox
+Code one, a skill stub that is missing or behind its sheet's header, a
+link, a plain file or a copy of the sheet where a stub belongs, which
+the stub replaces, a read guard rule or sandbox
 entry missing from `.claude/settings.json` while `.claude` stays
 inside the project, an entry's missing
 `author` or `editor`, which it fills from git's history, and stamps
-every file it touches, save one where it only fills a name. Where the
-system refuses a link, as Windows does without Developer Mode, a skill
-link's repair leaves what stands in its place as it was and fails with
-the steps that get links, as [doctor](references/commands.md#doctor)
-says. Whatever is left needs a decision, so read it and act on it.
+every file it touches, save one where it only fills a name. The stubs
+are real files, so no system needs a link for them, as
+[doctor](references/commands.md#doctor) says. Whatever is left needs a decision, so read it and act on it.
 Silencing a finding is never the answer.
 
 ## Bringing a project to the kit
