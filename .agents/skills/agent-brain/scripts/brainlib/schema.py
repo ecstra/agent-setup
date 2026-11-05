@@ -354,11 +354,43 @@ HANDOVER_FOLDER = ".handover"
 
 # Files the kit owns at the root of .agents/. They carry no project
 # content, so doctor judges them against the kit rather than a kind.
+# The launcher calls the brain tool short, python3 .agents/brain, the
+# same in every shell on every system. It is a Python file rather than a
+# shell script, since cmd reads a batch file's arguments a second time,
+# a %NAME% among them, and a shell script breaks when git checks it out
+# with CRLF. Doctor writes it back from this text when it is missing, and
+# the kit's own copy holds this text exactly.
+LAUNCHER = "brain"
+LAUNCHERS: tuple[str, ...] = (LAUNCHER,)
+LAUNCHER_TEXT = '''#!/usr/bin/env python3
+"""The brain tool, called short as python3 .agents/brain from anywhere in the project.
+
+It runs the tool's brain.py with every argument, standard input and exit
+code as they came, the same in every shell on every system, and a line
+that ends in CRLF reads the same as one that ends in LF. Brain doctor
+writes this file back when it is missing.
+"""
+
+import sys
+
+# this file's folder is the brain's, never searched for a module
+if not (getattr(sys.flags, "safe_path", False) or sys.flags.isolated):
+    del sys.path[0]
+
+import os
+import runpy
+
+scripts = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skills", "agent-brain", "scripts")
+sys.path.insert(0, scripts)
+sys.argv[0] = os.path.join(scripts, "brain.py")
+runpy.run_path(sys.argv[0], run_name="__main__")
+'''
 KIT_FILES: tuple[str, ...] = (
     "SYSTEM.md",
     "INDEX.md",
     "README.md",
     "house-rules.md",
+    *LAUNCHERS,
 )
 
 
@@ -478,7 +510,7 @@ def as_tuple(
 # SYSTEM.md is the rulebook. An agent takes it as it stands, so it is the
 # one markdown file at the root of the directory with no frontmatter. The
 # tool's own docs under skills/ follow the Agent Skills standard instead.
-NO_FRONTMATTER: tuple[str, ...] = ("SYSTEM.md",)
+NO_FRONTMATTER: tuple[str, ...] = ("SYSTEM.md", *LAUNCHERS)
 
 # The folders that carry their own INDEX.md, read off the kinds so the
 # table lives in one place.
@@ -545,11 +577,18 @@ class UnknownKind(Exception):
 def kind_named(
     name: str,
 ) -> Kind:
-    if name not in KINDS:
+    """The kind by its name or by its plural, which is the name of its folder, since an agent reaches for `list todos` as often as `list todo`."""
+    kind = KINDS.get(name) or kind_for_folder(name)
+    if kind is None:
         known = ", ".join(sorted(KINDS))
-        raise UnknownKind(f"unknown kind '{name}', expected one of {known}")
+        raise UnknownKind(f"unknown kind '{name}', expected one of {known}, or its plural")
 
-    return KINDS[name]
+    return kind
+
+
+def kind_names() -> list[str]:
+    """Every name a command takes for a kind, each kind's own and its plural."""
+    return sorted(set(KINDS) | {kind.folder for kind in KINDS.values()})
 
 
 def kind_for_folder(

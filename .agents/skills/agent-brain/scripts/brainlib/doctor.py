@@ -1077,8 +1077,36 @@ def check_layout(
         found.extend(strays)
 
     found.extend(check_style_copies(brain))
+    found.extend(check_launcher(brain))
 
     return found
+
+
+def check_launcher(
+    brain: store.Brain,
+) -> list[Finding]:
+    """The launcher the rules and the hooks send the agent to, which an upgrade through a tool older than it never writes.
+
+    A missing one is written from the text the tool holds, a link in its
+    place, dangling or not, replaced rather than written through. One
+    that differs is the upgrade's to write back, not doctor's.
+    """
+    launcher = brain.root / schema.LAUNCHER
+    if store.readable_file(launcher):
+        return []
+
+    return [Finding(path=schema.LAUNCHER, check="layout", message=LAUNCHER_MISSING, repair=write_launcher(launcher))]
+
+
+def write_launcher(
+    path: Path,
+) -> Callable[[], None]:
+    def repair() -> None:
+        frontmatter.write_text(path=str(path), text=schema.LAUNCHER_TEXT, newline="")
+        # so it runs by its own name too where the system reads its first line
+        os.chmod(path, 0o755)
+
+    return repair
 
 
 CANNOT_SEE = ", so Claude Code cannot see the skill"
@@ -1095,6 +1123,7 @@ A_PLAIN_FILE = "is a plain file, where the kit writes a stub Claude Code finds t
 A_COPY = "is a copy of the skill's sheet, where the kit writes a stub Claude Code finds the skill through"
 ON_THE_WAY = ", and the brain reaches the skill's sheet through it, so the fix leaves it, keep the sheet under .agents/skills with no link through .claude/skills first"
 STUB_IN_THE_MAKING = ".stub"
+LAUNCHER_MISSING = "the launcher python3 .agents/brain runs is missing, which brain doctor --fix writes"
 # More links than this on the way to one sheet is a loop, or a way the
 # check cannot follow, and the repair is kept back as for one on the way.
 LINK_HOPS = 40

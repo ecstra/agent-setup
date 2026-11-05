@@ -90,10 +90,11 @@ It works on the git repository around the folder you run it in, never
 on your home folder, and it refuses while a file it would replace holds
 uncommitted work, so commit first. Then it does all of this in one run.
 
-- The kit's files land: the rulebook, the house rules and the kit's two
-  skills under `.agents/`, the front doors and `CONTRIBUTING.md` at the
-  root, the hooks, the review's sub agent definitions and the chat style
-  in the agent folders, and the version stamp.
+- The kit's files land: the rulebook, the house rules, the brain tool's
+  launcher and the kit's two skills under `.agents/`, the front doors
+  and `CONTRIBUTING.md` at the root, the hooks, the review's sub agent
+  definitions and the chat style in the agent folders, and the version
+  stamp.
 - Your own rules are kept. A `## 0. Project Rules` section you already
   had in `AGENTS.md`, `CLAUDE.md` or `GEMINI.md` goes to the top of the
   new `AGENTS.md`. If you had no such section but a rules file of your
@@ -383,6 +384,13 @@ it is and names it, as
 [doctor](.agents/skills/agent-brain/references/commands.md#doctor)
 says. This too was tested on macOS with Windows imitated.
 
+From 2.6.0 the upgrade brings the launcher `.agents/brain`, a small
+Python file, and the rules, the skill sheet and the hooks give the
+agent `python3 .agents/brain` in place of the long Python call, which
+still works. It runs the same in every shell, Git Bash, PowerShell and
+cmd among them, and doctor writes it back where an upgrade through an
+older tool left it out. It has yet to run on Windows itself.
+
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
 would replace holds uncommitted work, and names each root file it
@@ -413,8 +421,12 @@ doctor rebuilds every index from the files.
 ## The brain tool
 
 Everything inside `.agents/` goes through `brain`, the script under
-`.agents/skills/agent-brain/scripts/`. Your agent runs it, you rarely
-need to, but the commands are short enough to know.
+`.agents/skills/agent-brain/scripts/`, which runs as
+`python3 .agents/brain` from the project's root in any shell. Your
+agent runs it, you rarely need to, but the commands are short enough
+to know. A kind takes its plural too, so
+`python3 .agents/brain list todos` works, and `--open` lists every
+entry still open in one call.
 
 | Command | What it does |
 |---|---|
@@ -447,6 +459,7 @@ Here is how it ships, empty and ready.
 ├── INDEX.md              the spine, built by the tool from the files it lists
 ├── README.md             what the directory is and how an agent boots from it
 ├── house-rules.md        the branch contract and code review protocol
+├── brain                 the launcher, python3 .agents/brain runs the brain tool
 ├── skills/agent-brain/   the brain tool and the format of every file here
 ├── skills/branch-review/ the code review, run on your word
 ├── docs/INDEX.md         the knowledge library
