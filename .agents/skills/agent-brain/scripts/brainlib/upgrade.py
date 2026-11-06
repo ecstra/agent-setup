@@ -181,8 +181,11 @@ GIT_TAKES_CHARACTERS = os.name == "nt"
 # releases. From 3.0.0 the section lives in the project's own rule and
 # the kit writes no such line.
 SECTION_ZERO_HEADING = "## 0. Project Rules"
-# the heading the upgrade writes above words it moves to the end of a rule that held some already
-MOVED_HEADING = "# Moved by the upgrade"
+# the heading the upgrade writes above a section 0 it moves to the end of a rule that held some already, one of the first level
+# closing every Gates and Lint stretch above it, and the heading and the note above what a door held of its own, quoted
+MOVED_HEADING = "# Section 0, moved by the upgrade"
+QUOTED_HEADING = "# Quoted by the upgrade from {door}"
+QUOTED_NOTE = "What {door} held of its own, quoted where nothing in it runs or loads. Read it against the rulebook, write what still holds into a rule, then delete this part."
 KIT_MARK = "<!-- The kit's words start here. Section 0 goes above this line. -->"
 MARK = re.compile(re.escape(KIT_MARK))
 MARK_LINE = re.compile(
@@ -739,14 +742,16 @@ def install(
         report.done(zero.says if zero is not None else f"wrote {FOLDER}/{rules.FOLDER}/{rules.PROJECT}, the place for the project's own rules")
     elif zero is not None:
         held = own_rule.read_text(encoding="utf-8-sig")
-        moved = rule_body(zero=zero, project=project)
+        # a heading of the first level closes every Gates and Lint stretch of what the rule held, so none reaches over the moved section
+        body = rule_body(zero=zero, project=project)
+        moved = "\n\n".join(part for part in (f"{MOVED_HEADING}\n\n{body}" if body else "", quoted_part(zero)) if part)
         # a run that stopped before AGENTS.md was written finds its section 0 again, which the rule already holds
         if moved in held:
             report.done(f"left {FOLDER}/{rules.FOLDER}/{rules.PROJECT} as it was, since it already holds what this upgrade would move into it")
         else:
-            # a heading of the first level closes every Gates and Lint stretch of what the rule held, so none reaches over the moved words
-            frontmatter.write_text(path=str(own_rule), text=f"{held.rstrip(chr(10))}\n\n{MOVED_HEADING}\n\n{moved}\n")
-            report.done(zero.says.replace(" into ", " to the end of ", 1))
+            frontmatter.write_text(path=str(own_rule), text=f"{held.rstrip(chr(10))}\n\n{moved}\n")
+            report.done(zero.says)
+            report.done(f"{FOLDER}/{rules.FOLDER}/{rules.PROJECT} held words already, so what moved went to its end under a heading of its own")
     front_doors["AGENTS.md"] = rules.with_imports(text=front_doors["AGENTS.md"], names=rules.loaded(project.brain))
 
     replaced: list[str] = []
@@ -1690,10 +1695,11 @@ def git(
 
 @dataclass
 class Zero:
-    """The project's own rules as they go under the kit's title, and the report line saying where they came from."""
+    """The section 0 a front door held, empty where none did, the report line saying where it went, and what each door held of its own beside it, by the door's name, to be quoted."""
 
     text: str
     says: str
+    quoted: list[tuple[str, str]] = field(default_factory=list)
 
 
 def section_zero_of(
@@ -1734,42 +1740,71 @@ def section_zero_of(
     for name, text in texts.items():
         found = section_zero_in(text)
         if found is not None:
-            zero = (name, found.split("\n\n", 1)[1].rstrip("\n"))
+            zero = (name, found)
             break
 
-    # what a door says of its own outside section 0 leaves with it, since the door is written whole
-    words: list[tuple[str, str]] = []
-    if layout == "none":
-        # the kit's doors carry no marker since its 3.0.0, so its own words are told apart by what they say, the imports aside
-        kits_words = {name.lower(): own_words(text) for name, text in prepared.front_doors.items()}
-        for name, text in texts.items():
-            said = own_words(without_section_zero(text))
-            if said and own_words(text) != kits_words.get(name.lower()):
-                words.append((name, said))
-    else:
-        agents = next((name for name in texts if name.lower() == rules.AGENTS.lower()), None)
-        said = "" if agents is None else words_outside_section_zero(texts[agents])
-        if said:
-            words.append((agents, said))
+    # The rest of what a door says of its own is quoted in the rule, never live, since it never ran or loaded as section 0 did,
+    # and a Gates or Lint heading in it, or a path read from another folder, would otherwise change what the project runs.
+    # On a port the kit's doors carry no marker since 3.0.0, so its own are told apart by what they say, the imports aside,
+    # and on an upgrade only a door the kit wrote with a marker tells the project's words from the kit's.
+    kits_words = {name.lower(): own_words(text) for name, text in prepared.front_doors.items()}
+    quoted: list[tuple[str, str]] = []
+    for name, text in texts.items():
+        if layout != "none" and kit_mark_in(text) == -1:
+            continue
 
-    # the words go ahead of section 0, which is how the door held them, so no Gates or Lint heading of section 0 reaches over them
-    parts = [said for _, said in words] + ([zero[1]] if zero is not None else [])
-    if not parts:
+        if layout == "none" and own_words(text) == kits_words.get(name.lower()):
+            continue
+
+        said = door_words(text=text, keep_section=zero is None or zero[0] != name)
+        # a door linked to another, or a copy of it, says the same once
+        if says_its_own(said) and said not in (words for _, words in quoted):
+            quoted.append((name, said))
+
+    if zero is None and not quoted:
         return None
 
     rule = f"{FOLDER}/{rules.FOLDER}/{rules.PROJECT}"
-    doors = " and ".join(name for name, _ in words)
-    read = f"read {'it' if len(words) == 1 else 'them'} against the rulebook and keep only what the kit does not cover"
-    if zero is None and layout == "none":
-        says = f"carried {doors} whole into {rule}, {read}"
-    elif zero is None:
-        says = f"moved the words {doors} held of {'its' if len(words) == 1 else 'their'} own into {rule}, {read}"
-    elif words:
-        says = f"moved section 0 from {zero[0]} into {rule}, with the words {doors} held of {'its' if len(words) == 1 else 'their'} own outside it, read those against the rulebook and keep only what the kit does not cover"
+    doors = " and ".join(name for name, _ in quoted)
+    whose = "its" if len(quoted) == 1 else "their"
+    read = "where nothing in it runs or loads, so read it against the rulebook and write what still holds as a rule"
+    if zero is None:
+        says = f"quoted what {doors} held of {whose} own in {rule}, {read}"
+    elif quoted:
+        says = f"moved section 0 from {zero[0]} into {rule}, and quoted what {doors} held of {whose} own beside it there, {read}"
     else:
         says = f"moved section 0 from {zero[0]} into {rule}"
 
-    return Zero(text=f"{SECTION_ZERO_HEADING}\n\n" + "\n\n".join(parts) + "\n", says=says)
+    return Zero(text="" if zero is None else zero[1], says=says, quoted=quoted)
+
+
+def says_its_own(
+    words: str,
+) -> bool:
+    """Whether a door's words say something of the project's, a word outside their comments and imports, or an import of a file that is no front door, since a door's import of another door is the kit's way of sharing the rules."""
+    if own_words(words):
+        return True
+
+    doors = {name.lower() for name in FRONT_DOORS}
+
+    return any(PurePath(found.group(1)).name.lower() not in doors for found in doctor.IMPORT_LINE.finditer(doctor.visible_text(words)))
+
+
+def door_words(
+    text: str,
+    keep_section: bool,
+) -> str:
+    """What a front door says above the kit's marker, or whole where it carries none, its title left off and its section 0 too unless kept, as it stands."""
+    span: Optional[tuple[int, int, int]] = None if keep_section else section_zero_span(text)
+    if span is not None:
+        text = text[: span[0]] + text[span[2] :]
+
+    mark: int = kit_mark_in(text)
+    lines = (text if mark == -1 else text[:mark]).strip().split("\n")
+    if lines and lines[0].startswith("# "):
+        lines = lines[1:]
+
+    return "\n".join(lines).strip()
 
 
 def without_section_zero(
@@ -1880,28 +1915,6 @@ def section_zero_heading(
     )
 
     return next(found, None)
-
-
-def words_outside_section_zero(
-    text: str,
-) -> str:
-    """What an AGENTS.md a kit before 3.0.0 wrote says of the project's own above the kit's marker and outside its section 0, the title aside, or nothing where it carries no marker.
-
-    Above the marker every word is the project's, its comments and its
-    imports among them, since that kit wrote only the title there. A
-    door with no marker is the first kit's or none of the kit's, where
-    its words cannot be told apart, so it gives nothing.
-    """
-    mark: int = kit_mark_in(text)
-    if mark == -1:
-        return ""
-
-    heading: Optional[re.Match] = section_zero_heading(text)
-    lines = text[: mark if heading is None or heading.start() > mark else heading.start()].strip().split("\n")
-    if lines and lines[0].startswith("# "):
-        lines = lines[1:]
-
-    return "\n".join(lines).strip()
 
 
 def first_outside_code(
@@ -2163,16 +2176,48 @@ def rule_body(
     zero: Zero,
     project: Project,
 ) -> str:
-    """The words of a section 0, its own heading left off, as they go into the project's own rule, each relative link and import written again from the rules folder."""
+    """The words of a section 0, its own heading left off, as they go into the project's own rule, each relative link and import written again from the rules folder and a fence it leaves open closed."""
     lines = zero.text.strip("\n").split("\n")
     body = "\n".join(lines[1:] if lines and lines[0].startswith(SECTION_ZERO_HEADING) else lines).strip("\n")
     folder = project.brain / rules.FOLDER
 
-    return imports_rebased(
-        text=links.rebased(text=body, old_folder=project.root, new_folder=folder),
-        old_folder=project.root,
-        new_folder=folder,
+    return fence_closed(
+        imports_rebased(
+            text=links.rebased(text=body, old_folder=project.root, new_folder=folder),
+            old_folder=project.root,
+            new_folder=folder,
+        ),
     )
+
+
+def fence_closed(
+    text: str,
+) -> str:
+    """The text with a fence it leaves open at its end closed, as the kit's marker line closed it where section 0 stood, so nothing written after it in the rule reads as that fence's code.
+
+    A comment left open needs nothing, since the tool reads an opener
+    with no closer as hiding nothing, and a closer written after it
+    would hide the gates that run today.
+    """
+    open_fence: Optional[sections.Fence] = next((fence for fence in sections.blocks_of(text).fences if not fence.closed), None)
+    if open_fence is None:
+        return text
+
+    run = re.match(r"[ \t]*(`+|~+)", text[open_fence.start :])
+
+    return text if run is None else f"{text}\n{run.group(1)}"
+
+
+def quoted_part(
+    zero: Zero,
+) -> str:
+    """What each door held of its own beside section 0, quoted under a heading of its own in a fence longer than any the words hold, where no heading, gate, lint line or import of theirs counts."""
+    parts: list[str] = []
+    for door, words in zero.quoted:
+        fence = "`" * max([3, *(len(run) + 1 for run in re.findall(r"`+", words))])
+        parts.append(f"{QUOTED_HEADING.format(door=door)}\n\n{QUOTED_NOTE.format(door=door)}\n\n{fence}text\n{words}\n{fence}")
+
+    return "\n\n".join(parts)
 
 
 def imports_rebased(
@@ -2184,17 +2229,18 @@ def imports_rebased(
 
     An import is any `@` an agent may open, on a line of its own or in a
     sentence, as doctor reads them, outside code and comments. A path
-    from a home folder or the disk's root, one with a backslash, a
-    fragment or emphasis after it, and a mention that names no file stay
-    as they are, and punctuation glued on stays glued on.
+    from a home folder or the disk's root, one with a backslash or a
+    fragment, a link's text, and a mention that names no file stay as
+    they are, and emphasis or punctuation glued on stays glued on.
     """
     visible = doctor.visible_text(text)
     moved: list[str] = []
     last = 0
     for found in doctor.ANY_IMPORT.finditer(visible):
         token = found.group(1)
-        bare = doctor.GLUE.sub("", token)
-        if not bare or "#" in token or doctor.MARKED.search(token) or bare.startswith(("~", "/")) or "\\" in bare or not doctor.is_import(bare=bare, project=old_folder):
+        # emphasis closing round an import and punctuation after it are no part of the path, and a bracket is a link's text, never a path
+        bare = doctor.GLUE.sub("", doctor.MARKED.sub("", token))
+        if not bare or "#" in token or "[" in token or "]" in token or bare.startswith(("~", "/")) or "\\" in bare or not doctor.is_import(bare=bare, project=old_folder):
             continue
 
         written = Path(os.path.relpath(os.path.normpath(old_folder / bare), new_folder)).as_posix()
@@ -2208,14 +2254,16 @@ def rule_text(
     zero: Optional[Zero],
     project: Project,
 ) -> str:
-    """The project's own rule as the port or the upgrade first writes it, the section 0 it carried under its title, or the placeholder."""
+    """The project's own rule as the port or the upgrade first writes it, the section 0 it carried under its title and the words it quoted after it, or the placeholder."""
     placeholder = rules.PLACEHOLDER.format(date=date.today().isoformat())
     if zero is None:
         return placeholder
 
     header, _, _ = placeholder.partition("# Project rules")
+    # the quoted words go last, after section 0 with its fences closed, so nothing they hold reaches anything after them
+    parts = [part for part in (rule_body(zero=zero, project=project), quoted_part(zero)) if part]
 
-    return f"{header}# Project rules\n\n{rule_body(zero=zero, project=project)}\n"
+    return f"{header}# Project rules\n\n" + "\n\n".join(parts) + "\n"
 
 
 def merged_config(

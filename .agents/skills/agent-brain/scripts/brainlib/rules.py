@@ -116,6 +116,19 @@ def imports_in(
     return [line.strip()[len(prefix) :] for line in text.split(MARK, 1)[1].splitlines() if line.strip().startswith(prefix)]
 
 
+def imports(
+    brain_root: Path,
+    name: str,
+) -> bool:
+    """Whether AGENTS.md imports the rule of that file name below its mark, false where it is missing, unreadable or carries no mark."""
+    try:
+        text = (brain_root.parent / AGENTS).read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeDecodeError):
+        return False
+
+    return name in (imports_in(text) or [])
+
+
 def write_imports(
     brain_root: Path,
 ) -> bool:

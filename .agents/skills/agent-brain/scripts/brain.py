@@ -525,7 +525,8 @@ def run_new(
     print(entry.relative)
     if kind.name == "rule":
         # a rule is a system instruction AGENTS.md imports, and an agent loads its system instructions only as a session starts
-        print(rules.RELOAD if rules.write_imports(brain.root) else rules.NOT_IMPORTED)
+        rules.write_imports(brain.root)
+        print(rules.RELOAD if rules.imports(brain_root=brain.root, name=entry.path.name) else rules.NOT_IMPORTED)
 
     say_slips_in(
         brain=brain,
