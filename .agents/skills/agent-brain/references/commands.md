@@ -86,8 +86,13 @@ project can lie there. On Windows a path whose part in front lies on a
 share of any other host, `\\host\share` or `//host/share`, the long
 `\\?\UNC\` and `\\.\UNC\` spellings among them, is never asked of the
 disk, since Windows hands the user's credentials to the host of a share
-it reads and a cloned brain file could name any host. It leads to this
-brain only where it spells the project's own folder. A review answers to its folder too, by its name or its
+it reads and a cloned brain file could name any host. A device path,
+`\\?\` or `\\.\` with either slash, is never asked of the disk either,
+all but the long spelling of a local drive or volume, `\\?\C:\` or
+`\\?\Volume{...}\`, since another such as
+`\\?\GLOBALROOT\Device\Mup\host\share` reaches a share through the
+redirector. Such a path leads to this brain only where it spells the
+project's own folder. A review answers to its folder too, by its name or its
 path, `reviews/2026-11-fix-login` or `.agents/reviews/2026-11-fix-login/`,
 a slash at the end or not. Every command that takes a key reads it this
 way.
@@ -501,12 +506,16 @@ indent, is part of the check, a `} else if` among them. A comment or a
 opens on any other line, such as a `for`, is held alone. Each check is
 compared with its lines joined and their indent taken off, as often as
 it stands, so one of two copies removed counts as lost. Its strings are
-compared as written, and the rest without the space a formatter adds or
-takes away or the comma a wrap leaves before a closing bracket, so a
+compared as written, a string in backticks among them, such as a
+JavaScript or TypeScript template literal or a Go raw string, so the
+spaces inside one stay, and the rest without the space a formatter adds
+or takes away or the comma a wrap leaves before a closing bracket, so a
 check a formatter wraps onto several lines, or joins back onto one,
 reads as the same check. A space between two words stays, so
-`assert not ready` is no `assert notready`, and a comma right against
-its bracket stays, so `(1,)` is no `(1)`. A snapshot's lines are
+`assert not ready` is no `assert notready`. A comma right against its
+bracket stays, and so does the comma of a tuple of one item, a paren
+that holds no other comma and calls nothing, however it is wrapped, so
+`(1,)` is no `(1)`. A snapshot's lines are
 compared as they stand, since their spaces are the output they hold.
 Any other change to a line of a check is a change to the check.
 
@@ -517,11 +526,14 @@ end taken off, and the file is judged as all of them leave it, so a
 check is read whole wherever the hunk lands. A hunk that fits nowhere
 even so is judged on its own, by the assertions its lines before carry
 that its lines after do not, the lines it keeps counted on both sides.
-An edit whose old string the file does not hold word for word is judged
-by its strings the same way, by the assertions the old string carries
-that the new one does not, since the agent's tool may place it all the
-same, Claude Code's Edit taking a straight quote for a curly one and
-Gemini CLI's replace matching a line whatever its indent.
+An edit whose old string the file does not hold word for word may land
+all the same, so it is placed as the agents' tools place one, first
+with a curled quote read as a straight one, as Claude Code's Edit reads
+it, then as whole lines matched whatever their indent, as Gemini CLI's
+replace matches them. The whole file is judged as the edit leaves it,
+so a check is read whole wherever the edit lands. One that fits nowhere
+even so is judged by its strings alone, by the assertions the old
+string carries that the new one does not.
 
 The guard falls short in these places.
 

@@ -536,13 +536,15 @@ rule loads once you reload the session.
 [The Rust rule](.agents/skills/agent-brain/references/commands.md#the-rust-rule)
 says the rest.
 
-The test guard lets through a check a formatter only rewrapped. It
-refuses a move onto a test file without that file's word, and judges an
-edit the agent's tool places loosely, such as Claude Code's Edit taking
-a straight quote for a curly one. The path `brain ack tests` takes is
-read from the folder the shell is in, and a file that is not there is
-refused. The hook also refuses a new file in the kit's own tests
-folder, since one there would turn the guards off.
+The test guard lets through a check a formatter only rewrapped, though
+the comma of a tuple of one item and the spaces inside a backticked
+string, such as a template literal, still count. It refuses a move onto
+a test file without that file's word, and judges an edit the agent's
+tool places loosely, such as Claude Code's Edit taking a straight quote
+for a curly one, where it lands in the file. The path
+`brain ack tests` takes is read from the folder the shell is in, and a
+file that is not there is refused. The hook also refuses a new file in
+the kit's own tests folder, since one there would turn the guards off.
 
 The port takes the kit's own `AGENTS.md`, copied with another project's
 rule imports, as the kit's copy and quotes nothing from it. Where
@@ -551,7 +553,10 @@ rule imports, as the kit's copy and quotes nothing from it. Where
 is your project's readme. A Codex patch that moves a file onto a brain
 entry is refused. On Windows the tool never reads a share of another
 host that a path in a brain file names, since Windows would send your
-credentials to that host.
+credentials to that host. A device path such as
+`\\?\GLOBALROOT\Device\Mup\host\share` can reach one too, so of those
+it reads only the long spelling of a local drive or volume, such as
+`\\?\C:\`.
 
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
