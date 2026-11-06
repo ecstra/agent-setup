@@ -1,0 +1,5 @@
+# rustfmt's settings for every Rust project, stable options only, since the
+# gates run the stable toolchain. No edition here, since cargo fmt takes the
+# edition from Cargo.toml and the style edition follows it. The project owns
+# this file once it is written.
+use_field_init_shorthand = true

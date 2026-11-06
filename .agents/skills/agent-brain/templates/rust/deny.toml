@@ -1,0 +1,48 @@
+# cargo-deny's settings, which the gates run as cargo deny check. The
+# project gets this file once and owns it after, so its approved crates,
+# its licenses and its git sources are its own to list here.
+
+[advisories]
+# Every security advisory fails, and so does a crate version its author
+# pulled from crates.io.
+yanked = "deny"
+
+[licenses]
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "Zlib",
+]
+# A license above that no crate uses is fine, since the list is shared.
+unused-allowed-license = "allow"
+
+[licenses.private]
+# The project's own crates marked publish = false need no license.
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# A path dependency inside the project needs no version while it is not
+# published.
+allow-wildcard-paths = true
+# The project's approved crates go in allow, each added on the owner's ok
+# after a check on crates.io. While the list is empty every crate passes.
+# Once it holds one, any crate in the dependency graph missing from it
+# fails, the crates an approved crate pulls in among them, so approving a
+# crate means listing those too. The project's own crates need no entry.
+allow-workspace = true
+allow = [
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+# Forks and other git sources the owner approved, listed by URL.
+allow-git = [
+]

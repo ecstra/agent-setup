@@ -10,7 +10,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from . import frontmatter, links, people, schema, sections, steps, store, task
+from . import frontmatter, links, people, rust, schema, sections, steps, store, task
 
 
 class WriteError(Exception):
@@ -70,6 +70,9 @@ def create(
 
     if kind.name == "rule" and category:
         raise WriteError(f"a rule takes no category, since a rule loads only from {kind.folder}/ itself")
+
+    if kind.name == "rule" and slug == rust.NAME:
+        raise WriteError(rust.NAME_IS_THE_KITS)
 
     taken = brain.with_slug(
         kind=kind,
@@ -202,6 +205,10 @@ def retitle(
     slug = schema.slugify(title)
     if not slug:
         raise WriteError(f"'{title}' leaves nothing to name a file with")
+
+    # the kit's Rust rule keeps its name, and no rule of the project's takes it
+    if entry.kind.name == "rule" and rust.NAME in (slug, entry.path.stem):
+        raise WriteError(rust.NAME_IS_THE_KITS)
 
     taken = brain.with_slug(kind=entry.kind, slug=slug)
     if taken is not None and taken.path != entry.path:

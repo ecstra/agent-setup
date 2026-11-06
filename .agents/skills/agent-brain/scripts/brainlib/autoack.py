@@ -74,7 +74,20 @@ def turn_on(
     if a_folder(path=path_of(brain=brain)):
         raise AckError(FOLDER)
 
-    at = at or clock.now()
+    grant = grant_for(brain=brain, hours=hours, until_text=until_text, task=task, at=at or clock.now())
+    write(brain=brain, grant=grant)
+
+    return grant
+
+
+def grant_for(
+    brain: store.Brain,
+    hours: Optional[float],
+    until_text: Optional[str],
+    task: Optional[str],
+    at: datetime,
+) -> Grant:
+    """A word given now with the earliest of the ends given, refused with no end, an end already past or one past what every clock can place, written nowhere, so the owner's word for a test file takes its end the same way."""
     ends: list[datetime] = []
     try:
         if hours is not None:
@@ -103,14 +116,23 @@ def turn_on(
     if until is not None and (until > LATEST or on_the_wall(at=at, moment=until).year > LAST_YEAR):
         raise AckError(f"auto ack would end past the year {LAST_YEAR}, give a nearer end")
 
-    grant = Grant(
+    return Grant(
         since=at,
         until=until,
         task=task,
     )
-    write(brain=brain, grant=grant)
 
-    return grant
+
+def holds(
+    brain: store.Brain,
+    grant: Grant,
+    at: datetime,
+) -> bool:
+    """Whether a word still holds at the moment, within its time and with its task still open."""
+    if grant.until is not None and utc(at) >= grant.until:
+        return False
+
+    return grant.task is None or task_state(brain=brain, key=grant.task) == "open"
 
 
 def turn_off(

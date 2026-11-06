@@ -1,0 +1,20 @@
+# clippy's settings for every Rust project. Lint levels live in the
+# [workspace.lints] table of the root Cargo.toml, and this file holds only
+# the values lints read. The project owns this file once it is written.
+
+# Tests may unwrap, expect, panic and index, since a failing test is the
+# point there.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true
+
+# Calls banned project wide. A real exception takes
+# #[expect(clippy::disallowed_methods, reason = "...")] on the item.
+# allow-invalid keeps a ban quiet in a project that does not use its crate.
+disallowed-methods = [
+  { path = "std::thread::sleep", reason = "blocks the thread, so in async code use the runtime's sleep, and never wait out a race with it" },
+  { path = "futures::executor::block_on", reason = "blocks the caller and can deadlock an async runtime", allow-invalid = true },
+  { path = "tokio::runtime::Handle::block_on", reason = "blocks the caller and panics inside the runtime", allow-invalid = true },
+  { path = "tokio::sync::mpsc::unbounded_channel", reason = "use a bounded channel", allow-invalid = true },
+]

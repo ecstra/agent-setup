@@ -18,7 +18,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-from . import autoack, conclude, frontmatter, handover, index, links, people, rules, schema, sections, steps, store, style, task, writes
+from . import autoack, conclude, frontmatter, guard, handover, index, links, people, rules, rust, schema, sections, steps, store, style, task, writes
 
 # The folders the markdown walk leaves out. It never enters the worktree
 # home, and it enters the skills, which follow their own standard, only
@@ -292,7 +292,7 @@ def tools_own_write(
     if path.parent == project:
         return target in (*schema.ROOT_FILES, schema.IGNORE_FILE)
 
-    if target.endswith((".md", ".json")) or target in (schema.VERSION_FILE, autoack.FILE, conclude.FILE, task.FILE):
+    if target.endswith((".md", ".json")) or target in (schema.VERSION_FILE, autoack.FILE, guard.FILE, conclude.FILE, task.FILE):
         return True
 
     return store.quietly((path.parent / target).exists)
@@ -2428,6 +2428,67 @@ def check_rules(
     return nested + findings
 
 
+def check_rust(
+    brain: store.Brain,
+) -> list[Finding]:
+    """The findings on the kit's Rust rule, which stands exactly while the project's root holds a Cargo.toml, and on what a Rust project lacks of the rule's asks.
+
+    The rule is written from the template the tool carries, with its
+    import and the configs the project lacks, rewritten where it says
+    other than the template, and retired where Rust is gone, unless it
+    says more than the kit's words, which the project moves first. A
+    toolchain pin and the lints tables are the project's to write, from
+    the reference copy, so they are named and left alone.
+    """
+    project = brain.root.parent
+    rule = brain.root / rules.FOLDER / rust.RULE
+    where = f"{rules.FOLDER}/{rust.RULE}"
+    has_rule = store.readable_file(rule)
+    if not has_rule and not rust.is_rust(project):
+        return []
+
+    try:
+        kits = rust.template_body()
+    except (OSError, UnicodeDecodeError) as error:
+        return [Finding(path=where, check="rust", message=f"cannot be held to the kit's words, since the tool's template of them cannot be read, {store.explain(error)}, and the upgrade writes it back")]
+
+    # the words below the header, which doctor's own fills of people and dates never touch, or None where the file does not read as text
+    try:
+        says: Optional[str] = rust.body_of(rule.read_text(encoding="utf-8-sig")).strip() if has_rule else ""
+    except (OSError, UnicodeDecodeError):
+        says = None
+
+    if not rust.is_rust(project):
+        if says != kits.strip():
+            return [Finding(path=where, check="rust", message=rust.NO_RUST_CHANGED)]
+
+        return [Finding(path=where, check="rust", message=rust.NO_RUST, repair=lambda: rust.retire(brain.root))]
+
+    if not has_rule:
+        holder = rust.holder_of_the_name(entries=brain.entries(), rule=rule)
+        if holder is not None:
+            found = [Finding(path=where, check="rust", message=rust.NAME_TAKEN.format(path=holder))]
+        else:
+            found = [Finding(path=where, check="rust", message=rust.MISSING, repair=lambda: rust.write_rule(brain.root))]
+    elif says is None:
+        # the file is the kit's whole, so one that does not read as text is written again from the template
+        found = [Finding(path=where, check="rust", message=rust.CHANGED, repair=lambda: rust.write_rule(brain.root))]
+    elif says != kits.strip():
+        found = [Finding(path=where, check="rust", message=rust.CHANGED, repair=lambda: rust.rewrite_body(brain.root))]
+    else:
+        found = []
+
+    if not (project / rust.TOOLCHAIN).exists():
+        found.append(Finding(path=rust.TOOLCHAIN, check="rust", message=rust.NO_TOOLCHAIN))
+
+    try:
+        found += [Finding(path=path, check="rust", message=message) for path, message in rust.lint_trouble(project)]
+    except (OSError, UnicodeDecodeError) as error:
+        found.append(Finding(path=rust.MANIFEST, check="rust", message=f"cannot be read for its lints, {store.explain(error)}"))
+
+    return found
+
+
 CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_leftovers,
     check_strays,
@@ -2444,6 +2505,7 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_hygiene,
     check_layout,
     check_front_doors,
+    check_rust,
     check_rules,
     check_read_guard,
 )

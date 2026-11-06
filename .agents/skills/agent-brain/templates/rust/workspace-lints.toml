@@ -1,0 +1,76 @@
+# The kit's lint levels for every Rust project. Paste both tables into the
+# root Cargo.toml, and give every crate's own Cargo.toml these two lines.
+#
+#   [lints]
+#   workspace = true
+#
+# A single crate with no workspace takes them as [lints.rust] and
+# [lints.clippy] in its own Cargo.toml instead. The gates run clippy with
+# -D warnings, so a lint set to warn fails the gates as surely as one set
+# to deny. A real exception is #[expect(lint, reason = "...")] on the item,
+# never #[allow] and never a level changed here to quiet one case.
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+unused_must_use = "deny"
+unreachable_pub = "warn"
+# a lint name the toolchain does not know, or one it renamed, only warns
+# even under -D warnings, so these two make a typo here fail the gates
+unknown_lints = "deny"
+renamed_and_removed_lints = "deny"
+
+[workspace.lints.clippy]
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+# panics, which tests may still use through clippy.toml
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+indexing_slicing = "deny"
+string_slice = "deny"
+
+# silenced lints, so every exception is an expect with its reason
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+
+# swallowed errors
+let_underscore_must_use = "deny"
+map_err_ignore = "deny"
+unused_result_ok = "deny"
+
+# unsafe
+undocumented_unsafe_blocks = "deny"
+multiple_unsafe_ops_per_block = "deny"
+mem_forget = "deny"
+
+# numbers
+cast_possible_truncation = "deny"
+cast_sign_loss = "deny"
+cast_possible_wrap = "deny"
+
+# async
+await_holding_lock = "deny"
+await_holding_refcell_ref = "deny"
+await_holding_invalid_type = "deny"
+
+# process and output
+print_stdout = "deny"
+print_stderr = "deny"
+exit = "deny"
+
+# matches
+wildcard_enum_match_arm = "deny"
+
+# pedantic lints that cost more than they catch
+missing_errors_doc = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
