@@ -118,7 +118,7 @@ def run(
 def key_of(
     finding: Finding,
 ) -> tuple[str, str, str]:
-    """What makes a finding the same one across passes: its file, check and words."""
+    """What makes a finding the same one across passes, its file, check and words."""
     return finding.path, finding.check, finding.message
 
 

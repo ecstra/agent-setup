@@ -3,10 +3,14 @@
 Claude Code, Codex and Gemini CLI each call this with their own event
 JSON on standard input and the event name as the first argument. Five
 events matter, the start of a session, each prompt the owner sends, a
-tick after the agent's tool calls, a write that is about to create a
-file inside .agents/, and a write that just landed anywhere in the
-project, after which the check reads the file written and, where it
-landed inside .agents/, doctor reads the whole brain. The session start,
+tick after the agent's tool calls, a write, an edit or a patch about to
+land anywhere in the project, refused where it does by hand what the
+brain tool does, or, outside the kit's own checkout, writes the
+project's AGENTS.md or the kit's Rust rule or loses an assertion a test
+file holds, and a write that just landed anywhere in the project, after
+which the project's linters and the check read the file written, and
+doctor reads the whole brain where it landed inside .agents/, on a front
+door or the root Cargo.toml, or where a patch deleted or moved a file. The session start,
 the prompt and the tick carry the clock, since a model does not know
 the time and forgets what it was told, where the owner's standing word
 to proceed stands, on, held or off, and the work the agent is on, the

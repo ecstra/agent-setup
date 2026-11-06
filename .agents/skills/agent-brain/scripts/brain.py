@@ -1,13 +1,14 @@
 """The brain tool. Files, changes, counts and checks everything in .agents/.
 
 Run from anywhere inside a project that carries the kit, through the
-launcher in the brain's folder:
+launcher in the brain's folder, called by its path from the shell's
+folder, as here from the project's root.
 
-    .agents/brain status
+    python3 .agents/brain status
 
 Prose for a new file comes in on standard input, so a heredoc in single
-quotes passes it through without the shell touching it. Exit codes: 0
-when it did the thing, 1 when it refused and said why, 2 while doctor's
+quotes passes it through without the shell touching it. It exits 0 when
+it did the thing, 1 when it refused and said why, and 2 while doctor's
 or the check's findings remain.
 """
 
@@ -307,7 +308,7 @@ def run_conclude(
 def add_task(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("task", help="the current work: on an entry, its step done, skipped or pending again, off, or where it stands")
+    command = commands.add_parser("task", help="start work on an entry, mark its step done, skipped or pending again, drop it, or say where the work stands")
     actions = command.add_subparsers(dest="action")
 
     starting = actions.add_parser("on", help="start work on a plan, a todo, a bug or a review")
@@ -847,7 +848,7 @@ def run_gates(
 def add_steps(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("steps", help="the steps of a plan, a todo or a bug: show them, add some, or mark a plain one")
+    command = commands.add_parser("steps", help="show the steps of a plan, a todo or a bug, add some, or mark a plain one")
     command.add_argument("key", help="the entry, by id, name or path")
     actions = command.add_subparsers(dest="action")
 
@@ -920,7 +921,7 @@ def run_steps_mark(
 def add_ledger(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("ledger", help="review ledgers: open, batch, add, set, report, close")
+    command = commands.add_parser("ledger", help="open a review ledger, add or set its batches and findings, report where it stands, or close it")
     actions = command.add_subparsers(dest="action")
 
     opening = actions.add_parser("open", help="start the ledger for a branch")
