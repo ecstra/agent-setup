@@ -560,7 +560,8 @@ def moved_body(
 
         file_part, hash_sign, anchor = target.partition("#")
         # read with its percent escapes decoded, as the check of a body link reads it, so my%20notes.md is my notes.md
-        if os.path.normpath(str(folder / unquote(file_part, errors="surrogateescape"))) != old_target:
+        file_part = unquote(file_part, errors="surrogateescape")
+        if os.path.normpath(str(folder / file_part)) != old_target:
             return match.group(0)
 
         # a markdown link takes forward slashes on every system

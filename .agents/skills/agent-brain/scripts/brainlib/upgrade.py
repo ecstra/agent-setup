@@ -2201,26 +2201,35 @@ def imports_rebased(
     """The text with each relative `@path` import written again from `new_folder`, since an agent reads an import from the folder of the file that holds it.
 
     An import is any `@` an agent may open, on a line of its own or in a
-    sentence, as doctor reads them, outside code and comments. A path
-    from a home folder or the disk's root, one with a backslash or a
-    fragment, a link's text, and a mention that names no file stay as
-    they are, and emphasis or punctuation glued on stays glued on.
+    sentence, as doctor reads them, outside code and comments. An agent
+    cuts the path at a `#` fragment and reads `\\ ` as a space, so the
+    path before the fragment is written again, its escaped spaces kept,
+    and the fragment after it. A path from a home folder or the disk's
+    root, one with another backslash, a link's text, and a mention that
+    names no file stay as they are, and emphasis or punctuation glued on
+    stays glued on.
     """
     visible = doctor.visible_text(text)
     moved: list[str] = []
     last = 0
-    for found in doctor.ANY_IMPORT.finditer(visible):
+    for found in ESCAPED_IMPORT.finditer(visible):
         token = found.group(1)
+        path, hash_sign, fragment = token.partition("#")
         # emphasis closing round an import and punctuation after it are no part of the path, and a bracket is a link's text, never a path
-        bare = doctor.GLUE.sub("", doctor.MARKED.sub("", token))
-        if not bare or "#" in token or "[" in token or "]" in token or bare.startswith(("~", "/")) or "\\" in bare or not doctor.is_import(bare=bare, project=old_folder):
+        bare = doctor.MARKED.sub("", path) if hash_sign else doctor.GLUE.sub("", doctor.MARKED.sub("", token))
+        plain = bare.replace("\\ ", " ")
+        if not plain or "[" in token or "]" in token or plain.startswith(("~", "/")) or "\\" in plain or not doctor.is_import(bare=plain, project=old_folder):
             continue
 
-        written = Path(os.path.relpath(os.path.normpath(old_folder / bare), new_folder)).as_posix()
+        written = Path(os.path.relpath(os.path.normpath(old_folder / plain), new_folder)).as_posix().replace(" ", "\\ ")
         moved.append(text[last : found.start(1)] + written + token[len(bare) :])
         last = found.end(1)
 
     return "".join(moved) + text[last:]
+
+
+# an import as doctor reads one, its token running on over an escaped space, which an agent reads as part of the path
+ESCAPED_IMPORT = re.compile(r"(?:^|(?<=[\s*_(\[>]))@((?:\\ |\S)+)", re.MULTILINE)
 
 
 def rule_text(

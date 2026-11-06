@@ -1973,6 +1973,17 @@ def line_slips(
     folder = "" if base == project else base.relative_to(project).as_posix()
     inside = f" in {folder}/" if folder else ""
     home = f"{folder}/, the folder the rule is read from" if folder else "the project's folder"
+    climb = "../" * len(folder.split("/")) if folder else ""
+    if folder and "#" in token and "\\ " not in token and not MARKED.search(token):
+        # an agent cuts the path at its fragment, so a rule's import of a file at the project's root is named with the path that reaches it, the fragment kept,
+        # which a section 0 the 3.0.0 move left unrebased still holds
+        path, _, fragment = token.partition("#")
+        reached = root_spelling(project=project, base=base, path=path) if path else None
+        if reached is None:
+            return []
+
+        return [import_finding(name=name, message=f"imports @{token}, which is not there{inside}, though the project's root holds it, so write @{climb}{reached}#{fragment}")]
+
     if "\\ " in token or "#" in token or MARKED.search(token):
         return []
 
@@ -1986,9 +1997,7 @@ def line_slips(
 
         return [import_finding(name=name, message=f"imports @{token} with a backslash in its path, which no agent reads as a folder's slash, so write it with slashes")]
 
-    # a path with a `..` was written from some folder on purpose, and one from the disk's root or the home is no path from the project's root
-    from_some_folder = bare.startswith(("/", "~")) or DRIVE.match(bare) is not None or ".." in bare.split("/")
-    at_the_root = None if not folder or from_some_folder or spelled_on_disk(base=base, path=bare) is not None else spelled_on_disk(base=project, path=bare)
+    at_the_root = root_spelling(project=project, base=base, path=bare)
     if at_the_root is None and not is_import(bare=bare, project=base):
         return []
 
@@ -2010,7 +2019,6 @@ def line_slips(
             return [import_finding(name=name, message=f"imports @{token}, which is not a regular file, so no agent loads it")]
 
         if at_the_root is not None:
-            climb = "../" * len(folder.split("/"))
             return [import_finding(name=name, message=f"imports @{token}, which is not there{inside}, though the project's root holds it, so write @{climb}{at_the_root}")]
 
         from_the_root = posixpath.normpath(f"{folder}/{token}") if folder else token
@@ -2026,6 +2034,27 @@ def line_slips(
     trouble = target_trouble(base / spelled)
 
     return [] if trouble is None else [import_finding(name=name, message=f"imports @{token}, which {trouble}")]
+
+
+def root_spelling(
+    project: Path,
+    base: Path,
+    path: str,
+) -> Optional[str]:
+    """The path as the project's root spells it, where a file that holds imports outside the root, a rule, writes it from the root by mistake, else None.
+
+    It is one only where the path leads to no file from the file's own
+    folder and to a file from the root. A path with a `..` was written
+    from some folder on purpose, and one from the disk's root, a drive
+    or the home folder is no path from the project's root, so none is.
+    """
+    if base == project or path.startswith(("/", "~")) or DRIVE.match(path) is not None or ".." in path.split("/"):
+        return None
+
+    if spelled_on_disk(base=base, path=path) is not None:
+        return None
+
+    return spelled_on_disk(base=project, path=path)
 
 
 def fix_writes(
