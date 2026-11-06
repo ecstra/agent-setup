@@ -68,6 +68,9 @@ def create(
     if kind.name == "review" and not schema.is_review_folder(slug):
         raise WriteError(f"a review folder is named <yyyy-mm>-<branch-slug>, and '{slug}' is not")
 
+    if kind.name == "rule" and category:
+        raise WriteError(f"a rule takes no category, since a rule loads only from {kind.folder}/ itself")
+
     taken = brain.with_slug(
         kind=kind,
         slug=slug,

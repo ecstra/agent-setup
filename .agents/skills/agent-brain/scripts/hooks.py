@@ -342,7 +342,7 @@ def pre_write(
     return 0
 
 
-AGENTS_BY_HAND = "AGENTS.md is the kit's, written whole by the upgrade, so nothing in it is edited by hand. A project's own instruction is a rule, filed through brain new rule, which AGENTS.md then imports, and it loads once the session is reloaded"
+AGENTS_BY_HAND = "AGENTS.md is the kit's, written whole by the upgrade, so nothing in it is edited by hand. A project's own instruction is a rule, filed through brain new rule, which AGENTS.md then imports, and it loads once the session is reloaded. brain doctor --fix writes the import lines again, a merge's conflict in them among what it settles"
 
 
 def front_door_refusal(

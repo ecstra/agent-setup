@@ -2411,12 +2411,17 @@ def check_rules(
         return [*nested, Finding(path=rules.AGENTS, check="rules", message="has no line the rules are imported below, so no rule loads, and the upgrade writes it")]
 
     on_disk: list[str] = rules.names(brain.root)
+    # every line below the mark is the tool's, so anything there but a rule's import, a merge's conflict markers among them, goes
+    prefix = rules.IMPORT.format(name="")
+    strays = [line.strip() for line in text.split(rules.MARK, 1)[1].splitlines() if line.strip() and not line.strip().startswith(prefix)]
 
     def repair() -> None:
         rules.write_imports(brain.root)
 
-    findings = [Finding(path=rules.AGENTS, check="rules", message=f"does not import .agents/rules/{name}, so the rule never loads", repair=repair) for name in on_disk if name not in imported]
-    findings += [Finding(path=rules.AGENTS, check="rules", message=f"imports .agents/rules/{name}, which is no rule", repair=repair) for name in imported if name not in on_disk]
+    findings = [Finding(path=rules.AGENTS, check="rules", message=f"carries `{line}` below the line the rules are imported under, where the tool writes their imports alone", repair=repair) for line in strays]
+    findings += [Finding(path=rules.AGENTS, check="rules", message=f"does not import .agents/rules/{name}, so the rule never loads", repair=repair) for name in on_disk if name not in imported]
+    findings += [Finding(path=rules.AGENTS, check="rules", message=f"imports .agents/rules/{name}, which is no rule", repair=repair) for name in dict.fromkeys(imported) if name not in on_disk]
+    findings += [Finding(path=rules.AGENTS, check="rules", message=f"imports .agents/rules/{name} more than once", repair=repair) for name in dict.fromkeys(imported) if imported.count(name) > 1]
     if not findings and imported != on_disk:
         findings.append(Finding(path=rules.AGENTS, check="rules", message="imports the rules out of their load order, the project's own first and the others by name", repair=repair))
 

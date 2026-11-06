@@ -14,11 +14,13 @@ from . import frontmatter, schema, store
 
 FOLDER = "rules"
 PROJECT = "project.md"
+PROJECT_NAME = "project"
 AGENTS = "AGENTS.md"
 # the line AGENTS.md carries above its imports of the rules, everything after it the tool's to write
 MARK = "<!-- The project's rules, one import per line below, are the brain tool's to write. A new rule goes in through brain new rule. -->"
 IMPORT = "@.agents/rules/{name}"
 RELOAD = "a new rule loads only once the session is reloaded, so ask the owner to reload the session"
+NOT_IMPORTED = "AGENTS.md does not import the rule, so it does not load, and brain doctor says why"
 # the release the rules came in, from which AGENTS.md is the kit's whole and holds no section 0
 SINCE = "3.0.0"
 

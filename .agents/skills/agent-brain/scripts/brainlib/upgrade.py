@@ -181,6 +181,8 @@ GIT_TAKES_CHARACTERS = os.name == "nt"
 # releases. From 3.0.0 the section lives in the project's own rule and
 # the kit writes no such line.
 SECTION_ZERO_HEADING = "## 0. Project Rules"
+# the heading the upgrade writes above words it moves to the end of a rule that held some already
+MOVED_HEADING = "# Moved by the upgrade"
 KIT_MARK = "<!-- The kit's words start here. Section 0 goes above this line. -->"
 MARK = re.compile(re.escape(KIT_MARK))
 MARK_LINE = re.compile(
@@ -679,6 +681,17 @@ def prepare(
     if rules.MARK not in front_doors["AGENTS.md"]:
         raise UpgradeError("the kit's AGENTS.md has no line the rules are imported below, so no rule of the project's would load")
 
+    # a name is the one key of an entry in the brain, so another entry named as the project's own rule is settled before any write
+    for folder in (FOLDER, OLD_FOLDER):
+        brain_root = project.root / folder
+        if not store.quietly(brain_root.is_dir):
+            continue
+
+        own_rule = brain_root / rules.FOLDER / rules.PROJECT
+        for entry in store.Brain(root=brain_root).entries():
+            if entry.path != own_rule and entry.document.get("name") == rules.PROJECT_NAME:
+                raise UpgradeError(f"{folder}/{entry.relative} is named {rules.PROJECT_NAME}, the name the project's own rule takes from {rules.SINCE}, so retitle it first with brain refile")
+
     settings = kit_config(kit=kit)
     merged: list[Path] = []
 
@@ -725,8 +738,15 @@ def install(
         frontmatter.write_text(path=str(own_rule), text=rule_text(zero=zero, project=project))
         report.done(zero.says if zero is not None else f"wrote {FOLDER}/{rules.FOLDER}/{rules.PROJECT}, the place for the project's own rules")
     elif zero is not None:
-        frontmatter.write_text(path=str(own_rule), text=own_rule.read_text(encoding="utf-8-sig").rstrip("\n") + "\n\n" + rule_body(zero=zero, project=project) + "\n")
-        report.done(zero.says.replace(" into ", " to the end of ", 1))
+        held = own_rule.read_text(encoding="utf-8-sig")
+        moved = rule_body(zero=zero, project=project)
+        # a run that stopped before AGENTS.md was written finds its section 0 again, which the rule already holds
+        if moved in held:
+            report.done(f"left {FOLDER}/{rules.FOLDER}/{rules.PROJECT} as it was, since it already holds what this upgrade would move into it")
+        else:
+            # a heading of the first level closes every Gates and Lint stretch of what the rule held, so none reaches over the moved words
+            frontmatter.write_text(path=str(own_rule), text=f"{held.rstrip(chr(10))}\n\n{MOVED_HEADING}\n\n{moved}\n")
+            report.done(zero.says.replace(" into ", " to the end of ", 1))
     front_doors["AGENTS.md"] = rules.with_imports(text=front_doors["AGENTS.md"], names=rules.loaded(project.brain))
 
     replaced: list[str] = []
@@ -1710,36 +1730,59 @@ def section_zero_of(
         except (OSError, UnicodeDecodeError):
             continue
 
-    rule = f"{FOLDER}/{rules.FOLDER}/{rules.PROJECT}"
-    read_them = "read {them} against the rulebook and keep only what the kit does not cover"
-    # what AGENTS.md held of its own outside section 0 leaves with it, since the door is written whole
-    agents = next((name for name in texts if name.lower() == rules.AGENTS.lower()), None)
-    words = "" if agents is None else words_outside_section_zero(texts[agents])
+    zero: Optional[tuple[str, str]] = None
     for name, text in texts.items():
-        zero = section_zero_in(text)
-        if zero is not None and words:
-            return Zero(text=f"{zero}\n{words}\n", says=f"moved section 0 from {name} into {rule}, with the words {agents} held of its own outside it, {read_them.format(them='those')}")
+        found = section_zero_in(text)
+        if found is not None:
+            zero = (name, found.split("\n\n", 1)[1].rstrip("\n"))
+            break
 
-        if zero is not None:
-            return Zero(text=zero, says=f"moved section 0 from {name} into {rule}")
+    # what a door says of its own outside section 0 leaves with it, since the door is written whole
+    words: list[tuple[str, str]] = []
+    if layout == "none":
+        # the kit's doors carry no marker since its 3.0.0, so its own words are told apart by what they say, the imports aside
+        kits_words = {name.lower(): own_words(text) for name, text in prepared.front_doors.items()}
+        for name, text in texts.items():
+            said = own_words(without_section_zero(text))
+            if said and own_words(text) != kits_words.get(name.lower()):
+                words.append((name, said))
+    else:
+        agents = next((name for name in texts if name.lower() == rules.AGENTS.lower()), None)
+        said = "" if agents is None else words_outside_section_zero(texts[agents])
+        if said:
+            words.append((agents, said))
 
-    if words:
-        return Zero(text=f"{SECTION_ZERO_HEADING}\n\n{words}\n", says=f"moved the words {agents} held of its own into {rule}, {read_them.format(them='them')}")
-
-    if layout != "none":
+    # the words go ahead of section 0, which is how the door held them, so no Gates or Lint heading of section 0 reaches over them
+    parts = [said for _, said in words] + ([zero[1]] if zero is not None else [])
+    if not parts:
         return None
 
-    # the kit's doors carry no marker since its 3.0.0, so its own words are told apart by what they say, the imports aside
-    kits_words = {name.lower(): own_words(text) for name, text in prepared.front_doors.items()}
-    for name, text in texts.items():
-        words = own_words(text)
-        if words and words != kits_words.get(name.lower()):
-            return Zero(
-                text=f"{SECTION_ZERO_HEADING}\n\n{words}\n",
-                says=f"carried {name} whole into {FOLDER}/{rules.FOLDER}/{rules.PROJECT}, read it against the rulebook and keep only what the kit does not cover",
-            )
+    rule = f"{FOLDER}/{rules.FOLDER}/{rules.PROJECT}"
+    doors = " and ".join(name for name, _ in words)
+    read = f"read {'it' if len(words) == 1 else 'them'} against the rulebook and keep only what the kit does not cover"
+    if zero is None and layout == "none":
+        says = f"carried {doors} whole into {rule}, {read}"
+    elif zero is None:
+        says = f"moved the words {doors} held of {'its' if len(words) == 1 else 'their'} own into {rule}, {read}"
+    elif words:
+        says = f"moved section 0 from {zero[0]} into {rule}, with the words {doors} held of {'its' if len(words) == 1 else 'their'} own outside it, read those against the rulebook and keep only what the kit does not cover"
+    else:
+        says = f"moved section 0 from {zero[0]} into {rule}"
 
-    return None
+    return Zero(text=f"{SECTION_ZERO_HEADING}\n\n" + "\n\n".join(parts) + "\n", says=says)
+
+
+def without_section_zero(
+    text: str,
+) -> str:
+    """The text with its `## 0.` section cut out, heading and all, as section_zero_in reads the section, or the text as it is with none."""
+    span: Optional[tuple[int, int, int]] = section_zero_span(text)
+    if span is None:
+        return text
+
+    start, _, end = span
+
+    return text[:start] + text[end:]
 
 
 def section_zero_in(
@@ -1765,6 +1808,22 @@ def section_zero_in(
     is no heading, neither the section's own nor the one that would end
     it.
     """
+    span: Optional[tuple[int, int, int]] = section_zero_span(text)
+    if span is None:
+        return None
+
+    _, start, end = span
+    body = text[start:end].strip()
+    if not body:
+        return None
+
+    return f"{SECTION_ZERO_HEADING}\n\n{body}\n"
+
+
+def section_zero_span(
+    text: str,
+) -> Optional[tuple[int, int, int]]:
+    """Where a text's `## 0.` section starts, where its heading ends and where the section ends, as section_zero_in reads it, or None with no such heading."""
     hidden: list[tuple[int, int]] = hidden_spans(text)
     heading: Optional[re.Match] = section_zero_heading(text)
     if heading is None:
@@ -1790,11 +1849,7 @@ def section_zero_in(
         if words != -1:
             end = words
 
-    body = text[heading.end() : end].strip()
-    if not body:
-        return None
-
-    return f"{SECTION_ZERO_HEADING}\n\n{body}\n"
+    return heading.start(), heading.end(), end
 
 
 def hidden_spans(
@@ -2125,25 +2180,26 @@ def imports_rebased(
     old_folder: Path,
     new_folder: Path,
 ) -> str:
-    """The text with each relative `@path` import line written again from `new_folder`, since an agent reads an import from the folder of the file that holds it.
+    """The text with each relative `@path` import written again from `new_folder`, since an agent reads an import from the folder of the file that holds it.
 
-    An import line is one as doctor reads it, outside code and comments.
-    A path from a home folder or the disk's root, one with a backslash or
-    a fragment, and a mention that names no file stay as they are, and
-    punctuation glued on stays glued on.
+    An import is any `@` an agent may open, on a line of its own or in a
+    sentence, as doctor reads them, outside code and comments. A path
+    from a home folder or the disk's root, one with a backslash, a
+    fragment or emphasis after it, and a mention that names no file stay
+    as they are, and punctuation glued on stays glued on.
     """
     visible = doctor.visible_text(text)
     moved: list[str] = []
     last = 0
-    for line in doctor.IMPORT_LINE.finditer(visible):
-        token = line.group(1)
+    for found in doctor.ANY_IMPORT.finditer(visible):
+        token = found.group(1)
         bare = doctor.GLUE.sub("", token)
-        if not bare or bare.startswith(("~", "/")) or "\\" in bare or "#" in token or not doctor.is_import(bare=bare, project=old_folder):
+        if not bare or "#" in token or doctor.MARKED.search(token) or bare.startswith(("~", "/")) or "\\" in bare or not doctor.is_import(bare=bare, project=old_folder):
             continue
 
         written = Path(os.path.relpath(os.path.normpath(old_folder / bare), new_folder)).as_posix()
-        moved.append(text[last : line.start(1)] + written + token[len(bare) :])
-        last = line.end(1)
+        moved.append(text[last : found.start(1)] + written + token[len(bare) :])
+        last = found.end(1)
 
     return "".join(moved) + text[last:]
 
