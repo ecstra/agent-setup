@@ -15,7 +15,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, TextIO, cast
 
 from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, guard, handover, index, ledger, plans, reads, rules, schema, steps, store, task, upgrade, writes
 from brainlib.store import FINDINGS_REMAIN, REFUSED
@@ -24,7 +24,49 @@ FIELD_FLAGS = ("status", "severity", "area", "by", "type", "branch", "date")
 KIND_HELP = "one of " + ", ".join(sorted(schema.KINDS)) + ", or its plural"
 
 
+class Shown:
+    """A standard stream that spells out each control character a terminal acts on as it writes, and answers everything else as the stream it wraps does."""
+
+    def __init__(
+        self,
+        stream: TextIO,
+    ) -> None:
+        self.stream = stream
+
+    def write(
+        self,
+        text: str,
+    ) -> int:
+        return self.stream.write(store.shown(text))
+
+    def __getattr__(
+        self,
+        name: str,
+    ) -> object:
+        return getattr(self.stream, name)
+
+
 def main(
+    argv: Optional[list[str]] = None,
+) -> int:
+    """Run one command, every line it prints spelled through `store.shown`, since a line may quote a brain file a cloned repository wrote, and a terminal would act on an escape in it."""
+    # a step's text is read as UTF-8 whatever the locale says, so a character the output codec lacks is written as its escape rather than ending the command in a traceback
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
+
+    out, err = sys.stdout, sys.stderr
+    if out is not None:
+        sys.stdout = cast(TextIO, Shown(out))
+    if err is not None:
+        sys.stderr = cast(TextIO, Shown(err))
+    try:
+        return run(argv)
+    finally:
+        sys.stdout, sys.stderr = out, err
+
+
+def run(
     argv: Optional[list[str]] = None,
 ) -> int:
     parser = build_parser()
@@ -32,11 +74,6 @@ def main(
     if not hasattr(args, "handler"):
         parser.print_help()
         return REFUSED
-
-    # a step's text is read as UTF-8 whatever the locale says, so a character the output codec lacks is written as its escape rather than ending the command in a traceback
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            stream.reconfigure(errors="backslashreplace")
 
     # an argument the shell handed over in bytes that are not UTF-8 carries escapes no file takes, so it is refused up front the way standard input is
     for word in sys.argv[1:] if argv is None else argv:
@@ -51,7 +88,7 @@ def main(
         if not getattr(args, "needs_brain", True):
             return args.handler(brain=None, args=args)
 
-        brain = store.find_brain(Path.cwd())
+        brain = store.find_brain()
         return args.handler(brain=brain, args=args)
     except writes.Partial as partial:
         # the entry was written, so the command did its work and exits as done, the indexes follow it where they can, the second write that failed is named on standard error, and an entry filed from prose gets the check the plain path gives it
@@ -703,7 +740,7 @@ def run_doctor(
     else:
         for finding in found:
             print(finding.line())
-        print("clean" if not found else f"{len(found)} findings")
+        print("clean" if not found else store.counted(number=len(found), noun="finding"))
 
     return FINDINGS_REMAIN if found else 0
 
@@ -761,7 +798,7 @@ def run_check(
     else:
         for slip in slips:
             print(slip.text())
-        print("clean" if not slips else f"{len(slips)} findings")
+        print("clean" if not slips else store.counted(number=len(slips), noun="finding"))
 
     return FINDINGS_REMAIN if slips else 0
 
@@ -950,6 +987,11 @@ def run_ledger_batch(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
+    # a ledger is named <yyyy-mm>-<branch>, so a key of digits alone is a batch's number given in its place
+    if args.key.isdigit():
+        print(f"'{args.key}' reads as a batch's number, give the ledger's key before it", file=sys.stderr)
+        return REFUSED
+
     if args.number is None:
         if args.status or args.ack:
             print("give the batch's number to set its status or ack", file=sys.stderr)
@@ -1091,6 +1133,9 @@ def pairs(
             raise writes.WriteError(f"'{item}' is not field=value")
 
         field, _, value = item.partition("=")
+        if field.strip() in found:
+            raise writes.WriteError(f"'{item}' sets {field.strip()} a second time, give each field once")
+
         found[field.strip()] = value.strip()
 
     return found

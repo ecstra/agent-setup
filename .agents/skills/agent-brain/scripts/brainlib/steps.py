@@ -402,7 +402,8 @@ def refuse_lookalike(
     body: str,
 ) -> None:
     """Refuse a heading meant as a plan's Steps section that no reader would find, so its steps are never left behind as prose, a plan being the one kind whose Steps section is required, where a todo or a bug may hold such a heading as prose."""
-    spans = sections.code_spans(body)
+    # hidden as the reader of the real section hides it, so a heading inside a comment is no heading here either
+    spans = sections.hidden_spans(body)
     for match in STEPS_LOOKALIKE.finditer(body):
         if not sections.in_code(spans=spans, position=match.start()):
             raise StepsError(f"the steps go under a level two heading, ## Steps, and {match.group(0).strip()!r} is not one")

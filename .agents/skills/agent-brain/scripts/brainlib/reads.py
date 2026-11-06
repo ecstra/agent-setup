@@ -99,7 +99,7 @@ def tally(
 def render_status(
     data: dict,
 ) -> str:
-    health = "doctor clean" if data["findings"] == 0 else f"doctor {data['findings']} findings, {data['fixable']} fixable"
+    health = "doctor clean" if data["findings"] == 0 else f"doctor {store.counted(number=data['findings'], noun='finding')}, {data['fixable']} fixable"
     lines = [f"kit {data['version']}    {health}"]
 
     for kind_name in ("rule", "plan", "build-spec", "todo", "bug", "decision", "review", "doc", "memory"):

@@ -41,7 +41,7 @@ CHECKS = {
     ".swift": re.compile(r"\bXCTAssert\w*\(|\bXCTFail\(|#expect\(|#require\("),
     ".java": re.compile(r"\bassert\w*\(|\bfail\("),
     # a bare should is a check where a matcher follows, never shoulda's `should "..." do`, which names an example
-    ".rb": re.compile(r"\bexpect\b|\bassert\w*\b|\bmust_\w+|\.should(?:_not)?\b|\bshould(?:_not)?(?:\(|\s+(?!do\b)[^\s\"'])"),
+    ".rb": re.compile(r"\bexpect\b|\bassert\w*\b|\bmust_\w+|\.should(?:_not)?\b|\bshould(?:_not)?(?:\(|\s+(?!do\b)[^\s\"',])"),
 }
 SCRIPT_CHECK = re.compile(r"\bexpect(?:Later)?\s*\(|\bassert\w*[.(]|\.should\b")
 for suffix in (".dart", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"):

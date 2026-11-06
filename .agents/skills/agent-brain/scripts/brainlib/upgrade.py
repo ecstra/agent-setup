@@ -598,13 +598,12 @@ def leads_out(
     """Where the folder a kit file lands in really is, where a link takes it out of the project, else None, so a `.claude` linked into the kit checkout never gets a project's settings."""
     try:
         real: Path = (project.root / relative).parent.resolve()
-        real.relative_to(project.root.resolve())
-    except ValueError:
-        return real
-    except (OSError, RuntimeError):
+        root: Path = project.root.resolve()
+    except (OSError, RuntimeError, ValueError):
         return None
 
-    return None
+    # by the disk's identity, so a link into the project under another case of its folder stays inside it
+    return real if store.below(path=real, root=root) is None else None
 
 
 def prepare(
@@ -684,6 +683,10 @@ def prepare(
         if out is not None:
             raise UpgradeError(f"{relative.as_posix()} sits behind a link that leads out of the project, to {out}, so move the link aside first")
 
+    blocked = in_the_way(kit=kit, project=project)
+    if blocked is not None:
+        raise UpgradeError(blocked)
+
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
     if rules.MARK not in front_doors["AGENTS.md"]:
@@ -704,7 +707,7 @@ def prepare(
 
         # before the kit shipped its Rust rule a rule of that name was the project's own, which doctor would write the kit's words over
         own_rust = brain_root / rules.FOLDER / rust.RULE
-        if stamped < schema.as_tuple(rust.SINCE) and store.readable_file(own_rust) and not rust.says_the_kits(read_as_is(own_rust).removeprefix("﻿").replace("\r\n", "\n")):
+        if stamped < schema.as_tuple(rust.SINCE) and store.readable_file(own_rust) and not rust.says_the_kits(read_as_is(own_rust).removeprefix("\N{ZERO WIDTH NO-BREAK SPACE}").replace("\r\n", "\n")):
             raise UpgradeError(f"{folder}/{rules.FOLDER}/{rust.RULE} is the project's own rule, and from {rust.SINCE} that name is the kit's Rust rule, so retitle it first with brain refile")
 
     settings = kit_config(kit=kit)
@@ -728,6 +731,88 @@ def prepare(
         merged=merged,
         layout=project.state(),
     )
+
+
+DEFINITIONS = Path(".claude") / "agents"
+SANDBOXED = (
+    f"nothing can be written under {DEFINITIONS.as_posix()}, where the run puts the review's sub agent definitions, and Claude Code's sandbox refuses every write there whatever a project's settings say, so run brain port or brain upgrade from a terminal, or let Claude Code run this one command outside the sandbox"
+)
+
+
+def in_the_way(
+    kit: Kit,
+    project: Project,
+) -> Optional[str]:
+    """Why the install would stop part way, or None, asked before its first write so a refusal leaves the project as it was.
+
+    A file or a dangling link stands where the install makes a folder, a
+    folder stands where it writes a file, or the folder of the review's
+    definitions takes no write while the run has one to make there,
+    which Claude Code's sandbox refuses on purpose. The places are the
+    ones the install writes, the front doors, the kit's files under the
+    brain and the agent folders, the project's own rule, the doc of the
+    doors' own words, the ignore file, the stamp and the kind folders,
+    the brain's read where it stands now, `.agent/` on the layout before
+    1.0.0, since the move to `.agents/` comes before the install.
+    """
+    brain = Path(OLD_FOLDER if project.state() == "old" else FOLDER)
+    files: list[Path] = [
+        *(Path(name) for name in ROOT_FILES),
+        *(brain / relative for relative in kit.brain_files()),
+        *kit.agent_files(),
+        brain / rules.FOLDER / rules.PROJECT,
+        brain / QUOTED_DOC,
+        Path(IGNORE_FILE),
+        brain / VERSION,
+    ]
+    folders = {parent for relative in files for parent in relative.parents if parent != Path(".")}
+    folders |= {brain / kind.folder for kind in schema.KINDS.values()}
+    for folder in sorted(folders, key=lambda path: (len(path.parts), path.as_posix())):
+        place = project.root / folder
+        if os.path.lexists(place) and not store.quietly(place.is_dir):
+            return f"a file stands at {folder.as_posix()}, where the run makes a folder, so move it aside first"
+
+    for relative in files:
+        if store.quietly((project.root / relative).is_dir):
+            return f"a folder stands at {relative.as_posix()}, where the run writes a file, so move it aside first"
+
+    definitions = [relative for relative in kit.agent_files() if relative.parent == DEFINITIONS]
+    owed = any(not store.same_bytes(one=project.root / relative, other=kit.root / relative) for relative in definitions)
+    # the retired definitions the install would remove, asked of the one place that removes them
+    owed = owed or bool(retire_definitions(project=project, remove=False))
+    if owed and not takes_a_write(project.root / DEFINITIONS):
+        return SANDBOXED
+
+    return None
+
+
+def takes_a_write(
+    folder: Path,
+) -> bool:
+    """Whether a file can be made in the folder, with the folders above it that are missing, and taken away again, every trace of the try removed."""
+    missing: list[Path] = []
+    current = folder
+    while not os.path.lexists(current) and current != current.parent:
+        missing.append(current)
+        current = current.parent
+
+    made: list[Path] = []
+    try:
+        for step in reversed(missing):
+            step.mkdir()
+            made.append(step)
+        handle, name = tempfile.mkstemp(dir=folder, prefix=".probe.")
+        os.close(handle)
+        os.unlink(name)
+        return True
+    except OSError:
+        return False
+    finally:
+        for step in reversed(made):
+            try:
+                step.rmdir()
+            except OSError:
+                pass
 
 
 def install(
@@ -1128,7 +1213,30 @@ def migration_targets(
         paths += [project.root / IGNORE_FILE, *brain_markdown(brain)]
         paths = [path for path in paths if names_old_folder(path)]
 
-    return [path for path in paths if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path)]
+    return [path for path in paths if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path) and not in_kit_copy(project=project, path=path)]
+
+
+def in_kit_copy(
+    project: Project,
+    path: Path,
+) -> bool:
+    """Whether the path sits in a checkout of the kit kept inside the project, a vendored copy or the one the run comes from, whose files name the old folder as the kit's own history and are never the project's to migrate.
+
+    A checkout is known as the check knows the kit's own, by the tool's
+    tests beside its code, which ship into no project.
+    """
+    for folder in path.parents:
+        if folder == project.root or project.root not in folder.parents:
+            return False
+
+        tests = folder / FOLDER / schema.SKILLS / "agent-brain" / "scripts" / "tests"
+        try:
+            if any(store.readable_file(found) for found in tests.glob("test_*.py")):
+                return True
+        except OSError:
+            continue
+
+    return False
 
 
 def names_old_folder(
@@ -2200,26 +2308,35 @@ def imports_rebased(
     """The text with each relative `@path` import written again from `new_folder`, since an agent reads an import from the folder of the file that holds it.
 
     An import is any `@` an agent may open, on a line of its own or in a
-    sentence, as doctor reads them, outside code and comments. A path
-    from a home folder or the disk's root, one with a backslash or a
-    fragment, a link's text, and a mention that names no file stay as
-    they are, and emphasis or punctuation glued on stays glued on.
+    sentence, as doctor reads them, outside code and comments. An agent
+    cuts the path at a `#` fragment and reads `\\ ` as a space, so the
+    path before the fragment is written again, its escaped spaces kept,
+    and the fragment after it. A path from a home folder or the disk's
+    root, one with another backslash, a link's text, and a mention that
+    names no file stay as they are, and emphasis or punctuation glued on
+    stays glued on.
     """
     visible = doctor.visible_text(text)
     moved: list[str] = []
     last = 0
-    for found in doctor.ANY_IMPORT.finditer(visible):
+    for found in ESCAPED_IMPORT.finditer(visible):
         token = found.group(1)
+        path, hash_sign, fragment = token.partition("#")
         # emphasis closing round an import and punctuation after it are no part of the path, and a bracket is a link's text, never a path
-        bare = doctor.GLUE.sub("", doctor.MARKED.sub("", token))
-        if not bare or "#" in token or "[" in token or "]" in token or bare.startswith(("~", "/")) or "\\" in bare or not doctor.is_import(bare=bare, project=old_folder):
+        bare = doctor.MARKED.sub("", path) if hash_sign else doctor.GLUE.sub("", doctor.MARKED.sub("", token))
+        plain = bare.replace("\\ ", " ")
+        if not plain or "[" in token or "]" in token or plain.startswith(("~", "/")) or "\\" in plain or not doctor.is_import(bare=plain, project=old_folder):
             continue
 
-        written = Path(os.path.relpath(os.path.normpath(old_folder / bare), new_folder)).as_posix()
+        written = Path(os.path.relpath(os.path.normpath(old_folder / plain), new_folder)).as_posix().replace(" ", "\\ ")
         moved.append(text[last : found.start(1)] + written + token[len(bare) :])
         last = found.end(1)
 
     return "".join(moved) + text[last:]
+
+
+# an import as doctor reads one, its token running on over an escaped space, which an agent reads as part of the path
+ESCAPED_IMPORT = re.compile(r"(?:^|(?<=[\s*_(\[>]))@((?:\\ |\S)+)", re.MULTILINE)
 
 
 def rule_text(

@@ -15,10 +15,12 @@ from . import frontmatter, schema
 
 HEADING = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 
-# The two characters the house style bans outright, in prose and in a
-# header value alike, since a value flows into an index's prose.
+# The dash the house style bans outright, in prose and in a header value
+# alike, since a value flows into an index's prose, written as the
+# character or typed as two hyphens between words. SYSTEM.md bans the
+# em dash alone, so an en dash, as in a page range, passes.
 EM_DASH = "—"
-EN_DASH = "–"
+TYPED_EM_DASH = re.compile(r"\w[ \t]+--[ \t]+\w")
 
 # Code in a text, fenced, indented or inline, read the way markdown
 # reads it. It keeps its own punctuation and its own links, so the
@@ -144,7 +146,9 @@ def style_slips(
 ) -> list[str]:
     """What the house style bans in the text, each said the way doctor says it."""
     found: list[str] = []
-    if EM_DASH in text or EN_DASH in text:
+    # code keeps its own punctuation, as SYSTEM.md says, so two hyphens in `git log -- docs` are no dash
+    shown = blanked(text, code_spans(text))
+    if EM_DASH in shown or TYPED_EM_DASH.search(shown):
         found.append("carries a dash the house style bans")
 
     if ";" in text:
@@ -986,7 +990,10 @@ def is_filled(
     if text is None:
         return False
 
-    return bool(text.strip())
+    # a comment shows a reader nothing, so a section that holds only one says nothing, while code shows and counts
+    shown = blanked(text, comment_spans(text, spans=code_spans(text)))
+
+    return bool(shown.strip())
 
 
 def missing(
