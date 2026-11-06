@@ -517,6 +517,10 @@ def on_network_share(
     if not spelled.startswith("\\\\"):
         return False
 
+    # Windows folds a .. away before it reads the path, so one that climbs out of a drive or a share may land on another host
+    if ".." in spelled.split("\\"):
+        return True
+
     host, _, _ = spelled[2:].partition("\\")
     if host in ("?", "."):
         return LOCAL_DEVICE.match(spelled) is None

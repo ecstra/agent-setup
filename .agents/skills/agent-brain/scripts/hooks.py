@@ -528,13 +528,18 @@ def loosely_edited(
 
     lines = text.split("\n")
     block = [line.strip() for line in wanted.split("\n")]
-    found = block_start(lines=[line.translate(STRAIGHT).strip() for line in lines], block=block)
+    bare = [line.translate(STRAIGHT).strip() for line in lines]
+    found = block_start(lines=bare, block=block)
     if found is None:
         return None
 
-    lines[found : found + len(block)] = new.split("\n")
+    placed: list[str] = []
+    while found is not None:
+        placed += lines[:found] + new.split("\n")
+        lines, bare = lines[found + len(block) :], bare[found + len(block) :]
+        found = block_start(lines=bare, block=block) if every else None
 
-    return "\n".join(lines)
+    return "\n".join(placed + lines)
 
 
 def refusal(
