@@ -332,16 +332,25 @@ def ink_of(crop: bytes, w: int, h: int) -> tuple:
 
 
 def edge_lines(crop: bytes, w: int, h: int, region: tuple, ink: tuple, ground: bytes, main: bytes) -> list:
-    """The coverage of the ink's left and top edges across the middle of the ink, and where each is half covered."""
+    """The coverage of the ink's left and top edges, each read along the line nearest the ink's middle that reaches the edge, and where each is half covered."""
     x, y = region[0], region[1]
     x0, y0, x1, y1 = ink
     span = max(abs(main[k] - ground[k]) for k in range(3)) or 1
+
+    def cover(col: int, row: int) -> float:
+        c = crop[(row * w + col) * 3 :][:3]
+        return min(max(abs(c[k] - ground[k]) for k in range(3)) / span, 1.0)
+
     lines = []
-    for name, across, at, lo in (("left edge", "y", (y0 + y1) // 2, x0), ("top edge", "x", (x0 + x1) // 2, y0)):
+    for name, across, lo, first, last in (("left edge", "y", x0, y0, y1), ("top edge", "x", y0, x0, x1)):
+        # text has gaps between its lines and its letters, so the middle line can miss the ink and read the edge as empty
+        middle = (first + last) // 2
+        along = sorted(range(first, last + 1), key=lambda k: abs(k - middle))
+        reach = (lambda k: cover(lo, k)) if across == "y" else (lambda k: cover(k, lo))
+        at = next((k for k in along if reach(k) >= 0.5), max(along, key=reach))
         values = []
         for i in range(max(0, lo - 3), min(lo + 3, w if across == "y" else h)):
-            c = crop[((at * w + i) if across == "y" else (i * w + at)) * 3 :][:3]
-            values.append((i + (x if across == "y" else y), min(max(abs(c[k] - ground[k]) for k in range(3)) / span, 1.0)))
+            values.append((i + (x if across == "y" else y), cover(i, at) if across == "y" else cover(at, i)))
         half = next((i for i, cover in values if cover >= 0.5), None)
         lines.append(f"  {name} along {across} {at + (y if across == 'y' else x)}: coverage " + " ".join(f"{i}:{cover:.2f}" for i, cover in values) + (f", half covered at {half}" if half is not None else ""))
     return lines
