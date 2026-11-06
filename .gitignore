@@ -16,6 +16,13 @@
 .agents/.ack
 .agents/..ack.*.tmp
 
+# The brain tool keeps the owner's word to change a test file's
+# assertions, each file with its end, in this file. It belongs to one
+# machine and one stretch of work too, so it never enters git, and
+# neither does its write in flight.
+.agents/.ack-tests
+.agents/..ack-tests.*.tmp
+
 # The brain tool keeps the current work, the chain from the plan down
 # to the step the agent is on, in this file. It belongs to one machine
 # too, so it never enters git, and neither does its write in flight.

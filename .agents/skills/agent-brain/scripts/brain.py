@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, handover, index, ledger, plans, reads, rules, schema, steps, store, task, upgrade, writes
+from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, guard, handover, index, ledger, plans, reads, rules, schema, steps, store, task, upgrade, writes
 from brainlib.store import FINDINGS_REMAIN, REFUSED
 
 FIELD_FLAGS = ("status", "severity", "area", "by", "type", "branch", "date")
@@ -139,8 +139,9 @@ def run_version(
 def add_ack(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("ack", help="the owner's standing word to proceed, on with an end, off, or where it stands")
-    command.add_argument("state", nargs="?", choices=("on", "off"), help="on or off, nothing to see where it stands")
+    command = commands.add_parser("ack", help="the owner's standing word to proceed, on with an end, off, or where it stands, or with tests the owner's word to change a test file's assertions")
+    command.add_argument("state", nargs="?", choices=("on", "off", "tests"), help="on or off, tests for a test file's word, nothing to see where it stands")
+    command.add_argument("paths", nargs="*", help="with tests, the test files the word is for, after off to take it back, none to see which hold one")
     command.add_argument("--for", dest="lasting", help="how long, such as 8h, 90m or 2d")
     command.add_argument("--until", help="a moment, such as 22:00, tomorrow 22:00 or 2026-09-24 22:00")
     command.add_argument("--until-done", dest="task", help="an entry the word ends with, a todo, a bug or a review, once it is done or gone, a bug on a branch still counting as open, and one the brain cannot read right now holding the word off")
@@ -152,6 +153,13 @@ def run_ack(
     args: argparse.Namespace,
 ) -> int:
     an_end = args.lasting is not None or args.until is not None or args.task is not None
+    if args.state == "tests":
+        return run_ack_tests(brain=brain, args=args, an_end=an_end)
+
+    if args.paths:
+        print("a file goes with tests alone", file=sys.stderr)
+        return REFUSED
+
     if args.state == "off" and an_end:
         print("off takes no end, give it alone", file=sys.stderr)
         return REFUSED
@@ -173,6 +181,56 @@ def run_ack(
 
     print(clock.line())
     print(autoack.describe(brain=brain))
+    return 0
+
+
+def run_ack_tests(
+    brain: store.Brain,
+    args: argparse.Namespace,
+    an_end: bool,
+) -> int:
+    """The owner's word for test files, given with an end, taken back after off, or listed where nothing is named."""
+    named = list(args.paths)
+    taking_back = bool(named) and named[0] == "off"
+    if taking_back:
+        named = named[1:]
+
+    if taking_back and an_end:
+        print("off takes no end, give it alone", file=sys.stderr)
+        return REFUSED
+
+    if taking_back and not named:
+        print("name the test file the word is taken back for", file=sys.stderr)
+        return REFUSED
+
+    if an_end and not named:
+        print("name the test file the word is for, its end goes with it", file=sys.stderr)
+        return REFUSED
+
+    project = brain.root.parent.resolve()
+    relatives: list[str] = []
+    for name in named:
+        try:
+            relatives.append((Path.cwd() / name).resolve().relative_to(project).as_posix())
+        except ValueError:
+            print(f"{name} is outside the project, and the owner's word holds for the project's own test files", file=sys.stderr)
+            return REFUSED
+
+    for relative in relatives:
+        if taking_back:
+            guard.revoke(brain=brain, relative=relative)
+        else:
+            guard.grant(
+                brain=brain,
+                relative=relative,
+                hours=autoack.parse_duration(args.lasting) if args.lasting is not None else None,
+                until_text=args.until,
+                task=args.task,
+            )
+
+    print(clock.line())
+    for line in guard.describe(brain=brain):
+        print(line)
     return 0
 
 

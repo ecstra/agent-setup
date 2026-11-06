@@ -48,6 +48,14 @@ listed in [references/commands.md](references/commands.md).
   on, a shell read such as `cat` of the code gets through and only the
   Read tool is refused, so there the rule holds by your word alone.
   [The read guard](references/commands.md#the-read-guard) says the rest.
+- An assertion a test file already holds changes or goes only on the
+  owner's word. Outside the kit's own checkout the pre write hook
+  refuses an edit that loses one, a test file deleted or moved by a
+  patch among them, until the owner gives their word for that file and
+  you record it with an end, `brain ack tests <file> --for 1h`. New
+  tests, new assertions and the code under test pass.
+  [The test guard](references/commands.md#the-test-guard) says which
+  files and checks it knows and where it falls short.
 
 ## When a session starts
 
@@ -108,7 +116,8 @@ a memory (`--type project|feedback|reference`), a doc (`--category`),
 a build spec (`--branch`) or a review. Each kind's required headings
 are in [the reference](references/commands.md#writing), and the tool
 names the one that is missing. A rule takes no field of its own and no
-category, and `brain new rule` adds its import to `AGENTS.md`. It loads
+category, never the name `rust`, which is the kit's Rust rule's, and
+`brain new rule` adds its import to `AGENTS.md`. It loads
 only once the session is reloaded, so when the command says so, ask the
 owner to reload it. Where it says `AGENTS.md` does not import the rule,
 run doctor, which names why.
@@ -164,7 +173,8 @@ the git names of who filed it and who last changed it through the
 tool, as [the reference](references/commands.md#writing) says, beside
 the `by` of a todo or a plan, which still says whether the owner asked
 for it or the agent raised it. Git ignores `.ack`, the owner's
-standing word, `.conclude`, the conclude word, and `.task`, the current
+standing word, `.ack-tests`, the owner's word to change a test file's
+assertions, `.conclude`, the conclude word, and `.task`, the current
 work, with their writes in flight, `.handover/`, the note for the next
 session, and `handover/`, its folder before 2.2.0, `.worktrees/` and
 the Python and ruff caches. The rest is
@@ -191,7 +201,12 @@ and `brain list --area` finds every entry.
   or a doc, so rules are written sparingly. It has no status.
   `rules/project.md` is the project's own and always there, and the
   others load after it by name, as
-  [the rules](references/commands.md#the-rules) says.
+  [the rules](references/commands.md#the-rules) says. In a project
+  whose root holds a `Cargo.toml`, `rules/rust.md` is among them, the
+  kit's Rust rule, which doctor writes whole from the tool's template
+  and nobody edits by hand, so the project's own Rust rules go in a
+  rule of its own, as
+  [the Rust rule](references/commands.md#the-rust-rule) says.
 - A bug, in `bugs/`, is wrong behaviour with evidence, graded `breaks`
   where a user's path fails or loses work, `bug` for a wrong result on
   some input or state, `debt` for what works and costs later, `nit` for
@@ -411,7 +426,10 @@ belongs, which the stub replaces, a missing launcher `.agents/brain`,
 written from the text the tool holds, the lines below the rules line
 of `AGENTS.md` where they leave out a rule, name a file that is none,
 repeat a rule, stand out of load order or hold anything but a rule's
-import, a merge's conflict markers among them, a read guard rule or
+import, a merge's conflict markers among them, the kit's Rust rule,
+written where the root holds a `Cargo.toml` with its import and the
+configs the project lacks, its words written back where they drifted
+and the rule retired where Rust is gone, a read guard rule or
 sandbox entry missing from `.claude/settings.json`
 while `.claude` stays inside the project, an entry's missing `author` or `editor`, which it fills from
 git's history, and stamps every file it touches, save one where it

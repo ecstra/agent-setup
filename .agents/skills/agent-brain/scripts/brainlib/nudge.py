@@ -48,7 +48,7 @@ import shlex
 from dataclasses import dataclass, field
 from typing import Iterator, Optional
 
-from . import autoack, conclude, schema, store, task
+from . import autoack, conclude, guard, schema, store, task
 
 CALL = "python3 .agents/brain"
 READ = f"The brain answers that itself, {CALL} list <kind> --open for what is still open, --status <status> for one status, status for its counts and show <key> for one entry, where a grep of its fields or a listing of its folders only guesses."
@@ -65,7 +65,7 @@ NAMES = "|".join(re.escape(name) for name in STATE_FIELDS)
 FIELD = re.compile(rf"\^\s*(?:{NAMES})\b|\^\((?:[^()|]*\|)*\s*(?:{NAMES})\b|(?<![\w-])(?:{NAMES})\s*:")
 
 # The brain's own files beside the tracker folders, which the tool alone writes.
-OWN_FILES = (schema.INDEX, autoack.FILE, task.FILE, conclude.FILE, schema.HANDOVER_FOLDER)
+OWN_FILES = (schema.INDEX, autoack.FILE, guard.FILE, task.FILE, conclude.FILE, schema.HANDOVER_FOLDER)
 TRACKERS = schema.INDEXED_FOLDERS
 
 LONGEST = 10_000

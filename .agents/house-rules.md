@@ -38,11 +38,12 @@ rules in `rules/` name its exact gates, tooling, and PR rules.
 ## The gates
 
 The project's rules in `rules/` name its linters under a Lint
-heading and its gates under a Gates heading. The brain runs the Lint
-lines on every file the agent writes, and `brain gates` runs the Gates
-before a review and before a merge. It runs them in order and stops at
-the first red one, and once all are green it runs `brain check` and
-`brain doctor`, as
+heading and its gates under a Gates heading, and in a project whose
+root holds a `Cargo.toml` the kit's Rust rule there names Rust's own.
+The brain runs the Lint lines on every file the agent writes, and
+`brain gates` runs the Gates before a review and before a merge. It
+runs them in order and stops at the first red one, and once all are
+green it runs `brain check` and `brain doctor`, as
 [commands.md](skills/agent-brain/references/commands.md#the-gates)
 says. Before any review it is green. The review judges code that
 already works, reviewers never burn effort on red suites or a brain

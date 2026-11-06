@@ -896,6 +896,8 @@ def is_tools(
 # in each agent folder, the source and doctor's copies.
 KIT_ROOT_FILES: tuple[str, ...] = schema.ROOT_FILES
 CHAT_STYLE: tuple[str, ...] = tuple(path.as_posix() for path in (style.SOURCE, *style.COPIES))
+# the kit's Rust rule, which doctor writes whole from the tool's template in a project with Rust
+KIT_RULE = f"{BRAIN_FOLDER}/rules/rust.md"
 
 
 def written_by_kit(
@@ -909,7 +911,7 @@ def written_by_kit(
     on, and one of that name in a project stamped older is the project's
     own and judged.
     """
-    if relative in KIT_ROOT_FILES or relative in CHAT_STYLE:
+    if relative in KIT_ROOT_FILES or relative in CHAT_STYLE or relative == KIT_RULE:
         return True
 
     definition: Optional[schema.Definition] = next(

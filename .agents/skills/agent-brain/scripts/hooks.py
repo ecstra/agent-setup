@@ -34,7 +34,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, TextIO, Union
 
-from brainlib import autoack, check, clock, conclude, doctor, frontmatter, handover, links, lint, nudge, reads, schema, steps, store, task
+from brainlib import autoack, check, clock, conclude, doctor, frontmatter, guard, handover, links, lint, nudge, reads, rust, schema, steps, store, task
 from brainlib import rules as project_rules
 
 BLOCK = 2
@@ -302,7 +302,13 @@ def tick(
 def the_moment(
     brain: store.Brain,
 ) -> str:
-    """The clock, the standing word, the conclude word while one stands, and the current work, the lines the session start, the prompt hook and the tick carry."""
+    """The clock, the standing word, the conclude word while one stands, and the current work, the lines the session start, the prompt hook and the tick carry.
+
+    The owner's words for test files whose task has ended are taken back
+    here too, as the standing word is in its own line, so neither comes
+    back when the task reopens.
+    """
+    guard.sweep(brain)
     lines = [clock.line(), autoack.describe(brain=brain), conclude.describe(brain=brain), task.describe(brain=brain)]
     return "\n".join(line for line in lines if line is not None)
 
@@ -324,7 +330,7 @@ def pre_write(
 ) -> int:
     touched = touches(event=event, agent=agent)
     for touch in touched:
-        verdict = front_door_refusal(brain=brain, touch=touch) or refusal(brain=brain, touch=touch)
+        verdict = front_door_refusal(brain=brain, touch=touch) or refusal(brain=brain, touch=touch) or assertion_refusal(brain=brain, touch=touch)
         if verdict is None:
             continue
 
@@ -342,6 +348,7 @@ def pre_write(
     return 0
 
 
+RUST_BY_HAND = "rules/rust.md is the kit's Rust rule, which doctor writes whole from the tool's template, so nothing in it is edited by hand. The project's own Rust rules go in .agents/rules/project.md or a rule of their own through brain new rule, in addition to the kit's"
 AGENTS_BY_HAND = "AGENTS.md is the kit's, written whole by the upgrade, so nothing in it is edited by hand. A project's own instruction is a rule, filed through brain new rule, which AGENTS.md then imports, and it loads once the session is reloaded. brain doctor --fix writes the import lines again, a merge's conflict in them among what it settles"
 
 
@@ -349,17 +356,68 @@ def front_door_refusal(
     brain: store.Brain,
     touch: Touch,
 ) -> Optional[str]:
-    """Why a write to the project's AGENTS.md is refused, or None, the kit's own checkout aside, where the file is the work."""
+    """Why a write to the project's AGENTS.md or to the kit's Rust rule is refused, or None, the kit's own checkout aside, where the files are the work."""
     project = brain.root.parent
     if touch.deleted or check.is_kit_checkout(project):
         return None
 
     try:
-        is_agents = touch.path.parent.resolve() == project.resolve() and touch.path.name.casefold() == project_rules.AGENTS.casefold()
+        folder = touch.path.parent.resolve()
+        is_agents = folder == project.resolve() and touch.path.name.casefold() == project_rules.AGENTS.casefold()
+        is_rust_rule = folder == (brain.root / project_rules.FOLDER).resolve() and touch.path.name.casefold() == rust.RULE
     except (OSError, RuntimeError):
         return None
 
+    if is_rust_rule:
+        return RUST_BY_HAND
+
     return AGENTS_BY_HAND if is_agents else None
+
+
+def assertion_refusal(
+    brain: store.Brain,
+    touch: Touch,
+) -> Optional[str]:
+    """Why a write that loses an assertion a test file holds is refused, or None, the kit's own checkout aside, where its tests are the work, and a file the owner's word holds.
+
+    A file deleted or moved away loses all it held. A patch's hunks that
+    fit are applied, then each hunk that fits only by looser spacing is
+    placed as apply_patch places it, so a check is read whole wherever
+    the hunk lands. One that fits nowhere even so is judged by the
+    assertions its lines before carry that its lines after do not. A new
+    file holds none yet.
+    """
+    project = brain.root.parent
+    if check.is_kit_checkout(project):
+        return None
+
+    source = touch.moved_from or touch.path
+    try:
+        relative = source.relative_to(project.resolve()).as_posix()
+        before = source.read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")
+    except (OSError, ValueError):
+        return None
+
+    loose: tuple[tuple[str, ...], ...] = ()
+    if touch.deleted or touch.moved_from is not None:
+        after: Optional[str] = ""
+    else:
+        after, loose = outcome_of(touch=touch, text=before)
+        if loose:
+            after, loose = placed_loosely(text=before if after is None else after, hunks=loose)
+
+    gone = [] if after is None else guard.lost(relative=relative, before=before, after=after)
+    for hunk in loose:
+        old = "\n".join(before_lines(hunk))
+        new = "\n".join(line[1:] for line in hunk if line[:1] in (" ", "+"))
+        gone += guard.lost(relative=relative, before=old, after=new)
+
+    if not gone or guard.granted(brain=brain, relative=relative) is not None:
+        return None
+
+    return (
+        f"{relative} would lose the assertion `{gone[0]}`, and an assertion already written is the spec's word on what the code must do, so it changes or goes only on the owner's word, which the agent records once the owner gives it with brain ack tests {relative} --for 1h, else keep it and add the new check beside it"
+    )
 
 
 def refusal(
@@ -389,6 +447,9 @@ def refusal(
     # .ACK for the file itself, and the suffix as the store reads it
     if inside.casefold() == autoack.FILE and not touch.deleted:
         return f"{autoack.FILE} is the owner's standing word, set with brain ack on and never written by hand"
+
+    if inside.casefold() == guard.FILE and not touch.deleted:
+        return f"{guard.FILE} is the owner's word to change a test file's assertions, set with brain ack tests and never written by hand"
 
     if inside.casefold() == task.FILE and not touch.deleted:
         return f"{task.FILE} is the current work, set with brain task on and never written by hand"
@@ -1091,6 +1152,25 @@ def patched(
     return "\n".join(lines), tuple(loose)
 
 
+def placed_loosely(
+    text: str,
+    hunks: tuple[tuple[str, ...], ...],
+) -> tuple[str, tuple[tuple[str, ...], ...]]:
+    """The text after each hunk is placed where its lines match the file's with their spacing taken off, as apply_patch places one that fits nowhere exactly, and the hunks that fit nowhere even so."""
+    lines = text.split("\n")
+    left: list[tuple[str, ...]] = []
+    for hunk in hunks:
+        before = [line.strip() for line in before_lines(hunk)]
+        start = block_start(lines=[line.strip() for line in lines], block=before)
+        if start is None:
+            left.append(hunk)
+            continue
+
+        lines[start : start + len(before)] = [line[1:] for line in hunk if line[:1] in (" ", "+")]
+
+    return "\n".join(lines), tuple(left)
+
+
 def before_lines(
     hunk: tuple[str, ...],
 ) -> list[str]:
@@ -1163,8 +1243,8 @@ def post_write(
 
     say_notes(notes=[note for checked in checks for note in checked.notes])
 
-    # a front door's imports are doctor's to judge, so a write to one runs doctor as a write inside the brain does
-    inside = [touch for touch in touched if is_inside(brain=brain, path=touch.path) or is_front_door(brain=brain, path=touch.path)]
+    # a front door's imports are doctor's to judge, and so is the Rust rule a Cargo.toml at the root asks for, so a write to either runs doctor as a write inside the brain does
+    inside = [touch for touch in touched if is_inside(brain=brain, path=touch.path) or is_front_door(brain=brain, path=touch.path) or is_root_manifest(brain=brain, path=touch.path)]
     doctor_part: Optional[str] = doctor_after(brain) if inside else None
     if doctor_part is not None:
         parts.append(doctor_part)
@@ -1267,6 +1347,20 @@ def is_front_door(
     parts.
     """
     if path.name.casefold() not in {door.casefold() for door in schema.FRONT_DOORS}:
+        return False
+
+    try:
+        return path.parent.resolve() == brain.root.parent.resolve()
+    except (OSError, RuntimeError, ValueError):
+        return False
+
+
+def is_root_manifest(
+    brain: store.Brain,
+    path: Path,
+) -> bool:
+    """Whether the file is the Cargo.toml at the top of the project, whose coming or going doctor settles the Rust rule for."""
+    if path.name != rust.MANIFEST:
         return False
 
     try:
