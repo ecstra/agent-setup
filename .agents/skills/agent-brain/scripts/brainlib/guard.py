@@ -28,8 +28,9 @@ NONE = "no test file holds the owner's word"
 CODE = {".rs", ".py", ".dart", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".go", ".java", ".kt", ".kts", ".swift", ".rb"}
 # folder names compared in lower case, so Swift's Tests folder counts
 TEST_FOLDERS = {"tests", "test", "__tests__", "spec", "specs"}
+# a Rust test module of another name is known by its tests' attributes, and a lone test.py or test.rs is as often a test command's code
 TEST_NAME = re.compile(
-    r"(?:^test_.+\.py$|_test\.(?:py|go|dart|rb)$|^tests?\.(?:py|rs)$|_tests?\.rs$|\.(?:test|spec)\.(?:js|jsx|ts|tsx|mjs|cjs)$|(?:Test|Tests)\.(?:java|kt|kts|swift)$|_spec\.rb$)",
+    r"(?:^test_.+\.py$|_test\.(?:py|go|dart|rb)$|^tests\.(?:py|rs)$|_tests\.rs$|\.(?:test|spec)\.(?:js|jsx|ts|tsx|mjs|cjs)$|(?:Test|Tests)\.(?:java|kt|kts|swift)$|_spec\.rb$)",
 )
 
 # how each language writes a check, read off a line with its indent taken off
@@ -46,8 +47,13 @@ for suffix in (".dart", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"):
     CHECKS[suffix] = SCRIPT_CHECK
 CHECKS[".kt"] = CHECKS[".kts"] = CHECKS[".java"]
 
-RUST_TESTS = re.compile(r"^\s*#\[cfg\(test\)\]")
+# the attributes a Rust test item stands under, its module's and a test function's own, `#[tokio::test]` among them
+RUST_TESTS = re.compile(r"^\s*#\[(?:cfg\(test\)|(?:[A-Za-z_]\w*::)*test(?:\([^\]]*\))?)\]")
 GO_FAILS = re.compile(r"\bt\.(?:Error|Errorf|Fatal|Fatalf|Fail|FailNow)\(")
+GO_IF = re.compile(r"^(?:\}\s*else\s+)?if\s.*\{$")
+# a Ruby block or keyword opener, at a line's end or its start, and the end that closes one, read off a line with its indent taken off
+RUBY_OPENS = re.compile(r"\bdo(?:\s*\|[^|]*\|)?$|^(?:if|unless|case|begin|while|until|for|def|class|module)\b")
+RUBY_CLOSES = re.compile(r"^end\b")
 # a string or a character literal, taken out before brackets are counted, Rust's lifetimes left alone by its own pattern
 QUOTED = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'")
 RUST_QUOTED = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])'")
@@ -106,9 +112,11 @@ def assertions(
             number += 1
             continue
 
-        start = go_check_line(lines=lines, number=number) if path.suffix == ".go" and GO_FAILS.search(line) else number
-        end = statement_end(lines=lines, start=number, quoted=RUST_QUOTED if path.suffix == ".rs" else QUOTED)
-        held.append(" ".join(part.strip() for part in lines[start : end + 1] if part.strip()))
+        end = statement_end(lines=lines, start=number, suffix=path.suffix)
+        parts = lines[number : end + 1]
+        if path.suffix == ".go" and GO_FAILS.search(line):
+            parts = go_check_lines(lines=lines, number=number) + parts
+        held.append(" ".join(part.strip() for part in parts if part.strip()))
         number = end + 1
 
     return held
@@ -116,26 +124,30 @@ def assertions(
 
 def depth_of(
     line: str,
-    quoted: "re.Pattern[str]",
+    suffix: str,
 ) -> int:
-    """How many brackets a line leaves open, its strings taken out first, negative where it closes more than it opens."""
-    bare = quoted.sub("", line)
+    """How many brackets a line leaves open, its strings taken out first, negative where it closes more than it opens, and for Ruby its blocks too."""
+    bare = (RUST_QUOTED if suffix == ".rs" else QUOTED).sub("", line)
+    depth = sum(bare.count(bracket) for bracket in OPENS) - sum(bare.count(bracket) for bracket in CLOSES)
+    if suffix == ".rb":
+        stripped = bare.strip()
+        depth += (RUBY_OPENS.search(stripped) is not None) - (RUBY_CLOSES.match(stripped) is not None)
 
-    return sum(bare.count(bracket) for bracket in OPENS) - sum(bare.count(bracket) for bracket in CLOSES)
+    return depth
 
 
 def statement_end(
     lines: list[str],
     start: int,
-    quoted: "re.Pattern[str]",
+    suffix: str,
 ) -> int:
-    """The last line of the check that opens at `start`, which runs on while a bracket stays open or the next line goes on with a method call."""
+    """The last line of the check that opens at `start`, which runs on while a bracket or a Ruby block stays open, the line ends in a `\\`, or the next line goes on with a method call."""
     depth = 0
     number = start
     while number < len(lines) and number - start < LONGEST:
-        depth += depth_of(line=lines[number], quoted=quoted)
+        depth += depth_of(line=lines[number], suffix=suffix)
         following = next((line.strip() for line in lines[number + 1 :] if line.strip()), "")
-        if depth <= 0 and not following.startswith("."):
+        if depth <= 0 and not following.startswith(".") and not lines[number].rstrip().endswith("\\"):
             return number
 
         number += 1
@@ -143,39 +155,71 @@ def statement_end(
     return min(number, len(lines) - 1)
 
 
-def go_check_line(
+def go_check_lines(
     lines: list[str],
     number: int,
-) -> int:
-    """The `if` line a Go test's failure call sits under, which holds the check the call only reports, or the call's own line where it sits under none."""
-    above = next((before for before in range(number - 1, -1, -1) if lines[before].strip()), None)
-    if above is not None and lines[above].strip().startswith("if ") and lines[above].rstrip().endswith("{"):
-        return above
+) -> list[str]:
+    """The `if` line of the block a Go test's failure call sits in, which holds the check the call only reports, or none where the block opens on another line.
 
-    return number
+    The block's line is the nearest above with less indent than the call,
+    so a comment or a `t.Logf` between the two is no part of the check.
+    """
+    call = lines[number]
+    indent = len(call) - len(call.lstrip())
+    for above in range(number - 1, -1, -1):
+        text = lines[above]
+        if not text.strip() or len(text) - len(text.lstrip()) >= indent:
+            continue
+
+        return [text] if GO_IF.match(text.strip()) else []
+
+    return []
 
 
 def rust_test_lines(
     lines: list[str],
 ) -> set[int]:
-    """The lines of the items a `#[cfg(test)]` attribute stands on, a module's body or a function's, and none for an item that ends at its first `;`, such as `mod tests;`."""
+    """The lines of the item each test attribute stands on, a module's body or a function's, from the attribute's own line.
+
+    An item ends at its last brace, or at a `;` outside any bracket before
+    its first brace, so `mod tests;` and `use` count for nothing while a
+    header such as `fn check(bytes: [u8; 4])` runs on to its body.
+    """
     counted: set[int] = set()
     for number, line in enumerate(lines):
-        if not RUST_TESTS.match(line):
+        attribute = RUST_TESTS.match(line)
+        if attribute is None:
             continue
 
-        depth = 0
+        braces = 0
+        brackets = 0
         opened = False
-        for item in range(number + 1, len(lines)):
-            bare = RUST_QUOTED.sub("", lines[item])
-            if not opened and ";" in bare and ("{" not in bare or bare.index(";") < bare.index("{")):
+        ended = False
+        spans: set[int] = set()
+        for item in range(number, len(lines)):
+            text = lines[item][attribute.end() :] if item == number else lines[item]
+            spans.add(item)
+            for character in RUST_QUOTED.sub("", text):
+                if character in "([":
+                    brackets += 1
+                elif character in ")]":
+                    brackets -= 1
+                elif character == "{":
+                    braces += 1
+                    opened = True
+                elif character == "}":
+                    braces -= 1
+                elif character == ";" and not opened and brackets <= 0:
+                    ended = True
+
+                if ended or (opened and braces <= 0):
+                    break
+
+            if ended or (opened and braces <= 0):
                 break
 
-            depth += bare.count("{") - bare.count("}")
-            opened = opened or "{" in bare
-            counted.add(item)
-            if opened and depth <= 0:
-                break
+        if not ended:
+            counted |= spans
 
     return counted
 
@@ -256,17 +300,30 @@ def granted(
 
     A word whose task is done or gone is taken back for good, as the
     standing word is, so it never comes back when the task reopens or a
-    new entry takes its id.
+    new entry takes its id. A brain that cannot be written right now
+    keeps the file, which the next read tries again, and the word is off
+    either way.
     """
     given = read(brain).get(relative)
     if given is None:
         return None
 
     if given.task is not None and autoack.task_state(brain=brain, key=given.task) in ("done", "gone"):
-        revoke(brain=brain, relative=relative)
+        try:
+            revoke(brain=brain, relative=relative)
+        except OSError:
+            pass
         return None
 
     return given if autoack.holds(brain=brain, grant=given, at=at or clock.now()) else None
+
+
+def sweep(
+    brain: store.Brain,
+) -> None:
+    """Take back each word whose task has ended, which every tick runs so a task done then reopened between two writes never gives a word back."""
+    for relative in read(brain):
+        granted(brain=brain, relative=relative)
 
 
 def describe(

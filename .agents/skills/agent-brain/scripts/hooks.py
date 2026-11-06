@@ -302,7 +302,13 @@ def tick(
 def the_moment(
     brain: store.Brain,
 ) -> str:
-    """The clock, the standing word, the conclude word while one stands, and the current work, the lines the session start, the prompt hook and the tick carry."""
+    """The clock, the standing word, the conclude word while one stands, and the current work, the lines the session start, the prompt hook and the tick carry.
+
+    The owner's words for test files whose task has ended are taken back
+    here too, as the standing word is in its own line, so neither comes
+    back when the task reopens.
+    """
+    guard.sweep(brain)
     lines = [clock.line(), autoack.describe(brain=brain), conclude.describe(brain=brain), task.describe(brain=brain)]
     return "\n".join(line for line in lines if line is not None)
 
@@ -375,10 +381,11 @@ def assertion_refusal(
     """Why a write that loses an assertion a test file holds is refused, or None, the kit's own checkout aside, where its tests are the work, and a file the owner's word holds.
 
     A file deleted or moved away loses all it held. A patch's hunks that
-    fit are applied, and each hunk that fits nowhere, which apply_patch
-    may still place by looser spacing, is judged by the assertions its
-    removed lines carry that its added lines do not. A new file holds
-    none yet.
+    fit are applied, then each hunk that fits only by looser spacing is
+    placed as apply_patch places it, so a check is read whole wherever
+    the hunk lands. One that fits nowhere even so is judged by the
+    assertions its lines before carry that its lines after do not. A new
+    file holds none yet.
     """
     project = brain.root.parent
     if check.is_kit_checkout(project):
@@ -396,12 +403,14 @@ def assertion_refusal(
         after: Optional[str] = ""
     else:
         after, loose = outcome_of(touch=touch, text=before)
+        if loose:
+            after, loose = placed_loosely(text=before if after is None else after, hunks=loose)
 
     gone = [] if after is None else guard.lost(relative=relative, before=before, after=after)
     for hunk in loose:
-        removed = "\n".join(line[1:] for line in hunk if line[:1] == "-")
-        added = "\n".join(line[1:] for line in hunk if line[:1] == "+")
-        gone += guard.lost(relative=relative, before=removed, after=added)
+        old = "\n".join(before_lines(hunk))
+        new = "\n".join(line[1:] for line in hunk if line[:1] in (" ", "+"))
+        gone += guard.lost(relative=relative, before=old, after=new)
 
     if not gone or guard.granted(brain=brain, relative=relative) is not None:
         return None
@@ -1141,6 +1150,25 @@ def patched(
         return None, tuple(loose)
 
     return "\n".join(lines), tuple(loose)
+
+
+def placed_loosely(
+    text: str,
+    hunks: tuple[tuple[str, ...], ...],
+) -> tuple[str, tuple[tuple[str, ...], ...]]:
+    """The text after each hunk is placed where its lines match the file's with their spacing taken off, as apply_patch places one that fits nowhere exactly, and the hunks that fit nowhere even so."""
+    lines = text.split("\n")
+    left: list[tuple[str, ...]] = []
+    for hunk in hunks:
+        before = [line.strip() for line in before_lines(hunk)]
+        start = block_start(lines=[line.strip() for line in lines], block=before)
+        if start is None:
+            left.append(hunk)
+            continue
+
+        lines[start : start + len(before)] = [line[1:] for line in hunk if line[:1] in (" ", "+")]
+
+    return "\n".join(lines), tuple(left)
 
 
 def before_lines(
