@@ -203,6 +203,10 @@ def run_ack_tests(
         print("name the test file the word is taken back for", file=sys.stderr)
         return REFUSED
 
+    if an_end and not named:
+        print("name the test file the word is for, its end goes with it", file=sys.stderr)
+        return REFUSED
+
     project = brain.root.parent.resolve()
     relatives: list[str] = []
     for name in named:

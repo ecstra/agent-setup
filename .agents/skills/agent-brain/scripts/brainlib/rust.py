@@ -48,6 +48,7 @@ NOT_OPTED_IN = "is a crate of the workspace that never sets [lints] workspace = 
 NAME_IS_THE_KITS = "rust is the name of the kit's Rust rule, which doctor writes in a project with a Cargo.toml, so the project's own Rust rules go in project.md or a rule of another name"
 
 TABLE = re.compile(r"^\s*\[([^\]]+)\]\s*(?:#.*)?$")
+UPDATED = re.compile(r"^updated:.*$", re.MULTILINE)
 WORKSPACE_TRUE = re.compile(r"^\s*workspace\s*=\s*true\b")
 # the folders a crate's manifest is never looked for in, a build's output and the dotted ones among them
 SKIPPED = {"target", "node_modules"}
@@ -106,7 +107,10 @@ def rewrite_body(
     text = path.read_text(encoding="utf-8-sig").replace("\r\n", "\n")
     fence = f"{frontmatter.FENCE}\n"
     closing = text.find(f"\n{fence}", len(fence)) if text.startswith(fence) else -1
-    head = text[: closing + len(fence) + 1] if closing != -1 else HEADER.format(date=date.today().isoformat()).rstrip("\n") + "\n"
+    today = date.today().isoformat()
+    head = text[: closing + len(fence) + 1] if closing != -1 else HEADER.format(date=today).rstrip("\n") + "\n"
+    # the words changed, so the header's date says so, as every write in the brain does
+    head = UPDATED.sub(f"updated: {today}", head, count=1)
     frontmatter.write_text(path=str(path), text=f"{head}\n{template_body()}")
 
 
