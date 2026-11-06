@@ -556,7 +556,10 @@ host that a path in a brain file names, since Windows would send your
 credentials to that host. A device path such as
 `\\?\GLOBALROOT\Device\Mup\host\share` can reach one too, so of those
 it reads only the long spelling of a local drive or volume, such as
-`\\?\C:\`.
+`\\?\C:\`. It reads no path that opens with `\\` and holds a `..`
+either, since Windows folds the `..` away first, which can land on a
+share. On Windows the see tool now finds a slow fade, which an ffmpeg
+build there hid by rounding its cells a level high.
 
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it

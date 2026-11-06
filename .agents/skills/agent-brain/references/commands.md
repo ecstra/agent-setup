@@ -91,9 +91,13 @@ it reads and a cloned brain file could name any host. A device path,
 all but the long spelling of a local drive or volume, `\\?\C:\` or
 `\\?\Volume{...}\`, since another such as
 `\\?\GLOBALROOT\Device\Mup\host\share` reaches a share through the
-redirector. Such a path leads to this brain only where it spells the
-project's own folder. A review answers to its folder too, by its name or its
-path, `reviews/2026-11-fix-login` or `.agents/reviews/2026-11-fix-login/`,
+redirector. No path that opens with `\\` or `//` and holds a `..` part
+is asked of the disk, the long spelling of a local drive and a WSL share
+among them, since Windows folds the `..` away before it reads the path,
+so one such as `\\.\C:\..\UNC\host\share` may land on a share. Such a
+path leads to this brain only where it spells the project's own folder.
+A review answers to its folder too, by its name or its path,
+`reviews/2026-11-fix-login` or `.agents/reviews/2026-11-fix-login/`,
 a slash at the end or not. Every command that takes a key reads it this
 way.
 
@@ -530,10 +534,13 @@ An edit whose old string the file does not hold word for word may land
 all the same, so it is placed as the agents' tools place one, first
 with a curled quote read as a straight one, as Claude Code's Edit reads
 it, then as whole lines matched whatever their indent, as Gemini CLI's
-replace matches them. The whole file is judged as the edit leaves it,
-so a check is read whole wherever the edit lands. One that fits nowhere
-even so is judged by its strings alone, by the assertions the old
-string carries that the new one does not.
+replace matches them. An edit meant for every occurrence, Claude Code's
+`replace_all`, Gemini CLI's `allow_multiple` or an
+`expected_replacements` above 1, is placed at every place it matches.
+The whole file is judged as the edit leaves it, so a check is read
+whole wherever the edit lands. One that fits nowhere even so is judged
+by its strings alone, by the assertions the old string carries that the
+new one does not.
 
 The guard falls short in these places.
 
