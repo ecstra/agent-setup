@@ -11,6 +11,9 @@ from typing import Optional
 # Claude shrinks an image past 1568 px on its long edge or past about 1.15 megapixels, so the tool keeps a margin under both
 EDGE = 1500
 AREA = 1_100_000
+# the cells' area average asks for exact rounding, since the fast one of the ffmpeg 7.0.1 build for Windows on x86 reads a cell a level high in all but its last rows,
+# so every still cell read as stepped and a fade was never counted
+CELL_AVERAGE = "area+accurate_rnd"
 INSTALL = "ffmpeg and ffprobe are needed and not on this machine. Install them with brew install ffmpeg on macOS, winget install ffmpeg on Windows, or sudo apt install ffmpeg on Debian and Ubuntu, then run this again"
 
 
@@ -120,7 +123,7 @@ class Video:
     def change_cells(self, cell: int, threshold: int = 10) -> tuple:
         """Per pair of frames, the share of changed pixels in each cell of the grid, 255 for all, from ffmpeg so a full screen video stays fast."""
         cw, ch = -(-self.width // cell), -(-self.height // cell)
-        graph = f"format=gray,tblend=all_mode=difference,lut=y='if(gt(val\\,{threshold})\\,255\\,0)',pad={cw * cell}:{ch * cell}:0:0:black,scale={cw}:{ch}:flags=area"
+        graph = f"format=gray,tblend=all_mode=difference,lut=y='if(gt(val\\,{threshold})\\,255\\,0)',pad={cw * cell}:{ch * cell}:0:0:black,scale={cw}:{ch}:flags={CELL_AVERAGE}"
         raw = ffmpeg(self.path, ["-i", source(self.path), "-vf", graph, "-f", "rawvideo", "-pix_fmt", "gray", "-"], every_frame=True)
         size = cw * ch
         return cw, ch, [raw[i : i + size] for i in range(0, len(raw) - size + 1, size)]
@@ -128,7 +131,7 @@ class Video:
     def cell_means(self, cell: int) -> list:
         """Per frame, the mean grey of each cell of the grid, so a change too slow to cross a frame to frame floor still shows as it builds up."""
         cw, ch = -(-self.width // cell), -(-self.height // cell)
-        raw = ffmpeg(self.path, ["-i", source(self.path), "-vf", f"format=gray,pad={cw * cell}:{ch * cell}:0:0:black,scale={cw}:{ch}:flags=area", "-f", "rawvideo", "-pix_fmt", "gray", "-"], every_frame=True)
+        raw = ffmpeg(self.path, ["-i", source(self.path), "-vf", f"format=gray,pad={cw * cell}:{ch * cell}:0:0:black,scale={cw}:{ch}:flags={CELL_AVERAGE}", "-f", "rawvideo", "-pix_fmt", "gray", "-"], every_frame=True)
         size = cw * ch
         return [raw[i : i + size] for i in range(0, len(raw) - size + 1, size)]
 
