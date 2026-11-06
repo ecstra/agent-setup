@@ -47,8 +47,18 @@ def resolve(
     brain: store.Brain,
     reference: str,
 ) -> Optional[Path]:
-    """The file a link means, whether it was written as a path or a name."""
-    direct = inside(brain=brain, reference=reference)
+    """The file a link means, whether it was written as a path or a name.
+
+    A path is read as a key is, so one written from the project's root,
+    the repository's top or the disk's root reaches a kit file as it
+    reaches an entry, and one into another project's brain reaches
+    nothing.
+    """
+    keyed = brain.key_path(reference)
+    if keyed is None:
+        return None
+
+    direct = inside(brain=brain, reference=keyed)
     if direct is not None and store.readable_file(direct):
         return direct
 
@@ -549,7 +559,8 @@ def moved_body(
             return match.group(0)
 
         file_part, hash_sign, anchor = target.partition("#")
-        if os.path.normpath(str(folder / file_part)) != old_target:
+        # read with its percent escapes decoded, as the check of a body link reads it, so my%20notes.md is my notes.md
+        if os.path.normpath(str(folder / unquote(file_part, errors="surrogateescape"))) != old_target:
             return match.group(0)
 
         # a markdown link takes forward slashes on every system
