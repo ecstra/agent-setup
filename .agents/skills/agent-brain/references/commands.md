@@ -899,11 +899,12 @@ On an import line doctor reports punctuation glued to the path, any of
 the name so the file never loads, and a backslash in the path, which no
 agent reads as a folder's slash, in one message whichever agents read
 the door. It reports an import from the root of the disk, one that
-opens with `/`, since it is there on one machine and missing on the
-next, and one that climbs out of the project's folder and comes back in
-by retracing the folders it climbed out of, such as
-`@../../apps/web/x.md` in a project at `repo/apps/web`, since another
-checkout may go by other names. Neither is looked up. One that climbs
+opens with `/` or with a drive, such as `@D:/team/notes.md`, which
+Windows reads from that drive's root, since it is there on one machine
+and missing on the next, and one that climbs out of the project's
+folder and comes back in by retracing the folders it climbed out of,
+such as `@../../apps/web/x.md` in a project at `repo/apps/web`, since
+another checkout may go by other names. Neither is looked up. One that climbs
 out and stays out, such as `@../../packages/web/README.md` there, is
 looked up like any other. An import from the home folder, one that
 opens with `~`, is checked for those first two slips alone and never
@@ -940,10 +941,10 @@ folder, up to five imports deep, as deep as Claude Code follows them.
 They are walked breadth first, so each file is reached first by its
 shortest path and read once a walk, the door itself counted as read,
 and a deeper path to a file never keeps a shorter one from reaching
-what it imports. A path from the root of the disk or the home folder,
-or one that climbs out and back in by the folders' names, never counts,
-since it leads there on one machine alone, and nor does one with a
-backslash, an escaped space such as `@docs/team\ notes.md` among them.
+what it imports. A path that opens with `/` or `~`, or one that climbs
+out and back in by the folders' names, never counts, since it leads
+there on one machine alone, and nor does one with a backslash, an
+escaped space such as `@docs/team\ notes.md` among them.
 `GEMINI.md` is not reported while `.gemini/settings.json` names
 `AGENTS.md` under `context.fileName`, alone or in a list, since Gemini
 CLI then loads it as a context file. The settings are read with their
@@ -966,13 +967,13 @@ of the project and back in by its name, and a target that is not
 there, is spelled in another case, is not a regular file, cannot be
 read or holds no text. Each finding is named under the rule's path in
 the brain with the check `import`, such as
-`rules/project.md: import: imports @README.md, which is not there in .agents/rules/`.
+`rules/project.md: import: imports @gone.md, which is not there in .agents/rules/`.
 A path in a rule is read from `.agents/rules/`, as Claude Code and
 Gemini CLI read an import from the folder of the file that holds it,
 and whether a token leads to a file, which makes it an import, is asked
-from there too. So `@../docs/setup.md` is `.agents/docs/setup.md`, and
-`@README.md` is `.agents/rules/README.md`, named while it is not there.
-A path that climbs out of the rules folder and stays inside the
+from there first. So `@../docs/setup.md` is `.agents/docs/setup.md`,
+and `@README.md` is `.agents/rules/README.md`, named while it is not
+there. A path that climbs out of the rules folder and stays inside the
 project, such as `@../../README.md`, is looked up like any other. The
 finding on a path from the root of the disk, or on one that climbs back
 in by name, says to write it from
@@ -980,11 +981,20 @@ in by name, says to write it from
 from the project's folder. Whether git ignores a missing target, and
 whether `--fix` writes it as a chat style copy, are asked by its path
 from the project's root, so `@local.md` in a rule is each clone's own
-while git ignores `.agents/rules/local.md`. A rule that cannot be read
-is named with the reason, and the next rule is still read. Codex gets
-each rule as text from its session start hook and reads no import, so
-an import in a rule loads in Claude Code and Gemini CLI alone, and
-doctor judges it as those two read it.
+while git ignores `.agents/rules/local.md`. A token that leads to no
+file from the rules folder but to one from the project's root, a
+`@package.json` as much as a `@README.md`, is an import written from
+the wrong folder, whatever git ignores, and its finding gives the path
+that reaches it,
+`imports @package.json, which is not there in .agents/rules/, though the project's root holds it, so write @../../package.json`.
+So a `@CLAUDE.local.md` in a rule gets that finding while the root
+holds the file, though a git ignore pattern with no slash, such as
+`CLAUDE.local.md`, matches inside the rules folder too. A rule that
+cannot be read is left to the header check, which names it as
+`frontmatter: the file cannot be read`, so it is named once, and the
+next rule is still read. Codex gets each rule as text from its session
+start hook and reads no import, so an import in a rule loads in Claude
+Code and Gemini CLI alone, and doctor judges it as those two read it.
 
 Where doctor cannot judge, it says nothing, which leaves some slips
 unnamed. Every `@` that is not alone on its line is silent, so a slip

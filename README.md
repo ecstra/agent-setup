@@ -473,7 +473,10 @@ From 3.1.1 doctor reads the import lines inside each of your rules as
 it reads a front door's, each path from `.agents/rules/`, the folder
 Claude Code and Gemini CLI read it from. So an import slip your
 section 0 took into `rules/project.md` at 3.0.0 is named again, under
-that rule, and the upgrade's report counts it as yours to put right, as
+that rule, and the upgrade's report counts it as yours to put right.
+An import a rule writes from the project's root, such as `@README.md`,
+never loads, and doctor names it with the path that does,
+`@../../README.md`, as
 [doctor](.agents/skills/agent-brain/references/commands.md#doctor)
 says.
 
