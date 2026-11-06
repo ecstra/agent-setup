@@ -41,7 +41,7 @@ CHECKS = {
     ".swift": re.compile(r"\bXCTAssert\w*\(|\bXCTFail\(|#expect\(|#require\("),
     ".java": re.compile(r"\bassert\w*\(|\bfail\("),
     # a bare should is a check where a matcher follows, never shoulda's `should "..." do`, which names an example
-    ".rb": re.compile(r"\bexpect\b|\bassert\w*\b|\bmust_\w+|\.should(?:_not)?\b|\bshould(?:_not)?(?:\(|\s+(?!do\b)\w)"),
+    ".rb": re.compile(r"\bexpect\b|\bassert\w*\b|\bmust_\w+|\.should(?:_not)?\b|\bshould(?:_not)?(?:\(|\s+(?!do\b)[^\s\"'])"),
 }
 SCRIPT_CHECK = re.compile(r"\bexpect(?:Later)?\s*\(|\bassert\w*[.(]|\.should\b")
 for suffix in (".dart", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"):
@@ -60,6 +60,8 @@ RUBY_EXPECT_BLOCK = re.compile(r"\bexpect\s+do\b")
 # a string or a character literal, taken out before brackets are counted, Rust's lifetimes left alone by its own pattern
 QUOTED = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'")
 RUST_QUOTED = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])'")
+# the languages whose single quote holds one character at most, so an apostrophe in a Rust lifetime or a Kotlin backticked name pairs with nothing
+ONE_CHARACTER_QUOTES = {".rs", ".go", ".java", ".kt", ".kts", ".swift"}
 OPENS = "([{"
 CLOSES = ")]}"
 # the most lines one check is read over, so a bracket a string hides from the count never runs a check to the end of the file
@@ -108,7 +110,7 @@ def assertions(
     if check is None:
         return []
 
-    quoted = RUST_QUOTED if path.suffix == ".rs" else QUOTED
+    quoted = quoting(path.suffix)
     held: list[str] = []
     number = 0
     while number < len(lines):
@@ -128,13 +130,19 @@ def assertions(
     return held
 
 
+def quoting(
+    suffix: str,
+) -> "re.Pattern[str]":
+    return RUST_QUOTED if suffix in ONE_CHARACTER_QUOTES else QUOTED
+
+
 def depth_of(
     line: str,
     suffix: str,
     blocks: bool,
 ) -> int:
     """How many brackets a line leaves open, its strings taken out first, negative where it closes more than it opens, and Ruby's blocks too where they count."""
-    bare = (RUST_QUOTED if suffix == ".rs" else QUOTED).sub("", line)
+    bare = quoting(suffix).sub("", line)
     depth = sum(bare.count(bracket) for bracket in OPENS) - sum(bare.count(bracket) for bracket in CLOSES)
     if blocks:
         stripped = bare.strip()
