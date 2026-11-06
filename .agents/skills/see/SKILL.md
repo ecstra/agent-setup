@@ -110,7 +110,11 @@ on a Windows laptop at 150 percent.
   in whole cells, so its counts are rough. A cell is not read for drift
   in the 6 frames after a pixel in it stepped past 10, so a change that
   falls under 10 after stepping past it goes uncounted for those frames,
-  then switches from pixel counts to whole cell counts. A frame of a
+  then switches from pixel counts to whole cell counts. At 27 fps or
+  less the gap those frames leave, 7 frame times from the last step to
+  the next frame counted, is longer than the 0.25 s that joins frames
+  into one burst, so a fade that eases from steps past 10 into a slower
+  tail can read as two bursts. A frame of a
   faint change can be missed, which the pacing reads as a hold, or as a
   slower pace where missed frames alternate with steps, and so can the
   first frames of a very faint change. A fade slower than about 4
