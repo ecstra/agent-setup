@@ -121,6 +121,8 @@ FLOOR_VERSION = "3.9"
 PROBE = "import platform, sys; print(sys.executable); print(sys.version_info >= (3, 9)); print(platform.python_version())"
 SCRIPTS = Path(check.BRAIN_FOLDER) / "skills" / "agent-brain" / "scripts"
 SUITE = ("-m", "tests.parallel")
+SEE_SCRIPTS = Path(check.BRAIN_FOLDER) / "skills" / "see" / "scripts"
+SEE_SUITE = ("-m", "unittest", "discover", "-s", "tests", "-t", ".")
 
 
 class GatesError(Exception):
@@ -292,25 +294,44 @@ def kit_gates(
 
     ruff: Optional[str] = ruff_path()
     if ruff is None:
-        notes.append("ruff is not installed, so the tool's code is not linted, and pip or uv installs it")
-    else:
-        for words, name in (
-            (("format", "--check", "."), "ruff's layout over the tool's code"),
-            (("check", "."), "ruff's lint over the tool's code"),
-        ):
-            gates.append(
-                Gate(
-                    command=" ".join(["ruff", *words]),
-                    cwd=project / SCRIPTS,
-                    name=name,
-                    argv=(ruff, *words),
-                ),
-            )
+        notes.append("ruff is not installed, so neither the tool's code nor the see tool's is linted, and pip or uv installs it")
+    gates += ruff_gates(ruff=ruff, cwd=project / SCRIPTS, whose="the tool's code")
+    # the see tool's suite is small, so one process per interpreter runs it, and it skips its cases where ffmpeg is not installed
+    for interpreter, version in interpreters:
+        gates.append(
+            Gate(
+                command=" ".join([interpreter, *SEE_SUITE]),
+                cwd=project / SEE_SCRIPTS,
+                name=f"the see tool's tests under Python {version}",
+                argv=(interpreter, *SEE_SUITE),
+            ),
+        )
+    gates += ruff_gates(ruff=ruff, cwd=project / SEE_SCRIPTS, whose="the see tool's code")
 
     return Named(
         gates=gates,
         notes=notes,
     )
+
+
+def ruff_gates(
+    ruff: Optional[str],
+    cwd: Path,
+    whose: str,
+) -> list[Gate]:
+    """Ruff's layout check and its lint over one folder of the kit's code, by the config that folder holds, or none where ruff is not installed."""
+    if ruff is None:
+        return []
+
+    return [
+        Gate(
+            command=" ".join(["ruff", *words]),
+            cwd=cwd,
+            name=f"ruff's {what} over {whose}",
+            argv=(ruff, *words),
+        )
+        for words, what in ((("format", "--check", "."), "layout"), (("check", "."), "lint"))
+    ]
 
 
 def ruff_path() -> Optional[str]:
