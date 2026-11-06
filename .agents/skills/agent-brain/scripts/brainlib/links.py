@@ -46,8 +46,18 @@ def resolve(
     brain: store.Brain,
     reference: str,
 ) -> Optional[Path]:
-    """The file a link means, whether it was written as a path or a name."""
-    direct = inside(brain=brain, reference=reference)
+    """The file a link means, whether it was written as a path or a name.
+
+    A path is read as a key is, so one written from the project's root,
+    the repository's top or the disk's root reaches a kit file as it
+    reaches an entry, and one into another project's brain reaches
+    nothing.
+    """
+    keyed = brain.key_path(reference)
+    if keyed is None:
+        return None
+
+    direct = inside(brain=brain, reference=keyed)
     if direct is not None and store.readable_file(direct):
         return direct
 
@@ -239,9 +249,11 @@ def within(
 ) -> Optional[str]:
     """The path relative to the brain, or None when it lies outside.
 
-    Nothing is resolved. A symlink filed inside the brain is inside it,
-    and `..` is folded lexically, so a path cannot climb out unseen and
-    a symlink loop on disk cannot raise here.
+    Nothing is resolved and the disk is never asked, so a path read from
+    a brain file's text is never looked up. A symlink filed inside the
+    brain is inside it, and `..` is folded lexically, so a path cannot
+    climb out unseen and a symlink loop on disk cannot raise here. The
+    hooks spell a path they are handed as the brain spells it first.
     """
     root = Path(os.path.normpath(str(brain.root)))
     folded = Path(os.path.normpath(str(path)))
@@ -526,6 +538,8 @@ def moved_body(
             return match.group(0)
 
         file_part, hash_sign, anchor = target.partition("#")
+        # read with its percent escapes decoded, as the check of a body link reads it, so my%20notes.md is my notes.md
+        file_part = unquote(file_part, errors="surrogateescape")
         if os.path.normpath(str(folder / file_part)) != old_target:
             return match.group(0)
 

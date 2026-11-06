@@ -206,12 +206,12 @@ def run(
     slips, notes = check_lines(project)
     for line in notes + slips:
         say(line)
-    say("check clean" if not slips else f"check {len(slips)} findings")
+    say("check clean" if not slips else f"check {store.counted(number=len(slips), noun='finding')}")
 
     findings = doctor.run(brain=brain)
     for finding in findings:
         say(finding.line())
-    say("doctor clean" if not findings else f"doctor {len(findings)} findings")
+    say("doctor clean" if not findings else f"doctor {store.counted(number=len(findings), noun='finding')}")
 
     return store.FINDINGS_REMAIN if named.empty or slips or findings else 0
 

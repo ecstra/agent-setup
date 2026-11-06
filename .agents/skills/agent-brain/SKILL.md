@@ -148,6 +148,7 @@ brain refile BUG-004 --title "Token refresh loops on expiry"
 section is written, a todo goes `done` only with a date and a filled
 Done when, a build spec goes `closed` or `dropped` only with a date,
 and a decision goes `superseded` only when it names what replaced it.
+A section that holds nothing but an HTML comment counts as empty.
 A set that drops or refiles an entry names each step of an open entry
 that now reads skipped since it pointed there, so the plan or the
 build spec that lost the step is seen to.
@@ -447,12 +448,15 @@ python3 <kit>/.agents/skills/agent-brain/scripts/brain.py port
 python3 <kit>/.agents/skills/agent-brain/scripts/brain.py upgrade
 ```
 
-Run from the project's root, with `<kit>` a checkout of agent-setup.
-`port` installs the kit into a project with no brain and lists what is
-left to file through `brain new`. `upgrade` brings an existing brain up
-to the kit, the old `.agent/` layout included, migrations first. Both
-keep the project's rules, its own hooks and everything it wrote, and
-end with `doctor --fix`. The port, and the upgrade from a release
+Run from the project's root, with `<kit>` a checkout of agent-setup,
+and outside Claude Code's sandbox, which refuses every write under
+`.claude/agents`. Both refuse before their first write where they
+would stop part way, and say why. `port` installs the kit into a
+project with no brain and lists what is left to file through
+`brain new`. `upgrade` brings an existing brain up to the kit, the old
+`.agent/` layout included, migrations first. Both keep the project's
+rules, its own hooks and everything it wrote, and end with
+`doctor --fix`. The port, and the upgrade from a release
 before 3.0.0, move the first section 0 an old front door holds, and
 that section alone, into `rules/project.md`, where it runs as it ran
 there. Every other word a door held of its own is quoted in

@@ -420,12 +420,13 @@ def innermost(
         raise TaskError("no work is on, start it with brain task on")
 
     item = chain[-1]
-    if item.kind == "review":
-        raise TaskError("a review's step is its batch, read off the ledger, so it takes no mark here")
-
+    # a closed link is named as closed first, a review's among them, so the refusal says how to go on
     state, entry = looked_up(brain=brain, item=item)
     if state == CLOSED:
         raise TaskError(f"{item.key} has closed and holds the place until brain task off drops it")
+
+    if item.kind == "review":
+        raise TaskError("a review's step is its batch, read off the ledger, so it takes no mark here")
 
     if entry is None or state != OPEN:
         raise TaskError(f"{item.key}, {why_not_open(item=item, state=state)}")

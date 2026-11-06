@@ -128,7 +128,11 @@ path in place of `../agent-setup`.
 
 It works on the git repository around the folder you run it in, never
 on your home folder, and it refuses while a file it would replace holds
-uncommitted work, so commit first. Then it does all of this in one run.
+uncommitted work, so commit first. It also refuses before writing
+anything where a file or a folder stands in its way, or where it cannot
+write the review's sub agent definitions under `.claude/agents`, which
+Claude Code's sandbox never allows, so run it from a terminal or outside
+the sandbox. Then it does all of this in one run.
 
 - The kit's files land: the rulebook, the house rules, the brain tool's
   launcher and the kit's three skills under `.agents/`, the front doors
@@ -483,11 +487,27 @@ beside your project, is named as not there in `.agents/rules/`, with
 no path to write, since doctor takes a climb as written from some
 folder on purpose.
 
+From 3.1.2 the port and the upgrade refuse before their first write
+where they would stop part way, a file where they make a folder, a
+folder where they write a file, or a review definition to write or
+remove under `.claude/agents` where nothing can be written. Claude
+Code's sandbox refuses every write there whatever your settings say, so
+run them from a terminal, or let the agent run that one command outside
+the sandbox, as
+[port and upgrade](.agents/skills/agent-brain/references/commands.md#port-and-upgrade)
+says. Doctor may name a few things it passed before, two hyphens
+between words outside code in a header's description, a closed bug or
+todo whose Fix, Problem or Done when holds nothing but a comment, and a
+rule's import with a fragment written from the project's root, such as
+`@docs/setup.md#install`, with the path that loads. An en dash in a
+header now passes.
+
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
-would replace holds uncommitted work, and names each root file it
-replaces with where git keeps the old one. Run it on its own branch and
-read the diff. Or hand your agent this.
+would replace holds uncommitted work or, before any write, while
+something stands in its way, and names each root file it replaces with
+where git keeps the old one. Run it on its own branch and read the
+diff. Or hand your agent this.
 
 ```text
 The agent kit at https://forge.example.com/example/agent-setup has a new
@@ -504,11 +524,12 @@ A project that took the kit before the rulebook moved has a `.agent/`
 folder, a root `CLAUDE.md` carrying all the rules, and an `AGENTS.md`
 that copies it. The same `upgrade` command carries it over. The folder
 moves to `.agents/` through git, so the diff shows renames. Every file
-git sees that named the old folder is pointed at the new one, and a file
-git ignores that names it stops the run, by name, so nothing is left
-half done. Your `## 0. Project Rules` comes out of `CLAUDE.md` into
-`.agents/rules/project.md`, the kit's files land, the ignore lines
-follow, and doctor rebuilds every index from the files.
+git sees that named the old folder is pointed at the new one, all but
+those of a copy of the kit you keep inside the project, which stay as
+they are, and a file git ignores that names it stops the run, by name,
+so nothing is left half done. Your `## 0. Project Rules` comes out of
+`CLAUDE.md` into `.agents/rules/project.md`, the kit's files land, the
+ignore lines follow, and doctor rebuilds every index from the files.
 
 ## The brain tool
 

@@ -158,9 +158,21 @@ def read_event() -> dict:
         return {}
 
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
     except json.JSONDecodeError:
         return {}
+
+    # an event is a JSON object, so an array, a string, a number or null is none
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def cwd_of(
+    event: dict,
+) -> Path:
+    """The folder the event names, or this process's own where it names none as text."""
+    named = event.get("cwd")
+
+    return Path(named) if isinstance(named, str) and named else Path.cwd()
 
 
 def stdin_bytes() -> bytes:
@@ -181,7 +193,7 @@ def stdin_bytes() -> bytes:
 def locate(
     event: dict,
 ) -> Optional[store.Brain]:
-    start = Path(event.get("cwd") or Path.cwd())
+    start = cwd_of(event)
 
     try:
         return store.find_brain(start)
@@ -328,7 +340,7 @@ def pre_write(
     event: dict,
     agent: str,
 ) -> int:
-    touched = touches(event=event, agent=agent)
+    touched = as_the_project_spells(brain=brain, touched=touches(event=event, agent=agent))
     for touch in touched:
         verdict = front_door_refusal(brain=brain, touch=touch) or refusal(brain=brain, touch=touch) or assertion_refusal(brain=brain, touch=touch)
         if verdict is None:
@@ -443,15 +455,19 @@ def refusal(
     if inside is None:
         return None
 
+    # a delete is never refused, the note a session read by hand and a stray index among them, and doctor runs after it
+    if touch.deleted:
+        return None
+
     # the word's name in any case, since a disk that ignores case would take
     # .ACK for the file itself, and the suffix as the store reads it
-    if inside.casefold() == autoack.FILE and not touch.deleted:
+    if inside.casefold() == autoack.FILE:
         return f"{autoack.FILE} is the owner's standing word, set with brain ack on and never written by hand"
 
-    if inside.casefold() == guard.FILE and not touch.deleted:
+    if inside.casefold() == guard.FILE:
         return f"{guard.FILE} is the owner's word to change a test file's assertions, set with brain ack tests and never written by hand"
 
-    if inside.casefold() == task.FILE and not touch.deleted:
+    if inside.casefold() == task.FILE:
         return f"{task.FILE} is the current work, set with brain task on and never written by hand"
 
     # the note's folder in any case too, for the same reason as the word's
@@ -459,8 +475,7 @@ def refusal(
     parts_inside: tuple[str, ...] = Path(inside).parts
     top_folder: str = parts_inside[0] if parts_inside else ""
     if top_folder.casefold() == handover.FOLDER:
-        # a delete passes ahead of the rule for dotted paths, since a session without the hook removes the note it read by hand
-        return None if touch.deleted else f"{inside}: {handover.BY_HAND}"
+        return f"{inside}: {handover.BY_HAND}"
 
     if not markdown_named(path):
         return None
@@ -1215,7 +1230,7 @@ def post_write(
     and an exit 1 would show the person the error and lose the slips, so
     a broken brain never hides one.
     """
-    touched = touches(event=event, agent=agent)
+    touched = as_the_project_spells(brain=brain, touched=touches(event=event, agent=agent))
     parts: list[str] = []
 
     lint_part: Optional[str] = lint_after(
@@ -1243,8 +1258,9 @@ def post_write(
 
     say_notes(notes=[note for checked in checks for note in checked.notes])
 
-    # a front door's imports are doctor's to judge, and so is the Rust rule a Cargo.toml at the root asks for, so a write to either runs doctor as a write inside the brain does
-    inside = [touch for touch in touched if is_inside(brain=brain, path=touch.path) or is_front_door(brain=brain, path=touch.path) or is_root_manifest(brain=brain, path=touch.path)]
+    # a front door's imports are doctor's to judge, and so is the Rust rule a Cargo.toml at the root asks for, so a write to either runs doctor as a write inside the brain does,
+    # and a file deleted or moved away may be one a brain entry links to, which only Codex's patch does through a write the hook sees
+    inside = [touch for touch in touched if is_inside(brain=brain, path=touch.path) or is_front_door(brain=brain, path=touch.path) or is_root_manifest(brain=brain, path=touch.path) or touch.deleted or touch.moved_from is not None]
     doctor_part: Optional[str] = doctor_after(brain) if inside else None
     if doctor_part is not None:
         parts.append(doctor_part)
@@ -1384,8 +1400,9 @@ def touches(
     spelled the way the disk spells it, so a project reached through a
     symlink still compares equal to the brain's real root.
     """
-    base = Path(event.get("cwd") or Path.cwd())
-    tool_input = event.get("tool_input") or {}
+    base = cwd_of(event)
+    named = event.get("tool_input")
+    tool_input: dict = named if isinstance(named, dict) else {}
     found: list[Touch] = []
 
     if agent == "codex":
@@ -1571,6 +1588,30 @@ def listed_name(
     return same[0] if len(same) == 1 else name
 
 
+def as_the_project_spells(
+    brain: store.Brain,
+    touched: list[Touch],
+) -> list[Touch]:
+    """The touches with each path inside the project spelled as the project and the disk spell it, so every rule that compares paths as text sees one spelling.
+
+    On a disk that folds case `<PROJECT>/.AGENTS/.ack` is the brain's
+    `.ack`, and `todos/index.md` is the index. The brain is asked first,
+    since a `.agents` that is a link reaches the hook through the link's
+    target, which lies outside the project. A path outside both keeps
+    its spelling.
+    """
+
+    def spelled(path: Path) -> Path:
+        for root in (brain.root, brain.root.parent):
+            inside = store.below(path=path, root=root)
+            if inside is not None:
+                return store.as_on_disk(root / inside, root=root)
+
+        return path
+
+    return [replace(touch, path=spelled(touch.path), moved_from=None if touch.moved_from is None else spelled(touch.moved_from)) for touch in touched]
+
+
 # What each agent calls the event after a write, which the reply names.
 # Claude Code and Codex say PostToolUse, Gemini CLI says AfterTool.
 AFTER_WRITE = {"claude": "PostToolUse", "codex": "PostToolUse", "gemini": "AfterTool"}
@@ -1679,17 +1720,12 @@ def say(
     """Put one line for the agent on standard error as UTF-8 bytes whatever the locale, the way every agent reads it.
 
     A refusal names the file in whatever characters its name holds, and
-    so does the error of a brain file the hook cannot read. Where there
-    is no standard error, print takes the line as it always has.
+    so does the error of a brain file the hook cannot read. It goes
+    through the guard the notes go through, so a standard error that is
+    closed or gone never puts the line on standard output nor turns a
+    refusal into a crash that lets the write through.
     """
-    if sys.stderr is None:
-        print(line, file=sys.stderr)
-        return
-
-    write_utf8(
-        stream=sys.stderr,
-        text=line + "\n",
-    )
+    say_notes(notes=[line])
 
 
 def let_go_of(

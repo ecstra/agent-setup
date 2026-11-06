@@ -7,6 +7,7 @@ commits, ledgers and links that nobody can rewrite.
 """
 
 import os
+import re
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Callable, Iterable, Optional
@@ -731,11 +732,27 @@ def near(
 def find_brain(
     start: Optional[Path] = None,
 ) -> Brain:
-    """Walk up from `start` until the `.agents/` directory turns up."""
+    """Walk up from `start`, or the folder the shell stands in, until the `.agents/` directory turns up.
+
+    The walk goes up the path as written first, so a `.agents` that is a
+    link to a folder elsewhere is found from inside it and stays the
+    project's own, its folder above resolved. A start no brain sits
+    above as written is walked again resolved.
+    """
     try:
-        here = (start or Path.cwd()).resolve()
+        written = Path(os.path.abspath(start or logical_cwd()))
+        here = written.resolve()
     except (OSError, RuntimeError, ValueError) as error:
         raise StoreError(f"the working directory cannot be resolved: {error}") from error
+
+    for candidate in [written, *written.parents]:
+        for brain in (candidate, candidate / ".agents"):
+            if brain.name == ".agents" and readable_file(brain / "INDEX.md"):
+                try:
+                    project = brain.parent.resolve()
+                except (OSError, RuntimeError, ValueError):
+                    project = brain.parent
+                return Brain(root=project / ".agents")
 
     for candidate in [here, *here.parents]:
         if candidate.name == ".agents" and readable_file(candidate / "INDEX.md"):
@@ -748,3 +765,109 @@ def find_brain(
     raise StoreError(
         "no .agents/ directory here or above, so there is no brain to work on",
     )
+
+
+# the control characters a terminal acts on, C0 but the tab and the line feed, DEL and C1, which a cloned repository can put in a file's name or a header
+CONTROLS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+
+def shown(
+    text: str,
+) -> str:
+    """The text with each control character a terminal would act on spelled as \\xNN, so a line the tool prints quotes a brain file's text and never runs it."""
+    return CONTROLS.sub(lambda match: f"\\x{ord(match.group()):02x}", text)
+
+
+def counted(
+    number: int,
+    noun: str,
+) -> str:
+    """The number with its noun, one finding and two findings."""
+    return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
+
+
+def logical_cwd() -> Path:
+    """The folder the shell stands in as the shell names it, PWD where that is this process's own folder, so a folder reached through a link keeps the link's spelling, which the system's own answer has followed."""
+    here = Path.cwd()
+    named = os.environ.get("PWD")
+    if named and os.path.isabs(named) and same_file(one=Path(named), other=here):
+        return Path(named)
+
+    return here
+
+
+def below(
+    path: Path,
+    root: Path,
+) -> Optional[Path]:
+    """The path relative to the root, where the path or a folder above it is the root folder itself, else None.
+
+    The root is matched lexically first, then by the disk's identity, so
+    another spelling of its case on a disk that folds case, or a link
+    that leads to it, still lies within it. Each folder on the way up is
+    only stat'ed, never listed.
+    """
+    try:
+        inside = path.relative_to(root)
+    except ValueError:
+        inside = None
+
+    if inside is None:
+        try:
+            wanted = os.stat(root)
+        except (OSError, ValueError):
+            return None
+
+        for ancestor in [path, *path.parents]:
+            try:
+                if os.path.samestat(os.stat(ancestor), wanted):
+                    inside = path.relative_to(ancestor)
+                    break
+            except (OSError, ValueError):
+                continue
+
+    return inside
+
+
+def as_on_disk(
+    path: Path,
+    root: Path,
+) -> Path:
+    """The path below the root with each part that names an entry there spelled as its folder lists it.
+
+    On a disk that folds case, `.AGENTS` and `.agents` open one folder,
+    so two spellings of one file compare equal as text once both are
+    spelled this way. A part is respelled only where the folder holds no
+    entry of that exact name and the two names open the same file, so a
+    disk that keeps case apart, where another case is another file, and
+    a part that names nothing yet keep the spelling they were given. The
+    root is kept as given, so no folder above it is listed.
+    """
+    spelled = root
+    for part in path.relative_to(root).parts:
+        candidate = spelled / part
+        if part not in (".", "..") and os.path.lexists(candidate):
+            try:
+                entries = os.listdir(spelled)
+            except OSError:
+                entries = []
+            if part not in entries:
+                for entry in entries:
+                    if entry.casefold() == part.casefold() and same_file(one=candidate, other=spelled / entry):
+                        candidate = spelled / entry
+                        break
+
+        spelled = candidate
+
+    return spelled
+
+
+def same_file(
+    one: Path,
+    other: Path,
+) -> bool:
+    """Whether the two paths open one file, and no where either cannot be asked."""
+    try:
+        return os.path.samefile(one, other)
+    except (OSError, ValueError):
+        return False

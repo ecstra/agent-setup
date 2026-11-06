@@ -205,7 +205,7 @@ class Slip:
     def text(self) -> str:
         where = f"{self.path}:{self.line}" if self.line else self.path
 
-        return f"{where}: {self.message}"
+        return store.shown(f"{where}: {self.message}")
 
 
 @dataclass(frozen=True)
@@ -251,7 +251,6 @@ def run(
 
     for target in listing.files:
         found += slips_of(
-            project=project,
             target=target,
         )
 
@@ -599,7 +598,6 @@ def check_file(
 
     return Checked(
         slips=slips_of(
-            project=project,
             target=target,
         ),
         notes=[],
@@ -607,7 +605,6 @@ def check_file(
 
 
 def slips_of(
-    project: Path,
     target: Target,
 ) -> list[Slip]:
     """The slips of a markdown file the check judges, read as UTF-8 with a leading byte order mark dropped and a CRLF or a lone CR read as a line end, or the one slip that it cannot be read."""
@@ -674,14 +671,20 @@ def within_project(
     root: Path,
     path: Path,
 ) -> Optional[Path]:
-    """The path resolved, or None where that lies outside the project or cannot be resolved."""
+    """The path resolved, or None where that lies outside the project or cannot be resolved.
+
+    The project is known by the disk's identity where the text does not
+    match, so on a disk that folds case another case of its folder is
+    the project, and the path comes back from the project's own spelling.
+    """
     try:
         resolved = path.resolve()
-        resolved.relative_to(root)
     except (OSError, RuntimeError, ValueError):
         return None
 
-    return resolved
+    inside = store.below(path=resolved, root=root)
+
+    return None if inside is None else root / inside
 
 
 def target_of(
