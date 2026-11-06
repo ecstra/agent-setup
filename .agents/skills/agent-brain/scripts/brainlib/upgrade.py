@@ -25,7 +25,7 @@ from pathlib import Path, PurePath, PureWindowsPath
 from typing import Callable, Optional, Protocol, TextIO, Union
 from urllib.parse import unquote
 
-from . import doctor, frontmatter, handover, links, people, rules, schema, sections, store, style
+from . import doctor, frontmatter, handover, links, people, rules, rust, schema, sections, store, style
 
 FOLDER = ".agents"
 
@@ -701,6 +701,11 @@ def prepare(
             name = entry.document.get("name")
             if name in takes and entry.path != takes[name][0]:
                 raise UpgradeError(f"{folder}/{entry.relative} is named {name}, the name {takes[name][1]} takes from {rules.SINCE}, so retitle it first with brain refile")
+
+        # before the kit shipped its Rust rule a rule of that name was the project's own, which doctor would write the kit's words over
+        own_rust = brain_root / rules.FOLDER / rust.RULE
+        if stamped < schema.as_tuple(rust.SINCE) and store.readable_file(own_rust) and not rust.says_the_kits(read_as_is(own_rust).removeprefix("﻿").replace("\r\n", "\n")):
+            raise UpgradeError(f"{folder}/{rules.FOLDER}/{rust.RULE} is the project's own rule, and from {rust.SINCE} that name is the kit's Rust rule, so retitle it first with brain refile")
 
     settings = kit_config(kit=kit)
     merged: list[Path] = []

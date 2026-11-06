@@ -8,6 +8,7 @@ so Rust that arrives after the port gets the rule, and Rust that leaves
 takes it away.
 """
 
+import os
 import re
 from datetime import date
 from pathlib import Path
@@ -18,9 +19,13 @@ from . import frontmatter, rules
 MANIFEST = "Cargo.toml"
 RULE = "rust.md"
 NAME = "rust"
+# the stamp the rule first ships with, before which a rule of that name was the project's own
+SINCE = "3.1.0"
 TOOLCHAIN = "rust-toolchain.toml"
 # the configs written once where missing, then the project's, and the table a reader pastes into the root Cargo.toml
 CONFIGS: tuple[str, ...] = ("rustfmt.toml", "clippy.toml", "deny.toml")
+# the other names each tool reads its config under, which keep the reference copy from going beside the project's own, since the tool would read the copy first
+ALTERNATES: dict[str, tuple[str, ...]] = {"rustfmt.toml": (".rustfmt.toml",), "clippy.toml": (".clippy.toml",), "deny.toml": (".deny.toml", ".cargo/deny.toml")}
 LINTS_TABLE = "workspace-lints.toml"
 TEMPLATES = Path(__file__).resolve().parents[2] / "templates" / "rust"
 TEMPLATE_PATH = f".agents/skills/agent-brain/templates/rust/{LINTS_TABLE}"
@@ -50,8 +55,12 @@ NAME_IS_THE_KITS = "rust is the name of the kit's Rust rule, which doctor writes
 TABLE = re.compile(r"^\s*\[([^\]]+)\]\s*(?:#.*)?$")
 UPDATED = re.compile(r"^updated:.*$", re.MULTILINE)
 WORKSPACE_TRUE = re.compile(r"^\s*workspace\s*=\s*true\b")
-# the folders a crate's manifest is never looked for in, a build's output and the dotted ones among them
-SKIPPED = {"target", "node_modules"}
+# one step through a TOML array of strings, a string, a comment or a comma, which stops at the array's closing bracket
+ARRAY_STEP = re.compile(r"\s*(?:\"((?:\\.|[^\"\\])*)\"|'([^']*)'|#[^\n]*|,)")
+PATH_KEY = re.compile(r"\bpath\s*=\s*(?:\"((?:\\.|[^\"\\])*)\"|'([^']*)')")
+# the tables whose path entries are dependencies, a table of one dependency and a target's among them, never a patch or the workspace's own
+DEPENDENCY_TABLES = {"dependencies", "dev-dependencies", "build-dependencies"}
+NOT_DEPENDENCIES = {"patch", "replace", "workspace"}
 
 
 def is_rust(
@@ -95,7 +104,7 @@ def write_rule(
     rules.write_imports(brain_root)
     project = brain_root.parent
     for config in CONFIGS:
-        if not (project / config).exists():
+        if not any((project / name).exists() for name in (config, *ALTERNATES[config])):
             frontmatter.write_text(path=str(project / config), text=template(config))
 
 
@@ -121,17 +130,106 @@ def retire(
     rules.write_imports(brain_root)
 
 
-def manifests_below(
-    project: Path,
+def says_the_kits(
+    text: str,
+) -> bool:
+    """Whether a rule's words below its header are the template's, as doctor compares them."""
+    return body_of(text).strip() == template_body().strip()
+
+
+def workspace_array(
+    text: str,
+    key: str,
+) -> list[str]:
+    """The strings of one array under the root manifest's `[workspace]` table, `members` or `exclude`, over as many lines as it spans, or none where it has no such key."""
+    inside = False
+    lines = text.splitlines()
+    for number, line in enumerate(lines):
+        table = TABLE.match(line)
+        if table is not None:
+            inside = table.group(1).strip() == "workspace"
+            continue
+
+        opening = re.match(rf"^\s*{key}\s*=\s*\[", line) if inside else None
+        if opening is None:
+            continue
+
+        rest = "\n".join([line[opening.end() :], *lines[number + 1 :]])
+        found: list[str] = []
+        step = ARRAY_STEP.match(rest)
+        while step is not None:
+            value = step.group(1) if step.group(1) is not None else step.group(2)
+            if value is not None:
+                found.append(value)
+            step = ARRAY_STEP.match(rest, step.end())
+
+        return found
+
+    return []
+
+
+def path_dependencies(
+    folder: Path,
+    text: str,
 ) -> list[Path]:
-    """Every Cargo.toml below the root, a build's output and the dotted folders left out, in a steady order."""
+    """The folders a manifest's dependency tables name by path, each from the manifest's own folder."""
     found: list[Path] = []
-    for folder in sorted(path for path in project.iterdir() if path.is_dir() and path.name not in SKIPPED and not path.name.startswith(".")):
-        for path in sorted(folder.rglob(MANIFEST)):
-            if not any(part in SKIPPED or part.startswith(".") for part in path.relative_to(project).parts[:-1]):
-                found.append(path)
+    inside = False
+    for line in text.splitlines():
+        table = TABLE.match(line)
+        if table is not None:
+            parts = [part.strip() for part in table.group(1).split(".")]
+            inside = parts[0] not in NOT_DEPENDENCIES and any(part in DEPENDENCY_TABLES for part in parts)
+            continue
+
+        if inside:
+            found += [folder / (match.group(1) if match.group(1) is not None else match.group(2)) for match in PATH_KEY.finditer(line)]
 
     return found
+
+
+def is_under(
+    folder: Path,
+    above: Path,
+) -> bool:
+    return folder == above or above in folder.parents
+
+
+def workspace_members(
+    project: Path,
+    root_text: str,
+) -> list[Path]:
+    """The manifests of the workspace's crates as cargo reads them, the root's own aside, in a steady order.
+
+    They are those its members name, by glob, and every path dependency
+    inside the root, of the root and of each crate in turn, less those
+    under a path the workspace excludes.
+    """
+    root = Path(os.path.normpath(project))
+    excluded = [Path(os.path.normpath(root / path)) for path in workspace_array(text=root_text, key="exclude")]
+    waiting: list[Path] = []
+    for pattern in workspace_array(text=root_text, key="members"):
+        try:
+            waiting += sorted(root.glob(pattern))
+        except (ValueError, NotImplementedError):
+            # an empty or an absolute pattern, which pathlib cannot glob and cargo reads as no crate below the root
+            continue
+
+    waiting += path_dependencies(folder=root, text=root_text)
+    found: set[Path] = set()
+    while waiting:
+        folder = Path(os.path.normpath(waiting.pop(0)))
+        manifest = folder / MANIFEST
+        if manifest in found or folder == root or not is_under(folder=folder, above=root) or any(is_under(folder=folder, above=out) for out in excluded):
+            continue
+
+        if not manifest.is_file():
+            continue
+
+        found.add(manifest)
+        waiting += path_dependencies(folder=folder, text=manifest.read_text(encoding="utf-8-sig"))
+
+    return sorted(found)
 
 
 def tables(
@@ -171,9 +269,14 @@ def lint_trouble(
     if not any(name == "workspace.lints" or name.startswith("workspace.lints.") for name in named):
         found.append((MANIFEST, NO_WORKSPACE_LINTS))
 
-    for manifest in manifests_below(project):
+    # a root that is a package as well is a crate of its own workspace
+    if "package" in named and not opts_in(root):
+        found.append((MANIFEST, NOT_OPTED_IN))
+
+    root_folder = Path(os.path.normpath(project))
+    for manifest in workspace_members(project=project, root_text=root):
         if not opts_in(manifest.read_text(encoding="utf-8-sig")):
-            found.append((manifest.relative_to(project).as_posix(), NOT_OPTED_IN))
+            found.append((manifest.relative_to(root_folder).as_posix(), NOT_OPTED_IN))
 
     return found
 

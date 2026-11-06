@@ -103,14 +103,16 @@ cargo test --workspace --locked ||
   { code=$?; command -v cargo >/dev/null || echo "cargo is not installed, install Rust through rustup from https://rustup.rs" >&2; exit "$code"; }
 ```
 
-The mutants gate tests the branch's change from main, edits not yet committed included and files git does not track yet left out. It passes where the change plants no mutant, on main among them, and caps rustc's lints so a denied lint never hides a mutant as unviable.
+The mutants gate tests the branch's change from main, or from origin/main in a clone that keeps no main branch, edits not yet committed included and files git does not track yet left out. It passes where the change plants no mutant, on main among them, and caps rustc's lints so a denied lint never hides a mutant as unviable.
 
 ```bash
 cargo mutants --version >/dev/null 2>&1 ||
   { echo "cargo-mutants is not installed, run cargo install --locked cargo-mutants" >&2; exit 1; }
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-git diff --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/ "$(git merge-base main HEAD)" > "$work/branch.diff"
+base=$(git merge-base main HEAD 2>/dev/null || git merge-base origin/main HEAD 2>/dev/null) ||
+  { echo "the mutants gate diffs from main, and neither main nor origin/main is there" >&2; exit 1; }
+git diff --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/ "$base" > "$work/branch.diff"
 cargo mutants --workspace --in-diff "$work/branch.diff" --output "$work" --cap-lints=true --cargo-arg=--locked
 ```
 
