@@ -100,8 +100,8 @@ def lines_of(
 def written_lines(
     rule: str,
 ) -> Optional[tuple[list[str], list[str]]]:
-    """The lines of the fenced blocks under a Lint heading of one rule, comments and blank lines aside, and the lines beside them that name the file, or None with no such heading."""
-    blocks: sections.Blocks = sections.blocks_of(rule)
+    """The lines of the fenced blocks under a Lint heading of one rule, comments and blank lines aside, and the lines beside them that name the file, or None with no such heading, a comment opened at the margin and never closed hiding the rest as it does from the agents."""
+    blocks: sections.Blocks = sections.blocks_of(rule, unclosed_hides_rest=True)
     found: Optional[tuple[list[str], list[str]]] = None
     for heading in blocks.headings:
         if heading_name(heading.text) != HEADING:
