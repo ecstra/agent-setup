@@ -107,9 +107,11 @@ The same shape files a todo (`--area`, `--by`), a decision (`--area`),
 a memory (`--type project|feedback|reference`), a doc (`--category`),
 a build spec (`--branch`) or a review. Each kind's required headings
 are in [the reference](references/commands.md#writing), and the tool
-names the one that is missing. A rule takes no field of its own, and
-`brain new rule` adds its import to `AGENTS.md`. It loads only once the
-session is reloaded, so ask the owner to reload it.
+names the one that is missing. A rule takes no field of its own and no
+category, and `brain new rule` adds its import to `AGENTS.md`. It loads
+only once the session is reloaded, so when the command says so, ask the
+owner to reload it. Where it says `AGENTS.md` does not import the rule,
+run doctor, which names why.
 
 A plan is a goal with the steps that reach it, and the steps are a
 table the tool keeps, on a plan and a build spec always and on a todo
@@ -406,9 +408,11 @@ which get the table, a chat style copy that drifted from the Claude
 Code one, a skill stub that is missing or behind its sheet's header, a
 link of any kind, a plain file or a copy of the sheet where a stub
 belongs, which the stub replaces, a missing launcher `.agents/brain`,
-written from the text the tool holds, import lines in `AGENTS.md` that
-leave out a rule, name a file that is none or stand out of load order,
-a read guard rule or sandbox entry missing from `.claude/settings.json`
+written from the text the tool holds, the lines below the rules line
+of `AGENTS.md` where they leave out a rule, name a file that is none,
+repeat a rule, stand out of load order or hold anything but a rule's
+import, a merge's conflict markers among them, a read guard rule or
+sandbox entry missing from `.claude/settings.json`
 while `.claude` stays inside the project, an entry's missing `author` or `editor`, which it fills from
 git's history, and stamps every file it touches, save one where it
 only fills a name. The stubs are real files, so no system needs a link
@@ -429,7 +433,14 @@ Run from the project's root, with `<kit>` a checkout of agent-setup.
 `port` installs the kit into a project with no brain and lists what is
 left to file through `brain new`. `upgrade` brings an existing brain up
 to the kit, the old `.agent/` layout included, migrations first. Both
-keep the project's rules, its own hooks and everything it wrote, move a
-`## 0. Project Rules` that a front door from before 3.0.0 held into
-`rules/project.md`, and end with `doctor --fix`. The full contract is in
-[commands.md](references/commands.md).
+keep the project's rules, its own hooks and everything it wrote, and
+end with `doctor --fix`. The port, and the upgrade from a release
+before 3.0.0, move the first section 0 an old front door holds, and
+that section alone, into `rules/project.md`, where it runs as it ran
+there. Every other word a door held of its own is quoted in
+`docs/front-door-words.md`, where nothing loads, gates or lints, the
+section 0 too where `project.md` was there already, since the run never
+writes into it. When the report names that doc, read it against the
+rulebook, write what still holds as a rule, then delete each part and
+the doc once it is empty, as
+[port and upgrade](references/commands.md#port-and-upgrade) says.

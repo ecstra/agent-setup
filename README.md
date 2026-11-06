@@ -96,13 +96,15 @@ uncommitted work, so commit first. Then it does all of this in one run.
   and `CONTRIBUTING.md` at the root, the hooks, the review's sub agent
   definitions and the chat style in the agent folders, and the version
   stamp.
-- Your own rules are kept. A `## 0. Project Rules` section you already
-  had in `AGENTS.md`, `CLAUDE.md` or `GEMINI.md` goes into
-  `.agents/rules/project.md`, its links written again from there, and
-  the new `AGENTS.md` imports that file. If you had no such section but
-  a rules file of your own under one of those names, the first of them
-  goes there whole, for your agent to trim against the rulebook, and
-  any other stays in git where the report says.
+- Your own rules are kept. A section 0 you already had, under a `## 0.`
+  heading in `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, the first one
+  found, goes into `.agents/rules/project.md` as it stood, its links
+  written again from there, so its gates and linters run as they did,
+  and the new `AGENTS.md` imports that file. Everything else those files said
+  of their own is quoted in `.agents/docs/front-door-words.md`, a doc
+  where none of it loads or runs, for your agent to read against the
+  rulebook and turn what still holds into rules. The old files stay in
+  git where the report says.
 - Your own hooks stay. The kit's hooks are added beside them in each
   agent's config, and any other setting of yours is left as it was.
   The kit's own four settings for Claude Code, the Plain & Short chat
@@ -133,9 +135,10 @@ after it writes nothing.
 > 1. `CODEOWNERS`: copy the kit's in and replace `@ecstra` with your
 >    own handle. The port never touches ownership.
 > 2. `.agents/rules/project.md`: optional to fill. The port writes it
->    with a comment saying what it is for, and it holds what the general
->    rules cannot know about your project. Every session loads it as it
->    starts, so a change reaches the agent once you reload. The gates (the
+>    with your old section 0, or else with a comment saying what it is
+>    for, and it holds what the general rules cannot know about your
+>    project. Every session loads it as it starts, so a change reaches
+>    the agent once you reload. The gates (the
 >    exact test suites, analyzers, builds, and validators that must be
 >    green before a review), the linters, the tooling (how PRs are
 >    opened, how the app runs), anything else the general sections do
@@ -177,9 +180,11 @@ the agent does the filing, because there is a lot of it and every file
 needs the right header block and index line.
 
 Porting builds on the installation above, so do that first, any of the
-three ways. Nothing of yours is thrown away by the port. The first old
-rules file of yours is carried into `.agents/rules/project.md` for the
-agent to trim, every root file the kit replaces is named in the report
+three ways. Nothing of yours is thrown away by the port. Your old
+section 0 moves into `.agents/rules/project.md`, everything else your
+old front doors said of their own is quoted in
+`.agents/docs/front-door-words.md` for the agent to sort, every root
+file the kit replaces is named in the report
 with where git keeps it, and your own hooks and ignore lines stay where
 they were. The port ends by listing what it found that belongs in the
 brain, and that list is where the agent starts, so paste the port's
@@ -202,11 +207,15 @@ output into the prompt below if the agent did not run the port itself.
    the id and the index line, so none of them is typed, and the hook
    refuses a brain file written any other way. Your wording is kept in
    todos and nothing gets shortened on the way.
-4. **Trim the old rules, never keep them whole**: what the port carried
-   into `.agents/rules/project.md` is read against the new rulebook.
-   Whatever the general sections already say is dropped, and only what
-   is truly project specific stays there. Your old `CONTRIBUTING.md` is
-   read the same way, its extra rules into that file.
+4. **Sort the old rules, never keep them whole**: the section 0 the
+   port moved into `.agents/rules/project.md` and the words it quoted
+   in `.agents/docs/front-door-words.md` are read against the new
+   rulebook. Whatever the general sections already say is dropped, and
+   only what is truly project specific stays, as a rule in
+   `project.md` or one of its own through `brain new rule`. Each quoted
+   part is deleted once it is sorted, and the doc once it is empty.
+   Your old `CONTRIBUTING.md` is read from git the same way, and what
+   it adds becomes rules too.
 5. **Do all of it**: a project can hold hundreds or thousands of files,
    old and new, and the port covers every one, never a sample. If the
    volume calls for it, the agent lists everything in a ledger first and
@@ -237,7 +246,7 @@ output into the prompt below if the agent did not run the port itself.
 
 | What you have today | Where it goes |
 |---|---|
-| Your own `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` | Carried into `.agents/rules/project.md` by the port, then read against the new rulebook. Anything the general rules already cover is dropped, only the truly project specific parts stay. |
+| Your own `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` | Its section 0 moved into `.agents/rules/project.md` by the port and the rest quoted in `.agents/docs/front-door-words.md`, then read against the new rulebook. Anything the general rules already cover is dropped, only the truly project specific parts stay, as rules. |
 | A `docs/` folder, wiki pages, architecture or design notes | `.agents/docs/`, sorted into a category folder (`foundation/`, `systems/`, `ops/`, `research/`), one line each in `.agents/docs/INDEX.md`. What a person wrote by hand stays where it is, and a `docs/` folder you keep links into the brain rather than repeating it. |
 | ADRs or a decisions log | `.agents/decisions/`, one file per decision. |
 | A TODO list, roadmap, or backlog | `.agents/todos/`, one file per item, your wording kept as is, and a roadmap with its steps as `.agents/plans/`, one file per goal. |
@@ -266,12 +275,15 @@ you know the target format and the tool that writes it. Show me a plan
 of what goes where before you move anything. Then file it all into
 .agents/ (docs, decisions, todos, bugs, memory, everything) one file at
 a time through brain new with the prose on standard input, never by
-hand, keeping my wording in todos. .agents/rules/project.md holds what
-the port carried over from our old rules: read it against the new
-rulebook, drop what the general sections already cover, and keep only
-the truly project specific parts, and read every other old rules file
-the port named (CLAUDE.md, GEMINI.md, CONTRIBUTING.md) from git the
-same way, their extra rules into that file.
+hand, keeping my wording in todos. .agents/rules/project.md holds the
+section 0 the port moved from our old rules, and
+.agents/docs/front-door-words.md quotes what else our old AGENTS.md,
+CLAUDE.md and GEMINI.md said. Read both against the new rulebook, drop
+what the general sections already cover, and keep only the truly
+project specific parts as rules, in project.md or through brain new
+rule, then delete each quoted part and the doc once it is empty. Read
+our old CONTRIBUTING.md from git the same way, and file what it adds
+as rules too.
 This may be hundreds or thousands of files. Do every one, never a
 sample. If the volume needs it, list everything in a ledger first and
 work in batches, ticking each file off. When it is all filed, delete
@@ -396,10 +408,15 @@ older tool left it out. It has yet to run on Windows itself.
 From 3.0.0 your project's own rules live in `.agents/rules/`, one file
 each, and `AGENTS.md` is the kit's whole, importing each of them, so the
 hook refuses a hand edit of it. The upgrade moves your
-`## 0. Project Rules` out of `AGENTS.md` into `.agents/rules/project.md`,
-its links written again from there, along with any words of your own
-that `AGENTS.md` held outside it, for your agent to read against the
-rulebook and trim. A later rule goes in through `brain new rule`, and it
+`## 0. Project Rules` out of `AGENTS.md` into `.agents/rules/project.md`
+as it stood, its links written again from there, so its gates and
+linters run as they did, and it never writes into a `project.md` you
+already have. Any other words your front doors held of their own are
+quoted in `.agents/docs/front-door-words.md`, where none of it loads or
+runs, for your agent to read against the rulebook and turn into rules.
+The upgrade refuses before any write while another entry of your brain
+is named `project` or `front-door-words`, until you retitle it with
+`brain refile`. A later rule goes in through `brain new rule`, and it
 loads once you reload the session.
 [Port and upgrade](.agents/skills/agent-brain/references/commands.md#port-and-upgrade)
 says what moves where.
