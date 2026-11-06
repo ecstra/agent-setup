@@ -16,10 +16,11 @@ from the project root.
 python3 .agents/skills/see/scripts/see.py report clip.mov out
 ```
 
-It needs Python 3.9 or later and ffmpeg with ffprobe, nothing else.
-Without ffmpeg every command says how to install it for the system and
-exits 1. Every flag and every line it prints is in
-[references/commands.md](references/commands.md).
+It needs Python 3.9 or later and ffmpeg with ffprobe, nothing else. An
+ffmpeg older than 5.1, such as the 4.4 Ubuntu 22.04 installs, serves as
+well as a newer one. Without ffmpeg every command names the install for
+macOS, Windows and Debian or Ubuntu, and exits 1. Every flag and every
+line it prints is in [references/commands.md](references/commands.md).
 
 ## When to use it
 
@@ -38,17 +39,19 @@ exits 1. Every flag and every line it prints is in
 1. Read the printed numbers first. A burst's frames, a region's box, a
    held frame, a move of 4 px, a gap of 20 px are the findings.
 2. Open only the image a line names for the moment that matters. Every
-   image line names the frames or the moments its tiles show.
-3. Judge pixels on a full quality image. A sheet scaled for an overview
-   says so in its header and in its line, and `frame` gives any one
-   frame at full quality.
+   sheet's line names the frames or the moments its tiles show, and
+   every image of a `diff` the change it shows.
+3. Judge pixels on a full quality image. An image scaled for an
+   overview says so in its header, and `frame` with a crop gives any
+   part of a frame at full quality.
 4. Change the code, record or capture again, and run the same command,
    so the numbers show what the change did.
 
 ## Getting a video
 
-The owner can hand over the path of a video in any format ffmpeg reads,
-such as mp4, mov, mkv or webm. Or the agent records one itself.
+The owner can hand over the path of a video or a screenshot in any
+format ffmpeg reads, such as mp4, mov, mkv or webm for a video and PNG,
+JPEG or TIFF for a still. Or the agent records one itself.
 
 - macOS. `screencapture -x -v -V 3 -R x,y,w,h clip.mov` records 3
   seconds of a rectangle given in points from the top left of the main
@@ -102,6 +105,13 @@ on a Windows laptop at 150 percent.
 - A recording compressed hard carries noise that reads as motion. An
   everyday screen recording reads clean, and a lossless one always
   does.
+- A change of 10 grey levels a frame or less, a faint element or a
+  fade, is found by how a 16 px cell's mean grey drifts and is counted
+  in whole cells. So its counts are rough, and they can switch between
+  pixel counts and whole cell counts as its steps cross 10. A frame of
+  it can be missed, which the pacing then reads as a hold, and so can
+  the first frames of a very faint change. A fade slower than about 4
+  levels over 6 frames is not found at all.
 - The last stretch of a strong ease out moves less than a pixel a
   frame, so the burst ends before the animation does. Read the curve
   from the frames that moved.

@@ -1060,8 +1060,8 @@ file every time. Such a file is a skill the kit ships, the brain's own
 `VERSION`, or a file copied into the agent folders, which is a sub
 agent definition, the chat style source or one of its copies. An import
 slip in `CLAUDE.md`, in `GEMINI.md` or in the kit's words of
-`AGENTS.md` below its marker line counts the same way. The tool ships
-without its own tests, the chat style copies in `.codex/` and
+`AGENTS.md` below its marker line counts the same way. The kit's skills
+ship without their tests, the chat style copies in `.codex/` and
 `.gemini/` are the doctor's to make from the source in
 `.claude/output-styles/`, and the skill stubs under `.claude/skills/`
 are the doctor's to write from the project's own sheets, so the install
