@@ -24,6 +24,7 @@ UNLISTED = "cannot be listed"
 
 # the hosts Windows serves a WSL distro's files under, casefolded
 WSL_HOSTS = ("wsl.localhost", "wsl$")
+WINDOWS = os.name == "nt"
 
 # where WSL mounts each Windows drive, one folder per letter
 WSL_DRIVES = PurePosixPath("/mnt")
@@ -334,10 +335,16 @@ class Brain:
         project when it is the same folder, so a drive mount that opens
         folders in any case is asked rather than second guessed. When it
         is not, it is this project only when it spells the project's
-        whole path exactly. Outside WSL it is never a folder here.
+        whole path exactly. Outside WSL it is never a folder here, and on
+        Windows a folder on a WSL share is read only where a WSL distro is
+        installed.
         """
         project: Path = self.root.parent
         expanded: str = os.path.expanduser(folder)
+        # a folder whose read would start WSL is never read, and is not this project, since a project there would have WSL installed
+        if starts_wsl(expanded):
+            return False
+
         try:
             same_folder: bool = os.path.samefile(
                 f1=Path.cwd() / expanded,
@@ -446,6 +453,41 @@ class Brain:
             return folder / f"{self.next_id(kind)}-{slug}.md"
 
         return folder / f"{slug}.md"
+
+
+def wsl_installed() -> bool:
+    """Whether this Windows machine has a WSL distro registered, read from the registry, which starts nothing, and never elsewhere."""
+    if not WINDOWS:
+        return False
+
+    # the module is Windows' alone, so it is imported here rather than at the top
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Lxss") as key:
+            return winreg.QueryInfoKey(key)[0] > 0
+    except OSError:
+        return False
+
+
+def starts_wsl(
+    path: str,
+) -> bool:
+    """Whether reading the path would start WSL, which Windows does for a path on a WSL share and, with no distro installed, answers by offering to install it."""
+    return WINDOWS and on_wsl_share(path) and not wsl_installed()
+
+
+def on_wsl_share(
+    path: str,
+) -> bool:
+    """Whether a path lies on a WSL share, \\\\wsl.localhost\\<distro> or \\\\wsl$\\<distro>, by its spelling alone, in any case and with either slash."""
+    drive: str = PureWindowsPath(path).drive
+    if not drive.startswith("\\\\"):
+        return False
+
+    host, _, _ = drive[2:].partition("\\")
+
+    return host.casefold() in WSL_HOSTS
 
 
 def wsl_parts(

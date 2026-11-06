@@ -19,7 +19,7 @@ import tempfile
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PureWindowsPath
 from typing import Callable, Optional, Protocol, TextIO, Union
 from urllib.parse import unquote
 
@@ -1565,6 +1565,11 @@ def local_origin(
             return None
 
         named = url
+
+    # an origin whose read would start WSL is settled by its spelling, a path that reaches nothing on this disk
+    if store.starts_wsl(named):
+        spelled = PureWindowsPath(named)
+        return spelled.parent if spelled.name.casefold() == ".git" else spelled
 
     checkout: Optional[Path] = reached(
         folder=folder,
