@@ -1762,11 +1762,12 @@ def section_zero_of(
         if layout == "none" and whole == door_text(kits):
             continue
 
-        # a door linked to another, or a copy of it, says the same once
-        if whole in seen:
+        # a door linked to another, or a copy of it under a title of its own, says the same once, its section 0 kept for the match
+        same = door_text(door_words(text=text, keep_section=True))
+        if same in seen:
             continue
 
-        seen.append(whole)
+        seen.append(same)
         said = door_words(text=text, keep_section=zero is None or zero[0] != name)
         if not only_shares(said):
             quoted.append((name, said))
