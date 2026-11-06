@@ -952,8 +952,13 @@ below 3.9 is named in one line as not run, and the gate names the
 Python versions it runs under. Two gates of ruff follow in the same
 folder, `ruff format --check .` and `ruff check .`, under the config
 the scripts folder carries, which [the lint hook](#the-lint-hook)
-describes. Where ruff is not on the path, one line says the tool's code
-is not linted and both are left out. Section 0's gates follow, where
+describes. The see tool's tests come next, `<interpreter> -m unittest
+discover -s tests -t .` in `.agents/skills/see/scripts`, one gate under
+each interpreter the tool's tests run under, and their cases skip
+where ffmpeg is not installed. Two gates of ruff follow over the see
+tool's code, in its folder and under the config it carries. Where ruff
+is not on the path, one line says neither tool's code is linted and
+all four are left out. Section 0's gates follow, where
 the kit's `AGENTS.md` names any. An interpreter whose `sys.executable`
 is empty exits 1 with nothing run.
 
@@ -1410,7 +1415,8 @@ write and exits 0.
 In the kit's own checkout the hook runs the kit's own lines in place of
 section 0's, `ruff format {file}` then `ruff check --fix {file}` on each
 `*.py` file, the brain's own files included, under the `ruff.toml` in
-the scripts folder, which the kit's gates run too. That config holds
+the scripts folder, which the kit's gates run too, and the see tool's
+code under the same config in its own scripts folder. That config holds
 the code to Python 3.9, lets a line run to 320 characters, selects
 ruff's rules F, E9, TID251 and RET505, bans
 `from __future__ import annotations`, and never removes an unused

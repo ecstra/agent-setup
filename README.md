@@ -28,6 +28,7 @@ written record of what the project knows.
 | `.agents/` | The project's memory. Docs, plans, build specs, todos, bugs, decisions, review ledgers, and small facts the agent learns, plus the note one session leaves for the next, which never enters git. Ships empty apart from the rules and the tool that keeps the rest, whose [skill sheet](.agents/skills/agent-brain/SKILL.md#the-brains-files) says what each folder holds. |
 | `.agents/skills/agent-brain/` | The brain tool. Reads, lists, counts, files, changes and checks everything in `.agents/`, so an id, a header block or an index line is never typed by hand and a tracker is never grepped for its fields. It also checks the project's own markdown and commit messages, runs your linters on each file the agent writes and your gates before a review, installs the kit into a project and brings it up to a newer release. Plain Python, no dependencies. |
 | `.agents/skills/branch-review/` | The code review, run on your word at a quick, standard or deep level. Finder sub agents read the whole branch in parallel, one per angle, and two verifier sub agents vote on each finding, or the main agent alone at the quick level. The main agent fixes every confirmed finding itself in one go, a fresh verifier rechecks the diff of the fix, three rounds at most, and one docs agent brings the docs up to the code at the end. The report says where things stand first. |
+| `.agents/skills/see/` | The see tool, for an agent that reads images but no video. It turns a screen recording into its bursts of motion, the regions that moved, the pacing and tagged sheets of every frame and every frame diff, lines two recordings up side by side, tells what moved from what changed between two screenshots, and measures a screenshot's elements, padding and gaps like a design tool's redline. Every image is labelled and sized so Claude reads it at full quality. Python and ffmpeg, nothing else. |
 | `.agents/VERSION` | The kit release your project carries, so an upgrade knows where it starts from. |
 | `.claude/`, `.codex/`, `.gemini/` | The hooks each agent runs, so each file the agent writes with its edit tools is linted and checked without anyone asking, the clock, your standing word and the work the agent is on stay in front of it, and a call that reads or writes the brain by hand is told which brain command does that, the stubs Claude Code finds the skills through, the review's sub agent definitions, and the Plain & Short chat style, once per agent in the form that agent reads. Claude Code's settings also turn off its idle compaction, so a long session you step away from keeps its full context, and a project can turn it back on in its own settings. |
 | `CONTRIBUTING.md` | The hard rules for humans and agents on one page. |
@@ -91,7 +92,7 @@ on your home folder, and it refuses while a file it would replace holds
 uncommitted work, so commit first. Then it does all of this in one run.
 
 - The kit's files land: the rulebook, the house rules, the brain tool's
-  launcher and the kit's two skills under `.agents/`, the front doors
+  launcher and the kit's three skills under `.agents/`, the front doors
   and `CONTRIBUTING.md` at the root, the hooks, the review's sub agent
   definitions and the chat style in the agent folders, and the version
   stamp.
