@@ -51,15 +51,19 @@ unsafe code, async, dependencies and tests. Its lint line runs
 `cargo fmt`, clippy with warnings denied, the tests, `cargo mutants`
 over the branch's change and `cargo deny`, which needs the network.
 Beside it the kit writes `rustfmt.toml`, `clippy.toml` and `deny.toml`
-at the root where you have none, and from then on they are yours to
-tune. The rule is the kit's and written whole, so your own Rust rules
-go in `project.md` or a rule of their own, on top of it.
+at the root where you have none under any name the tool reads, such as
+`.rustfmt.toml`, and from then on they are yours to tune. The rule is
+the kit's and written whole, so your own Rust rules go in `project.md`
+or a rule of their own, on top of it.
 
 Doctor keeps the rule in step with the `Cargo.toml` on every run, so
 Rust added after the port gets the rule and Rust removed takes it away.
 It names what it leaves to you, a `rust-toolchain.toml` and the lint
-tables to paste into `Cargo.toml`. Only a `Cargo.toml` at the root
-counts, so Rust that sits only in a folder below it gets none.
+tables to paste into `Cargo.toml`, with each crate of your workspace
+that does not take them up, the root crate among them. A crate the
+workspace never takes in, such as a vendored one or a separate fuzz
+workspace, is left alone. Only a `Cargo.toml` at the root counts, so
+Rust that sits only in a folder below it gets none.
 [The Rust rule](.agents/skills/agent-brain/references/commands.md#the-rust-rule)
 says the rest.
 
@@ -74,7 +78,7 @@ records your yes with an end, such as
 assertions and changes to the code under test pass as before. A write
 by a shell command goes unseen, so there the rulebook's own rule holds.
 [The test guard](.agents/skills/agent-brain/references/commands.md#the-test-guard)
-says which files and lines it knows.
+says which files and checks it knows.
 
 ## Installation
 
@@ -460,7 +464,10 @@ says what moves where.
 From 3.1.0 a project whose root holds a `Cargo.toml` gets the kit's
 Rust rule from the doctor run at the end of the upgrade, as
 [Rust projects](#rust-projects) says, and every project gets
-[the test guard](#the-test-guard). Nothing of yours has to change.
+[the test guard](#the-test-guard). Nothing of yours has to change,
+unless your brain already holds a rule of your own named `rust`. The
+kit's rule takes that name, so the upgrade refuses before any write
+until you retitle yours with `brain refile`.
 
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it

@@ -52,10 +52,10 @@ listed in [references/commands.md](references/commands.md).
   owner's word. Outside the kit's own checkout the pre write hook
   refuses an edit that loses one, a test file deleted or moved by a
   patch among them, until the owner gives their word for that file and
-  you record it with an end, `brain ack tests <file> --for 1h`. New tests, new
-  assertions and the code under test pass.
+  you record it with an end, `brain ack tests <file> --for 1h`. New
+  tests, new assertions and the code under test pass.
   [The test guard](references/commands.md#the-test-guard) says which
-  files and lines it knows and where it falls short.
+  files and checks it knows and where it falls short.
 
 ## When a session starts
 
