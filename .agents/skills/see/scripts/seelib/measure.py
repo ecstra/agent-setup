@@ -241,6 +241,18 @@ def redline(path: Path, out: Path, box, scale: float) -> None:
     draw_redline(crop, w, h, elements, gaps, out, path, region, scale)
 
 
+def place_label(cx: int, cy: int, lw: int, lh: int, placed: list, bounds: tuple) -> tuple:
+    """Where a label lw by lh wanted around a point goes, the nearest row above or below that no placed label covers, kept inside the bounds, or the wanted row where none within three is free."""
+    left, top, right, bottom = bounds
+    x = min(max(cx - lw // 2, left), right - lw)
+    wanted = cy - lh // 2
+    for step in (0, 1, -1, 2, -2, 3, -3):
+        y = min(max(wanted + step * (lh + 2), top), bottom - lh)
+        if not any(x < px + pw and px < x + lw and y < py + ph and py < y + lh for px, py, pw, ph in placed):
+            return x, y
+    return x, min(max(wanted, top), bottom - lh)
+
+
 def draw_redline(crop, w, h, elements, gaps, out, path, region, scale):
     zoom = 2 if w * 2 + 60 <= media.EDGE and (w * 2 + 60) * (h * 2 + 160) <= media.AREA else 1
     factor = zoom if zoom > 1 else min(1.0, (media.EDGE - 60) / w, ((media.AREA / (w + 60)) - 160) / h)
@@ -261,30 +273,34 @@ def draw_redline(crop, w, h, elements, gaps, out, path, region, scale):
     def s(value: float) -> int:
         return int(value * factor)
 
+    bounds = (0, head, canvas.width, canvas.height)
+
     def pill(cx: int, cy: int, text: str, colour: tuple) -> None:
-        """A label centred on a point, moved down a step at a time past any label already drawn, so no two overlap."""
         lw, lh = draw.text_size(text)
-        lx, ly = cx - lw // 2, cy - lh // 2
-        for _ in range(8):
-            if not any(lx < px + pw and px < lx + lw + 4 and ly < py + ph and py < ly + lh for px, py, pw, ph in placed):
-                break
-            ly += lh + 2
+        lx, ly = place_label(cx, cy, lw + 4, lh, placed, bounds)
         placed.append((lx, ly, lw + 4, lh))
         canvas.text(lx, ly, text, 2, draw.WHITE, colour)
 
     for n, el, items, how in elements:
         x0, y0, x1, y1 = ox + s(el[0]), oy + s(el[1]), ox + s(el[2] + 1), oy + s(el[3] + 1)
         canvas.outline(x0, y0, x1 - x0, y1 - y0, MAGENTA, 1)
-        canvas.text(x0, y0 - 18 if y0 - 18 > head else y1 + 2, f"E{n}", 2, draw.WHITE, MAGENTA)
+        name = f"E{n}"
+        nw, nh = draw.text_size(name)
+        ny = y0 - 18 if y0 - 18 > head else y1 + 2
+        placed.append((x0, ny, nw + 4, nh))
+        canvas.text(x0, ny, name, 2, draw.WHITE, MAGENTA)
         mid = (y0 + y1) // 2
         canvas.rect(x0, mid, x1 - x0, 1, PURPLE)
         canvas.rect(x0, mid - 5, 1, 11, PURPLE)
         canvas.rect(x1 - 1, mid - 5, 1, 11, PURPLE)
-        pill((x0 + x1) // 2, y0 + 12, f"{el[2] - el[0] + 1}", PURPLE)
+        width_text, height_text = f"{el[2] - el[0] + 1}", f"{el[3] - el[1] + 1}"
+        _, lh = draw.text_size(width_text)
+        # a label inside a short element such as a line of text would hide it, so there the width goes under the element
+        pill((x0 + x1) // 2, y0 + 12 if y1 - y0 >= 3 * lh else y1 + lh // 2 + 4, width_text, PURPLE)
         canvas.rect(x1 + 6, y0, 1, y1 - y0, CYAN)
         canvas.rect(x1 + 1, y0, 11, 1, CYAN)
         canvas.rect(x1 + 1, y1 - 1, 11, 1, CYAN)
-        pill(x1 + 6, (y0 + y1) // 2, f"{el[3] - el[1] + 1}", CYAN)
+        pill(x1 + 10 + draw.text_size(height_text)[0] // 2, (y0 + y1) // 2, height_text, CYAN)
         for it in items:
             canvas.outline(ox + s(it[0]), oy + s(it[1]), max(1, s(it[2] - it[0] + 1)), max(1, s(it[3] - it[1] + 1)), ORANGE, 1)
         if items and how == "row":
