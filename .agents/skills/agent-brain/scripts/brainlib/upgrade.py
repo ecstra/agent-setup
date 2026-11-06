@@ -1762,13 +1762,14 @@ def section_zero_of(
         if layout == "none" and whole == door_text(kits):
             continue
 
-        # a door linked to another, or a copy of it under a title of its own, says the same once, its section 0 kept for the match
+        # a door linked to another, or a copy of it under a title of its own, says the same once, its section 0 kept for the match,
+        # and words another door quoted already are quoted once
         same = door_text(door_words(text=text, keep_section=True))
-        if same in seen:
+        said = door_words(text=text, keep_section=zero is None or zero[0] != name)
+        if same in seen or any(door_text(said) == door_text(words) for _, words in quoted):
             continue
 
         seen.append(same)
-        said = door_words(text=text, keep_section=zero is None or zero[0] != name)
         if not only_shares(said):
             quoted.append((name, said))
 
@@ -1817,8 +1818,11 @@ def door_words(
 
     mark: int = kit_mark_in(text)
     lines = (text if mark == -1 else text[:mark]).strip().split("\n")
+    # a title of hashes, or one underlined with equals signs
     if lines and lines[0].startswith("# "):
         lines = lines[1:]
+    elif len(lines) > 1 and lines[0].strip() and re.fullmatch(r" {0,3}=+[ \t]*", lines[1]):
+        lines = lines[2:]
 
     return "\n".join(lines).strip()
 
