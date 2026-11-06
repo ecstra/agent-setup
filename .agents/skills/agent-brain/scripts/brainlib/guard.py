@@ -4,12 +4,12 @@ An assertion already written in a test file is the spec's word on what
 the code must do, so the pre write hook refuses a write that changes or
 removes one unless the owner's word for that file holds, given with an
 end like the standing word and kept beside it, in a dotted file of the
-brain that git ignores. An assertion added, moved or reindented passes,
-and so does the code under test. A check is found by the way its
-language writes one and held whole, over every line a formatter wraps
-it onto, with the `if` line a Go test checks on. A value the check
-reads from elsewhere, a variable or a table, is the code's, a named
-limit.
+brain that git ignores. An assertion added, moved, reindented or
+rewrapped passes, and so does the code under test. A check is found by
+the way its language writes one and held whole, over every line a
+formatter wraps it onto, with the `if` line a Go test checks on. A
+value the check reads from elsewhere, a variable or a table, is the
+code's, a named limit.
 """
 
 import json
@@ -255,16 +255,58 @@ def lost(
     before: str,
     after: str,
 ) -> list[str]:
-    """The assertions the text before holds that the text after does not, each as often as it is lost, in the order they stood."""
-    left = Counter(assertions(relative=relative, text=after))
+    """The assertions the text before holds that the text after does not, each as often as it is lost, in the order they stood, as they read before.
+
+    A check is compared by its key, so one a formatter wraps or unwraps
+    reads as the same check.
+    """
+    suffix = PurePosixPath(relative).suffix
+    left = Counter(key_of(check=line, suffix=suffix) for line in assertions(relative=relative, text=after))
     gone: list[str] = []
     for line in assertions(relative=relative, text=before):
-        if left[line]:
-            left[line] -= 1
+        key = key_of(check=line, suffix=suffix)
+        if left[key]:
+            left[key] -= 1
         else:
             gone.append(line)
 
     return gone
+
+
+def key_of(
+    check: str,
+    suffix: str,
+) -> str:
+    """A check as it is compared, its strings as written and the rest without the space a formatter adds or takes away, or the trailing comma a wrap leaves before a closing bracket.
+
+    One space stays between two words, so `not ready` never reads as
+    `notready`. A comma right against its bracket stays, since no wrap
+    put it there and `(1,)` is no `(1)`. A snapshot's line is its own
+    key, since its spaces are the output it holds.
+    """
+    if suffix == ".snap":
+        return check
+
+    key = ""
+    last = 0
+    for quoted in quoting(suffix).finditer(check):
+        key += bare_key(check[last : quoted.start()]) + quoted.group()
+        last = quoted.end()
+
+    return key + bare_key(check[last:])
+
+
+# the comma a formatter leaves at a line's end when it wraps a bracket's last item onto a line of its own
+WRAPPED_COMMA = re.compile(r",\s+(?=[)\]}])")
+SPACE = re.compile(r"\s+")
+# a space with no word on one side of it, which separates no two tokens
+LOOSE_SPACE = re.compile(r" (?!\w)|(?<!\w) ")
+
+
+def bare_key(
+    text: str,
+) -> str:
+    return LOOSE_SPACE.sub("", SPACE.sub(" ", WRAPPED_COMMA.sub("", text)))
 
 
 def path_of(

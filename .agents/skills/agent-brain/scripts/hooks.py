@@ -6,10 +6,11 @@ events matter, the start of a session, each prompt the owner sends, a
 tick after the agent's tool calls, a write, an edit or a patch about to
 land anywhere in the project, refused where it does by hand what the
 brain tool does, or, outside the kit's own checkout, writes the
-project's AGENTS.md or the kit's Rust rule or loses an assertion a test
-file holds, and a write that just landed anywhere in the project, after
-which the project's linters and the check read the file written, and
-doctor reads the whole brain where it landed inside .agents/, on a front
+project's AGENTS.md or the kit's Rust rule, makes a file among the
+kit's own tests or loses an assertion a test file holds, and a write
+that just landed anywhere in the project, after which the project's
+linters and the check read the file written, and doctor reads the
+whole brain where it landed inside .agents/, on a front
 door or the root Cargo.toml, or where a patch deleted or moved a file. The session start,
 the prompt and the tick carry the clock, since a model does not know
 the time and forgets what it was told, where the owner's standing word
@@ -346,7 +347,7 @@ def pre_write(
 ) -> int:
     touched = as_the_project_spells(brain=brain, touched=touches(event=event, agent=agent))
     for touch in touched:
-        verdict = front_door_refusal(brain=brain, touch=touch) or refusal(brain=brain, touch=touch) or assertion_refusal(brain=brain, touch=touch)
+        verdict = front_door_refusal(brain=brain, touch=touch) or kit_tests_refusal(brain=brain, touch=touch) or refusal(brain=brain, touch=touch) or assertion_refusal(brain=brain, touch=touch)
         if verdict is None:
             continue
 
@@ -390,37 +391,95 @@ def front_door_refusal(
     return AGENTS_BY_HAND if is_agents else None
 
 
+# the folder of the kit's own tests below the brain, which ship nowhere, read in any case since a disk that folds case opens it in any
+KIT_TESTS = (SKILLS, "agent-brain", "scripts", "tests")
+KIT_TESTS_BY_HAND = "the kit's own tests live only in the kit's checkout, so no file is made in .agents/skills/agent-brain/scripts/tests/ by hand, since one there would mark the project as the kit's checkout and turn off the guards on AGENTS.md, the kit's Rust rule and test assertions"
+
+
+def kit_tests_refusal(
+    brain: store.Brain,
+    touch: Touch,
+) -> Optional[str]:
+    """Why a write that would make a new file in the kit's tests folder is refused, or None, the kit's own checkout aside, where the tests are the work.
+
+    A test file there is what marks the kit's checkout, so outside it a
+    file is never made there, while one already there may be written.
+    """
+    if touch.deleted or check.is_kit_checkout(brain.root.parent):
+        return None
+
+    inside = links.within(brain=brain, path=touch.path)
+    if inside is None:
+        return None
+
+    parts = tuple(part.casefold() for part in Path(inside).parts)
+    if len(parts) <= len(KIT_TESTS) or parts[: len(KIT_TESTS)] != KIT_TESTS or os.path.lexists(touch.path):
+        return None
+
+    return KIT_TESTS_BY_HAND
+
+
 def assertion_refusal(
     brain: store.Brain,
     touch: Touch,
 ) -> Optional[str]:
     """Why a write that loses an assertion a test file holds is refused, or None, the kit's own checkout aside, where its tests are the work, and a file the owner's word holds.
 
-    A file deleted or moved away loses all it held. A patch's hunks that
-    fit are applied, then each hunk that fits only by looser spacing is
+    A file deleted or moved away loses all it held, and so does a file a
+    move lands on, which the move writes over. A patch's hunks that fit
+    are applied, then each hunk that fits only by looser spacing is
     placed as apply_patch places it, so a check is read whole wherever
     the hunk lands. One that fits nowhere even so is judged by the
-    assertions its lines before carry that its lines after do not. A new
-    file holds none yet.
+    assertions its lines before carry that its lines after do not, and
+    so is an edit whose old string the file does not hold word for word,
+    which the agent's tool may still place. A new file holds none yet.
     """
     project = brain.root.parent
     if check.is_kit_checkout(project):
         return None
 
     source = touch.moved_from or touch.path
+    read = project_text(project=project, path=source)
+    losses: list[tuple[str, list[str]]] = []
+    if read is not None:
+        relative, before = read
+        losses.append((relative, lost_from(touch=touch, relative=relative, before=before)))
+
+    if touch.moved_from is not None:
+        landed_on = project_text(project=project, path=touch.path)
+        if landed_on is not None:
+            losses.append((landed_on[0], guard.lost(relative=landed_on[0], before=landed_on[1], after="")))
+
+    for relative, gone in losses:
+        if gone and guard.granted(brain=brain, relative=relative) is None:
+            return f"{relative} would lose the assertion `{gone[0]}`, and an assertion already written is the spec's word on what the code must do, so it changes or goes only on the owner's word, which the agent records once the owner gives it with brain ack tests {relative} --for 1h, else keep it and add the new check beside it"
+
+    return None
+
+
+def project_text(
+    project: Path,
+    path: Path,
+) -> Optional[tuple[str, str]]:
+    """The file's path from the project's root and its text, or None where it lies outside the project or cannot be read, a file not there yet among them."""
     try:
-        relative = source.relative_to(project.resolve()).as_posix()
-        before = source.read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")
+        return path.relative_to(project.resolve()).as_posix(), path.read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")
     except (OSError, ValueError):
         return None
 
-    loose: tuple[tuple[str, ...], ...] = ()
+
+def lost_from(
+    touch: Touch,
+    relative: str,
+    before: str,
+) -> list[str]:
+    """The assertions the file at the touch's source loses, its text before given."""
     if touch.deleted or touch.moved_from is not None:
-        after: Optional[str] = ""
-    else:
-        after, loose = outcome_of(touch=touch, text=before)
-        if loose:
-            after, loose = placed_loosely(text=before if after is None else after, hunks=loose)
+        return guard.lost(relative=relative, before=before, after="")
+
+    after, loose = outcome_of(touch=touch, text=before)
+    if loose:
+        after, loose = placed_loosely(text=before if after is None else after, hunks=loose)
 
     gone = [] if after is None else guard.lost(relative=relative, before=before, after=after)
     for hunk in loose:
@@ -428,12 +487,11 @@ def assertion_refusal(
         new = "\n".join(line[1:] for line in hunk if line[:1] in (" ", "+"))
         gone += guard.lost(relative=relative, before=old, after=new)
 
-    if not gone or guard.granted(brain=brain, relative=relative) is not None:
-        return None
+    # Claude Code's Edit takes a straight quote for a curly one and Gemini CLI's replace a line whatever its indent, so an edit the text does not hold word for word may land all the same
+    if touch.content is None and touch.old_string is not None and unix(touch.old_string) not in before:
+        gone += guard.lost(relative=relative, before=unix(touch.old_string), after=unix(touch.new_string or ""))
 
-    return (
-        f"{relative} would lose the assertion `{gone[0]}`, and an assertion already written is the spec's word on what the code must do, so it changes or goes only on the owner's word, which the agent records once the owner gives it with brain ack tests {relative} --for 1h, else keep it and add the new check beside it"
-    )
+    return gone
 
 
 def refusal(

@@ -590,7 +590,8 @@ def build_specs_body(
             continue
 
         lines += [f"## {status.title()}", ""]
-        lines += [line_for(entry=entry, from_folder=folder) for entry in sorted(group, key=lambda e: e.name)]
+        # by the id's number, since an id runs past three digits, and a spec with no id by its name after every one with an id, where its lower case name sorted already
+        lines += [line_for(entry=entry, from_folder=folder) for entry in sorted(group, key=lambda e: (e.number is None, e.number or 0, e.name))]
         lines.append("")
 
     return "\n".join(lines).rstrip("\n") + "\n"

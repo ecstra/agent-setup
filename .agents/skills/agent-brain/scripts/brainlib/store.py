@@ -350,8 +350,8 @@ class Brain:
         if starts_wsl(expanded):
             return False
 
-        # a network share is never asked, since a look at one sends the user's credentials to its host, which a cloned brain file could name, so only its spelling can say
-        if expanded[:2] in ("//", "\\\\"):
+        # Windows sends the user's credentials to the host of a share it reads, which a cloned brain file could name, so only the spelling of one can say
+        if WINDOWS and on_network_share(expanded):
             return PureWindowsPath(expanded) == PureWindowsPath(project) or PurePosixPath(expanded) == PurePosixPath(project.as_posix())
 
         try:
@@ -499,6 +499,19 @@ def on_wsl_share(
     return host.casefold() in WSL_HOSTS
 
 
+def on_network_share(
+    path: str,
+) -> bool:
+    """Whether a path lies on a share of another host by its spelling alone, the long \\\\?\\UNC\\ and \\\\.\\UNC\\ spellings among them, where a WSL share and the long spelling of a local drive are not."""
+    drive: str = plain_unc(PureWindowsPath(path)).drive
+    if not drive.startswith("\\\\"):
+        return False
+
+    host, _, _ = drive[2:].partition("\\")
+
+    return host not in ("?", ".") and host.casefold() not in WSL_HOSTS
+
+
 def plain_unc(
     windows: PureWindowsPath,
 ) -> PureWindowsPath:
@@ -554,8 +567,24 @@ def hidden(
 def in_order(
     paths: Iterable[Path],
 ) -> list[Path]:
-    """The paths sorted part by part and case by case, the order POSIX gives them, since a Windows path sorts with its case folded and would put `bugs/` ahead of `INDEX.md` there alone."""
-    return sorted(paths, key=lambda path: path.parts)
+    """The paths sorted part by part and case by case, the order POSIX gives them, since a Windows path sorts with its case folded and would put `bugs/` ahead of `INDEX.md` there alone.
+
+    A file named with an id goes by the id's number, since an id runs
+    past three digits and TODO-1000 follows TODO-999, never TODO-100.
+    Every other name keeps its place by its text.
+    """
+    return sorted(paths, key=lambda path: tuple(by_number(part) for part in path.parts))
+
+
+def by_number(
+    name: str,
+) -> tuple[str, int, str]:
+    """A name's place in a listing, an id's prefix and number for a file named with one, and the name alone, numbered -1, for any other."""
+    match = schema.FILENAME_WITH_ID.match(name)
+    if match is None:
+        return (name, -1, "")
+
+    return (f"{match.group(1)}-", int(match.group(2)), name)
 
 
 def number_in(

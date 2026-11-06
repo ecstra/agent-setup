@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional, TextIO, cast
 
-from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, guard, handover, index, ledger, plans, reads, rules, schema, steps, store, task, upgrade, writes
+from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, guard, handover, index, ledger, plans, reads, rules, rust, schema, steps, store, task, upgrade, writes
 from brainlib.store import FINDINGS_REMAIN, REFUSED
 
 FIELD_FLAGS = ("status", "severity", "area", "by", "type", "branch", "date")
@@ -249,11 +249,19 @@ def run_ack_tests(
     project = brain.root.parent.resolve()
     relatives: list[str] = []
     for name in named:
-        try:
-            relatives.append((Path.cwd() / name).resolve().relative_to(project).as_posix())
-        except ValueError:
+        # read from the shell's folder and spelled as the pre write hook spells the file it judges, its folder resolved and each part as the disk lists it
+        typed = Path.cwd() / name
+        inside = store.below(path=typed.parent.resolve() / typed.name, root=project)
+        if inside is None:
             print(f"{name} is outside the project, and the owner's word holds for the project's own test files", file=sys.stderr)
             return REFUSED
+
+        spelled = store.as_on_disk(project / inside, root=project)
+        if not taking_back and not store.readable_file(spelled):
+            print(f"{name} is no file, read from the folder the shell is in, and the owner's word holds for a test file that is there", file=sys.stderr)
+            return REFUSED
+
+        relatives.append(spelled.relative_to(project).as_posix())
 
     for relative in relatives:
         if taking_back:
@@ -736,7 +744,12 @@ def run_doctor(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
+    had_rust_rule = rust.has_rule(brain.root)
     found = doctor.run(brain=brain, fix=args.fix)
+    # a rule loads only as a session starts, so the one the fix wrote is said with the reload it needs, beside the JSON where that is asked for
+    if not had_rust_rule and rust.has_rule(brain.root):
+        print(rust.WROTE, file=sys.stderr if args.json else sys.stdout)
+
     if args.json:
         print(json.dumps([finding.as_dict() for finding in found], indent=2))
     else:

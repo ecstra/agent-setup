@@ -443,7 +443,11 @@ def port(
     refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     install(kit=kit, project=project, prepared=prepared, report=report)
     report.candidates = candidates(project)
+    had_rust_rule = rust.has_rule(project.brain)
     report.findings, report.kits_own = check(project=project, kit=kit)
+    # a rule loads only as a session starts, so the one doctor's run wrote is said with the reload it needs
+    if not had_rust_rule and rust.has_rule(project.brain):
+        report.done(rust.WROTE)
 
     return report
 
@@ -479,10 +483,15 @@ def upgrade(
     install(kit=kit, project=project, prepared=prepared, report=report)
     # doctor's run fills the names from git, each failure a flag of its own, so the upgrade counts what it filled around it
     gaps = people_gaps(project=project)
+    had_rust_rule = rust.has_rule(project.brain)
     report.findings, report.kits_own = check(project=project, kit=kit)
     filled = gaps - people_gaps(project=project)
     if filled:
         report.done(f"filled the author and editor of {filled} {'entry' if filled == 1 else 'entries'} from git")
+
+    # a rule loads only as a session starts, so the one doctor's run wrote is said with the reload it needs
+    if not had_rust_rule and rust.has_rule(project.brain):
+        report.done(rust.WROTE)
 
     return report
 
@@ -1863,17 +1872,16 @@ def section_zero_of(
 
     # The rest of what a door says of its own goes to a doc, quoted, never into a rule, since it never ran or loaded as section 0 did,
     # and in a rule a Gates or Lint heading in it, or a block section 0 left open, would change what the project runs.
-    # On a port a door is the kit's copy only where it says exactly what the kit's says, and on an upgrade only a door the
+    # On a port a door is the kit's copy only where it says exactly what the kit's says, its rule imports aside, and on an upgrade only a door the
     # kit wrote with a marker tells the project's words from the kit's.
     quoted: list[tuple[str, str]] = []
     seen: list[str] = []
     for name, text in texts.items():
-        whole = door_text(text)
         if layout != "none" and kit_mark_in(text) == -1:
             continue
 
         kits = next((kit_text for door, kit_text in prepared.front_doors.items() if door.lower() == name.lower()), "")
-        if layout == "none" and whole == door_text(kits):
+        if layout == "none" and without_rule_imports(text) == without_rule_imports(kits):
             continue
 
         # a door linked to another, or a copy of it under a title of its own, says the same once, its section 0 kept for the match,
@@ -1900,6 +1908,17 @@ def door_text(
 ) -> str:
     """A door's text with its line ends read one way and its blank edges off, so a copy saved on another system reads the same."""
     return text.replace("\r\n", "\n").replace("\r", "\n").strip()
+
+
+def without_rule_imports(
+    text: str,
+) -> str:
+    """A door's text as `door_text` reads it, each rule import below the rules mark set aside, since the brain tool writes those for the project's own rules, so the kit's AGENTS.md reads the same whichever rules a project imports."""
+    above, mark, below = door_text(text).partition(rules.MARK)
+    prefix = rules.IMPORT.format(name="")
+    kept = [line for line in below.split("\n") if not line.strip().startswith(prefix)]
+
+    return door_text(above + mark + "\n".join(kept))
 
 
 def only_shares(
