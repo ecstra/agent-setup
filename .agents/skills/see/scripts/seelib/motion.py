@@ -265,7 +265,7 @@ def compare(path_a: Path, path_b: Path, out: Path, box, scale: float) -> None:
     again = next((k for k in range(len(rows)) if any(counts[:k]) and not any(counts[k:])), None)
     shown = len(rows) if again is None else min(len(rows), again + 3)
     for (t, i, j), n in zip(rows[:shown], counts[:shown]):
-        print(f"  +{1000 * t:.0f} ms  F{i:<5} F{j:<5} {n}")
+        print(f"  {f'+{1000 * t:.0f} ms':>10}  {f'F{i}':<6} {f'F{j}':<6} {n}")
     worst = max(range(len(rows)), key=lambda k: counts[k]) if rows else None
     if worst is not None and counts[worst]:
         print(f"the most apart at +{1000 * rows[worst][0]:.0f} ms, {counts[worst]} px differ")
