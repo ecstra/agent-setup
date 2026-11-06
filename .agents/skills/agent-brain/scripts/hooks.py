@@ -374,9 +374,11 @@ def assertion_refusal(
 ) -> Optional[str]:
     """Why a write that loses an assertion a test file holds is refused, or None, the kit's own checkout aside, where its tests are the work, and a file the owner's word holds.
 
-    A file deleted or moved away loses all it held, and a patch whose
-    hunks fit nowhere is judged by the assertions its removed lines
-    carry that its added lines do not. A new file holds none yet.
+    A file deleted or moved away loses all it held. A patch's hunks that
+    fit are applied, and each hunk that fits nowhere, which apply_patch
+    may still place by looser spacing, is judged by the assertions its
+    removed lines carry that its added lines do not. A new file holds
+    none yet.
     """
     project = brain.root.parent
     if check.is_kit_checkout(project):
@@ -389,18 +391,18 @@ def assertion_refusal(
     except (OSError, ValueError):
         return None
 
+    loose: tuple[tuple[str, ...], ...] = ()
     if touch.deleted or touch.moved_from is not None:
         after: Optional[str] = ""
     else:
         after, loose = outcome_of(touch=touch, text=before)
-        if after is None and loose:
-            before = "\n".join(line[1:] for hunk in loose for line in hunk if line[:1] == "-")
-            after = "\n".join(line[1:] for hunk in loose for line in hunk if line[:1] == "+")
 
-    if after is None:
-        return None
+    gone = [] if after is None else guard.lost(relative=relative, before=before, after=after)
+    for hunk in loose:
+        removed = "\n".join(line[1:] for line in hunk if line[:1] == "-")
+        added = "\n".join(line[1:] for line in hunk if line[:1] == "+")
+        gone += guard.lost(relative=relative, before=removed, after=added)
 
-    gone = guard.lost(relative=relative, before=before, after=after)
     if not gone or guard.granted(brain=brain, relative=relative) is not None:
         return None
 

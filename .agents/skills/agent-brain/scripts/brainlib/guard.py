@@ -5,9 +5,11 @@ the code must do, so the pre write hook refuses a write that changes or
 removes one unless the owner's word for that file holds, given with an
 end like the standing word and kept beside it, in a dotted file of the
 brain that git ignores. An assertion added, moved or reindented passes,
-and so does the code under test. A line of a test is held by the way
-its language writes a check, and a check that spans lines is held by
-its first line, a named limit.
+and so does the code under test. A check is found by the way its
+language writes one and held whole, over every line a formatter wraps
+it onto, with the `if` line a Go test checks on. A value the check
+reads from elsewhere, a variable or a table, is the code's, a named
+limit.
 """
 
 import json
@@ -24,14 +26,15 @@ NONE = "no test file holds the owner's word"
 
 # the code suffixes of each language's test files, and the folders a test of any of them sits in
 CODE = {".rs", ".py", ".dart", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".go", ".java", ".kt", ".kts", ".swift", ".rb"}
+# folder names compared in lower case, so Swift's Tests folder counts
 TEST_FOLDERS = {"tests", "test", "__tests__", "spec", "specs"}
 TEST_NAME = re.compile(
-    r"(?:^test_.+\.py$|_test\.(?:py|go|dart|rb)$|\.(?:test|spec)\.(?:js|jsx|ts|tsx|mjs|cjs)$|(?:Test|Tests)\.(?:java|kt|kts|swift)$|_spec\.rb$)",
+    r"(?:^test_.+\.py$|_test\.(?:py|go|dart|rb)$|^tests?\.(?:py|rs)$|_tests?\.rs$|\.(?:test|spec)\.(?:js|jsx|ts|tsx|mjs|cjs)$|(?:Test|Tests)\.(?:java|kt|kts|swift)$|_spec\.rb$)",
 )
 
 # how each language writes a check, read off a line with its indent taken off
 CHECKS = {
-    ".rs": re.compile(r"\b(?:assert\w*|debug_assert\w*|insta::assert\w*)!|#\[should_panic"),
+    ".rs": re.compile(r"\b(?:prop_|debug_)?assert\w*!|#\[should_panic|\.assert\(\)"),
     ".py": re.compile(r"^assert\b|\.assert\w*\(|\bpytest\.raises\b|\bself\.fail\("),
     ".go": re.compile(r"\bt\.(?:Error|Errorf|Fatal|Fatalf|Fail|FailNow)\(|\b(?:assert|require)\.\w+\("),
     ".swift": re.compile(r"\bXCTAssert\w*\(|\bXCTFail\(|#expect\(|#require\("),
@@ -44,6 +47,14 @@ for suffix in (".dart", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"):
 CHECKS[".kt"] = CHECKS[".kts"] = CHECKS[".java"]
 
 RUST_TESTS = re.compile(r"^\s*#\[cfg\(test\)\]")
+GO_FAILS = re.compile(r"\bt\.(?:Error|Errorf|Fatal|Fatalf|Fail|FailNow)\(")
+# a string or a character literal, taken out before brackets are counted, Rust's lifetimes left alone by its own pattern
+QUOTED = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'")
+RUST_QUOTED = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])'")
+OPENS = "([{"
+CLOSES = ")]}"
+# the most lines one check is read over, so a bracket a string hides from the count never runs a check to the end of the file
+LONGEST = 40
 
 
 def is_test_file(
@@ -57,19 +68,19 @@ def is_test_file(
     if path.suffix not in CODE:
         return False
 
-    return TEST_NAME.search(path.name) is not None or any(part in TEST_FOLDERS for part in path.parts[:-1])
+    return TEST_NAME.search(path.name) is not None or any(part.lower() in TEST_FOLDERS for part in path.parts[:-1])
 
 
 def assertions(
     relative: str,
     text: str,
 ) -> list[str]:
-    """The lines of a test file the guard holds as its assertions, each with its indent taken off, in the order they stand.
+    """The checks a test file holds, each whole on one line, the lines it spans joined with their indent taken off, in the order they stand.
 
-    A Rust file outside a folder of tests holds its own tests below its
-    `#[cfg(test)]` line, so only the lines from there on count, and a
-    check above it is the code's. A snapshot is an assertion whole, every
-    line of it below its header.
+    A Rust file outside a folder of tests holds its tests in the items
+    a `#[cfg(test)]` attribute stands on, so only the lines of those
+    count, and a check elsewhere is the code's. A snapshot is an
+    assertion whole, every line of it below its header.
     """
     path = PurePosixPath(relative)
     lines = text.replace("\r\n", "\n").split("\n")
@@ -77,19 +88,96 @@ def assertions(
         return snapshot_lines(lines)
 
     if path.suffix == ".rs" and not is_test_file(relative):
-        start = next((number for number, line in enumerate(lines) if RUST_TESTS.match(line)), None)
-        if start is None:
-            return []
-
-        lines = lines[start:]
-    elif not is_test_file(relative):
+        counted = rust_test_lines(lines)
+    elif is_test_file(relative):
+        counted = set(range(len(lines)))
+    else:
         return []
 
     check = CHECKS.get(path.suffix)
     if check is None:
         return []
 
-    return [line.strip() for line in lines if line.strip() and check.search(line.strip())]
+    held: list[str] = []
+    number = 0
+    while number < len(lines):
+        line = lines[number].strip()
+        if number not in counted or not line or not check.search(line):
+            number += 1
+            continue
+
+        start = go_check_line(lines=lines, number=number) if path.suffix == ".go" and GO_FAILS.search(line) else number
+        end = statement_end(lines=lines, start=number, quoted=RUST_QUOTED if path.suffix == ".rs" else QUOTED)
+        held.append(" ".join(part.strip() for part in lines[start : end + 1] if part.strip()))
+        number = end + 1
+
+    return held
+
+
+def depth_of(
+    line: str,
+    quoted: "re.Pattern[str]",
+) -> int:
+    """How many brackets a line leaves open, its strings taken out first, negative where it closes more than it opens."""
+    bare = quoted.sub("", line)
+
+    return sum(bare.count(bracket) for bracket in OPENS) - sum(bare.count(bracket) for bracket in CLOSES)
+
+
+def statement_end(
+    lines: list[str],
+    start: int,
+    quoted: "re.Pattern[str]",
+) -> int:
+    """The last line of the check that opens at `start`, which runs on while a bracket stays open or the next line goes on with a method call."""
+    depth = 0
+    number = start
+    while number < len(lines) and number - start < LONGEST:
+        depth += depth_of(line=lines[number], quoted=quoted)
+        following = next((line.strip() for line in lines[number + 1 :] if line.strip()), "")
+        if depth <= 0 and not following.startswith("."):
+            return number
+
+        number += 1
+
+    return min(number, len(lines) - 1)
+
+
+def go_check_line(
+    lines: list[str],
+    number: int,
+) -> int:
+    """The `if` line a Go test's failure call sits under, which holds the check the call only reports, or the call's own line where it sits under none."""
+    above = next((before for before in range(number - 1, -1, -1) if lines[before].strip()), None)
+    if above is not None and lines[above].strip().startswith("if ") and lines[above].rstrip().endswith("{"):
+        return above
+
+    return number
+
+
+def rust_test_lines(
+    lines: list[str],
+) -> set[int]:
+    """The lines of the items a `#[cfg(test)]` attribute stands on, a module's body or a function's, and none for an item that ends at its first `;`, such as `mod tests;`."""
+    counted: set[int] = set()
+    for number, line in enumerate(lines):
+        if not RUST_TESTS.match(line):
+            continue
+
+        depth = 0
+        opened = False
+        for item in range(number + 1, len(lines)):
+            bare = RUST_QUOTED.sub("", lines[item])
+            if not opened and ";" in bare and ("{" not in bare or bare.index(";") < bare.index("{")):
+                break
+
+            depth += bare.count("{") - bare.count("}")
+            opened = opened or "{" in bare
+            counted.add(item)
+            if opened and depth <= 0:
+                break
+
+    return counted
 
 
 def snapshot_lines(
@@ -164,9 +252,18 @@ def granted(
     relative: str,
     at: Optional[datetime] = None,
 ) -> Optional[autoack.Grant]:
-    """The owner's word for the file while it holds, by its time and its task, or None."""
+    """The owner's word for the file while it holds, by its time and its task, or None.
+
+    A word whose task is done or gone is taken back for good, as the
+    standing word is, so it never comes back when the task reopens or a
+    new entry takes its id.
+    """
     given = read(brain).get(relative)
     if given is None:
+        return None
+
+    if given.task is not None and autoack.task_state(brain=brain, key=given.task) in ("done", "gone"):
+        revoke(brain=brain, relative=relative)
         return None
 
     return given if autoack.holds(brain=brain, grant=given, at=at or clock.now()) else None
@@ -179,8 +276,9 @@ def describe(
     """One line per test file whose word holds, with what is left of it, or the one line that none does."""
     at = at or clock.now()
     lines = []
-    for relative, given in sorted(read(brain).items()):
-        if not autoack.holds(brain=brain, grant=given, at=at):
+    for relative in sorted(read(brain)):
+        given = granted(brain=brain, relative=relative, at=at)
+        if given is None:
             continue
 
         if given.until is None:
