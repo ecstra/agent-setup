@@ -597,8 +597,9 @@ def leads_out(
 ) -> Optional[Path]:
     """Where the folder a kit file lands in really is, where a link takes it out of the project, else None, so a `.claude` linked into the kit checkout never gets a project's settings."""
     try:
-        real: Path = (project.root / relative).parent.resolve()
-        real.relative_to(project.root.resolve())
+        # spelled as the disk spells them, so a link into the project under another case of its folder stays inside it
+        real: Path = store.as_on_disk((project.root / relative).parent.resolve())
+        real.relative_to(store.as_on_disk(project.root.resolve()))
     except ValueError:
         return real
     except (OSError, RuntimeError):

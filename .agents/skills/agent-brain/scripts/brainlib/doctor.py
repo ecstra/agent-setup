@@ -1271,10 +1271,12 @@ def resolved(
     itself from 3.13 on, a folder the process cannot search raises
     OSError, and a name the system refuses raises ValueError. Each is
     a path that reaches nothing, answered here once for every check
-    that resolves one.
+    that resolves one. The answer is spelled as the disk spells it,
+    since a link may name a folder in another case on a disk that folds
+    case, and every check compares the paths it gets as text.
     """
     try:
-        return path.resolve()
+        return store.as_on_disk(path.resolve())
     except (OSError, RuntimeError, ValueError):
         return None
 
