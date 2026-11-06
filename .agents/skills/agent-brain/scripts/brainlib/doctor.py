@@ -192,7 +192,8 @@ def all_markdown(
     skipped_folders = [folder for folder in SKIP_DIRS if not (with_skills and folder == schema.SKILLS)]
     found: list[Path] = []
 
-    for path in sorted(brain.root.rglob("*.md")):
+    # a glob ignores case on Windows, and the brain's suffix is `.md` in lower case on every system
+    for path in store.in_order(path for path in brain.root.rglob("*.md") if path.name.endswith(".md")):
         relative_path = path.relative_to(brain.root)
         parts = relative_path.parts
         if store.hidden(relative_path):
@@ -260,7 +261,7 @@ def check_leftovers(
         if store.quietly(folder.is_dir):
             candidates += list(folder.rglob(".*"))
 
-    for path in sorted(candidates):
+    for path in store.in_order(candidates):
         if store.quietly(path.is_symlink):
             continue
 
@@ -1315,7 +1316,7 @@ def stray_skill_links(
         return found
 
     try:
-        entries = sorted(places.iterdir())
+        entries = store.in_order(places.iterdir())
     except OSError:
         return found
 
@@ -2128,7 +2129,7 @@ def leads_to(
         text, folder, left = waiting.popleft()
         for match in ANY_IMPORT.finditer(text):
             path = GLUE.sub("", MARKED.sub("", match.group(1).partition("#")[0]))
-            if not path or path.startswith(("/", "~")) or "\\" in path or climbs_back_in(path=path, project=folder):
+            if not path or path.startswith(("/", "~")) or DRIVE.match(path) is not None or "\\" in path or climbs_back_in(path=path, project=folder):
                 continue
 
             # a path that reaches the wanted file counts even where that is no file to load, since its import line names that trouble already
@@ -2470,7 +2471,7 @@ def check_rules(
     """
     folder = brain.root / rules.FOLDER
     try:
-        below = sorted(path for path in folder.rglob("*.md") if path.parent != folder and not any(part.startswith(".") for part in path.relative_to(folder).parts))
+        below = store.in_order(path for path in folder.rglob("*.md") if path.name.endswith(".md") and path.parent != folder and not any(part.startswith(".") for part in path.relative_to(folder).parts))
     except OSError:
         below = []
     nested = [Finding(path=path.relative_to(brain.root).as_posix(), check="rules", message=f"sits in a folder below {rules.FOLDER}/, where no rule loads, so move it up into {rules.FOLDER}/") for path in below]

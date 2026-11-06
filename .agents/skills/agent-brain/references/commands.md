@@ -77,7 +77,8 @@ for a project in `apps/web`, whose folders in front are the last
 folders of the project's own path. A path into another project's brain
 answers nothing. On Windows a path whose part in front of the brain's
 folder lies on a WSL share, `\\wsl.localhost\<distro>` or
-`\\wsl$\<distro>` in any case and with either slash, is asked of the
+`\\wsl$\<distro>` in any case and with either slash, the long
+`\\?\UNC\` and `\\.\UNC\` spellings among them, is asked of the
 disk only where the registry shows a WSL distro installed, since
 Windows answers a read there by starting WSL and, with no distro,
 offering to install it. Without one such a path answers nothing, as no
@@ -1819,7 +1820,8 @@ A shell call is any call whose input carries a command, whatever the
 agent names the tool, and a Codex command handed over as a list is read
 as the script after its `-c` or `-lc`, or else as the words it holds.
 The command is read line by line, as the shell runs it. A backslash at
-a line's end joins it to the next, a line break inside quotes, such as
+a line's end joins it to the next, save in PowerShell or cmd, where every
+path is spelled with backslashes and one escapes nothing, a line break inside quotes, such as
 a commit message's, stays inside its line, a comment is left out, and
 the body of a heredoc opened outside quotes is left out too, since it
 is text and not shell, so prose handed to the brain tool that names
@@ -1898,7 +1900,12 @@ and each `**/` matches no folder too, so `src/**/*.py` takes
 `src/app.py` as well as `src/api/app.py`. Patterns match case for case.
 Every line that matches runs, in the order the rules give. A line is
 split into words the way a POSIX shell splits them, quotes holding a
-word together, and its command runs from the project's root with no
+word together and, on Windows, a backslash kept as the separator of a
+path, and on Windows its program is found by the path's extensions
+too, so a `.cmd` shim npm installs runs by its bare name, though a
+batch file never runs on a file whose path holds a character cmd reads
+as code, one of `& | < > ^ % !` or a quote, which the context names
+instead. Its command runs from the project's root with no
 shell, `{file}` replaced by the file's absolute path as one argument,
 so a space, a quote, a leading dash or a letter outside ASCII in the
 file's name reaches the command whole and never reads as an option.
@@ -1922,8 +1929,9 @@ Each command has 20 seconds, and one write has 40 seconds over every
 file it touched, so a patch over many files still ends inside the 60
 seconds Claude Code and Gemini CLI give a hook by default, since the
 kit sets no hook timeout of its own. A command past its time is
-stopped with every process it started, its process group, or its
-process tree on Windows, so none writes the file later, and the
+stopped with every process it started, its process group, or on
+Windows the job object it runs in, all at once, with taskkill over its
+process tree where Windows gives no job, so none writes the file later, and the
 context names it with the seconds it had. Once the 40 seconds are
 spent, the command next in line is named as not run and the file's
 other lines are left. A program that is not installed is named in one

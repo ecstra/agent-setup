@@ -10,7 +10,7 @@ import os
 import re
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional
 
 from . import frontmatter, schema
 
@@ -173,9 +173,9 @@ class Brain:
         """Every path named like a markdown file under the folder, sorted, with a folder the walk could not list noted as unreadable rather than skipped without a word.
 
         A folder named like a file is listed too, so the read notes it
-        the way it always has, and the suffix is read the way the
-        platform's glob reads it, without regard to case on Windows, so
-        the store and the doctor's own glob name the same files. A
+        the way it always has, and the suffix is `.md` in lower case on
+        every system, so one brain reads the same on a Mac and a PC and
+        the store and the doctor's own walk name the same files. A
         dotted folder is never entered, since the brain never lists
         what is under one, and a folder gone between the listing and
         the descent, a scratch folder another write just removed, is
@@ -192,12 +192,12 @@ class Brain:
         paths: list[Path] = []
         for root, folders, names in os.walk(folder, onerror=note):
             folders[:] = [name for name in folders if not schema.is_hidden(name)]
-            paths += [Path(root) / name for name in folders + names if os.path.normcase(name).endswith(".md")]
+            paths += [Path(root) / name for name in folders + names if name.endswith(".md")]
 
         for error in trouble:
             self.unreadable[Path(error.filename)] = UNLISTED
 
-        return sorted(paths)
+        return in_order(paths)
 
     def read(
         self,
@@ -481,14 +481,29 @@ def starts_wsl(
 def on_wsl_share(
     path: str,
 ) -> bool:
-    """Whether a path lies on a WSL share, \\\\wsl.localhost\\<distro> or \\\\wsl$\\<distro>, by its spelling alone, in any case and with either slash."""
-    drive: str = PureWindowsPath(path).drive
+    """Whether a path lies on a WSL share, \\\\wsl.localhost\\<distro> or \\\\wsl$\\<distro>, by its spelling alone, in any case and with either slash, the long \\\\?\\UNC\\ and \\\\.\\UNC\\ spellings among them."""
+    drive: str = plain_unc(PureWindowsPath(path)).drive
     if not drive.startswith("\\\\"):
         return False
 
     host, _, _ = drive[2:].partition("\\")
 
     return host.casefold() in WSL_HOSTS
+
+
+def plain_unc(
+    windows: PureWindowsPath,
+) -> PureWindowsPath:
+    """A share given in the long \\\\?\\UNC\\ or \\\\.\\UNC\\ spelling, written the plain \\\\host\\share way, and any other path as it came.
+
+    The whole path is rewritten rather than its drive read, since a
+    Python before 3.12 takes `\\\\?\\UNC` itself for the drive.
+    """
+    spelled: str = str(windows)
+    if spelled[:8].casefold() not in ("\\\\?\\unc\\", "\\\\.\\unc\\"):
+        return windows
+
+    return PureWindowsPath("\\\\" + spelled[8:])
 
 
 def wsl_parts(
@@ -509,6 +524,7 @@ def wsl_parts(
     if distro == "":
         return None
 
+    windows = plain_unc(windows)
     below_drive: tuple[str, ...] = windows.parts[1:]
     if not windows.drive.startswith("\\\\"):
         return (*WSL_DRIVES.parts, windows.drive[0].lower(), *below_drive)
@@ -525,6 +541,13 @@ def hidden(
 ) -> bool:
     """Whether any part of the path starts with a dot, per schema.is_hidden."""
     return schema.is_hidden("/".join(relative.parts))
+
+
+def in_order(
+    paths: Iterable[Path],
+) -> list[Path]:
+    """The paths sorted part by part and case by case, the order POSIX gives them, since a Windows path sorts with its case folded and would put `bugs/` ahead of `INDEX.md` there alone."""
+    return sorted(paths, key=lambda path: path.parts)
 
 
 def number_in(

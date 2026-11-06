@@ -296,7 +296,7 @@ class Kit:
         """
         found = [Path(name) for name in schema.KIT_FILES if name != schema.INDEX]
         skills = store.skill_folders(self.brain)
-        found += sorted(path.relative_to(self.brain) for path in (self.brain / schema.SKILLS).rglob("*") if ships(path) and path.relative_to(self.brain / schema.SKILLS).parts[0] in skills and "tests" not in path.relative_to(self.brain / schema.SKILLS).parts)
+        found += store.in_order(path.relative_to(self.brain) for path in (self.brain / schema.SKILLS).rglob("*") if ships(path) and path.relative_to(self.brain / schema.SKILLS).parts[0] in skills and "tests" not in path.relative_to(self.brain / schema.SKILLS).parts)
         found.append(Path(VERSION))
 
         return found
@@ -313,7 +313,7 @@ class Kit:
         found: list[Path] = []
 
         for folder in AGENT_FOLDERS:
-            for path in sorted((self.root / folder).rglob("*")):
+            for path in store.in_order((self.root / folder).rglob("*")):
                 relative = path.relative_to(self.root)
                 stub = relative.parts[: len(doctor.SKILL_LINKS.parts)] == doctor.SKILL_LINKS.parts
                 if ships(path) and path.name not in NOT_SHIPPED and relative not in style.COPIES and not stub:
@@ -972,7 +972,8 @@ def old_handovers(
     note: Path = folder / handover.FILE
     found: list[str] = []
     for path in folder.rglob("*.md"):
-        if not store.readable_file(path=path):
+        # a glob ignores case on Windows, and the brain's suffix is `.md` in lower case on every system
+        if not path.name.endswith(".md") or not store.readable_file(path=path):
             continue
 
         is_old: bool = is_old_note(
@@ -1126,7 +1127,7 @@ def candidates(
         arguments=["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"],
     )
     if listed is None or listed.code != 0:
-        found: list[str] = [path.name for path in sorted(project.root.glob("*.md")) if path.name.lower() not in kept and not path.name.startswith(".")]
+        found: list[str] = [path.name for path in store.in_order(project.root.glob("*.md")) if path.name.endswith(".md") and path.name.lower() not in kept and not path.name.startswith(".")]
         found += [f"{folder}/" for folder in ("docs", "doc", "notes", "adr", "decisions") if store.quietly((project.root / folder).is_dir)]
 
         return found
@@ -1307,7 +1308,7 @@ def brain_markdown(
     if not store.quietly(brain.is_dir):
         return []
 
-    return sorted(path for path in brain.rglob("*.md") if path.is_file() and not kits_skill(path.relative_to(brain).parts))
+    return store.in_order(path for path in brain.rglob("*.md") if path.name.endswith(".md") and path.is_file() and not kits_skill(path.relative_to(brain).parts))
 
 
 def has_old_folder(
@@ -2712,7 +2713,7 @@ def files_under(
     if not store.quietly(folder.is_dir):
         return []
 
-    return [path.relative_to(root).as_posix() for path in sorted(folder.rglob("*")) if taken(path)]
+    return [path.relative_to(root).as_posix() for path in store.in_order(folder.rglob("*")) if taken(path)]
 
 
 def retire_takes(
@@ -3014,10 +3015,15 @@ def any_case(
     folder: Path,
     name: str,
 ) -> Optional[Path]:
-    """The file in the folder whose name matches in any case, the exact spelling first."""
+    """The file in the folder whose name matches in any case, the exact spelling first.
+
+    The names are compared as text, since two Windows paths that differ
+    in case alone are equal, which would find `Agents.md` spelled right.
+    """
     listed = list_names(folder)
-    if folder / name in listed:
-        return folder / name
+    for path in listed:
+        if path.name == name:
+            return path
 
     for path in listed:
         if path.name.lower() == name.lower():
@@ -3030,7 +3036,7 @@ def list_names(
     folder: Path,
 ) -> list[Path]:
     try:
-        return sorted(path for path in folder.iterdir() if path.is_file())
+        return store.in_order(path for path in folder.iterdir() if path.is_file())
     except OSError:
         return []
 
@@ -3070,9 +3076,8 @@ def says(
 ) -> bool:
     """Whether the file already says this text, its line ends aside, false when it cannot be read.
 
-    The run writes its texts in text mode, so on Windows a file it wrote
-    holds CRLF where the text holds a newline, and bytes would call the
-    file changed on every run.
+    A checkout git made with CRLF holds them where the text holds a
+    newline, and bytes would call the file changed on every run.
     """
     try:
         said = path.read_text(encoding="utf-8")

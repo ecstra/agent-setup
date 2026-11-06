@@ -306,7 +306,7 @@ def tick(
     agent: str,
 ) -> int:
     """After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end, then a line naming the brain command for any of the calls that did by hand what the tool does."""
-    text = "\n".join([the_moment(brain=brain)] + nudge.lines(brain=brain, event=event))
+    text = "\n".join([the_moment(brain=brain)] + nudge.lines(brain=brain, event=event, agent=agent))
     emit_context(agent=agent, text=text, event_name=TICK.get(agent, "PostToolUse"))
     return 0
 
@@ -520,8 +520,8 @@ def entry_path(
 def markdown_named(
     path: Path,
 ) -> bool:
-    """Whether the path carries the markdown suffix the way the store reads it, without regard to case on Windows."""
-    return os.path.normcase(path.suffix) == ".md"
+    """Whether the path carries the markdown suffix the way the store reads it, `.md` in lower case on every system."""
+    return path.suffix == ".md"
 
 
 HEADER_IS_THE_TOOLS = "the header block changes through brain set or brain refile, not by hand. The prose below it is yours to edit."
@@ -1549,17 +1549,43 @@ def absolute(
 def settled(
     path: Path,
 ) -> Path:
-    """The path with its folder resolved on disk and the file itself left alone.
+    """The path with its folder resolved on disk and the file itself left alone, but for its name's case.
 
     Only the folder is followed, so a symlinked file still counts where
     it sits. A folder that cannot be resolved, a loop on the 3.9 floor
     or a path with a stray null byte in it, keeps its lexical spelling
-    and is judged as written.
+    and is judged as written. Where a file stands at the path already
+    under another case, its name is the one the folder lists, since a
+    disk that ignores case, Windows' and macOS's by default, writes into
+    that file, so `TODO-001-x.MD` is judged as the entry it lands on.
     """
     try:
-        return path.parent.resolve() / path.name
+        folder = path.parent.resolve()
     except (OSError, RuntimeError, ValueError):
         return path
+
+    return folder / listed_name(folder=folder, name=path.name)
+
+
+def listed_name(
+    folder: Path,
+    name: str,
+) -> str:
+    """The name as the folder lists it, where a file under another case of it stands there, or the name as given."""
+    try:
+        if not os.path.lexists(folder / name):
+            return name
+
+        listed: list[str] = os.listdir(folder)
+    except (OSError, ValueError):
+        return name
+
+    if name in listed:
+        return name
+
+    same: list[str] = [entry for entry in listed if entry.casefold() == name.casefold()]
+
+    return same[0] if len(same) == 1 else name
 
 
 def as_the_project_spells(

@@ -502,6 +502,12 @@ rule's import with a fragment written from the project's root, such as
 `@docs/setup.md#install`, with the path that loads. An en dash in a
 header now passes.
 
+From 3.1.3 the kit runs on native Windows as it does on macOS and
+Linux. The tool writes its files with the line ends their text holds,
+names every path with slashes, reads only a lower case `.md` as a brain
+entry on every system, and stops a linter that runs too long with its
+whole tree at once. Nothing of yours has to change.
+
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
 would replace holds uncommitted work or, before any write, while

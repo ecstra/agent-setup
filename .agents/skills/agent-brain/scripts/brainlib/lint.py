@@ -11,10 +11,12 @@ write.
 
 import contextlib
 import fnmatch
+import functools
 import itertools
 import os
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import time
@@ -31,6 +33,10 @@ BUDGET = 40.0
 # a line beside the fence that is all one code span, in a list item or not, is a lint line written in the wrong place
 CODE_LINE = re.compile(r"^\s*(?:[-*+]|\d+[.)])?\s*`([^`]+)`\s*$")
 LEFT_LINES = 30
+# a POSIX shell reads a backslash as an escape, while Windows spells every path with one
+ESCAPES = "" if os.name == "nt" else "\\"
+# what cmd, which runs a batch file such as an npm shim, reads as code in a path it is handed, quoted or not
+CMD_CODE = frozenset('&|<>^%!"')
 
 # the kit's own checkout lints the tool's Python with ruff, from the config beside the scripts
 KIT_LINES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -82,7 +88,7 @@ def lines_of(
     refused: list[str] = [f"the lint line '{raw}' sits outside a fenced block, so it is not run" for raw in strays]
     for raw in fenced:
         try:
-            words = tuple(shlex.split(raw))
+            words = words_of(raw)
         except ValueError:
             refused.append(f"the lint line '{raw}' does not read as words, so it is not run")
             continue
@@ -95,6 +101,18 @@ def lines_of(
         lines.append(Line(pattern=words[0], words=words[1:]))
 
     return lines, refused
+
+
+def words_of(
+    raw: str,
+) -> tuple[str, ...]:
+    """A lint line's words the way shlex.split reads them, quotes taken off, with a backslash kept as written where it spells the system's paths."""
+    lexer = shlex.shlex(raw, posix=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    lexer.escape = ESCAPES
+
+    return tuple(lexer)
 
 
 def written_lines(
@@ -222,6 +240,14 @@ def run(
             break
 
         command = [str(target) if word == FILE else word for word in line.words]
+        if os.name == "nt":
+            # Popen finds an .exe on the path alone, and npm installs a linter as a .cmd shim, which the path's extensions find
+            command[0] = shutil.which(command[0]) or command[0]
+            read_as_code: Optional[str] = next((character for character in str(target) if character in CMD_CODE), None)
+            if read_as_code is not None and command[0].casefold().endswith((".cmd", ".bat")):
+                result.notes.append(f"'{' '.join(line.words)}' was not run on this file, since {Path(command[0]).name} runs through cmd, which reads the {read_as_code} in its path as code")
+                continue
+
         try:
             done = run_alone(
                 command=command,
@@ -252,24 +278,121 @@ def run_alone(
     cwd: Path,
     timeout: float,
 ) -> subprocess.CompletedProcess:
-    """Run one command in a process group of its own, so a timeout stops every process it started and none writes the file later."""
+    """Run one command in a process group of its own, so a timeout stops every process it started and none writes the file later.
+
+    On Windows the group is a job object as well, which stops the whole
+    tree at once, where taskkill takes a second and a half to start and
+    a child the command started can write the file in that time.
+    """
     options: dict = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
     with subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **options) as process:
+        job: Optional[int] = windows_job(process.pid) if os.name == "nt" else None
         try:
             out, err = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
-            stop_group(process)
+            stop_group(process, job=job)
             with contextlib.suppress(subprocess.TimeoutExpired):
                 process.communicate(timeout=1)
             raise
+        finally:
+            if job is not None:
+                let_go(job)
 
     return subprocess.CompletedProcess(command, process.returncode, out, err)
 
 
+EXTENDED_LIMITS = 9
+KILL_ON_JOB_CLOSE = 0x2000
+SET_QUOTA_AND_TERMINATE = 0x0100 | 0x0001
+
+
+@functools.cache
+def windows_api() -> tuple:
+    """ctypes, Windows' kernel32 with the argument types a 64 bit handle needs, and the job's limits as Windows lays out JOBOBJECT_EXTENDED_LIMIT_INFORMATION.
+
+    ctypes is imported here, on the Windows path alone, so a Python built
+    without it, as one built without libffi is, still runs every hook.
+    """
+    import ctypes
+
+    class BasicLimits(ctypes.Structure):
+        _fields_ = [
+            ("per_process_user_time", ctypes.c_int64),
+            ("per_job_user_time", ctypes.c_int64),
+            ("flags", ctypes.c_uint32),
+            ("minimum_working_set", ctypes.c_size_t),
+            ("maximum_working_set", ctypes.c_size_t),
+            ("active_processes", ctypes.c_uint32),
+            ("affinity", ctypes.c_size_t),
+            ("priority_class", ctypes.c_uint32),
+            ("scheduling_class", ctypes.c_uint32),
+        ]
+
+    class JobLimits(ctypes.Structure):
+        _fields_ = [
+            ("basic", BasicLimits),
+            ("io", ctypes.c_uint64 * 6),
+            ("process_memory", ctypes.c_size_t),
+            ("job_memory", ctypes.c_size_t),
+            ("peak_process_memory", ctypes.c_size_t),
+            ("peak_job_memory", ctypes.c_size_t),
+        ]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateJobObjectW.restype = ctypes.c_void_p
+    kernel32.CreateJobObjectW.argtypes = (ctypes.c_void_p, ctypes.c_wchar_p)
+    kernel32.OpenProcess.restype = ctypes.c_void_p
+    kernel32.OpenProcess.argtypes = (ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32)
+    kernel32.SetInformationJobObject.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32)
+    kernel32.AssignProcessToJobObject.argtypes = (ctypes.c_void_p, ctypes.c_void_p)
+    kernel32.TerminateJobObject.argtypes = (ctypes.c_void_p, ctypes.c_uint)
+    kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
+
+    return ctypes, kernel32, JobLimits
+
+
+def windows_job(
+    pid: int,
+) -> Optional[int]:
+    """A job object holding the process, and every process it starts from then on, that kills what is in it should the hook die first, or None where Windows makes or assigns none."""
+    try:
+        ctypes, kernel32, JobLimits = windows_api()
+    except (AttributeError, ImportError, OSError):
+        return None
+
+    job = kernel32.CreateJobObjectW(None, None)
+    if not job:
+        return None
+
+    limits = JobLimits()
+    limits.basic.flags = KILL_ON_JOB_CLOSE
+    process = kernel32.OpenProcess(SET_QUOTA_AND_TERMINATE, False, pid)
+    held = bool(process) and bool(kernel32.SetInformationJobObject(job, EXTENDED_LIMITS, ctypes.byref(limits), ctypes.sizeof(limits))) and bool(kernel32.AssignProcessToJobObject(job, process))
+    if process:
+        kernel32.CloseHandle(process)
+    if not held:
+        kernel32.CloseHandle(job)
+        return None
+
+    return job
+
+
+def let_go(
+    job: int,
+) -> None:
+    """Close the job once the command is done, what it left running kept running as on POSIX, a daemon a linter starts among them."""
+    ctypes, kernel32, JobLimits = windows_api()
+    kernel32.SetInformationJobObject(job, EXTENDED_LIMITS, ctypes.byref(JobLimits()), ctypes.sizeof(JobLimits))
+    kernel32.CloseHandle(job)
+
+
 def stop_group(
     process: subprocess.Popen,
+    job: Optional[int] = None,
 ) -> None:
     if os.name == "nt":
+        if job is not None and windows_api()[1].TerminateJobObject(job, 1):
+            return
         subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True, check=False)
         return
 
