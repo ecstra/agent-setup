@@ -40,7 +40,8 @@ CHECKS = {
     ".go": re.compile(r"\bt\.(?:Error|Errorf|Fatal|Fatalf|Fail|FailNow)\(|\b(?:assert|require)\.\w+\("),
     ".swift": re.compile(r"\bXCTAssert\w*\(|\bXCTFail\(|#expect\(|#require\("),
     ".java": re.compile(r"\bassert\w*\(|\bfail\("),
-    ".rb": re.compile(r"\bexpect\b|\bassert\w*\b|\bmust_\w+|\bshould\b"),
+    # a bare should is a check where a matcher follows, never shoulda's `should "..." do`, which names an example
+    ".rb": re.compile(r"\bexpect\b|\bassert\w*\b|\bmust_\w+|\.should(?:_not)?\b|\bshould(?:_not)?(?:\(|\s+(?!do\b)\w)"),
 }
 SCRIPT_CHECK = re.compile(r"\bexpect(?:Later)?\s*\(|\bassert\w*[.(]|\.should\b")
 for suffix in (".dart", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"):
@@ -54,6 +55,8 @@ GO_IF = re.compile(r"^(?:\}\s*else\s+)?if\s.*\{$")
 # a Ruby block or keyword opener, at a line's end or its start, and the end that closes one, read off a line with its indent taken off
 RUBY_OPENS = re.compile(r"\bdo(?:\s*\|[^|]*\|)?$|^(?:if|unless|case|begin|while|until|for|def|class|module)\b")
 RUBY_CLOSES = re.compile(r"^end\b")
+# the one Ruby check whose expected value follows its block, RSpec's `expect do ... end.to`, where an assert_raises says it on its first line
+RUBY_EXPECT_BLOCK = re.compile(r"\bexpect\s+do\b")
 # a string or a character literal, taken out before brackets are counted, Rust's lifetimes left alone by its own pattern
 QUOTED = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'")
 RUST_QUOTED = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])'")
@@ -83,10 +86,11 @@ def assertions(
 ) -> list[str]:
     """The checks a test file holds, each whole on one line, the lines it spans joined with their indent taken off, in the order they stand.
 
-    A Rust file outside a folder of tests holds its tests in the items
-    a `#[cfg(test)]` attribute stands on, so only the lines of those
-    count, and a check elsewhere is the code's. A snapshot is an
-    assertion whole, every line of it below its header.
+    A Rust file that is no test file by its name or folder holds its
+    tests in the items a test attribute stands on, `#[cfg(test)]` or a
+    test function's own, so only the lines of those count, and a check
+    elsewhere is the code's. A snapshot is an assertion whole, every
+    line of it below its header.
     """
     path = PurePosixPath(relative)
     lines = text.replace("\r\n", "\n").split("\n")
@@ -104,11 +108,13 @@ def assertions(
     if check is None:
         return []
 
+    quoted = RUST_QUOTED if path.suffix == ".rs" else QUOTED
     held: list[str] = []
     number = 0
     while number < len(lines):
         line = lines[number].strip()
-        if number not in counted or not line or not check.search(line):
+        # a check's word inside a string, such as an example named "should add", is no check
+        if number not in counted or not line or not check.search(quoted.sub("", line)):
             number += 1
             continue
 
@@ -125,11 +131,12 @@ def assertions(
 def depth_of(
     line: str,
     suffix: str,
+    blocks: bool,
 ) -> int:
-    """How many brackets a line leaves open, its strings taken out first, negative where it closes more than it opens, and for Ruby its blocks too."""
+    """How many brackets a line leaves open, its strings taken out first, negative where it closes more than it opens, and Ruby's blocks too where they count."""
     bare = (RUST_QUOTED if suffix == ".rs" else QUOTED).sub("", line)
     depth = sum(bare.count(bracket) for bracket in OPENS) - sum(bare.count(bracket) for bracket in CLOSES)
-    if suffix == ".rb":
+    if blocks:
         stripped = bare.strip()
         depth += (RUBY_OPENS.search(stripped) is not None) - (RUBY_CLOSES.match(stripped) is not None)
 
@@ -141,11 +148,12 @@ def statement_end(
     start: int,
     suffix: str,
 ) -> int:
-    """The last line of the check that opens at `start`, which runs on while a bracket or a Ruby block stays open, the line ends in a `\\`, or the next line goes on with a method call."""
+    """The last line of the check that opens at `start`, which runs on while a bracket or an `expect do` block stays open, the line ends in a `\\`, or the next line goes on with a method call."""
+    blocks = suffix == ".rb" and RUBY_EXPECT_BLOCK.search(QUOTED.sub("", lines[start])) is not None
     depth = 0
     number = start
     while number < len(lines) and number - start < LONGEST:
-        depth += depth_of(line=lines[number], suffix=suffix)
+        depth += depth_of(line=lines[number], suffix=suffix, blocks=blocks)
         following = next((line.strip() for line in lines[number + 1 :] if line.strip()), "")
         if depth <= 0 and not following.startswith(".") and not lines[number].rstrip().endswith("\\"):
             return number
