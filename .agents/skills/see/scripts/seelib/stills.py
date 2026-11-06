@@ -157,7 +157,7 @@ def diff(path_a: Path, path_b: Path, out: Path, scale: float) -> None:
     for n, (x, y, w, h, count) in enumerate(found[:12], 1):
         words, dx, dy = name_change(a, b, wa, wb, width, height, (x, y, w, h), ground, scale)
         results.append((n, (x, y, w, h), count, words, dx, dy))
-        print(f"#{n}: x {x} y {y} w {w} h {h} px ({pt(x, scale)}, {pt(y, scale)}, {pt(w, scale)} x {pt(h, scale)} pt), {count} px differ: {words}")
+        print(f"#{n}: x {x} y {y} w {w} h {h} px (x {pt(x, scale)} y {pt(y, scale)} w {pt(w, scale)} h {pt(h, scale)} pt), {count} px differ: {words}")
     if len(found) > 12:
         print(f"{len(found) - 12} smaller changes are not listed, compare a region of them with zoom")
     overview(a, b, wa, wb, width, height, results, light, out, path_a, path_b)
