@@ -708,20 +708,82 @@ def near(
 def find_brain(
     start: Optional[Path] = None,
 ) -> Brain:
-    """Walk up from `start` until the `.agents/` directory turns up."""
+    """Walk up from `start` until the `.agents/` directory turns up, spelled as the disk spells it.
+
+    The walk goes up the path as written first, so a `.agents` that is a
+    link to a folder elsewhere is found from inside it and stays the
+    project's own, its folder above resolved. A start no brain sits
+    above as written is walked again resolved.
+    """
     try:
-        here = (start or Path.cwd()).resolve()
+        written = Path(os.path.abspath(start or Path.cwd()))
+        here = written.resolve()
     except (OSError, RuntimeError, ValueError) as error:
         raise StoreError(f"the working directory cannot be resolved: {error}") from error
 
+    for candidate in [written, *written.parents]:
+        for brain in (candidate, candidate / ".agents"):
+            if brain.name == ".agents" and readable_file(brain / "INDEX.md"):
+                try:
+                    project = brain.parent.resolve()
+                except (OSError, RuntimeError, ValueError):
+                    project = brain.parent
+                return Brain(root=as_on_disk(project) / ".agents")
+
     for candidate in [here, *here.parents]:
         if candidate.name == ".agents" and readable_file(candidate / "INDEX.md"):
-            return Brain(root=candidate)
+            return Brain(root=as_on_disk(candidate))
 
         inside = candidate / ".agents"
         if readable_file(inside / "INDEX.md"):
-            return Brain(root=inside)
+            return Brain(root=as_on_disk(inside))
 
     raise StoreError(
         "no .agents/ directory here or above, so there is no brain to work on",
     )
+
+
+def as_on_disk(
+    path: Path,
+) -> Path:
+    """The path with each part that names an entry there spelled as its folder lists it.
+
+    On a disk that folds case, `.AGENTS` and `.agents` open one folder,
+    so two spellings of one file compare equal as text once both are
+    spelled this way. A part is respelled only where the folder holds no
+    entry of that exact name and the two names open the same file, so a
+    disk that keeps case apart, where another case is another file, and
+    a part that names nothing yet keep the spelling they were given.
+    """
+    parts = path.parts
+    if not parts:
+        return path
+
+    spelled = Path(parts[0])
+    for part in parts[1:]:
+        candidate = spelled / part
+        if part not in (".", "..") and os.path.lexists(candidate):
+            try:
+                entries = os.listdir(spelled)
+            except OSError:
+                entries = []
+            if part not in entries:
+                for entry in entries:
+                    if entry.casefold() == part.casefold() and same_file(one=candidate, other=spelled / entry):
+                        candidate = spelled / entry
+                        break
+
+        spelled = candidate
+
+    return spelled
+
+
+def same_file(
+    one: Path,
+    other: Path,
+) -> bool:
+    """Whether the two paths open one file, and no where either cannot be asked."""
+    try:
+        return os.path.samefile(one, other)
+    except (OSError, ValueError):
+        return False
