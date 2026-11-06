@@ -40,7 +40,8 @@ def moving_pairs(video: media.Video) -> tuple:
         if frame < len(means):
             now, last, back = means[frame], means[frame - 1], means[max(0, frame - FADE_SPAN)]
             for k in range(len(live)):
-                if now[k] != last[k] and abs(now[k] - back[k]) >= FADE_FLOOR:
+                # a cell the step floor already saw keeps its own count of changed pixels, so a moving element is never counted as whole cells
+                if cells[k] == 0 and now[k] != last[k] and abs(now[k] - back[k]) >= FADE_FLOOR:
                     live[k] = 255
         moving.append((frame, round(sum(live) / 255 * CELL * CELL), bytes(live)))
     return cw, ch, moving
@@ -292,7 +293,8 @@ def compare(path_a: Path, path_b: Path, out: Path, box, scale: float) -> None:
         # b's frame on screen at that moment, the last one shown by then, so frames b's recorder dropped hold its last frame, and the reading stops where b ends
         if t > since_b[-1] + b.period:
             break
-        j = base_b + bisect.bisect_right(since_b, t + a.period / 2) - 1
+        # the slack covers a container rounding each time to the ms, and stays under either recording's frame time, so b's next frame is never taken early
+        j = base_b + bisect.bisect_right(since_b, t + min(a.period, b.period) / 4) - 1
         rows.append((t, i, j))
     frames_a = a.frames([i for _, i, _ in rows], region)
     frames_b = b.frames([j for _, _, j in rows], region)

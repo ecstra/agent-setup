@@ -55,8 +55,9 @@ def ffmpeg(path: Path, args: list, stdin: Optional[bytes] = None, every_frame: b
     return done.stdout
 
 
-def probe(path: Path, entries: str, stdin: Optional[bytes] = None) -> dict:
-    done = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", entries, "-of", "json", "pipe:0" if stdin is not None else source(path)], input=stdin, capture_output=True, check=False)
+def probe(path: Path, entries: str, options: tuple = ()) -> dict:
+    """What ffprobe says of the file's first picture stream, the options going in before the input."""
+    done = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", entries, "-of", "json", *options, source(path)], capture_output=True, check=False)
     if done.returncode != 0:
         raise SeeError(f"ffmpeg cannot read {path}: {done.stderr.decode('utf-8', errors='replace').strip() or 'ffprobe gave no reason'}")
     data = json.loads(done.stdout or b"{}")
@@ -135,11 +136,13 @@ class Video:
 def image(path: Path) -> tuple:
     """An image as its width, height and rgb bytes."""
     require_file(path)
-    # the bytes go in on standard input, since ffmpeg reads a file name holding %03d as a numbered sequence and opens another file
-    data = path.read_bytes()
-    found = probe(path, "stream=width,height", stdin=data)
+    # ffmpeg's image2 reader takes a name holding %03d for a numbered sequence and opens another file, so where that reader is the one chosen its sequences are turned off,
+    # while a reader such as TIFF's or GIF's has no such option and refuses it
+    reader = probe(path, "format=format_name:stream=width").get("format", {}).get("format_name", "")
+    options = ("-pattern_type", "none") if reader == "image2" else ()
+    found = probe(path, "stream=width,height", options)
     width, height = int(found["streams"][0]["width"]), int(found["streams"][0]["height"])
-    raw = ffmpeg(path, ["-i", "pipe:0", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdin=data)
+    raw = ffmpeg(path, [*options, "-i", source(path), "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
     if len(raw) < width * height * 3:
         raise SeeError(f"ffmpeg cannot read {path}: it gave less picture than its size")
     return width, height, raw[: width * height * 3]
@@ -185,17 +188,24 @@ def scaled(rgb: bytes, w: int, h: int, factor: float) -> tuple:
     return out, nw, nh
 
 
-# every PNG the tool writes carries this text chunk after its header, so a file it did not write is never written over
-MARK = b"tEXtSoftware\x00see"
+# every PNG the tool writes carries a text chunk after its header naming the command that wrote it, so a command writes over its own images alone,
+# and a zoom whose output was left out never writes over the frame or the screenshot it was given first
+MARK = b"tEXtSoftware\x00see "
+KIND = "image"
 
 
-def ours(path: Path) -> bool:
-    """Whether the file is a PNG this tool wrote."""
+def ours(path: Path, kind: str) -> bool:
+    """Whether the file is a PNG this tool's command of that kind wrote."""
     try:
         with path.open("rb") as file:
-            return MARK in file.read(64)
+            return MARK + kind.encode() + b"\x00" in file.read(80)
     except OSError:
         return False
+
+
+def refuse_over(path: Path, kind: str) -> None:
+    if path.exists() and not ours(path, kind):
+        raise SeeError(f"{path} is there already and is no {kind} image of this tool's, so nothing was written, give the output a new name")
 
 
 def write_png(path: Path, width: int, height: int, rgb: bytes) -> None:
@@ -204,11 +214,12 @@ def write_png(path: Path, width: int, height: int, rgb: bytes) -> None:
     def chunk(kind: bytes, data: bytes) -> bytes:
         return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
 
-    if path.exists() and not ours(path):
-        raise SeeError(f"{path} is there already and this tool did not write it, so nothing was written to it, give the output a new name")
+    refuse_over(path, KIND)
     path.parent.mkdir(parents=True, exist_ok=True)
     header = chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
-    path.write_bytes(b"\x89PNG\r\n\x1a\n" + header + chunk(MARK[:4], MARK[4:]) + chunk(b"IDAT", zlib.compress(rows, 6)) + chunk(b"IEND", b""))
+    # the kind ends in a zero byte, so one kind's name never reads as the start of another's
+    text = MARK[4:] + KIND.encode() + b"\x00"
+    path.write_bytes(b"\x89PNG\r\n\x1a\n" + header + chunk(MARK[:4], text) + chunk(b"IDAT", zlib.compress(rows, 6)) + chunk(b"IEND", b""))
 
 
 def luma(r: int, g: int, b: int) -> int:

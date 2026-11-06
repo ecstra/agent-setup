@@ -72,9 +72,10 @@ def mismatches(a: bytes, b: bytes, wa: int, wb: int, box: tuple, dx: int, dy: in
 def best_shift(a: bytes, b: bytes, wa: int, wb: int, width: int, height: int, box: tuple) -> tuple:
     """The offset of b that lines the box up best, what differed before it and what still differs after."""
     x, y, w, h = box
-    # only the shifts that keep the box inside the image are tried, so a toolbar touching the edge can still be found to have moved
-    dys = [d for d in range(-REACH, REACH + 1) if 0 <= y + d and y + h + d <= height]
-    dxs = [d for d in range(-REACH, REACH + 1) if 0 <= x + d and x + w + d <= width]
+    # only the shifts that keep the box inside the image are tried, so a toolbar touching the edge can still be found to have moved,
+    # and the smallest shift goes first, since the strip a solid element leaves lines up at every shift from the true one outwards
+    dys = sorted((d for d in range(-REACH, REACH + 1) if 0 <= y + d and y + h + d <= height), key=abs)
+    dxs = sorted((d for d in range(-REACH, REACH + 1) if 0 <= x + d and x + w + d <= width), key=abs)
     base = mismatches(a, b, wa, wb, box, 0, 0, 10**9)
     best = ((0, 0), base)
     for dy in dys:
@@ -122,9 +123,10 @@ def joined_moves(a: bytes, b: bytes, wa: int, wb: int, width: int, height: int, 
     A solid element that moves differs only along its leading and
     trailing edges, which come out as boxes apart. A box that held
     something in a and moved is an anchor, since ground matching ground
-    at an offset is no move. Each box lined up with it across the move
-    that its shift explains joins it, and the joined box stands where
-    that shift explains it whole.
+    at an offset is no move. The boxes lined up with it across the move
+    join it nearest first, each only where the shift still explains the
+    joined box whole, so two elements that moved with still content
+    between them stay two.
     """
     shifts = [best_shift(a, b, wa, wb, width, height, f[:4]) for f in found]
     anchors = [k for k, (shift, before, after) in enumerate(shifts) if shift != (0, 0) and after <= before * 0.05 and ink_share(a, wa, found[k][:4], ground) >= 0.02]
@@ -144,14 +146,23 @@ def joined_moves(a: bytes, b: bytes, wa: int, wb: int, width: int, height: int, 
         dx, dy = shifts[i][0]
         members = [i]
         x0, y0, x1, y1 = found[i][0], found[i][1], found[i][0] + found[i][2], found[i][1] + found[i][3]
-        for j, (x, y, w, h, _) in enumerate(found):
+
+        def distance(box: tuple) -> int:
+            x, y, w, h = box
+            return max(x0 - (x + w), x - x1, 0) + max(y0 - (y + h), y - y1, 0)
+
+        for j in sorted(range(len(found)), key=lambda k: distance(found[k][:4])):
+            x, y, w, h, _ = found[j]
             # the edges of one element line up across the way it moved
             lined_up = (dy and x < x1 and x0 < x + w) or (dx and y < y1 and y0 < y + h)
-            if j not in used and j != i and lined_up and explained((x, y, w, h), dx, dy):
+            if j in used or j in members or not lined_up:
+                continue
+            grown = (min(x0, x), min(y0, y), max(x1, x + w), max(y1, y + h))
+            if explained((grown[0], grown[1], grown[2] - grown[0], grown[3] - grown[1]), dx, dy):
                 members.append(j)
-                x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x + w), max(y1, y + h)
+                x0, y0, x1, y1 = grown
         box = (x0, y0, x1 - x0, y1 - y0)
-        if len(members) > 1 and explained(box, dx, dy):
+        if len(members) > 1:
             joined.append((*box, sum(found[k][4] for k in members), (dx, dy)))
             used.update(members)
     return joined + [(*f, None) for k, f in enumerate(found) if k not in used]

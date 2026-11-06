@@ -402,19 +402,30 @@ def zoom(out: Path, box: tuple, paths: list, scale: float) -> None:
     if clipped:
         print(f"the region is clipped to x {x} y {y} w {w} h {h} to fit the image")
     ruler = 46
-    # a zoom shows every pixel at a whole number, so a region that does not fit at 1x is refused rather than shrunk
-    if media.fit(len(paths) * w, h, len(paths) * (ruler + 16), ruler + 160) < 1:
+
+    def texts_at(factor: int) -> list:
+        return [
+            (f"ZOOM: X {x} Y {y} W {w} H {h} DEVICE PX AT {factor}X, NEAREST NEIGHBOUR. PT = PX / {scale:g}", draw.WHITE),
+            ("RULERS: DEVICE PX OF THE WHOLE IMAGE. THIN LINES: EVERY PIXEL. DARK LINES: EVERY 10 PX", draw.DIM),
+            ("PANELS LEFT TO RIGHT: " + ", ".join(p.name for p in paths) + ". EDGES, SIZES AND COLOURS ARE IN THE TEXT REPORT", draw.DIM),
+        ]
+
+    def canvas_size(factor: int) -> tuple:
+        # the canvas is at least MIN_W wide, so its header wraps to a readable width and its height counts
+        wide = max((w * factor + ruler) * len(paths) + 16 * (len(paths) - 1), MIN_W)
+        return wide, draw.header_height(texts_at(factor), wide) + h * factor + ruler + 8
+
+    def fits(factor: int) -> bool:
+        wide, tall = canvas_size(factor)
+        return wide <= media.EDGE and tall <= media.EDGE and wide * tall <= media.AREA
+
+    # a zoom shows every pixel at a whole number, so the largest that fits is taken, and a region that does not fit at 1x is refused rather than shrunk
+    factor = next((f for f in range(16, 0, -1) if fits(f)), 0)
+    if not factor:
         raise media.SeeError(f"the region is too big to zoom, since a zoom shows every pixel and {w} x {h} px does not fit the image budget, give a smaller region")
-    factor = max(1, min(16, (media.EDGE // len(paths) - ruler - 16) // w, (media.EDGE - ruler - 160) // h))
-    while factor > 1 and (len(paths) * (w * factor + ruler + 16)) * (h * factor + ruler + 160) > media.AREA:
-        factor -= 1
     panel_w, panel_h = w * factor + ruler, h * factor + ruler
-    texts = [
-        (f"ZOOM: X {x} Y {y} W {w} H {h} DEVICE PX AT {factor}X, NEAREST NEIGHBOUR. PT = PX / {scale:g}", draw.WHITE),
-        ("RULERS: DEVICE PX OF THE WHOLE IMAGE. THIN LINES: EVERY PIXEL. DARK LINES: EVERY 10 PX", draw.DIM),
-        ("PANELS LEFT TO RIGHT: " + ", ".join(p.name for p in paths) + ". EDGES, SIZES AND COLOURS ARE IN THE TEXT REPORT", draw.DIM),
-    ]
-    width_out = panel_w * len(paths) + 16 * (len(paths) - 1)
+    texts = texts_at(factor)
+    width_out, _ = canvas_size(factor)
     head = draw.header_height(texts, width_out)
     canvas = draw.Canvas(width_out, head + panel_h + 8, (250, 250, 252))
     draw.draw_header(canvas, texts)

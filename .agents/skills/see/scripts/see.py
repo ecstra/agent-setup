@@ -57,9 +57,9 @@ def parser() -> argparse.ArgumentParser:
 
 
 def refuse_a_file_not_ours(args: argparse.Namespace) -> None:
-    """Refuses an output PNG that is there already and was not written by this tool, since zoom takes its output first and a left out output would overwrite the first image."""
-    if args.command in ("frame", "redline", "zoom") and args.out.exists() and not media.ours(args.out):
-        raise media.SeeError(f"{args.out} is there already and this tool did not write it, so nothing was written, give the output a new name")
+    """Refuses, before any work, an output PNG that is there already and is not one this command wrote."""
+    if args.command in ("frame", "redline", "zoom"):
+        media.refuse_over(args.out, args.command)
 
 
 def main(argv: list) -> int:
@@ -67,6 +67,7 @@ def main(argv: list) -> int:
     for stream in (sys.stdout, sys.stderr):
         stream.reconfigure(encoding="utf-8", errors="replace")
     args = parser().parse_args(argv)
+    media.KIND = args.command
     try:
         refuse_a_file_not_ours(args)
         media.require_ffmpeg()
