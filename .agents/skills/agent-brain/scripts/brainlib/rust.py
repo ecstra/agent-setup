@@ -14,7 +14,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from . import frontmatter, rules
+from . import frontmatter, rules, store
 
 MANIFEST = "Cargo.toml"
 RULE = "rust.md"
@@ -229,7 +229,7 @@ def workspace_members(
         found.add(manifest)
         waiting += path_dependencies(folder=folder, text=manifest.read_text(encoding="utf-8-sig"))
 
-    return sorted(found)
+    return store.in_order(found)
 
 
 def tables(

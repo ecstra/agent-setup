@@ -681,7 +681,7 @@ def prepare(
     for relative in [Path(folder) / name for folder in (FOLDER, OLD_FOLDER) for name in kit.brain_files()] + kit.agent_files():
         out: Optional[Path] = leads_out(project=project, relative=relative)
         if out is not None:
-            raise UpgradeError(f"{relative.as_posix()} sits behind a link that leads out of the project, to {out}, so move the link aside first")
+            raise UpgradeError(f"{relative.as_posix()} sits behind a link that leads out of the project, to {out.as_posix()}, so move the link aside first")
 
     blocked = in_the_way(kit=kit, project=project)
     if blocked is not None:
@@ -2792,7 +2792,8 @@ def refuse_when_dirty(
     ignored: list[str] = []
     for status, entry in changed_paths(porcelain=tree_status.output):
         path = wanted.get(folded(entry))
-        if path is None or (status in ("??", "!!") and same_as_kit(kit=kit, project=project, relative=path)):
+        # a file that already says what the run writes holds nothing of the project's, tracked or not, the files a stopped run already wrote among them
+        if path is None or same_as_kit(kit=kit, project=project, relative=path):
             continue
 
         shown: str = entry[len(place) :] if folded(path=entry[: len(place)]) == place_folded else as_git_spells(name=path)
@@ -2891,17 +2892,19 @@ def same_as_kit(
     project: Project,
     relative: str,
 ) -> bool:
-    """Whether a file git does not hold already has exactly what the run would write, so nothing is at stake.
+    """Whether a file git names as changed already has exactly what the run would write, so nothing is at stake.
 
     A port followed by an upgrade before a commit leaves every kit file
-    untracked and identical, and a project that ignores an agent folder
-    leaves the kit's files there ignored and identical. Only a file that
-    maps to one the kit copies whole can be judged this way, and the
-    version stamp, which the run never copies but writes as the kit's
-    stamp trimmed, so it is judged against that text. A skill's stub is
-    judged against the stub doctor writes from the kit's sheet, which
-    the run copies whole. AGENTS.md is judged against the kit's with an
-    import of each rule the project holds, which is what the run writes.
+    untracked and identical, a project that ignores an agent folder
+    leaves the kit's files there ignored and identical, and a run that
+    stopped part way leaves the tracked files it already wrote changed
+    and identical. Only a file that maps to one the kit copies whole can
+    be judged this way, and the version stamp, which the run never
+    copies but writes as the kit's stamp trimmed, so it is judged
+    against that text. A skill's stub is judged against the stub doctor
+    writes from the kit's sheet, which the run copies whole. AGENTS.md
+    is judged against the kit's with an import of each rule the project
+    holds, which is what the run writes.
     """
     if Path(relative) == Path(FOLDER) / VERSION:
         return says(
@@ -3228,7 +3231,7 @@ def retire(
         return []
 
     retired: list[str] = []
-    for path in sorted(folder.rglob("*"), reverse=True):
+    for path in reversed(store.in_order(folder.rglob("*"))):
         relative = path.relative_to(project.root)
         if retire_takes(path) and relative not in keep:
             path.unlink()

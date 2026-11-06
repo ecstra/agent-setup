@@ -238,6 +238,10 @@ class Brain:
 
         numbers = [entry.number for entry in self.entries_of(kind)]
         numbers += [number_in(filename=path.name, kind=kind) for path in self.unreadable if self.folder(kind) in path.parents]
+        # every file under the folder holds the id in its name, one whose suffix the store reads as no entry, `.MD` for one, among them
+        for _, folders, names in os.walk(self.folder(kind)):
+            folders[:] = [name for name in folders if not schema.is_hidden(name)]
+            numbers += [number_in(filename=name, kind=kind) for name in names]
         taken = [number for number in numbers if number is not None]
         if not taken:
             return 1
@@ -557,8 +561,12 @@ def number_in(
     """The id number a filename of this kind carries, readable or not.
 
     An id is taken the moment a file holds it in its name, so a file the
-    store could not read still keeps its number out of circulation.
+    store could not read, or one whose `.md` is in another case, still
+    keeps its number out of circulation.
     """
+    if filename[-3:].casefold() == ".md":
+        filename = filename[:-3] + ".md"
+
     match = schema.FILENAME_WITH_ID.match(filename)
     if match is None or match.group(1) != kind.id_prefix:
         return None

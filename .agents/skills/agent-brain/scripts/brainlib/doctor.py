@@ -1642,7 +1642,7 @@ def check_read_guard(
     # a .claude linked into another checkout, the kit's own among them, is that checkout's to guard, as the upgrade refuses it
     out = upgrade.leads_out(project=upgrade.Project(root=brain.root.parent), relative=upgrade.CLAUDE_SETTINGS)
     if out is not None:
-        return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which sits behind a link that leads out of the project, to {out}, so move the link aside and run brain upgrade, which writes the project its own")]
+        return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which sits behind a link that leads out of the project, to {out.as_posix()}, so move the link aside and run brain upgrade, which writes the project its own")]
 
     return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which brain doctor --fix writes", repair=write_guard(path=settings, where=where))]
 

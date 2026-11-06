@@ -1547,7 +1547,24 @@ def absolute(
     if not path.is_absolute():
         path = base / path
 
-    return settled(path)
+    return settled(as_windows_opens(path) if store.WINDOWS else path)
+
+
+# the name of a file's own data stream, which Windows opens as the file itself, read in any case
+OWN_STREAM = "::$data"
+
+
+def as_windows_opens(
+    path: Path,
+) -> Path:
+    """The path as Windows opens it, each part with its own data stream's name and its trailing dots and spaces taken off, so `.ack.` and `.ack::$DATA` both write `.ack`, and a part of dots alone, `..` among them, kept."""
+    parts: list[str] = []
+    for part in path.parts[1 if path.anchor else 0 :]:
+        if part.casefold().endswith(OWN_STREAM):
+            part = part[: -len(OWN_STREAM)]
+        parts.append(part.rstrip(". ") or part)
+
+    return Path(path.anchor, *parts)
 
 
 def settled(
