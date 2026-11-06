@@ -151,16 +151,21 @@ def joined_moves(a: bytes, b: bytes, wa: int, wb: int, width: int, height: int, 
             x, y, w, h = box
             return max(x0 - (x + w), x - x1, 0) + max(y0 - (y + h), y - y1, 0)
 
-        for j in sorted(range(len(found)), key=lambda k: distance(found[k][:4])):
-            x, y, w, h, _ = found[j]
-            # the edges of one element line up across the way it moved
-            lined_up = (dy and x < x1 and x0 < x + w) or (dx and y < y1 and y0 < y + h)
-            if j in used or j in members or not lined_up:
-                continue
-            grown = (min(x0, x), min(y0, y), max(x1, x + w), max(y1, y + h))
-            if explained((grown[0], grown[1], grown[2] - grown[0], grown[3] - grown[1]), dx, dy):
-                members.append(j)
-                x0, y0, x1, y1 = grown
+        # a box that does not fit the move yet may fit once a farther edge has joined, so the boxes are tried again until a pass adds none
+        added = True
+        while added:
+            added = False
+            for j in sorted(range(len(found)), key=lambda k: distance(found[k][:4])):
+                x, y, w, h, _ = found[j]
+                # the edges of one element line up across the way it moved
+                lined_up = (dy and x < x1 and x0 < x + w) or (dx and y < y1 and y0 < y + h)
+                if j in used or j in members or not lined_up:
+                    continue
+                grown = (min(x0, x), min(y0, y), max(x1, x + w), max(y1, y + h))
+                if explained((grown[0], grown[1], grown[2] - grown[0], grown[3] - grown[1]), dx, dy):
+                    members.append(j)
+                    x0, y0, x1, y1 = grown
+                    added = True
         box = (x0, y0, x1 - x0, y1 - y0)
         if len(members) > 1:
             joined.append((*box, sum(found[k][4] for k in members), (dx, dy)))
