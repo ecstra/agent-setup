@@ -336,13 +336,13 @@ class Brain:
         folders in any case is asked rather than second guessed. When it
         is not, it is this project only when it spells the project's
         whole path exactly. Outside WSL it is never a folder here, and on
-        Windows a folder on a WSL share is never read.
+        Windows a folder on a WSL share is read only where a WSL distro is
+        installed.
         """
         project: Path = self.root.parent
         expanded: str = os.path.expanduser(folder)
-        # Windows answers a read of a WSL share by starting WSL, which offers to install itself where it is missing,
-        # so on Windows a folder on one is never read and is not this project, unless the project itself lies on a WSL share
-        if WINDOWS and on_wsl_share(expanded) and not on_wsl_share(str(project)):
+        # a folder whose read would start WSL is never read, and is not this project, since a project there would have WSL installed
+        if starts_wsl(expanded):
             return False
 
         try:
@@ -453,6 +453,28 @@ class Brain:
             return folder / f"{self.next_id(kind)}-{slug}.md"
 
         return folder / f"{slug}.md"
+
+
+def wsl_installed() -> bool:
+    """Whether this Windows machine has a WSL distro registered, read from the registry, which starts nothing, and never elsewhere."""
+    if not WINDOWS:
+        return False
+
+    # the module is Windows' alone, so it is imported here rather than at the top
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Lxss") as key:
+            return winreg.QueryInfoKey(key)[0] > 0
+    except OSError:
+        return False
+
+
+def starts_wsl(
+    path: str,
+) -> bool:
+    """Whether reading the path would start WSL, which Windows does for a path on a WSL share and, with no distro installed, answers by offering to install it."""
+    return WINDOWS and on_wsl_share(path) and not wsl_installed()
 
 
 def on_wsl_share(

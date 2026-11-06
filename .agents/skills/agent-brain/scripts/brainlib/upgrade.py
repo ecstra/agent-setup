@@ -1566,9 +1566,8 @@ def local_origin(
 
         named = url
 
-    # Windows answers a read of a WSL share by starting WSL, which offers to install itself where it is missing,
-    # so there an origin on a WSL share is settled by its spelling, unless the checkout itself lies on one
-    if store.WINDOWS and store.on_wsl_share(named) and not store.on_wsl_share(str(folder)):
+    # an origin whose read would start WSL is settled by its spelling, a path that reaches nothing on this disk
+    if store.starts_wsl(named):
         spelled = PureWindowsPath(named)
         return spelled.parent if spelled.name.casefold() == ".git" else spelled
 
