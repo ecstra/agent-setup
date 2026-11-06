@@ -39,14 +39,18 @@ the one `brain path` prints, the project's folder on the report's first
 line or the project's or the kit's folder a refusal names, and so do
 the system's own words on an error a message passes on.
 
-Every finding and slip the tool prints, from doctor, the check, the
-gates, the hooks or the port's and the upgrade's report, and every line
-`brain list` and `brain show` print, spells each control character a
-terminal acts on as `\xNN`, such as `\x1b` for the escape, all but the
-tab and the line feed. So a file name or a header a cloned repository
-brings shows its bytes and never drives the terminal. The JSON forms
-escape them as JSON does. A count reads `1 finding` for one and
-`2 findings` for more.
+Every line a command prints, on standard output and on standard error,
+spells each control character a terminal acts on as `\xNN`, such as
+`\x1b` for the escape, all but the tab and the line feed. That takes in
+`brain list`, `brain show`, `brain links`, `brain steps`, `brain task`,
+`brain status`, the ledger's report, doctor, the check, the lines
+`brain gates` writes of its own, the port's and the upgrade's report,
+and every refusal and note. So a file name or a header a cloned
+repository brings shows its bytes and never drives the terminal. What a
+gate's own commands print reaches the terminal as they wrote it. The
+JSON forms escape them as JSON does. The hooks write to the agent, which
+is no terminal, and spell out the findings and slips they hand back the
+same way. A count reads `1 finding` for one and `2 findings` for more.
 
 ## Reading
 
@@ -130,12 +134,15 @@ a name right, while an `editor=` given to it yields to the name of
 whoever runs it. Doctor fills a name an entry lacks from git, as
 [its section](#doctor) says.
 
-Every header value a command takes is one line with no control
-character in it, which a terminal would act on, and is held to the
+Every header value a command takes is one line and is held to the
 house style, `author` and `editor` aside. So a value with a semicolon
 or an em dash, typed as the mark or as two hyphens between words with a
 space on each side, is refused, while an en dash, as in a page range
-such as `10–20`, passes.
+such as `10–20`, passes. Code keeps its own punctuation, so a dash
+inside a code span, such as the two hyphens of `git log -- docs` in
+backticks, is no dash, while a semicolon is refused there too. A
+control character in a value is no reason to refuse it, since every
+line the tool prints spells it out, as the top of this page says.
 
 The body must carry its kind's required headings. A plan carries `Why`
 and `Done when`, with `Steps` added by the tool when the prose has
@@ -686,9 +693,14 @@ reaches a session on the older branch only once that branch reaches
 
 The tool's git calls keep the environment they are given, so one run
 from inside a git hook reads that hook's `GIT_DIR`. Run from inside a
-brain that is a symlink, the tool finds the brain at the link's target,
-so the note and the git its record reads are the target's. On Windows a
-git that starts a child process holding its output can run past the
+brain that is a symlink, the command line walks up from the folder as
+the shell names it, `PWD` where that is the folder it runs in, so it
+finds the brain through the link, and the note and the git its record
+reads are those of the project that holds the link. Started where
+`PWD` names another folder or none, it walks up from the folder the
+system names, which lies past the link, so a brain it finds from there
+is the target's, and so are the note and the git. On Windows a git
+that starts a child process holding its output can run past the
 10 second limit, since the tool stops only the git it started.
 
 Branch names and paths compare as git's `core.ignorecase` says, so a
@@ -812,19 +824,20 @@ reported as reaching nothing even while the note is there, the steps
 tables as the steps section says, indexes current, no em dash, typed
 as the mark or as two hyphens between words, or semicolon in a header's
 name, description or links, which flow into the indexes, an en dash
-passing, no machine paths, nothing shaped like a secret,
-the version stamp a version, the chat style copies for Codex and Gemini
-CLI matching the Claude Code one where the project keeps those agents'
-folders, and the skill stubs Claude Code finds each skill through, one
-per skill the kit ships and one per skill folder the project keeps,
-each `.claude/skills/<name>/SKILL.md` holding the sheet's header exactly
-as the sheet writes it, a folded value or a list among them, over a
-fixed body that sends the agent to the sheet. A stub is known by that
-body, whatever its header holds. It reports too a stub whose header
-fell behind its sheet's, and where a stub belongs a link of any kind, a
-Windows junction among them, a plain file, or a copy of the sheet,
-which is a byte for byte one or, for a skill the kit ships, any
-SKILL.md of the skill's name, such as the copy an older release kept.
+and a dash inside a code span passing, no machine paths, nothing shaped
+like a secret, the version stamp a version, the chat style copies for
+Codex and Gemini CLI matching the Claude Code one where the project
+keeps those agents' folders, and the skill stubs Claude Code finds each
+skill through, one per skill the kit ships and one per skill folder the
+project keeps, each `.claude/skills/<name>/SKILL.md` holding the
+sheet's header exactly as the sheet writes it, a folded value or a list
+among them, over a fixed body that sends the agent to the sheet. A stub
+is known by that body, whatever its header holds. It reports too a
+stub whose header fell behind its sheet's, and where a stub belongs a
+link of any kind, a Windows junction among them, a plain file, or a
+copy of the sheet, which is a byte for byte one or, for a skill the kit
+ships, any SKILL.md of the skill's name, such as the copy an older
+release kept.
 It reports a sheet it cannot make a stub from, one that is not UTF-8
 or has no header block, with the reason, a stub the kit wrote or a
 dangling link an older kit made for a project skill since gone from
@@ -1452,13 +1465,18 @@ Both refuse as well, before the first write, where the install would
 stop part way. That is a file, or a link that leads to no folder,
 standing where they make a folder, such as a file named `.claude` or
 one in place of `.agents/bugs`, and a folder standing where they write
-a file, each named until it is moved aside. It is also a run that has
-a sub agent definition of the review to write or remove under
-`.claude/agents` where nothing can be written, which they find out by
-making a file there and taking it away again. Claude Code's sandbox
-refuses every write there whatever a project's settings say, so run
-the port and the upgrade from a terminal, or let Claude Code run that
-one command outside the sandbox.
+a file, each named until it is moved aside. The brain's places are
+asked where the brain stands when the run starts, so on the layout
+before 1.0.0 a file in place of `.agent/bugs` is named, since the move
+to `.agents/` comes before the install. It is also a run that has a sub
+agent definition of the review to write, or one the kit retired to
+remove, under `.claude/agents` where nothing can be written, which they
+find out by making a file there and taking it away again. A run with
+nothing to write or remove there, a file of the project's own under a
+retired definition's name left as it is among them, makes no such try.
+Claude Code's sandbox refuses every write there whatever a project's
+settings say, so run the port and the upgrade from a terminal, or let
+Claude Code run that one command outside the sandbox.
 
 | Command | What it does |
 |---|---|
@@ -1661,18 +1679,23 @@ standard error that is closed, or whose reader is gone, loses the line
 and nothing else, so a refusal still exits 2 and the line never lands
 on standard output.
 
-A write hook spells each path inside the project as the project and the
-disk spell it before it judges the path, the project's folder and the
-brain's known by the disk's identity where the text does not match. So
-on a disk that folds case `.AGENTS/.ack` is the standing word and
-`todos/index.md` the index, each refused as the brain's own, and a file
-written under another case of the project's folder is checked as the
-project's. A `.agents` that is a link to a folder elsewhere stays the
-project's brain, found from a folder inside the link too, and a path
-that reaches the hook through the link's target lies inside it. An
-event that is not a JSON object counts as an empty one. A `cwd` that is
-not text names no folder, so the hook looks for the brain from its own,
-and a `tool_input` that is not an object names no file written.
+A write hook spells each path inside the brain or the project as the
+brain or the project and the disk spell it before it judges the path,
+the brain asked first, each folder known by the disk's identity where
+the text does not match. That spelling is what places a path, since
+whether a path lies inside the brain is then read from its text alone
+and the disk is never asked. So on a disk that folds case
+`.AGENTS/.ack` is the standing word and `todos/index.md` the index,
+each refused as the brain's own, and a file written under another case
+of the project's folder is checked as the project's. A `.agents` that
+is a link to a folder elsewhere stays the project's brain, found from a
+folder inside the link too, and a path that reaches the hook through
+the link's target, which lies outside the project, is spelled under the
+link and so lies inside the brain, a name in another case there among
+them. An event that is not a JSON object counts as an empty one. A
+`cwd` that is not text names no folder, so the hook looks for the brain
+from its own, and a `tool_input` that is not an object names no file
+written.
 
 Context goes back as one JSON object naming the event, which all three
 agents read on every event. Codex also takes plain text at the start of

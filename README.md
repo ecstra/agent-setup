@@ -489,15 +489,16 @@ folder on purpose.
 
 From 3.1.2 the port and the upgrade refuse before their first write
 where they would stop part way, a file where they make a folder, a
-folder where they write a file, or no way to write under
-`.claude/agents`. Claude Code's sandbox refuses every write there
-whatever your settings say, so run them from a terminal, or let the
-agent run that one command outside the sandbox, as
+folder where they write a file, or a review definition to write or
+remove under `.claude/agents` where nothing can be written. Claude
+Code's sandbox refuses every write there whatever your settings say, so
+run them from a terminal, or let the agent run that one command outside
+the sandbox, as
 [port and upgrade](.agents/skills/agent-brain/references/commands.md#port-and-upgrade)
 says. Doctor may name a few things it passed before, two hyphens
-between words in a header's description, a closed bug or todo whose
-Fix, Problem or Done when holds nothing but a comment, and a rule's
-import with a fragment written from the project's root, such as
+between words outside code in a header's description, a closed bug or
+todo whose Fix, Problem or Done when holds nothing but a comment, and a
+rule's import with a fragment written from the project's root, such as
 `@docs/setup.md#install`, with the path that loads. An en dash in a
 header now passes.
 
