@@ -765,7 +765,7 @@ ledger is never counted, numbered past or written to.
 
 | Command | What it does |
 |---|---|
-| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill stubs, the front doors' imports, the rules' imports in `AGENTS.md`, [the Rust rule](#the-rust-rule) where the project's root holds a `Cargo.toml` or the rule stands, [the read guard](#the-read-guard) in a project and what a write left behind. |
+| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill stubs, the front doors' imports, the import lines inside each rule, the rules' imports in `AGENTS.md`, [the Rust rule](#the-rust-rule) where the project's root holds a `Cargo.toml` or the rule stands, [the read guard](#the-read-guard) in a project and what a write left behind. |
 | `brain doctor --fix` | Applies every fixable repair, in passes until a pass changes nothing, then reports what is left. A repair that fails is reported as a flag with the reason. |
 
 Doctor checks that nothing was left behind by an interrupted write, that
@@ -956,6 +956,36 @@ folder. `AGENTS.md` is reported when the brain holds its rulebook,
 `.agents/SYSTEM.md`, and no `@` in `AGENTS.md` itself leads there, read
 the same way, since that import carries the rulebook.
 
+Doctor reads every rule in `.agents/rules/` for its import lines too,
+since a project's section 0 sat in `AGENTS.md` up to 2.7.1, where the
+front door check read it, and is `rules/project.md` from 3.0.0. A rule
+is read as a door is, its code, comments and raw HTML blanked, and its
+import lines alone are judged. They are held to the slips above, glued
+punctuation, a backslash, a path from the root of the disk, a climb out
+of the project and back in by its name, and a target that is not
+there, is spelled in another case, is not a regular file, cannot be
+read or holds no text. Each finding is named under the rule's path in
+the brain with the check `import`, such as
+`rules/project.md: import: imports @README.md, which is not there in .agents/rules/`.
+A path in a rule is read from `.agents/rules/`, as Claude Code and
+Gemini CLI read an import from the folder of the file that holds it,
+and whether a token leads to a file, which makes it an import, is asked
+from there too. So `@../docs/setup.md` is `.agents/docs/setup.md`, and
+`@README.md` is `.agents/rules/README.md`, named while it is not there.
+A path that climbs out of the rules folder and stays inside the
+project, such as `@../../README.md`, is looked up like any other. The
+finding on a path from the root of the disk, or on one that climbs back
+in by name, says to write it from
+`.agents/rules/, the folder the rule is read from`, where a door's says
+from the project's folder. Whether git ignores a missing target, and
+whether `--fix` writes it as a chat style copy, are asked by its path
+from the project's root, so `@local.md` in a rule is each clone's own
+while git ignores `.agents/rules/local.md`. A rule that cannot be read
+is named with the reason, and the next rule is still read. Codex gets
+each rule as text from its session start hook and reads no import, so
+an import in a rule loads in Claude Code and Gemini CLI alone, and
+doctor judges it as those two read it.
+
 Where doctor cannot judge, it says nothing, which leaves some slips
 unnamed. Every `@` that is not alone on its line is silent, so a slip
 in a sentence, such as the full stop in `See @docs/setup.md.`, goes
@@ -964,9 +994,10 @@ unnamed, and so does a line passed over above. A sentence such as
 finding, though the full stop glued on keeps the file from loading. A
 token with no `.md` ending that leads nowhere reads as a mention, so
 `@docs/SETUP.` alone on a line is silent until `docs/SETUP` is there.
-Only a front door's own import lines are judged, never the imports in
-the files it imports, which doctor reads only for the rules import, and
-an `@AGENTS.md` more than five imports deep is never found.
+Only the import lines of a front door or a rule are judged, never those
+of another file a door or a rule imports, which doctor reads at most
+for the rules import, and an `@AGENTS.md` more than five imports deep
+is never found.
 
 The rules check reads the lines of `AGENTS.md` below the comment line
 the rules are imported under, and holds them to one import of each of
@@ -1439,7 +1470,8 @@ file every time. Such a file is a skill the kit ships, the brain's own
 `VERSION`, or a file copied into the agent folders, which is a sub
 agent definition, the chat style source or one of its copies. An import
 slip in a front door that the kit's own text of that door gives too
-counts the same way, as many times as that text gives it. The kit's skills
+counts the same way, as many times as that text gives it, while an
+import slip in a rule is the project's every time. The kit's skills
 ship without their tests, the chat style copies in `.codex/` and
 `.gemini/` are the doctor's to make from the source in
 `.claude/output-styles/`, and the skill stubs under `.claude/skills/`
