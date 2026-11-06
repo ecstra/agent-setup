@@ -24,6 +24,7 @@ UNLISTED = "cannot be listed"
 
 # the hosts Windows serves a WSL distro's files under, casefolded
 WSL_HOSTS = ("wsl.localhost", "wsl$")
+WINDOWS = os.name == "nt"
 
 # where WSL mounts each Windows drive, one folder per letter
 WSL_DRIVES = PurePosixPath("/mnt")
@@ -334,10 +335,16 @@ class Brain:
         project when it is the same folder, so a drive mount that opens
         folders in any case is asked rather than second guessed. When it
         is not, it is this project only when it spells the project's
-        whole path exactly. Outside WSL it is never a folder here.
+        whole path exactly. Outside WSL it is never a folder here, and on
+        Windows a folder on a WSL share is never read.
         """
         project: Path = self.root.parent
         expanded: str = os.path.expanduser(folder)
+        # Windows answers a read of a WSL share by starting WSL, which offers to install itself where it is missing,
+        # so on Windows a folder on one is never read and is not this project, unless the project itself lies on a WSL share
+        if WINDOWS and on_wsl_share(expanded) and not on_wsl_share(str(project)):
+            return False
+
         try:
             same_folder: bool = os.path.samefile(
                 f1=Path.cwd() / expanded,
@@ -446,6 +453,19 @@ class Brain:
             return folder / f"{self.next_id(kind)}-{slug}.md"
 
         return folder / f"{slug}.md"
+
+
+def on_wsl_share(
+    path: str,
+) -> bool:
+    """Whether a path lies on a WSL share, \\\\wsl.localhost\\<distro> or \\\\wsl$\\<distro>, by its spelling alone, in any case and with either slash."""
+    drive: str = PureWindowsPath(path).drive
+    if not drive.startswith("\\\\"):
+        return False
+
+    host, _, _ = drive[2:].partition("\\")
+
+    return host.casefold() in WSL_HOSTS
 
 
 def wsl_parts(
