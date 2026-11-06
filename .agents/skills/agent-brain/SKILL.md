@@ -8,7 +8,8 @@ description: The one way to read, list, count, file, change, move or check anyth
 One command does everything under `.agents/`. It is plain Python with no
 dependencies, and it runs from anywhere inside the project through the
 launcher in the brain's folder, the same in every shell on every
-system, `python3 ../.agents/brain` from a folder below the root.
+system, called by its path from the shell's folder, such as
+`python3 ../.agents/brain` from a folder one level below the root.
 
 ```bash
 python3 .agents/brain status
@@ -78,9 +79,9 @@ brain path BUG-004
 brain links DEC-012
 ```
 
-`show --meta` prints the frontmatter only. `--json` on `status`, `list`
-and `links` gives the same answer for a script, less the clock and the
-standing word that `status` opens with.
+`show --meta` prints the frontmatter only. `--json` on `status`, `list`,
+`links`, `doctor` and `check` gives the same answer for a script, less
+the clock and the standing word that `status` opens with.
 
 SYSTEM.md section 8 makes these the way the brain is read for its
 fields, its lists and its counts, never a grep of its fields or a

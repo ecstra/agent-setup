@@ -2,9 +2,9 @@
 
 All of them run through the launcher in the brain's folder, as
 `python3 .agents/brain` from the project's root and
-`python3 ../.agents/brain` from a folder below it, the same in every
-shell on every system. The launcher is a small Python file that runs
-`.agents/skills/agent-brain/scripts/brain.py` with every argument,
+`python3 ../.agents/brain` from a folder one level below it, the same
+in every shell on every system. The launcher is a small Python file
+that runs `.agents/skills/agent-brain/scripts/brain.py` with every argument,
 standard input and exit code as they came, and that long call still
 works. A Python file rather than a shell script, since cmd would read a
 batch file's arguments a second time, a `%NAME%` among them, and a shell
@@ -804,7 +804,7 @@ ledger is never counted, numbered past or written to.
 
 | Command | What it does |
 |---|---|
-| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`, then their count, or `clean` where there is none. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill stubs, the front doors' imports, the import lines inside each rule, the rules' imports in `AGENTS.md`, [the Rust rule](#the-rust-rule) where the project's root holds a `Cargo.toml` or the rule stands, [the read guard](#the-read-guard) in a project and what a write left behind. |
+| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`, then their count, or `clean` where there is none. With `--json` it prints one JSON list in their place, each finding with its `path`, its `check`, its `message` and whether it is `fixable`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill stubs, the front doors' imports, the import lines inside each rule, the rules' imports in `AGENTS.md`, [the Rust rule](#the-rust-rule) where the project's root holds a `Cargo.toml` or the rule stands, [the read guard](#the-read-guard) in a project and what a write left behind. |
 | `brain doctor --fix` | Applies every fixable repair, in passes until a pass changes nothing, then reports what is left. A repair that fails is reported as a flag with the reason. |
 
 Doctor checks that nothing was left behind by an interrupted write, that

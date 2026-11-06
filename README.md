@@ -1,4 +1,4 @@
-# Example Agent Setup
+# Agent Setup
 
 A small kit you drop into a project so a coding agent (Claude Code,
 Codex, Gemini CLI, anything that reads `AGENTS.md`) knows how to behave
@@ -84,17 +84,20 @@ says which files and checks it knows.
 
 The kit installs itself. Get a copy of it next to your project, then run
 its port from your project's root, and the tool puts every file where
-it belongs. Three ways to get the copy, easiest first.
+it belongs. Three ways to get the copy, easiest first. Below,
+`<kit URL>` stands for this repo's clone URL, which the Code button at
+the top of this page gives.
 
 ### Ask your agent
 
-If your machine can already reach the forge (you have cloned from
-`forge.example.com` before, or `tea` is logged in), open your agent in
-your project and paste this prompt.
+If your machine can already reach the forge that hosts this repo (you
+have cloned from it before, or `tea` is logged in), open your agent in
+your project and paste this prompt, with the clone URL in place of
+`<kit URL>`.
 
 ```text
-Clone https://forge.example.com/example/agent-setup into a folder beside
-this repo, then run its port from our root:
+Clone <kit URL> into a folder beside this repo, then run its port
+from our root:
 python3 <that folder>/.agents/skills/agent-brain/scripts/brain.py port
 It refuses while a file it would replace has uncommitted changes, so
 commit first. Copy the kit's CODEOWNERS in with my handle in place of
@@ -110,12 +113,13 @@ Clone the kit beside your project, then run its port from your
 project's root.
 
 ```bash
-git clone https://forge.example.com/example/agent-setup ../agent-setup
+git clone <kit URL> ../agent-setup
 python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py port
 cp ../agent-setup/CODEOWNERS .
 ```
 
-Adjust the `../agent-setup` path if you cloned somewhere else.
+Put the clone URL in place of `<kit URL>`, and adjust the
+`../agent-setup` path if you cloned somewhere else.
 
 ### Download
 
@@ -343,10 +347,11 @@ call the review.
 
 When this repo puts out a new release, bring your copy of the kit up to
 date, or clone one beside your project, and run its upgrade from your
-project's root.
+project's root, with the clone URL in place of `<kit URL>` as
+[Installation](#installation) says.
 
 ```bash
-git -C ../agent-setup pull || git clone https://forge.example.com/example/agent-setup ../agent-setup
+git -C ../agent-setup pull || git clone <kit URL> ../agent-setup
 python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py upgrade
 ```
 
@@ -513,12 +518,11 @@ refuses a kit older than the one you are on, refuses while a file it
 would replace holds uncommitted work or, before any write, while
 something stands in its way, and names each root file it replaces with
 where git keeps the old one. Run it on its own branch and read the
-diff. Or hand your agent this.
+diff. Or hand your agent this, the clone URL in place of `<kit URL>`.
 
 ```text
-The agent kit at https://forge.example.com/example/agent-setup has a new
-release. Pull the clone beside this repo, or clone it there, then run
-its upgrade from our root:
+The agent kit at <kit URL> has a new release. Pull the clone beside
+this repo, or clone it there, then run its upgrade from our root:
 python3 <that folder>/.agents/skills/agent-brain/scripts/brain.py upgrade
 Read what it printed, fix whatever doctor still names, through brain
 set for a header field and by hand for prose, and tell me what changed.

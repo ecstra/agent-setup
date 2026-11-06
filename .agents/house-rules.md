@@ -11,7 +11,7 @@ links: [README.md, skills/agent-brain/SKILL.md, skills/branch-review/SKILL.md]
 The development rules of every project that carries this directory. A
 project may keep a short human cut at `docs/house-rules.md` and the hard
 bans in a root CONTRIBUTING.md, both pointing here. The project's own
-rules in `rules/` name its exact gates, tooling, and PR rules.
+rules in `rules/` name its exact linters and gates, and how its PRs open.
 
 ## The branch contract
 
@@ -97,10 +97,11 @@ as well, since a review reads committed work only.
 
 ## Git rules
 
-- Commits are allowed and expected: one commit per change, so every
+- Commits are allowed and expected, one commit per change, so every
   change is undoable and addressable by hash.
-- Single author, no co-author, no AI attribution anywhere: not in
-  commits, not in PR titles or bodies, no generated-with footers.
+- One author with no co-author, and no AI attribution anywhere, not in
+  commits, not in PR titles or bodies, and no footer saying what
+  generated them.
 - Commit messages in the owner's voice: `added:`, `fixed:`, `improved:`,
   `updated:` or `removed:`, one short sentence, two clauses at most.
 - Push after each commit.
@@ -109,8 +110,8 @@ as well, since a review reads committed work only.
   otherwise. Merges only on the owner's explicit ask, never before the
   review has closed.
 - Never commit to main directly.
-- Worktrees are disabled: never create one, and never use a worktree
-  isolation mode for sub-agents. If the owner ever explicitly asks, the
+- Worktrees are disabled, so never create one, and never use a worktree
+  isolation mode for sub agents. If the owner ever explicitly asks, the
   one sanctioned home is `.agents/.worktrees/` (gitignored), nowhere
   else, torn down when the task ends.
 
