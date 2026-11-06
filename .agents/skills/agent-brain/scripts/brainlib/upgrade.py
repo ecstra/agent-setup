@@ -1766,10 +1766,12 @@ def section_zero_of(
         # and words another door quoted already are quoted once
         same = door_text(door_words(text=text, keep_section=True))
         said = door_words(text=text, keep_section=zero is None or zero[0] != name)
-        if same in seen or any(door_text(said) == door_text(words) for _, words in quoted):
+        copied = same in seen
+        # every door is remembered, a skipped one too, so a door that copies it is the same door
+        seen.append(same)
+        if copied or any(door_text(said) == door_text(words) for _, words in quoted):
             continue
 
-        seen.append(same)
         if not only_shares(said):
             quoted.append((name, said))
 
