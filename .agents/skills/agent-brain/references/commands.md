@@ -989,12 +989,22 @@ that reaches it,
 `imports @package.json, which is not there in .agents/rules/, though the project's root holds it, so write @../../package.json`.
 So a `@CLAUDE.local.md` in a rule gets that finding while the root
 holds the file, though a git ignore pattern with no slash, such as
-`CLAUDE.local.md`, matches inside the rules folder too. A rule that
-cannot be read is left to the header check, which names it as
-`frontmatter: the file cannot be read`, so it is named once, and the
-next rule is still read. Codex gets each rule as text from its session
-start hook and reads no import, so an import in a rule loads in Claude
-Code and Gemini CLI alone, and doctor judges it as those two read it.
+`CLAUDE.local.md`, matches inside the rules folder too. The path it
+gives is spelled as the root spells the file, so a `@Package.json`
+where the root holds `package.json` is told to write
+`@../../package.json`, which loads where case counts too. That finding
+is never given for a path with a `..` in it, which doctor takes as
+written from some folder on purpose, nor for one from the root of the
+disk, a drive or the home folder, which is no path from the project's
+root. So in a project inside a larger repository, a rule's
+`@../docs/setup.md` is named as not there in `.agents/rules/`, with no
+path to write, even where the folder above the project holds
+`docs/setup.md`. A rule that cannot be read is left to the header
+check, which names it as `frontmatter: the file cannot be read`, so it
+is named once, and the next rule is still read. Codex gets each rule as
+text from its session start hook and reads no import, so an import in a
+rule loads in Claude Code and Gemini CLI alone, and doctor judges it as
+those two read it.
 
 Where doctor cannot judge, it says nothing, which leaves some slips
 unnamed. Every `@` that is not alone on its line is silent, so a slip

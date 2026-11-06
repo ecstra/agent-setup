@@ -478,7 +478,10 @@ An import a rule writes from the project's root, such as `@README.md`,
 never loads, and doctor names it with the path that does,
 `@../../README.md`, as
 [doctor](.agents/skills/agent-brain/references/commands.md#doctor)
-says.
+says. One with a `..` in it, such as `@../docs/setup.md` for a folder
+beside your project, is named as not there in `.agents/rules/`, with
+no path to write, since doctor takes a climb as written from some
+folder on purpose.
 
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
