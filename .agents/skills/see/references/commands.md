@@ -82,9 +82,11 @@ or more, and the last, with every changed frame still in the table.
 What counts as motion is fixed, and it is read in 16 px cells. A cell
 moves when about 3 of its 256 pixels step past 10 of 255 grey levels
 from the frame before, and counts the pixels that stepped. A cell no
-pixel stepped in moves too when its mean grey still changes and has
-drifted 4 levels or more over the last 6 frames, as a fade or a faint
-element does, and counts whole, every pixel in it. A frame moves when
+pixel stepped past 10 in on this frame or the 6 before it moves too
+when its mean grey still changes and has drifted 4 levels or more over
+the last 6 frames, as a fade or a faint element does, and counts whole,
+every pixel in it. So the encoder's noise after an element leaves a
+cell never reads as a fade. A frame moves when
 it counts 12 changed px or more, so a few pixels of encoder noise stay
 still and a 2 by 20 px cursor counts. Frames that move within 250 ms of
 each other make one burst, and moving cells within 2 cells of each

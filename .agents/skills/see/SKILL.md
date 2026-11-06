@@ -107,10 +107,13 @@ on a Windows laptop at 150 percent.
   does.
 - A change of 10 grey levels a frame or less, a faint element or a
   fade, is found by how a 16 px cell's mean grey drifts and is counted
-  in whole cells. So its counts are rough, and they can switch between
-  pixel counts and whole cell counts as its steps cross 10. A frame of
-  it can be missed, which the pacing then reads as a hold, and so can
-  the first frames of a very faint change. A fade slower than about 4
+  in whole cells, so its counts are rough. A cell is not read for drift
+  in the 6 frames after a pixel in it stepped past 10, so a change that
+  falls under 10 after stepping past it goes uncounted for those frames,
+  then switches from pixel counts to whole cell counts. A frame of a
+  faint change can be missed, which the pacing reads as a hold, or as a
+  slower pace where missed frames alternate with steps, and so can the
+  first frames of a very faint change. A fade slower than about 4
   levels over 6 frames is not found at all.
 - The last stretch of a strong ease out moves less than a pixel a
   frame, so the burst ends before the animation does. Read the curve
