@@ -9,6 +9,7 @@ person or an agent to decide.
 import errno
 import json
 import os
+import posixpath
 import re
 import shutil
 import stat
@@ -1727,6 +1728,9 @@ MARKED = re.compile(f"[*_]+[{re.escape(GLUED)}]*$")
 
 # An import line, one `@path` and nothing else once code, comments and raw
 # HTML are blanked, behind list and quote markers or neither.
+# a path that opens with a drive, which Windows reads from that drive's root
+DRIVE = re.compile(r"^[A-Za-z]:[/\\]")
+
 IMPORT_LINE = re.compile(
     r"^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?@(\S+)[ \t]*$",
     re.MULTILINE,
@@ -1847,9 +1851,9 @@ def check_rule_imports(
     found: list[Finding] = []
     for rule in rules.names(brain.root):
         name = f"{rules.FOLDER}/{rule}"
-        text, trouble = text_of_door(folder / rule)
+        text, _ = text_of_door(folder / rule)
+        # a rule that cannot be read is the header check's to name, so it is named once
         if text is None:
-            found.append(import_finding(name=name, message=trouble))
             continue
 
         found += [finding for line in IMPORT_LINE.finditer(visible_text(text)) for finding in line_slips(name=name, token=line.group(1), project=project, base=folder)]
@@ -1958,11 +1962,16 @@ def line_slips(
     be there, under its own case, a regular file that can be read and
     holds text. A target git ignores is each clone's own, so its absence
     is never named, and git and the fix are asked by its path from the
-    project's root.
+    project's root. In a rule, a path that leads nowhere from the rules
+    folder but to a file from the project's root is an import written
+    from the wrong folder, named with the path that reaches it, whatever
+    git ignores inside the rules folder.
     """
     base = project if base is None else base
-    inside = "" if base == project else f" in {base.relative_to(project).as_posix()}/"
-    home = "the project's folder" if base == project else f"{base.relative_to(project).as_posix()}/, the folder the rule is read from"
+    # the folder the path is read from, as text from the project's root, so no path of the disk is ever compared across drives
+    folder = "" if base == project else base.relative_to(project).as_posix()
+    inside = f" in {folder}/" if folder else ""
+    home = f"{folder}/, the folder the rule is read from" if folder else "the project's folder"
     if "\\ " in token or "#" in token or MARKED.search(token):
         return []
 
@@ -1976,7 +1985,9 @@ def line_slips(
 
         return [import_finding(name=name, message=f"imports @{token} with a backslash in its path, which no agent reads as a folder's slash, so write it with slashes")]
 
-    if not is_import(bare=bare, project=base):
+    on_the_disk = bare.startswith(("/", "~")) or DRIVE.match(bare) is not None
+    at_the_root = bool(folder) and not on_the_disk and spelled_on_disk(base=base, path=bare) is None and spelled_on_disk(base=project, path=bare) is not None
+    if not at_the_root and not is_import(bare=bare, project=base):
         return []
 
     if bare != token:
@@ -1985,7 +1996,7 @@ def line_slips(
     if token.startswith("~"):
         return []
 
-    if token.startswith("/"):
+    if token.startswith("/") or DRIVE.match(token):
         return [from_root(name=name, path=token, home=home)]
 
     if climbs_back_in(path=token, project=project, base=base):
@@ -1996,7 +2007,11 @@ def line_slips(
         if os.path.lexists(base / token):
             return [import_finding(name=name, message=f"imports @{token}, which is not a regular file, so no agent loads it")]
 
-        from_the_root = Path(os.path.relpath(base / token, project)).as_posix()
+        if at_the_root:
+            climb = "../" * len(folder.split("/"))
+            return [import_finding(name=name, message=f"imports @{token}, which is not there{inside}, though the project's root holds it, so write @{climb}{token}")]
+
+        from_the_root = posixpath.normpath(f"{folder}/{token}") if folder else token
         if ignored_by_git(project=project, path=from_the_root):
             return []
 
