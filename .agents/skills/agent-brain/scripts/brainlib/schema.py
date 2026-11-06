@@ -451,6 +451,11 @@ KIT_SKILLS: tuple[KitSkill, ...] = (
             ),
         ),
     ),
+    KitSkill(
+        name="see",
+        hook="the see tool, a video or a screenshot read as numbers and labelled images",
+        since="2.7.0",
+    ),
 )
 KIT_SKILL_NAMES: tuple[str, ...] = tuple(skill.name for skill in KIT_SKILLS)
 

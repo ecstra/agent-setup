@@ -2,7 +2,7 @@
 name: agent-index
 kind: doc
 description: the spine of the agent directory, what exists and where
-updated: 2026-11-03
+updated: 2026-11-06
 links: [README.md, house-rules.md]
 ---
 
@@ -19,6 +19,7 @@ rather than this one.
 - [house-rules.md](house-rules.md), the branch contract and code review protocol, the agent's operating version
 - [skills/agent-brain/SKILL.md](skills/agent-brain/SKILL.md), the brain tool, the one way anything here is filed, changed or checked
 - [skills/branch-review/SKILL.md](skills/branch-review/SKILL.md), the code review, run on the owner's word with sub agents in parallel
+- [skills/see/SKILL.md](skills/see/SKILL.md), the see tool, a video or a screenshot read as numbers and labelled images
 - [VERSION](VERSION), the kit release this brain is on
 
 ## The knowledge

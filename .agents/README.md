@@ -2,7 +2,7 @@
 name: agent-readme
 kind: doc
 description: what the .agents directory is and how a cold agent boots from it
-updated: 2026-11-05
+updated: 2026-11-06
 links: [INDEX.md, house-rules.md, skills/agent-brain/SKILL.md]
 ---
 
@@ -41,9 +41,10 @@ the repo root when the project keeps one, agents read this.
 - `reviews/`: one folder per code review, the ledger inside.
 - `skills/`: the kit's skills. `agent-brain` is the brain tool, the one
   way anything here is read, listed, counted, filed, changed or checked,
-  and `branch-review` is the code review the agent runs on the owner's
-  word. A project may keep skills of its own here under other names,
-  and doctor links them for Claude Code.
+  `branch-review` is the code review the agent runs on the owner's
+  word, and `see` reads a screen recording or a screenshot as numbers
+  and labelled images. A project may keep skills of its own here under
+  other names, and doctor links them for Claude Code.
 - `brain`: the launcher the brain tool is called through,
   `python3 .agents/brain`, the kit's own.
 - `VERSION`: the kit release this brain is on, read by the tool.
