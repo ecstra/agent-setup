@@ -1,13 +1,13 @@
 """The gates, run as one command before a review and before a merge.
 
-Section 0 of the project's AGENTS.md names the gates under each heading
+The project's rules in .agents/rules/ name the gates under each heading
 whose text holds the word gates, one fenced bash, sh or zsh block per
-gate, and this runs them in order under the shell each block names,
-with errexit and, where the shell has it, pipefail, the way a CI step
-runs them. It stops at the first red one and says which, then runs the
-check over the tree and the branch's commits, and doctor over the
-brain. The kit's own checkout names no gates in a section 0, since its
-front door ships to every project, so there the gates are the tool's
+gate, the project's own rule first and the others by name, and this
+runs them in order under the shell each block names, with errexit and,
+where the shell has it, pipefail, the way a CI step runs them. It stops
+at the first red one and says which, then runs the check over the tree
+and the branch's commits, and doctor over the brain. The kit's own
+checkout names its gates in no rule, so there the gates are the tool's
 own tests under the interpreter running this and under the system's
 `/usr/bin/python3` where that is another one at the kit's floor or
 above, which is what every commit to the kit runs green first.
@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import check, doctor, sections, store, upgrade
+from . import check, doctor, rules, sections, store
 
 # The word gates with no ASCII letter, ASCII digit or underscore beside
 # it in either reading of the heading, so an identifier such as
@@ -109,7 +109,7 @@ SHELL_FLAGS: dict[str, tuple[str, ...]] = {
 POSIX = os.name == "posix"
 WINDOWS = os.name == "nt"
 GATE_SHAPE = "a gate is a fenced bash, sh or zsh block under it, one block per gate"
-NO_GATES = "section 0 names no gates under a Gates heading, so the check and doctor are the gates here"
+NO_GATES = "no rule names a gate under a Gates heading, so the check and doctor are the gates here"
 
 # The system interpreter on a Mac or a Linux box, the second one the
 # kit's own tests run under where it answers at the floor the kit holds
@@ -244,22 +244,22 @@ def check_lines(
 def gates_of(
     project: Path,
 ) -> Named:
-    """The gates the project names, the kit's own tests first in the kit's checkout, then section 0's, with the lines on what does not run."""
-    in_section_zero: Named = section_gates(project)
+    """The gates the project names, the kit's own tests first in the kit's checkout, then the rules', with the lines on what does not run."""
+    in_rules: Named = rule_gates(project)
     if check.is_kit_checkout(project):
         kits_own: Named = kit_gates(project)
 
         return Named(
-            gates=kits_own.gates + in_section_zero.gates,
-            notes=kits_own.notes + in_section_zero.notes,
-            empty=in_section_zero.empty,
+            gates=kits_own.gates + in_rules.gates,
+            notes=kits_own.notes + in_rules.notes,
+            empty=in_rules.empty,
         )
 
-    # every Gates heading gives a gate or a line that it holds none, so with neither section 0 has no such heading
-    if not in_section_zero.gates and not in_section_zero.empty:
-        return Named(notes=[*in_section_zero.notes, NO_GATES])
+    # every Gates heading gives a gate or a line that it holds none, so with neither no rule has such a heading
+    if not in_rules.gates and not in_rules.empty:
+        return Named(notes=[*in_rules.notes, NO_GATES])
 
-    return in_section_zero
+    return in_rules
 
 
 def kit_gates(
@@ -375,35 +375,40 @@ def same_interpreter(
         return False
 
 
-def section_gates(
+def rule_gates(
     project: Path,
 ) -> Named:
-    """The gates under each Gates heading of section 0 in AGENTS.md, in order, with a line for each block no gate runs, one for each heading that holds no gate, and one for each heading that holds the word gates as written and not as shown.
+    """The gates every rule names under its Gates headings, the project's own rule first and the others by name, each rule's as `gates_in` reads them."""
+    try:
+        found = rules.texts(project / check.BRAIN_FOLDER)
+    except rules.RuleUnreadable as error:
+        raise GatesError(f"{error}, so no gate ran") from error
+
+    named = Named()
+    for _, text in found:
+        own: Named = gates_in(text=text, project=project)
+        named = Named(gates=named.gates + own.gates, notes=named.notes + own.notes, empty=named.empty + own.empty)
+
+    return named
+
+
+def gates_in(
+    text: str,
+    project: Path,
+) -> Named:
+    """The gates under each Gates heading of one rule, in order, with a line for each block no gate runs, one for each heading that holds no gate, and one for each heading that holds the word gates as written and not as shown.
 
     A heading or a block inside code or an HTML comment is neither, a
     heading holds the word gates where either reading of the text it
     shows does, a reference link's label shown or not by whether the
     file defines it, and each Gates heading runs to the next heading at
-    its level or above, or to the end of section 0. Any other heading
+    its level or above, or to the end of the rule. Any other heading
     whose text as written holds the word, outside every Gates heading's
     stretch, is named in a line before the lines on the blocks, since
     its blocks do not run, so no miss of the reading is silent, while
     one inside a stretch has its blocks run as that Gates heading's.
     """
-    door = project / "AGENTS.md"
-    if not store.readable_file(door):
-        return Named()
-
-    try:
-        text = door.read_text(encoding="utf-8-sig")
-    except (OSError, UnicodeDecodeError) as error:
-        raise GatesError(f"AGENTS.md cannot be read, {store.explain(error)}, so no gate ran") from error
-
-    section_zero: Optional[str] = upgrade.section_zero_in(text)
-    if section_zero is None:
-        return Named()
-
-    blocks: sections.Blocks = sections.blocks_of(section_zero)
+    blocks: sections.Blocks = sections.blocks_of(text)
     labels: frozenset[str] = labels_of(text)
 
     taken: list[sections.Fence] = []
@@ -423,7 +428,7 @@ def section_gates(
 
         stretch_end: int = next(
             (later.start for later in blocks.headings if later.start > heading.start and later.level <= heading.level),
-            len(section_zero),
+            len(text),
         )
         covered_until = max(covered_until, stretch_end)
         fences_under = [fence for fence in blocks.fences if heading.end <= fence.start < stretch_end]

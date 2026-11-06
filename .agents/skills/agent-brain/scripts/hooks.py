@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, TextIO, Union
 
 from brainlib import autoack, check, clock, conclude, doctor, frontmatter, handover, links, lint, nudge, reads, schema, steps, store, task
+from brainlib import rules as project_rules
 
 BLOCK = 2
 FAILED = 1
@@ -233,9 +234,15 @@ def session_start(
         text = the_moment(brain=brain) + handover_text(claim=claim)
         text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(data=reads.status(brain=brain)) + "\n" + nudge.START
         if with_rules:
-            rules = brain.root / "SYSTEM.md"
-            if store.readable_file(rules):
-                text += "\n\nThe rules this project works by, from .agents/SYSTEM.md:\n\n" + text_of(rules)
+            rulebook = brain.root / "SYSTEM.md"
+            if store.readable_file(rulebook):
+                text += "\n\nThe rules this project works by, from .agents/SYSTEM.md:\n\n" + text_of(rulebook)
+
+            # Codex reads no imports, so the project's own rules, which AGENTS.md imports for the other agents, come in here
+            for name in project_rules.names(brain.root):
+                rule = brain.root / project_rules.FOLDER / name
+                if store.readable_file(rule):
+                    text += f"\n\nA rule of this project's own, from .agents/{project_rules.FOLDER}/{name}:\n\n" + text_of(rule)
 
             chat_style = brain.root.parent / f".{agent}" / "plain-and-short.md"
             if store.readable_file(chat_style):
@@ -317,7 +324,7 @@ def pre_write(
 ) -> int:
     touched = touches(event=event, agent=agent)
     for touch in touched:
-        verdict = refusal(brain=brain, touch=touch)
+        verdict = front_door_refusal(brain=brain, touch=touch) or refusal(brain=brain, touch=touch)
         if verdict is None:
             continue
 
@@ -333,6 +340,26 @@ def pre_write(
 
     emit_nothing(agent)
     return 0
+
+
+AGENTS_BY_HAND = "AGENTS.md is the kit's, written whole by the upgrade, so nothing in it is edited by hand. A project's own instruction is a rule, filed through brain new rule, which AGENTS.md then imports, and it loads once the session is reloaded"
+
+
+def front_door_refusal(
+    brain: store.Brain,
+    touch: Touch,
+) -> Optional[str]:
+    """Why a write to the project's AGENTS.md is refused, or None, the kit's own checkout aside, where the file is the work."""
+    project = brain.root.parent
+    if touch.deleted or check.is_kit_checkout(project):
+        return None
+
+    try:
+        is_agents = touch.path.parent.resolve() == project.resolve() and touch.path.name.casefold() == project_rules.AGENTS.casefold()
+    except (OSError, RuntimeError):
+        return None
+
+    return AGENTS_BY_HAND if is_agents else None
 
 
 def refusal(

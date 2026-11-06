@@ -18,7 +18,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-from . import autoack, conclude, frontmatter, handover, index, links, people, schema, sections, steps, store, style, task, writes
+from . import autoack, conclude, frontmatter, handover, index, links, people, rules, schema, sections, steps, store, style, task, writes
 
 # The folders the markdown walk leaves out. It never enters the worktree
 # home, and it enters the skills, which follow their own standard, only
@@ -2377,6 +2377,52 @@ def merged(
 # brainlib/check.py's, which the post write hook and the gates run and
 # which names each slip by its line, so one slip is named once. Doctor
 # holds only the header values to it, where the check never looks.
+def check_rules(
+    brain: store.Brain,
+) -> list[Finding]:
+    """The findings on AGENTS.md's imports of the rules, every rule imported once in load order below the mark and nothing else, which the fix writes.
+
+    AGENTS.md is the kit's, and the lines after its mark are the tool's,
+    so a rule added, renamed or deleted by hand gets its import put
+    right. An AGENTS.md from before the rules carries no mark, which the
+    upgrade writes, so that is named and left alone. A missing or
+    unreadable AGENTS.md is the front door check's to name. A markdown
+    file in a folder below the rules is named too, since a rule loads
+    only from the rules folder itself, a dotted path aside.
+    """
+    folder = brain.root / rules.FOLDER
+    try:
+        below = sorted(path for path in folder.rglob("*.md") if path.parent != folder and not any(part.startswith(".") for part in path.relative_to(folder).parts))
+    except OSError:
+        below = []
+    nested = [Finding(path=path.relative_to(brain.root).as_posix(), check="rules", message=f"sits in a folder below {rules.FOLDER}/, where no rule loads, so move it up into {rules.FOLDER}/") for path in below]
+
+    agents = brain.root.parent / rules.AGENTS
+    if not store.readable_file(agents):
+        return nested
+
+    try:
+        text = agents.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeDecodeError):
+        return nested
+
+    imported: Optional[list[str]] = rules.imports_in(text)
+    if imported is None:
+        return [*nested, Finding(path=rules.AGENTS, check="rules", message="has no line the rules are imported below, so no rule loads, and the upgrade writes it")]
+
+    on_disk: list[str] = rules.names(brain.root)
+
+    def repair() -> None:
+        rules.write_imports(brain.root)
+
+    findings = [Finding(path=rules.AGENTS, check="rules", message=f"does not import .agents/rules/{name}, so the rule never loads", repair=repair) for name in on_disk if name not in imported]
+    findings += [Finding(path=rules.AGENTS, check="rules", message=f"imports .agents/rules/{name}, which is no rule", repair=repair) for name in imported if name not in on_disk]
+    if not findings and imported != on_disk:
+        findings.append(Finding(path=rules.AGENTS, check="rules", message="imports the rules out of their load order, the project's own first and the others by name", repair=repair))
+
+    return nested + findings
+
+
 CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_leftovers,
     check_strays,
@@ -2393,5 +2439,6 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_hygiene,
     check_layout,
     check_front_doors,
+    check_rules,
     check_read_guard,
 )

@@ -1,11 +1,9 @@
-<!-- Claude Code reads this file. A project's own rules go in AGENTS.md,
-     which the line below pulls in, and the kit's compaction
-     instructions sit below the marker line, per rule 10.4 of
-     .agents/SYSTEM.md. -->
+<!-- Claude Code reads this file. The line below pulls in AGENTS.md, which
+     imports the rulebook and every one of the project's rules, and the
+     kit's compaction instructions sit below it, per rule 10.4 of
+     .agents/SYSTEM.md. This file is the kit's and is written whole. -->
 
 @AGENTS.md
-
-<!-- The kit's words start here. Section 0 goes above this line. -->
 
 # Compact instructions
 

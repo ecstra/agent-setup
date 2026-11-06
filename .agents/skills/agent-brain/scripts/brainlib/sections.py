@@ -3,7 +3,7 @@
 Reading only. Nothing here rewrites prose, it reports what is there so a
 command can refuse to file something its kind's format says is incomplete. The
 reading of code here is the one every reader shares, section 0's cut,
-the gates, the brain's own bodies and doctor alike.
+the rules' gates, the brain's own bodies and doctor alike.
 """
 
 import bisect

@@ -102,10 +102,10 @@ def render_status(
     health = "doctor clean" if data["findings"] == 0 else f"doctor {data['findings']} findings, {data['fixable']} fixable"
     lines = [f"kit {data['version']}    {health}"]
 
-    for kind_name in ("plan", "build-spec", "todo", "bug", "decision", "review", "doc", "memory"):
+    for kind_name in ("rule", "plan", "build-spec", "todo", "bug", "decision", "review", "doc", "memory"):
         counts = data["counts"].get(kind_name, {})
         total = sum(counts.values())
-        if kind_name in ("doc", "memory"):
+        if kind_name in ("rule", "doc", "memory"):
             summary = str(total) if total else "none"
         else:
             summary = ", ".join(f"{count} {value}" for value, count in counts.items()) or "none"
