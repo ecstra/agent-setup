@@ -1129,7 +1129,30 @@ def migration_targets(
         paths += [project.root / IGNORE_FILE, *brain_markdown(brain)]
         paths = [path for path in paths if names_old_folder(path)]
 
-    return [path for path in paths if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path)]
+    return [path for path in paths if path.is_file() and not path.is_symlink() and not in_skill_folder(project=project, path=path) and not in_kit_copy(project=project, path=path)]
+
+
+def in_kit_copy(
+    project: Project,
+    path: Path,
+) -> bool:
+    """Whether the path sits in a checkout of the kit kept inside the project, a vendored copy or the one the run comes from, whose files name the old folder as the kit's own history and are never the project's to migrate.
+
+    A checkout is known as the check knows the kit's own, by the tool's
+    tests beside its code, which ship into no project.
+    """
+    for folder in path.parents:
+        if folder == project.root or project.root not in folder.parents:
+            return False
+
+        tests = folder / FOLDER / schema.SKILLS / "agent-brain" / "scripts" / "tests"
+        try:
+            if any(store.readable_file(found) for found in tests.glob("test_*.py")):
+                return True
+        except OSError:
+            continue
+
+    return False
 
 
 def names_old_folder(
