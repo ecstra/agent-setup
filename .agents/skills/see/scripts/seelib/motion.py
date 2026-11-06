@@ -38,13 +38,18 @@ def moving_pairs(video: media.Video) -> tuple:
     cw, ch, steps_of = video.change_cells(CELL, STEP_FLOOR)
     means = video.cell_means(CELL)
     moving = []
+    # the frame each cell last had a pixel step in, since a drift over a window that holds a real step is that step, and the encoder's noise after it is no fade
+    stepped = [-FADE_SPAN - 1] * (cw * ch)
     for i, steps in enumerate(steps_of):
         frame = i + 1
         live = [c if c >= CELL_FLOOR else 0 for c in steps]
+        for k, c in enumerate(steps):
+            if c:
+                stepped[k] = frame
         if frame < len(means):
             now, last, back = means[frame], means[frame - 1], means[max(0, frame - FADE_SPAN)]
             for k in range(len(live)):
-                if not steps[k] and now[k] != last[k] and abs(now[k] - back[k]) >= FADE_FLOOR:
+                if frame - stepped[k] > FADE_SPAN and now[k] != last[k] and abs(now[k] - back[k]) >= FADE_FLOOR:
                     live[k] = 255
         moving.append((frame, round(sum(live) / 255 * CELL * CELL), bytes(live)))
     return cw, ch, moving
