@@ -12,9 +12,8 @@ CELL = 16
 CELL_FLOOR = 3
 FRAME_FLOOR = 12
 BURST_GAP = 0.25
-# a cell moves where its pixels step past STEP_FLOOR grey levels from the frame before, above a compressed recording's noise,
-# and once it moved its pixels past COUNT_FLOOR are counted
-STEP_FLOOR, COUNT_FLOOR = 10, 2
+# a pixel steps when its grey moves past this many levels from the frame before, above a compressed recording's noise
+STEP_FLOOR = 10
 # a cell's mean grey drifting this far over this many frames is a fade, while a still frame's encoder noise moves a mean a level at most
 FADE_SPAN, FADE_FLOOR = 6, 4
 HOLDS_NAMED = 8
@@ -33,36 +32,22 @@ def box_text(box: tuple, scale: float) -> str:
 
 def moving_pairs(video: media.Video) -> tuple:
     """Per frame after the first, the pixels it changed past the noise floor and its live cells, and the grid's size."""
-    # which cells moved and how many pixels changed are two questions: a cell moves where pixels step past the floor a compressed
-    # recording's noise needs, or where its mean grey still changes and has drifted past the fade floor over the last few frames,
-    # as a faint element or a fade does, and in a cell that moved every pixel past 2 levels counts, so one element counts the same on every frame
-    cw, ch, strong = video.change_cells(CELL, STEP_FLOOR)
-    _, _, weak = video.change_cells(CELL, COUNT_FLOOR)
+    # a cell moves where its pixels step past the floor a compressed recording's noise needs, and counts those pixels,
+    # and a faint element or a fade, which steps no pixel that far, moves a cell whose mean grey still changes and has drifted past the fade floor
+    # over the last few frames, counted whole, every pixel in it changing a little, which the sheet names as a limit
+    cw, ch, steps_of = video.change_cells(CELL, STEP_FLOOR)
     means = video.cell_means(CELL)
     moving = []
-    for i, (steps, counts) in enumerate(zip(strong, weak)):
+    for i, steps in enumerate(steps_of):
         frame = i + 1
-        drift = [False] * len(steps)
+        live = [c if c >= CELL_FLOOR else 0 for c in steps]
         if frame < len(means):
             now, last, back = means[frame], means[frame - 1], means[max(0, frame - FADE_SPAN)]
-            drift = [now[k] != last[k] and abs(now[k] - back[k]) >= FADE_FLOOR for k in range(len(steps))]
-        moved = {k for k in range(len(steps)) if drift[k] or steps[k] >= CELL_FLOOR}
-        # an element's edge reaches into a cell beside one that moved by too little to move it alone, so the cells around a moved one count their pixels too
-        near = {n for k in moved for n in around(k, cw, ch)} - moved
-        live = [0] * len(steps)
-        for k in moved:
-            # a fade of a level or two a frame moves no pixel past 2, so a cell it drifted counts whole, every pixel in it changing a little
-            live[k] = (counts[k] or 255) if drift[k] else counts[k]
-        for k in near:
-            live[k] = counts[k]
+            for k in range(len(live)):
+                if not steps[k] and now[k] != last[k] and abs(now[k] - back[k]) >= FADE_FLOOR:
+                    live[k] = 255
         moving.append((frame, round(sum(live) / 255 * CELL * CELL), bytes(live)))
     return cw, ch, moving
-
-
-def around(k: int, cw: int, ch: int) -> list:
-    """The cells touching cell k of a grid cw wide and ch tall, corners included."""
-    x, y = k % cw, k // cw
-    return [ny * cw + nx for ny in range(max(y - 1, 0), min(y + 2, ch)) for nx in range(max(x - 1, 0), min(x + 2, cw)) if (nx, ny) != (x, y)]
 
 
 def bursts_of(video: media.Video, moving: list) -> list:
