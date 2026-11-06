@@ -10,6 +10,7 @@ CELL = 16
 CELL_FLOOR = 3
 FRAME_FLOOR = 12
 BURST_GAP = 0.25
+HOLDS_NAMED = 8
 GOLD, BLUE, TEAL = (120, 90, 0), (30, 50, 110), (20, 80, 60)
 
 
@@ -99,12 +100,16 @@ def pacing(video: media.Video, burst: list) -> str:
     gaps = [max(1, round((b - a) / video.period)) * frame_ms for a, b in zip(stamps, stamps[1:])]
     if not gaps:
         return "one change, no pacing to read"
-    limit = 1.5 * frame_ms
+    median = sorted(gaps)[len(gaps) // 2]
+    # a hold is measured against the burst's own pace, since an app that draws at 30 fps into a 60 fps recording changes every other frame and holds nothing
+    limit = 1.5 * median
     held = [(burst[k + 1][0], g) for k, g in enumerate(gaps) if g > limit]
-    text = f"a change every {sorted(gaps)[len(gaps) // 2]:.1f} ms at the median, the longest gap {max(gaps):.1f} ms, "
+    text = f"a change every {median:.1f} ms at the median, the longest gap {max(gaps):.1f} ms, "
     if not held:
         return text + "no held frames"
-    return text + f"{len(held)} hold{'s' if len(held) != 1 else ''} over {limit:.0f} ms: " + ", ".join(f"before F{f} ({g:.0f} ms, {round(g / frame_ms) - 1} frame{'s' if round(g / frame_ms) != 2 else ''} held)" for f, g in held)
+    named = ", ".join(f"before F{f} ({g:.0f} ms, {round(g / frame_ms) - 1} frame{'s' if round(g / frame_ms) != 2 else ''} held)" for f, g in held[:HOLDS_NAMED])
+    rest = f", and {len(held) - HOLDS_NAMED} more" if len(held) > HOLDS_NAMED else ""
+    return text + f"{len(held)} hold{'s' if len(held) != 1 else ''} over {limit:.0f} ms: " + named + rest
 
 
 def report(path: Path, out: Path, scale: float) -> None:
@@ -127,7 +132,7 @@ def report(path: Path, out: Path, scale: float) -> None:
             own = [(f, sum(live[cy * cw + cx] for cy in range(y0, y1 + 1) for cx in range(x0, x1 + 1))) for f, _, live in burst]
             own = [(f, n) for f, n in own if n]
             if r > 2 or not own:
-                print(f"  region {r}: {box_text(box, scale)}")
+                print(f"  region {r}: {box_text(box, scale)}, no sheets, only the two largest regions get them, so take its frames with frame and a crop")
                 continue
             overview, images = region_sheets(video, out, number, r, box, [own[0][0] - 1] + [f for f, _ in own], dict(own), scale)
             print(f"  region {r}: {box_text(box, scale)}" + (", key frames only, scaled" if overview else ""))
@@ -171,7 +176,8 @@ def region_sheets(video: media.Video, out: Path, burst: int, region: int, box: t
     tw, th = max(1, round(w * factor)), max(1, round(h * factor))
     rgb = video.frames(picked, (x0, y0, w, h))
     quality = "FULL QUALITY, 1 IMAGE PX = 1 DEVICE PX" if factor == 1 else f"SCALED {factor:.2f}X FOR AN OVERVIEW, TAKE ONE FRAME WITH THE FRAME COMMAND TO JUDGE PIXELS"
-    where = f"X {x0} Y {y0} W {w} H {h} PX (PT {pt(x0, scale)},{pt(y0, scale)} {pt(w, scale)}X{pt(h, scale)})"
+    # the crop keeps a margin around the region so an edge that moved is never cut, and the header says so, since its numbers differ from the region line's
+    where = f"X {x0} Y {y0} W {w} H {h} PX (PT {pt(x0, scale)},{pt(y0, scale)} {pt(w, scale)}X{pt(h, scale)}), THE REGION AND UP TO {pad} PX AROUND IT"
     tiles = []
     for k, frame in enumerate(picked):
         tile, _, _ = media.scaled(rgb[frame], w, h, factor)
