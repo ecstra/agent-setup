@@ -62,7 +62,7 @@ class Finding:
         where = self.path or "."
         mark = "fixable" if self.fixable else "flag"
 
-        return f"{where}: {self.check}: {self.message} [{mark}]"
+        return store.shown(f"{where}: {self.check}: {self.message} [{mark}]")
 
     def as_dict(self) -> dict:
         """The finding as plain data, for the JSON form of doctor."""
@@ -697,7 +697,7 @@ def check_table(
             target = steps.pointed(brain=brain, key=step.points_at)
             moved = target is not None and target.field("status") == "refiled"
             if moved:
-                why = refiled_word(brain=brain, target=target, kept=fresh.points_at)
+                why = refiled_word(brain=brain, kept=fresh.points_at)
             elif target is not None and target.kind.name == "review":
                 why = f"and the tool keeps the name {fresh.points_at}, which a review keeps as its branch's"
             elif target is not None and target.identifier is None:
@@ -729,7 +729,6 @@ def check_table(
 
 def refiled_word(
     brain: store.Brain,
-    target: store.Entry,
     kept: str,
 ) -> str:
     """Why a cell at a refiled entry reads as the tool would write it, handed on to the entry filed in its place, at whatever remove, or kept at a refiled one, whose successor's steps lead back here or do not read, or which has no successor the brain knows."""

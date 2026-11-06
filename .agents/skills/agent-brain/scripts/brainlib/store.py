@@ -7,6 +7,7 @@ commits, ledgers and links that nobody can rewrite.
 """
 
 import os
+import re
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Callable, Optional
@@ -741,6 +742,25 @@ def find_brain(
     raise StoreError(
         "no .agents/ directory here or above, so there is no brain to work on",
     )
+
+
+# the control characters a terminal acts on, C0 but the tab and the line feed, DEL and C1, which a cloned repository can put in a file's name or a header
+CONTROLS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+
+def shown(
+    text: str,
+) -> str:
+    """The text with each control character a terminal would act on spelled as \\xNN, so a line the tool prints quotes a brain file's text and never runs it."""
+    return CONTROLS.sub(lambda match: f"\\x{ord(match.group()):02x}", text)
+
+
+def counted(
+    number: int,
+    noun: str,
+) -> str:
+    """The number with its noun, one finding and two findings."""
+    return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
 
 
 def as_on_disk(

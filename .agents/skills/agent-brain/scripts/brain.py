@@ -450,7 +450,7 @@ def run_list(
         return REFUSED
 
     found = reads.rows(brain=brain, kind=kind, filters=filters, statuses=statuses)
-    print(json.dumps(found, indent=2) if args.json else reads.render_rows(kind=kind, found=found))
+    print(json.dumps(found, indent=2) if args.json else store.shown(reads.render_rows(kind=kind, found=found)))
     # a file of the kind that cannot be read may be one the list was asked for, so it is named rather than left out without a word
     folder = brain.folder(kind)
     for path, reason in sorted(brain.unreadable.items()):
@@ -476,7 +476,7 @@ def run_show(
     if text is None:
         return missing(args.key)
 
-    print(text, end="" if text.endswith("\n") else "\n")
+    print(store.shown(text), end="" if text.endswith("\n") else "\n")
     return 0
 
 
@@ -703,7 +703,7 @@ def run_doctor(
     else:
         for finding in found:
             print(finding.line())
-        print("clean" if not found else f"{len(found)} findings")
+        print("clean" if not found else store.counted(number=len(found), noun="finding"))
 
     return FINDINGS_REMAIN if found else 0
 
@@ -761,7 +761,7 @@ def run_check(
     else:
         for slip in slips:
             print(slip.text())
-        print("clean" if not slips else f"{len(slips)} findings")
+        print("clean" if not slips else store.counted(number=len(slips), noun="finding"))
 
     return FINDINGS_REMAIN if slips else 0
 

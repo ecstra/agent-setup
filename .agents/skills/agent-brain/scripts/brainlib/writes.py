@@ -606,6 +606,9 @@ def check_against(
         if "\n" in value or "\r" in value:
             raise WriteError(f"{item.name} is one line, and this one has a line break in it")
 
+        if store.CONTROLS.search(value):
+            raise WriteError(f"{item.name} holds a control character, which a terminal acts on")
+
         # a person's name is theirs as git gives it, so the house style never judges it
         for slip in [] if item in schema.PEOPLE_FIELDS else sections.style_slips(value):
             raise WriteError(f"{item.name} {slip}")

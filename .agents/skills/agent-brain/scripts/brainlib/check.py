@@ -205,7 +205,7 @@ class Slip:
     def text(self) -> str:
         where = f"{self.path}:{self.line}" if self.line else self.path
 
-        return f"{where}: {self.message}"
+        return store.shown(f"{where}: {self.message}")
 
 
 @dataclass(frozen=True)
@@ -251,7 +251,6 @@ def run(
 
     for target in listing.files:
         found += slips_of(
-            project=project,
             target=target,
         )
 
@@ -599,7 +598,6 @@ def check_file(
 
     return Checked(
         slips=slips_of(
-            project=project,
             target=target,
         ),
         notes=[],
@@ -607,7 +605,6 @@ def check_file(
 
 
 def slips_of(
-    project: Path,
     target: Target,
 ) -> list[Slip]:
     """The slips of a markdown file the check judges, read as UTF-8 with a leading byte order mark dropped and a CRLF or a lone CR read as a line end, or the one slip that it cannot be read."""
