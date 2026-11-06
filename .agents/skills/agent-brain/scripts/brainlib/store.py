@@ -350,6 +350,10 @@ class Brain:
         if starts_wsl(expanded):
             return False
 
+        # a network share is never asked, since a look at one sends the user's credentials to its host, which a cloned brain file could name, so only its spelling can say
+        if expanded[:2] in ("//", "\\\\"):
+            return PureWindowsPath(expanded) == PureWindowsPath(project) or PurePosixPath(expanded) == PurePosixPath(project.as_posix())
+
         try:
             same_folder: bool = os.path.samefile(
                 f1=Path.cwd() / expanded,

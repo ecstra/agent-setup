@@ -231,6 +231,14 @@ def check_strays(
 
         found.append(Finding(path=where, check="stray", message=stray_reason(where)))
 
+    # a markdown file whose suffix is in another case is no entry on any system, so a rule there would never load without a word
+    for path in store.in_order(brain.root.rglob("*.[mM][dD]")):
+        relative_path = path.relative_to(brain.root)
+        if path.suffix == ".md" or store.hidden(relative_path) or any(links.names_folder(brain=brain, top=relative_path.parts[0], folder=folder) for folder in SKIP_DIRS):
+            continue
+
+        found.append(Finding(path=relative_path.as_posix(), check="stray", message=f"ends in {path.suffix}, which the brain reads as no entry on any system, so rename it to end in .md"))
+
     return found
 
 

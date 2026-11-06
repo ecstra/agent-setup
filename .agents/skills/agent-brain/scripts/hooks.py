@@ -454,6 +454,11 @@ def refusal(
         if source is not None:
             return f"{source} is renamed with brain refile, not by hand"
 
+        # a move onto an entry writes over its header and its steps, which only the tool writes
+        target = entry_path(brain=brain, path=touch.path)
+        if target is not None:
+            return f"{target} is a brain file, and a move onto it would write over it by hand"
+
     path = touch.path
     inside = links.within(brain=brain, path=path)
     if inside is None:
