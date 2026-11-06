@@ -406,11 +406,9 @@ def gates_in(
     whose text as written holds the word, outside every Gates heading's
     stretch, is named in a line before the lines on the blocks, since
     its blocks do not run, so no miss of the reading is silent, while
-    one inside a stretch has its blocks run as that Gates heading's. A
-    comment opened at the margin and never closed hides the rest of the
-    rule, as it does from the agents that load it.
+    one inside a stretch has its blocks run as that Gates heading's.
     """
-    blocks: sections.Blocks = sections.blocks_of(text, unclosed_hides_rest=True)
+    blocks: sections.Blocks = sections.blocks_of(text)
     labels: frozenset[str] = labels_of(text)
 
     taken: list[sections.Fence] = []
@@ -491,7 +489,7 @@ def labels_of(
     text: str,
 ) -> frozenset[str]:
     """The reference labels the file defines, each by its key, read where a paragraph opens outside code, a definition to a line."""
-    blocks: sections.Blocks = sections.blocks_of(text, unclosed_hides_rest=True)
+    blocks: sections.Blocks = sections.blocks_of(text)
     labels: set[str] = set()
     for start, end in blocks.inline:
         if any(heading.start <= start < heading.end for heading in blocks.headings):
