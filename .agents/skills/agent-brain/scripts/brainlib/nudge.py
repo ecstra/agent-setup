@@ -10,6 +10,12 @@ The model, each rule with its reason.
   outside quotes dropped, since the shell runs each line as its own
   command and a heredoc's body is text, not shell. A line longer than
   LONGEST is passed over, so the nudge never costs the tick its moment.
+- In PowerShell and cmd a backslash is the separator every path is
+  spelled with, so there it escapes nothing, joins no lines and stays in
+  the word it stands in. A call's shell is the one its command list
+  names, else Claude Code's Bash tool, Git Bash on Windows, which keeps
+  the POSIX reading, or a PowerShell tool, else the system's own,
+  Codex's shell call among them, which Codex names Bash everywhere.
 - A line splits into parts at the shell's separators, and a `cd` part
   moves the folder the later parts count from, on its line and after.
 - A part's program is its first word past `sudo`, `env`, `command`,
@@ -84,6 +90,9 @@ ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 HEREDOC = re.compile(r"(?<!<)<<(?P<dash>-?)\s*(?P<quote>['\"]?)(?P<word>[A-Za-z_][A-Za-z0-9_]*)(?P=quote)")
 PUNCTUATION = set("();<>|&")
 GLOB = set("*?[{")
+# the shells a command list may name, those that read a backslash as an escape and those that spell a path with one
+POSIX_SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
+WINDOWS_SHELLS = {"powershell", "pwsh", "cmd"}
 
 # The options that take the word after them as their value, by program,
 # so that word is never read as a path or a pattern.
@@ -125,6 +134,7 @@ class Part:
 def lines(
     brain: store.Brain,
     event: dict,
+    agent: str = "claude",
 ) -> list[str]:
     """The lines a tick adds for the calls its event carries, each once, the read's before the write's, or none."""
     root = os.path.realpath(str(brain.root))
@@ -132,7 +142,7 @@ def lines(
     read = wrote = False
 
     for name, tool_input in calls_of(event):
-        did_read, did_write = judged(name=name, tool_input=tool_input, base=base, root=root)
+        did_read, did_write = judged(name=name, tool_input=tool_input, base=base, root=root, agent=agent)
         read, wrote = read or did_read, wrote or did_write
 
     return [line for done, line in ((read, READ), (wrote, WRITE)) if done]
@@ -154,6 +164,7 @@ def judged(
     tool_input: dict,
     base: str,
     root: str,
+    agent: str = "claude",
 ) -> tuple[bool, bool]:
     """Whether one call read the brain's fields, listed its folders or printed several entries, and whether it wrote into the brain."""
     if "command" in tool_input:
@@ -161,7 +172,7 @@ def judged(
         if command is None:
             return False, False
 
-        return shell(command=command, base=placed(word=str(tool_input.get("dir_path") or ""), base=base), root=root)
+        return shell(command=command, base=placed(word=str(tool_input.get("dir_path") or ""), base=base), root=root, escapes=escapes_of(name=name, command=tool_input["command"], agent=agent))
 
     if name in SEARCHES:
         where_from = placed(word=str(tool_input.get("path") or tool_input.get("dir_path") or ""), base=base)
@@ -201,13 +212,41 @@ def shell_text(
     return None
 
 
+def escapes_of(
+    name: str,
+    command: object,
+    agent: str = "claude",
+) -> str:
+    """The character that escapes the next one in the shell a call runs, a backslash in a POSIX shell, Git Bash on Windows among them, and none in PowerShell or cmd, which spell a path with it.
+
+    A command list names its shell and Claude Code's Bash and PowerShell
+    tools name theirs, and any other call runs in the system's own, Codex's
+    shell call among them, which it names Bash on every system.
+    """
+    if isinstance(command, list) and command:
+        program: str = re.split(r"[\\/]", str(command[0]))[-1].casefold()
+        program = program[: -len(".exe")] if program.endswith(".exe") else program
+        if program in POSIX_SHELLS:
+            return "\\"
+        if program in WINDOWS_SHELLS:
+            return ""
+
+    if name == "Bash" and agent == "claude":
+        return "\\"
+    if name == "PowerShell":
+        return ""
+
+    return "" if os.name == "nt" else "\\"
+
+
 def shell(
     command: str,
     base: str,
     root: str,
+    escapes: str = "\\",
 ) -> tuple[bool, bool]:
     """Whether a command greps the brain's fields, lists a tracker folder or prints several entries, and whether it writes into the brain."""
-    parts = list(parts_of(command=command, base=base))
+    parts = list(parts_of(command=command, base=base, escapes=escapes))
     produced = [path for part in parts if part.program in PRODUCERS or names_files(part) for path in produced_by(part)]
     read = wrote = False
 
@@ -221,14 +260,15 @@ def shell(
 def parts_of(
     command: str,
     base: str,
+    escapes: str = "\\",
 ) -> Iterator[Part]:
     """The parts of a command in the order the shell runs them, each line split at its separators, a `cd` moving the folder of the parts after it."""
-    for line in shell_lines(command):
+    for line in shell_lines(command, escapes=escapes):
         if len(line) > LONGEST:
             continue
 
         try:
-            tokens = shlex_tokens(line)
+            tokens = shlex_tokens(line, escapes=escapes)
         except ValueError:
             continue
 
@@ -246,14 +286,15 @@ def parts_of(
 
 def shell_lines(
     command: str,
+    escapes: str = "\\",
 ) -> list[str]:
-    """The command's lines as the shell runs them, a backslash before a line break joining two lines, a line break inside quotes kept inside its line, and the body of each heredoc opened outside quotes left out."""
+    """The command's lines as the shell runs them, a backslash before a line break joining two lines where it escapes, a line break inside quotes kept inside its line, and the body of each heredoc opened outside quotes left out."""
     kept: list[str] = []
     pending: list[str] = []
     bodies: list[tuple[str, bool]] = []
     quote: Optional[str] = None
 
-    for line in command.replace("\\\n", " ").split("\n"):
+    for line in (command.replace("\\\n", " ") if escapes else command).split("\n"):
         if bodies:
             delimiter, tabs = bodies[0]
             if (line.lstrip("\t") if tabs else line) == delimiter:
@@ -261,7 +302,7 @@ def shell_lines(
             continue
 
         pending.append(line)
-        quote, opened = scanned(line=line, quote=quote)
+        quote, opened = scanned(line=line, quote=quote, escapes=escapes)
         bodies += opened
         if quote is None:
             kept.append("\n".join(pending))
@@ -273,6 +314,7 @@ def shell_lines(
 def scanned(
     line: str,
     quote: Optional[str],
+    escapes: str = "\\",
 ) -> tuple[Optional[str], list[tuple[str, bool]]]:
     """The quote a line leaves open, starting inside `quote`, and the heredocs it opens outside quotes, each as its closing word and whether tabs may come before it."""
     opened: list[tuple[str, bool]] = []
@@ -282,11 +324,11 @@ def scanned(
         if quote == "'":
             quote = None if character == "'" else quote
         elif quote == '"':
-            if character == "\\":
+            if character in escapes:
                 at += 1
             elif character == '"':
                 quote = None
-        elif character == "\\":
+        elif character in escapes:
             at += 1
         elif character in ("'", '"'):
             quote = character
@@ -306,9 +348,11 @@ def scanned(
 
 def shlex_tokens(
     line: str,
+    escapes: str = "\\",
 ) -> list[str]:
     lexer = shlex.shlex(line, posix=True, punctuation_chars=True)
     lexer.whitespace_split = True
+    lexer.escape = escapes
 
     return list(lexer)
 

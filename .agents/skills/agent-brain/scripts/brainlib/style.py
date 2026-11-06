@@ -7,6 +7,7 @@ folder, and doctor keeps the copies identical to the source.
 """
 
 import os
+import stat
 from pathlib import Path
 from typing import Optional
 
@@ -133,5 +134,8 @@ def write_one(
     the tool's and nothing in one is worth keeping.
     """
     if store.readable_file(target) and not os.access(str(target), os.W_OK):
+        # Windows deletes no file marked read only, so there the mark goes first
+        if os.name == "nt":
+            os.chmod(target, stat.S_IREAD | stat.S_IWRITE)
         target.unlink()
     frontmatter.write_text(path=str(target), text=text)

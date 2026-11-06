@@ -307,9 +307,14 @@ def target_of(
 def write_text(
     path: str,
     text: str,
-    newline: Optional[str] = None,
+    newline: Optional[str] = "",
 ) -> None:
-    """Write text as a real file, whole or not at all, line feeds in the system's line ends unless `newline` says otherwise, `""` for text that holds its own.
+    """Write text as a real file, whole or not at all, its line ends as the text holds them on every system unless `newline` says otherwise.
+
+    A brain a Mac and a Windows machine share holds one kind of line
+    end whichever wrote a file, where a write in the system's own would
+    give every file the tool writes on Windows CRLF and every one it
+    copies LF, and turn CRLF text into CR CR LF.
 
     The text goes to a temporary file beside the target and is moved
     into place in one step, so a failure part way leaves the old file

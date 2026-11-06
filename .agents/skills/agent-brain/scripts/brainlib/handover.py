@@ -1250,7 +1250,8 @@ def kept_out_of_git(
 ) -> None:
     """Give the note's folder an ignore file of its own where it has none, one that ignores everything there, itself included."""
     try:
-        handle: int = os.open(folder / SELF_IGNORE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        # Windows opens a descriptor in text mode unless told otherwise, which writes the line feed as CRLF
+        handle: int = os.open(folder / SELF_IGNORE, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o644)
     except OSError:
         return
 
@@ -1521,6 +1522,9 @@ def taken_aside(
     """
     aside: Path = path.with_name(name=CLAIMED_NAME)
     try:
+        # Windows renames no file over a link to a folder, so a link at the claimed name goes first, as a rename elsewhere replaces it
+        if os.name == "nt" and os.path.islink(aside):
+            aside.unlink()
         os.replace(
             src=path,
             dst=aside,

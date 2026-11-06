@@ -470,7 +470,12 @@ def link_target(
     if not store.quietly(path.is_symlink):
         return None
 
-    return os.readlink(str(path))
+    target: str = os.readlink(str(path))
+    # Windows reads an absolute target back in its long spelling, \\?\C:\... or \\?\UNC\host\..., which a link put back would carry
+    if os.name == "nt" and target.startswith("\\\\?\\"):
+        return "\\\\" + target[8:] if target[4:8].upper() == "UNC\\" else target[4:]
+
+    return target
 
 
 def put_back(

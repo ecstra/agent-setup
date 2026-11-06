@@ -12,6 +12,7 @@ or the check's findings remain.
 """
 
 import argparse
+import codecs
 import json
 import sys
 from pathlib import Path
@@ -1102,17 +1103,21 @@ def stdin_text() -> str:
     A closed standard input leaves `sys.stdin` as None, and a terminal
     means nobody piped anything, so both read as an empty body. The
     bytes are read as UTF-8 whatever the locale says, and a byte that
-    is not UTF-8 is a refusal rather than a traceback. Line breaks come
-    out as one newline whatever the pipe wrote, the way the text layer
-    reads a pipe on Windows, since the bytes are read under it.
+    is not UTF-8 is a refusal rather than a traceback. A UTF-8 byte
+    order mark in front is dropped, since Windows PowerShell 5.1 puts
+    one before everything it pipes. Line breaks come out as one newline
+    whatever the pipe wrote, the way the text layer reads a pipe on
+    Windows, since the bytes are read under it.
     """
     if sys.stdin is None or sys.stdin.isatty():
         return ""
 
+    piped: bytes = sys.stdin.buffer.read()
+    mark: int = len(codecs.BOM_UTF8) if piped.startswith(codecs.BOM_UTF8) else 0
     try:
-        text = sys.stdin.buffer.read().decode("utf-8")
+        text = piped[mark:].decode("utf-8")
     except UnicodeDecodeError as bad:
-        raise writes.WriteError(f"standard input is not UTF-8 at byte {bad.start}") from bad
+        raise writes.WriteError(f"standard input is not UTF-8 at byte {mark + bad.start}") from bad
 
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
