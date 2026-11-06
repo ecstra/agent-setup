@@ -517,11 +517,41 @@ you set `$OutputEncoding = [Text.UTF8Encoding]::new($false)` first.
 PowerShell 7 sends UTF-8 as it is.
 
 From 3.1.4 an id runs past three digits, so the thousandth todo is
-TODO-1000. A port or an upgrade that stopped part way finishes when you
-run it again, a file named with an upper case `.MD` still keeps its id
-from a new entry, and when the brain tool itself fails in your project,
-the agent tells you the command and what it printed rather than read or
-patch the tool's code.
+TODO-1000, and `brain list` and the indexes put it after TODO-999. A
+port or an upgrade that stopped part way finishes when you run it
+again, a file named with an upper case `.MD` still keeps its id from a
+new entry, and doctor now names any brain file whose `.md` is not in
+lower case, for you to rename, since no system reads it as an entry.
+When the brain tool itself fails in your project, the agent tells you
+the command and what it printed rather than read or patch the tool's
+code.
+
+In a Rust project the mutants gate now tests the change from your
+default branch, `main`, `master` or origin's, and a project in a folder
+of a larger repository tests its own change alone. The upgrade writes
+that gate into the kit's Rust rule. An older `rust-toolchain` file now
+counts as the pin. When `brain doctor --fix`, the port or the upgrade
+adds the Rust rule to a project that had none, it says so and that the
+rule loads once you reload the session.
+[The Rust rule](.agents/skills/agent-brain/references/commands.md#the-rust-rule)
+says the rest.
+
+The test guard lets through a check a formatter only rewrapped. It
+refuses a move onto a test file without that file's word, and judges an
+edit the agent's tool places loosely, such as Claude Code's Edit taking
+a straight quote for a curly one. The path `brain ack tests` takes is
+read from the folder the shell is in, and a file that is not there is
+refused. The hook also refuses a new file in the kit's own tests
+folder, since one there would turn the guards off.
+
+The port takes the kit's own `AGENTS.md`, copied with another project's
+rule imports, as the kit's copy and quotes nothing from it. Where
+`.agents` links to a brain kept outside the project, doctor reads a
+`..` in an import as Claude Code does, so `@../../README.md` in a rule
+is your project's readme. A Codex patch that moves a file onto a brain
+entry is refused. On Windows the tool never reads a share of another
+host that a path in a brain file names, since Windows would send your
+credentials to that host.
 
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
