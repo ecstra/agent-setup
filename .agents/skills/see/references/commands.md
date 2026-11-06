@@ -29,14 +29,16 @@ It prints these lines in order.
   the last frame that moved, `burst 1: frames 6 to 24, 100 to 400 ms
   (300 ms), 18 frames changed`.
 - Its pacing, the median and the longest gap between changed frames,
-  each counted in whole frame times, and each hold over one and a half
-  frame times, `pacing: a change every 16.7 ms at the median, the
-  longest gap 50.0 ms, 1 hold over 25 ms: before F22 (50 ms, 2 frames
-  held)`.
+  each counted in whole frame times, and each hold, a gap over one and a
+  half times the median, so an app that draws every other frame of the
+  recording holds nothing. The first eight holds are named and the rest
+  counted, `pacing: a change every 16.7 ms at the median, the longest
+  gap 50.0 ms, 1 hold over 25 ms: before F22 (50 ms, 2 frames held)`.
 - Up to four regions that moved, largest first, each a box in px and in
   pt, `region 1: x 96 y 480 w 576 h 80 px (x 48 y 240 w 288 h 40 pt)`.
   A region too big to show at full quality ends `, key frames only,
-  scaled`.
+  scaled`, and the third and fourth end `, no sheets, only the two
+  largest regions get them, so take its frames with frame and a crop`.
 - Under each of the two largest regions, a line per sheet written,
   naming the frames its tiles show, `image out/burst-1-region-1-frames-1.png:
   F6 to F15, 10 tiles, 1192x834`.
@@ -44,7 +46,9 @@ It prints these lines in order.
   the frame before and the pixels it changed, counted in 16 px cells.
 
 The sheets of a region are `burst-<n>-region-<r>-frames-<s>.png` and
-`burst-<n>-region-<r>-diffs-<s>.png`. A frames sheet holds the frame
+`burst-<n>-region-<r>-diffs-<s>.png`. Each shows the region with up to
+8 px around it, so an edge that moved is never cut, and its header
+gives that wider crop. A frames sheet holds the frame
 before the motion, tagged gold, then every frame where the region
 changed, each tagged with its frame number, its ms from the start, and
 the ms and pixels changed since the tile before it. A diffs sheet holds

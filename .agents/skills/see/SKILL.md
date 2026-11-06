@@ -55,10 +55,19 @@ such as mp4, mov, mkv or webm. Or the agent records one itself.
   display, and the video comes out in device px, 2 per point on a
   Retina display. The app that runs the command needs the Screen
   Recording permission, which the owner grants once in System Settings.
-- Windows. ffmpeg records the desktop through gdigrab.
+- Windows. ffmpeg records the desktop through gdigrab, in px from the
+  top left of the main display. Record the desktop with offsets, since
+  `-i title=...` drops a window's child controls. gdigrab may deliver a
+  little under the rate asked, which the report reads from the frames'
+  own times. The second command takes a still for `diff`, `redline` or
+  `zoom`.
 
   ```bash
   ffmpeg -f gdigrab -framerate 60 -offset_x X -offset_y Y -video_size WxH -i desktop -t 3 -c:v libx264 -preset ultrafast -qp 0 clip.mkv
+  ```
+
+  ```bash
+  ffmpeg -f gdigrab -offset_x X -offset_y Y -video_size WxH -i desktop -frames:v 1 -update 1 still.png
   ```
 
 - Linux under X11. ffmpeg records through x11grab. Under Wayland
@@ -80,8 +89,9 @@ read as motion.
 Every number is device px, counted from the top left of the image or
 the video, and a box is written `x,y,w,h`. A point is px divided by the
 scale, and `--scale` is 2 unless given, the factor of a Retina display.
-Give `--scale 1` for a display with no scaling, and the display's own
-factor elsewhere, such as 1.5 on a Windows laptop.
+Give `--scale 1` for a display with no scaling, which a Windows desktop
+at 100 percent is, and the display's own factor elsewhere, such as 1.5
+on a Windows laptop at 150 percent.
 
 ## Limits
 
