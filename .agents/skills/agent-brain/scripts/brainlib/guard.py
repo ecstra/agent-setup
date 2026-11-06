@@ -280,33 +280,84 @@ def key_of(
     """A check as it is compared, its strings as written and the rest without the space a formatter adds or takes away, or the trailing comma a wrap leaves before a closing bracket.
 
     One space stays between two words, so `not ready` never reads as
-    `notready`. A comma right against its bracket stays, since no wrap
-    put it there and `(1,)` is no `(1)`. A snapshot's line is its own
-    key, since its spaces are the output it holds.
+    `notready`. A backticked string is a string too, a template literal
+    or a Go raw string. A snapshot's line is its own key, since its
+    spaces are the output it holds.
     """
     if suffix == ".snap":
         return check
 
+    strings = list(key_quoting(suffix).finditer(check))
+    commas = wrapped_commas(check=check, strings=strings)
     key = ""
     last = 0
-    for quoted in quoting(suffix).finditer(check):
-        key += bare_key(check[last : quoted.start()]) + quoted.group()
+    for quoted in strings:
+        key += bare_key(text="".join(check[index] for index in range(last, quoted.start()) if index not in commas)) + quoted.group()
         last = quoted.end()
 
-    return key + bare_key(check[last:])
+    return key + bare_key(text="".join(check[index] for index in range(last, len(check)) if index not in commas))
 
 
-# the comma a formatter leaves at a line's end when it wraps a bracket's last item onto a line of its own
-WRAPPED_COMMA = re.compile(r",\s+(?=[)\]}])")
+# a backticked string, read only within the one line a check is joined into, so a lone backtick never runs on through the file
+BACKTICKED = r"|`[^`]*`"
+KEY_QUOTED = re.compile(QUOTED.pattern + BACKTICKED)
+KEY_RUST_QUOTED = re.compile(RUST_QUOTED.pattern + BACKTICKED)
+# what stands before a bracket that calls something or indexes it, a name, a close, a macro's bang or a generic's end, where a lone item's comma is a wrap's
+CALLED = re.compile(r"[\w)\]!>]")
 SPACE = re.compile(r"\s+")
 # a space with no word on one side of it, which separates no two tokens
 LOOSE_SPACE = re.compile(r" (?!\w)|(?<!\w) ")
 
 
+def key_quoting(
+    suffix: str,
+) -> "re.Pattern[str]":
+    return KEY_RUST_QUOTED if suffix in ONE_CHARACTER_QUOTES else KEY_QUOTED
+
+
+def wrapped_commas(
+    check: str,
+    strings: "list[re.Match[str]]",
+) -> set[int]:
+    """Where each comma stands that a formatter left when it wrapped a bracket's last item onto a line of its own, a space between it and the bracket.
+
+    A comma right against its bracket stays, since no wrap put it there,
+    and so does the comma of a tuple of one item, a paren that holds no
+    other comma and calls nothing, since `(1,)` is no `(1)` however it is
+    wrapped. Brackets inside a string are no brackets.
+    """
+    masked = list(check)
+    for quoted in strings:
+        masked[quoted.start() : quoted.end()] = "_" * (quoted.end() - quoted.start())
+
+    commas: set[int] = set()
+    opened: list[list[int]] = []
+    for index, character in enumerate(masked):
+        if character in OPENS:
+            opened.append([index, 0])
+        elif character == "," and opened:
+            opened[-1][1] += 1
+        elif character in CLOSES and opened:
+            start, count = opened.pop()
+            comma = index - 1
+            while comma > start and masked[comma].isspace():
+                comma -= 1
+            if comma == index - 1 or masked[comma] != ",":
+                continue
+
+            calls = start > 0 and CALLED.match(masked[start - 1]) is not None
+            if character == ")" and count == 1 and not calls:
+                continue
+
+            commas.add(comma)
+
+    return commas
+
+
 def bare_key(
     text: str,
 ) -> str:
-    return LOOSE_SPACE.sub("", SPACE.sub(" ", WRAPPED_COMMA.sub("", text)))
+    return LOOSE_SPACE.sub("", SPACE.sub(" ", text))
 
 
 def path_of(

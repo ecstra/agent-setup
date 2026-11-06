@@ -25,6 +25,8 @@ UNLISTED = "cannot be listed"
 
 # the hosts Windows serves a WSL distro's files under, casefolded
 WSL_HOSTS = ("wsl.localhost", "wsl$")
+# the long spelling of a local drive or volume, \\?\C: or \\?\Volume{...}, the one device path that reaches no other host
+LOCAL_DEVICE = re.compile(r"\\\\[?.]\\(?:[A-Za-z]:|Volume\{[^}\\]*\})(?:\\|$)", re.IGNORECASE)
 WINDOWS = os.name == "nt"
 
 # where WSL mounts each Windows drive, one folder per letter
@@ -502,14 +504,24 @@ def on_wsl_share(
 def on_network_share(
     path: str,
 ) -> bool:
-    """Whether a path lies on a share of another host by its spelling alone, the long \\\\?\\UNC\\ and \\\\.\\UNC\\ spellings among them, where a WSL share and the long spelling of a local drive are not."""
-    drive: str = plain_unc(PureWindowsPath(path)).drive
-    if not drive.startswith("\\\\"):
+    """Whether reading a path may reach a share of another host, by its spelling alone, the long \\\\?\\UNC\\ and \\\\.\\UNC\\ spellings among them.
+
+    A WSL share is this machine's. A device path, \\\\?\\ or \\\\.\\, is
+    this machine's only as the long spelling of a drive or a volume,
+    since \\\\?\\GLOBALROOT\\Device\\Mup\\ and the like reach a share
+    through the redirector. The spelling is read whole rather than its
+    drive, since a Python before 3.12 reads a device path's drive
+    otherwise.
+    """
+    spelled: str = str(plain_unc(PureWindowsPath(path)))
+    if not spelled.startswith("\\\\"):
         return False
 
-    host, _, _ = drive[2:].partition("\\")
+    host, _, _ = spelled[2:].partition("\\")
+    if host in ("?", "."):
+        return LOCAL_DEVICE.match(spelled) is None
 
-    return host not in ("?", ".") and host.casefold() not in WSL_HOSTS
+    return host.casefold() not in WSL_HOSTS
 
 
 def plain_unc(

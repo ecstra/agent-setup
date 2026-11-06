@@ -430,9 +430,10 @@ def assertion_refusal(
     are applied, then each hunk that fits only by looser spacing is
     placed as apply_patch places it, so a check is read whole wherever
     the hunk lands. One that fits nowhere even so is judged by the
-    assertions its lines before carry that its lines after do not, and
-    so is an edit whose old string the file does not hold word for word,
-    which the agent's tool may still place. A new file holds none yet.
+    assertions its lines before carry that its lines after do not. An
+    edit whose old string the file does not hold word for word is placed
+    as the agent's tool places it, and judged by its old and new strings
+    alone where it fits nowhere. A new file holds none yet.
     """
     project = brain.root.parent
     if check.is_kit_checkout(project):
@@ -489,9 +490,51 @@ def lost_from(
 
     # Claude Code's Edit takes a straight quote for a curly one and Gemini CLI's replace a line whatever its indent, so an edit the text does not hold word for word may land all the same
     if touch.content is None and touch.old_string is not None and unix(touch.old_string) not in before:
-        gone += guard.lost(relative=relative, before=unix(touch.old_string), after=unix(touch.new_string or ""))
+        old, new = unix(touch.old_string), unix(touch.new_string or "")
+        placed = loosely_edited(text=before, old=old, new=new, every=touch.replace_all)
+        gone += guard.lost(relative=relative, before=old, after=new) if placed is None else guard.lost(relative=relative, before=before, after=placed)
 
     return gone
+
+
+# the curled quotes Claude Code's Edit reads as straight ones, each one character for one, so a place in the folded text is the same place in the file
+STRAIGHT = str.maketrans({"\N{LEFT SINGLE QUOTATION MARK}": "'", "\N{RIGHT SINGLE QUOTATION MARK}": "'", "\N{LEFT DOUBLE QUOTATION MARK}": '"', "\N{RIGHT DOUBLE QUOTATION MARK}": '"'})
+
+
+def loosely_edited(
+    text: str,
+    old: str,
+    new: str,
+    every: bool,
+) -> Optional[str]:
+    """The text after an edit whose old string it does not hold word for word, placed as the agent's tool places one, or None where it fits nowhere.
+
+    Claude Code's Edit reads a curled quote as a straight one, so the old
+    string is first looked for with the quotes of both folded. Gemini
+    CLI's replace matches whole lines whatever their indent, so it is
+    then looked for as a run of lines with their spacing taken off.
+    """
+    folded, wanted = text.translate(STRAIGHT), old.translate(STRAIGHT)
+    start = folded.find(wanted) if wanted else -1
+    if start != -1:
+        pieces: list[str] = []
+        last = 0
+        while start != -1:
+            pieces += [text[last:start], new]
+            last = start + len(wanted)
+            start = folded.find(wanted, last) if every else -1
+
+        return "".join(pieces) + text[last:]
+
+    lines = text.split("\n")
+    block = [line.strip() for line in wanted.split("\n")]
+    found = block_start(lines=[line.translate(STRAIGHT).strip() for line in lines], block=block)
+    if found is None:
+        return None
+
+    lines[found : found + len(block)] = new.split("\n")
+
+    return "\n".join(lines)
 
 
 def refusal(
