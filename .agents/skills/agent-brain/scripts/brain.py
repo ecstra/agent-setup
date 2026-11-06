@@ -15,7 +15,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, TextIO, cast
 
 from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, guard, handover, index, ledger, plans, reads, rules, schema, steps, store, task, upgrade, writes
 from brainlib.store import FINDINGS_REMAIN, REFUSED
@@ -24,7 +24,49 @@ FIELD_FLAGS = ("status", "severity", "area", "by", "type", "branch", "date")
 KIND_HELP = "one of " + ", ".join(sorted(schema.KINDS)) + ", or its plural"
 
 
+class Shown:
+    """A standard stream that spells out each control character a terminal acts on as it writes, and answers everything else as the stream it wraps does."""
+
+    def __init__(
+        self,
+        stream: TextIO,
+    ) -> None:
+        self.stream = stream
+
+    def write(
+        self,
+        text: str,
+    ) -> int:
+        return self.stream.write(store.shown(text))
+
+    def __getattr__(
+        self,
+        name: str,
+    ) -> object:
+        return getattr(self.stream, name)
+
+
 def main(
+    argv: Optional[list[str]] = None,
+) -> int:
+    """Run one command, every line it prints spelled through `store.shown`, since a line may quote a brain file a cloned repository wrote, and a terminal would act on an escape in it."""
+    # a step's text is read as UTF-8 whatever the locale says, so a character the output codec lacks is written as its escape rather than ending the command in a traceback
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
+
+    out, err = sys.stdout, sys.stderr
+    if out is not None:
+        sys.stdout = cast(TextIO, Shown(out))
+    if err is not None:
+        sys.stderr = cast(TextIO, Shown(err))
+    try:
+        return run(argv)
+    finally:
+        sys.stdout, sys.stderr = out, err
+
+
+def run(
     argv: Optional[list[str]] = None,
 ) -> int:
     parser = build_parser()
@@ -32,11 +74,6 @@ def main(
     if not hasattr(args, "handler"):
         parser.print_help()
         return REFUSED
-
-    # a step's text is read as UTF-8 whatever the locale says, so a character the output codec lacks is written as its escape rather than ending the command in a traceback
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            stream.reconfigure(errors="backslashreplace")
 
     # an argument the shell handed over in bytes that are not UTF-8 carries escapes no file takes, so it is refused up front the way standard input is
     for word in sys.argv[1:] if argv is None else argv:
@@ -51,7 +88,7 @@ def main(
         if not getattr(args, "needs_brain", True):
             return args.handler(brain=None, args=args)
 
-        brain = store.find_brain(Path.cwd())
+        brain = store.find_brain()
         return args.handler(brain=brain, args=args)
     except writes.Partial as partial:
         # the entry was written, so the command did its work and exits as done, the indexes follow it where they can, the second write that failed is named on standard error, and an entry filed from prose gets the check the plain path gives it
@@ -450,7 +487,7 @@ def run_list(
         return REFUSED
 
     found = reads.rows(brain=brain, kind=kind, filters=filters, statuses=statuses)
-    print(json.dumps(found, indent=2) if args.json else store.shown(reads.render_rows(kind=kind, found=found)))
+    print(json.dumps(found, indent=2) if args.json else reads.render_rows(kind=kind, found=found))
     # a file of the kind that cannot be read may be one the list was asked for, so it is named rather than left out without a word
     folder = brain.folder(kind)
     for path, reason in sorted(brain.unreadable.items()):
@@ -476,7 +513,7 @@ def run_show(
     if text is None:
         return missing(args.key)
 
-    print(store.shown(text), end="" if text.endswith("\n") else "\n")
+    print(text, end="" if text.endswith("\n") else "\n")
     return 0
 
 

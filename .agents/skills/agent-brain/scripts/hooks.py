@@ -1569,14 +1569,19 @@ def as_the_project_spells(
     """The touches with each path inside the project spelled as the project and the disk spell it, so every rule that compares paths as text sees one spelling.
 
     On a disk that folds case `<PROJECT>/.AGENTS/.ack` is the brain's
-    `.ack`, and `todos/index.md` is the index. A path outside the
-    project keeps its spelling.
+    `.ack`, and `todos/index.md` is the index. The brain is asked first,
+    since a `.agents` that is a link reaches the hook through the link's
+    target, which lies outside the project. A path outside both keeps
+    its spelling.
     """
-    project = brain.root.parent
 
     def spelled(path: Path) -> Path:
-        inside = store.below(path=path, root=project)
-        return path if inside is None else store.as_on_disk(project / inside, root=project)
+        for root in (brain.root, brain.root.parent):
+            inside = store.below(path=path, root=root)
+            if inside is not None:
+                return store.as_on_disk(root / inside, root=root)
+
+        return path
 
     return [replace(touch, path=spelled(touch.path), moved_from=None if touch.moved_from is None else spelled(touch.moved_from)) for touch in touched]
 

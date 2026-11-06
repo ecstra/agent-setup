@@ -249,30 +249,15 @@ def within(
 ) -> Optional[str]:
     """The path relative to the brain, or None when it lies outside.
 
-    The path is never resolved. A symlink filed inside the brain is
-    inside it, and `..` is folded lexically, so a path cannot climb out
-    unseen and a symlink loop on disk cannot raise here. It is held to
-    the root as written, then to the root by the disk's identity, since
-    a `.agents` that is a link stays the project's own while a path
-    inside it reaches the hook through the link's target, and another
-    case of the root is the root on a disk that folds case.
+    Nothing is resolved and the disk is never asked, so a path read from
+    a brain file's text is never looked up. A symlink filed inside the
+    brain is inside it, and `..` is folded lexically, so a path cannot
+    climb out unseen and a symlink loop on disk cannot raise here. The
+    hooks spell a path they are handed as the brain spells it first.
     """
+    root = Path(os.path.normpath(str(brain.root)))
     folded = Path(os.path.normpath(str(path)))
-    written = Path(os.path.normpath(str(brain.root)))
-    inside = inside_of(root=written, folded=folded)
-    if inside is not None:
-        return inside
 
-    found = store.below(path=folded, root=written)
-
-    return None if found is None else found.as_posix()
-
-
-def inside_of(
-    root: Path,
-    folded: Path,
-) -> Optional[str]:
-    """The folded path relative to the root, or None where it lies outside."""
     try:
         return folded.relative_to(root).as_posix()
     except ValueError:

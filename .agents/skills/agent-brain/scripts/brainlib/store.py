@@ -709,7 +709,7 @@ def near(
 def find_brain(
     start: Optional[Path] = None,
 ) -> Brain:
-    """Walk up from `start` until the `.agents/` directory turns up, spelled as the disk spells it.
+    """Walk up from `start`, or the folder the shell stands in, until the `.agents/` directory turns up.
 
     The walk goes up the path as written first, so a `.agents` that is a
     link to a folder elsewhere is found from inside it and stays the
@@ -717,7 +717,7 @@ def find_brain(
     above as written is walked again resolved.
     """
     try:
-        written = Path(os.path.abspath(start or Path.cwd()))
+        written = Path(os.path.abspath(start or logical_cwd()))
         here = written.resolve()
     except (OSError, RuntimeError, ValueError) as error:
         raise StoreError(f"the working directory cannot be resolved: {error}") from error
@@ -763,6 +763,16 @@ def counted(
     return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
 
 
+def logical_cwd() -> Path:
+    """The folder the shell stands in as the shell names it, PWD where that is this process's own folder, so a folder reached through a link keeps the link's spelling, which the system's own answer has followed."""
+    here = Path.cwd()
+    named = os.environ.get("PWD")
+    if named and os.path.isabs(named) and same_file(one=Path(named), other=here):
+        return Path(named)
+
+    return here
+
+
 def below(
     path: Path,
     root: Path,
@@ -785,7 +795,7 @@ def below(
         except (OSError, ValueError):
             return None
 
-        for ancestor in path.parents:
+        for ancestor in [path, *path.parents]:
             try:
                 if os.path.samestat(os.stat(ancestor), wanted):
                     inside = path.relative_to(ancestor)
@@ -798,27 +808,20 @@ def below(
 
 def as_on_disk(
     path: Path,
-    root: Optional[Path] = None,
+    root: Path,
 ) -> Path:
-    """The path with each part that names an entry there spelled as its folder lists it.
+    """The path below the root with each part that names an entry there spelled as its folder lists it.
 
     On a disk that folds case, `.AGENTS` and `.agents` open one folder,
     so two spellings of one file compare equal as text once both are
     spelled this way. A part is respelled only where the folder holds no
     entry of that exact name and the two names open the same file, so a
     disk that keeps case apart, where another case is another file, and
-    a part that names nothing yet keep the spelling they were given. A
-    root the path lies under is kept as given, so no folder above it is
-    listed.
+    a part that names nothing yet keep the spelling they were given. The
+    root is kept as given, so no folder above it is listed.
     """
-    if root is not None:
-        spelled, rest = root, path.relative_to(root).parts
-    elif path.parts:
-        spelled, rest = Path(path.parts[0]), path.parts[1:]
-    else:
-        return path
-
-    for part in rest:
+    spelled = root
+    for part in path.relative_to(root).parts:
         candidate = spelled / part
         if part not in (".", "..") and os.path.lexists(candidate):
             try:

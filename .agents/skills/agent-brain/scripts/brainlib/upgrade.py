@@ -683,7 +683,7 @@ def prepare(
         if out is not None:
             raise UpgradeError(f"{relative.as_posix()} sits behind a link that leads out of the project, to {out}, so move the link aside first")
 
-    blocked = in_the_way(kit=kit, project=project, stamped=stamped)
+    blocked = in_the_way(kit=kit, project=project)
     if blocked is not None:
         raise UpgradeError(blocked)
 
@@ -707,7 +707,7 @@ def prepare(
 
         # before the kit shipped its Rust rule a rule of that name was the project's own, which doctor would write the kit's words over
         own_rust = brain_root / rules.FOLDER / rust.RULE
-        if stamped < schema.as_tuple(rust.SINCE) and store.readable_file(own_rust) and not rust.says_the_kits(read_as_is(own_rust).removeprefix("﻿").replace("\r\n", "\n")):
+        if stamped < schema.as_tuple(rust.SINCE) and store.readable_file(own_rust) and not rust.says_the_kits(read_as_is(own_rust).removeprefix("\N{ZERO WIDTH NO-BREAK SPACE}").replace("\r\n", "\n")):
             raise UpgradeError(f"{folder}/{rules.FOLDER}/{rust.RULE} is the project's own rule, and from {rust.SINCE} that name is the kit's Rust rule, so retitle it first with brain refile")
 
     settings = kit_config(kit=kit)
@@ -742,7 +742,6 @@ SANDBOXED = (
 def in_the_way(
     kit: Kit,
     project: Project,
-    stamped: tuple[int, ...],
 ) -> Optional[str]:
     """Why the install would stop part way, or None, asked before its first write so a refusal leaves the project as it was.
 
@@ -752,19 +751,22 @@ def in_the_way(
     which Claude Code's sandbox refuses on purpose. The places are the
     ones the install writes, the front doors, the kit's files under the
     brain and the agent folders, the project's own rule, the doc of the
-    doors' own words, the ignore file, the stamp and the kind folders.
+    doors' own words, the ignore file, the stamp and the kind folders,
+    the brain's read where it stands now, `.agent/` on the layout before
+    1.0.0, since the move to `.agents/` comes before the install.
     """
+    brain = Path(OLD_FOLDER if project.state() == "old" else FOLDER)
     files: list[Path] = [
         *(Path(name) for name in ROOT_FILES),
-        *(Path(FOLDER) / relative for relative in kit.brain_files()),
+        *(brain / relative for relative in kit.brain_files()),
         *kit.agent_files(),
-        Path(FOLDER) / rules.FOLDER / rules.PROJECT,
-        Path(FOLDER) / QUOTED_DOC,
+        brain / rules.FOLDER / rules.PROJECT,
+        brain / QUOTED_DOC,
         Path(IGNORE_FILE),
-        Path(FOLDER) / VERSION,
+        brain / VERSION,
     ]
     folders = {parent for relative in files for parent in relative.parents if parent != Path(".")}
-    folders |= {Path(FOLDER) / kind.folder for kind in schema.KINDS.values()}
+    folders |= {brain / kind.folder for kind in schema.KINDS.values()}
     for folder in sorted(folders, key=lambda path: (len(path.parts), path.as_posix())):
         place = project.root / folder
         if os.path.lexists(place) and not store.quietly(place.is_dir):
@@ -776,7 +778,8 @@ def in_the_way(
 
     definitions = [relative for relative in kit.agent_files() if relative.parent == DEFINITIONS]
     owed = any(not store.same_bytes(one=project.root / relative, other=kit.root / relative) for relative in definitions)
-    owed = owed or any(schema.carries(since=definition.since, stamp=stamped) and store.readable_file(project.root / definition.path) for definition in schema.RETIRED_DEFINITIONS)
+    # the retired definitions the install would remove, asked of the one place that removes them
+    owed = owed or bool(retire_definitions(project=project, remove=False))
     if owed and not takes_a_write(project.root / DEFINITIONS):
         return SANDBOXED
 
