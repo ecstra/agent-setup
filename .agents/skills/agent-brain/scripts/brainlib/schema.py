@@ -343,6 +343,12 @@ KINDS: dict[str, Kind] = {
             Section(title="Findings"),
         ),
     ),
+    # a project's own instruction, one file each, every one loaded as a system instruction through AGENTS.md's imports, written sparingly
+    "rule": Kind(
+        name="rule",
+        folder="rules",
+        index_description="the project's own rules, one file each, every one a system instruction AGENTS.md imports",
+    ),
 }
 
 # The folder that holds the one note a session leaves for the next,

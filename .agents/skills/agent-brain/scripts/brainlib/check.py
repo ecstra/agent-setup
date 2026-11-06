@@ -638,7 +638,6 @@ def slips_of(
     return markdown_slips(
         relative=relative,
         text=text,
-        own_words_only=relative == "AGENTS.md" and not is_kit_checkout(project),
     )
 
 
@@ -892,10 +891,10 @@ def is_tools(
     return "/".join(inside) == handover.RELATIVE
 
 
-# The files at the project's top the kit writes whole, AGENTS.md aside,
-# whose words above the kit's marker are the project's section 0, and
-# the chat style in each agent folder, the source and doctor's copies.
-KIT_ROOT_FILES: tuple[str, ...] = tuple(name for name in schema.ROOT_FILES if name != "AGENTS.md")
+# The files at the project's top the kit writes whole, AGENTS.md among
+# them since the project's own words are its rules, and the chat style
+# in each agent folder, the source and doctor's copies.
+KIT_ROOT_FILES: tuple[str, ...] = schema.ROOT_FILES
 CHAT_STYLE: tuple[str, ...] = tuple(path.as_posix() for path in (style.SOURCE, *style.COPIES))
 
 
@@ -941,7 +940,6 @@ def written_by_kit(
 def markdown_slips(
     relative: str,
     text: str,
-    own_words_only: bool = False,
 ) -> list[Slip]:
     """The prose slips of a markdown file, line by line as it renders, its header block, its code, its raw HTML and its literal text stepped over.
 
@@ -955,16 +953,10 @@ def markdown_slips(
     reading did not step over it, opens a list item, so code or a tag
     turned to spaces is never read as either, and beside the line with
     its code alone turned to spaces, so a sentence a code span opens is
-    told from one that opens past a tag. In a project's AGENTS.md only
-    the words above the kit's marker are the project's to put right.
+    told from one that opens past a tag.
     """
     reading: Reading = read_markdown(text)
     prose = reading.prose
-    if own_words_only:
-        # the marker is an HTML comment, blanked in the prose, so it is found in the text as section_zero_in reads it, outside code and comments, or on its line inside a fence or a comment left open, and the prose keeps the text's offsets
-        mark: int = upgrade.kit_mark_in(text)
-        if mark != -1:
-            prose = prose[:mark]
 
     found: list[Slip] = []
     for number, (line, typed, codeless) in enumerate(

@@ -219,6 +219,9 @@ def spine_body(
         if store.readable_file(brain.root / relative):
             lines.append(f"- [{relative}]({relative}), {hook}")
 
+    lines += ["", "## The rules", ""]
+    lines.append(spine_line(brain=brain, kind_name="rule", label="the project's own rules, each a system instruction", counter=count_rules))
+
     lines += ["", "## The knowledge", ""]
     lines.append(spine_line(brain=brain, kind_name="doc", label="the knowledge library", counter=count_docs))
 
@@ -380,6 +383,31 @@ def docs_body(
         lines.append("")
 
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def rules_body(
+    entries: list[store.Entry],
+) -> str:
+    lines = header(
+        title="Rules Index",
+        intro="The project's own rules, one line each, every one a system instruction AGENTS.md imports.",
+    )
+    if not entries:
+        lines.append("Nothing here yet.")
+        return "\n".join(lines) + "\n"
+
+    folder = entries[0].root / "rules"
+    lines += [line_for(entry=entry, from_folder=folder) for entry in sorted(entries, key=lambda e: (e.path.name != "project.md", e.name))]
+
+    return "\n".join(lines) + "\n"
+
+
+def count_rules(
+    entries: list[store.Entry],
+) -> str:
+    noun = "rule" if len(entries) == 1 else "rules"
+
+    return f"{len(entries)} {noun}"
 
 
 def memory_body(
@@ -607,6 +635,7 @@ RENDERERS: dict[str, Callable[..., str]] = {
     "plan": plans_body,
     "build-spec": build_specs_body,
     "review": reviews_body,
+    "rule": rules_body,
 }
 
 

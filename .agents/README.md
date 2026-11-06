@@ -28,6 +28,9 @@ the repo root when the project keeps one, agents read this.
 - `SYSTEM.md`: the rules every agent works by. Claude Code and Gemini
   CLI pull it in through the root `AGENTS.md`. Codex gets it from its
   session start hook. An agent that has neither opens it first.
+- `rules/`: the project's own rules, one per file, `project.md` always
+  among them, each loaded the same way as `SYSTEM.md`. Filed through
+  `brain new rule`, sparingly.
 - `docs/`: the knowledge, categorized. What the product is and how it
   works.
 - `memory/`: project facts learned along the way, one per file.

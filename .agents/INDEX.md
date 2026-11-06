@@ -22,6 +22,10 @@ rather than this one.
 - [skills/see/SKILL.md](skills/see/SKILL.md), the see tool, a video or a screenshot read as numbers and labelled images
 - [VERSION](VERSION), the kit release this brain is on
 
+## The rules
+
+- [rules/INDEX.md](rules/INDEX.md), the project's own rules, each a system instruction: 1 rule
+
 ## The knowledge
 
 - [docs/INDEX.md](docs/INDEX.md), the knowledge library: empty

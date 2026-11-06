@@ -1,11 +1,12 @@
 """The project's own linters, run by the post write hook on each file the agent writes.
 
-Section 0 of AGENTS.md names them under a heading named Lint, in fenced
-blocks, one line each: a file pattern, then one command whose word
-`{file}` stands for the file. Each command runs with no shell, the file
-handed over as one absolute path, so no path can be read as code or as
-an option. The hook hands back what the linters could not fix, with one
-line when they rewrote the file, and never blocks the write.
+The project's rules in .agents/rules/ name them under a heading named
+Lint, in fenced blocks, one line each, a file pattern and then one
+command whose word `{file}` stands for the file. Each command runs with
+no shell, the file handed over as one absolute path, so no path can be
+read as code or as an option. The hook hands back what the linters could
+not fix, with one line when they rewrote the file, and never blocks the
+write.
 """
 
 import contextlib
@@ -21,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from . import check, sections, store, upgrade
+from . import check, rules, sections, store
 
 HEADING = "lint"
 FILE = "{file}"
@@ -62,24 +63,18 @@ def lines_of(
     if check.is_kit_checkout(project):
         return [Line(pattern=pattern, words=words) for pattern, words in KIT_LINES], []
 
-    door = project / "AGENTS.md"
-    if not store.readable_file(door):
-        return [], []
-
     try:
-        text = door.read_text(encoding="utf-8-sig")
-    except (OSError, UnicodeDecodeError):
+        found = rules.texts(project / check.BRAIN_FOLDER)
+    except rules.RuleUnreadable as error:
+        return [], [f"{error}, so no rule's lint line runs"]
+
+    # every rule's Lint headings count, the project's own rule first and the others by name
+    read: list[tuple[list[str], list[str]]] = [written for written in (written_lines(text) for _, text in found) if written is not None]
+    if not read:
         return [], []
 
-    zero: Optional[str] = upgrade.section_zero_in(text)
-    if zero is None:
-        return [], []
-
-    written: Optional[tuple[list[str], list[str]]] = written_lines(zero)
-    if written is None:
-        return [], []
-
-    fenced, strays = written
+    fenced = [line for lines, _ in read for line in lines]
+    strays = [line for _, lines in read for line in lines]
     if not fenced and not strays:
         return [], [f"the Lint heading holds no lint line, so nothing is linted, and each goes in a fenced block as a file pattern then one command with {FILE}"]
 
@@ -103,10 +98,10 @@ def lines_of(
 
 
 def written_lines(
-    zero: str,
+    rule: str,
 ) -> Optional[tuple[list[str], list[str]]]:
-    """The lines of the fenced blocks under a Lint heading of section 0, comments and blank lines aside, and the lines beside them that name the file, or None with no such heading."""
-    blocks: sections.Blocks = sections.blocks_of(zero)
+    """The lines of the fenced blocks under a Lint heading of one rule, comments and blank lines aside, and the lines beside them that name the file, or None with no such heading."""
+    blocks: sections.Blocks = sections.blocks_of(rule)
     found: Optional[tuple[list[str], list[str]]] = None
     for heading in blocks.headings:
         if heading_name(heading.text) != HEADING:
@@ -115,17 +110,17 @@ def written_lines(
         fenced, strays = found or ([], [])
         stretch_end: int = next(
             (later.start for later in blocks.headings if later.start > heading.start and later.level <= heading.level),
-            len(zero),
+            len(rule),
         )
         beside: list[str] = []
         at = heading.end
         for fence in blocks.fences:
             if heading.end <= fence.start < stretch_end:
                 fenced += [line.strip() for line in fence.text.split("\n") if line.strip() and not line.strip().startswith("#")]
-                beside.append(zero[at : fence.start])
+                beside.append(rule[at : fence.start])
                 at = fence.end
 
-        beside.append(zero[at:stretch_end])
+        beside.append(rule[at:stretch_end])
         spans = [CODE_LINE.match(line) for line in "".join(beside).split("\n")]
         strays += [span.group(1).strip() for span in spans if span and FILE in span.group(1)]
         found = (fenced, strays)

@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, handover, index, ledger, plans, reads, schema, steps, store, task, upgrade, writes
+from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, handover, index, ledger, plans, reads, rules, schema, steps, store, task, upgrade, writes
 from brainlib.store import FINDINGS_REMAIN, REFUSED
 
 FIELD_FLAGS = ("status", "severity", "area", "by", "type", "branch", "date")
@@ -523,6 +523,10 @@ def run_new(
     )
     index.write(brain)
     print(entry.relative)
+    if kind.name == "rule":
+        # a rule is a system instruction AGENTS.md imports, and an agent loads its system instructions only as a session starts
+        rules.write_imports(brain.root)
+        print(rules.RELOAD if rules.imports(brain_root=brain.root, name=entry.path.name) else rules.NOT_IMPORTED)
 
     say_slips_in(
         brain=brain,
@@ -593,6 +597,9 @@ def run_refile(
 
     index.write(brain)
     print(entry.relative)
+    # a rule retitled is a file renamed, which AGENTS.md has to import by its new name
+    if rules.write_imports(brain.root):
+        print(rules.RELOAD)
 
     # a retitle writes the header alone, while a change of kind files the prose given on standard input
     if args.kind:
@@ -726,7 +733,7 @@ def add_gates(
 ) -> None:
     command = commands.add_parser(
         name="gates",
-        help="the gates section 0 names, in order, stopping at the first red, then check and doctor",
+        help="the gates the project's rules name, in order, stopping at the first red, then check and doctor",
     )
     command.set_defaults(handler=run_gates)
 

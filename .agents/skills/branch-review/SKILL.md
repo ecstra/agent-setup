@@ -44,8 +44,8 @@ These are never findings.
   the definitions under `.claude/agents/`, the skill stubs under
   `.claude/skills/`, the chat
   style `plain-and-short.md` under `.claude/output-styles/` and its
-  copies in `.codex/` and `.gemini/`, `CLAUDE.md`, `GEMINI.md` and
-  `CONTRIBUTING.md`
+  copies in `.codex/` and `.gemini/`, `AGENTS.md`, `CLAUDE.md`,
+  `GEMINI.md` and `CONTRIBUTING.md`
 
 ## Levels
 

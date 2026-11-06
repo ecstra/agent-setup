@@ -541,6 +541,41 @@ def moved_body(
     return body if body != document.body else None
 
 
+def rebased(
+    text: str,
+    old_folder: Path,
+    new_folder: Path,
+) -> str:
+    """The prose with every relative markdown link, written from `old_folder`, written again from `new_folder`, so words moved between files still reach what they named, anchors kept and code left alone."""
+    spans: list[tuple[int, int]] = []
+
+    def move(
+        match: re.Match,
+    ) -> str:
+        target = bare(match.group(1))
+        if sections.in_code(spans=spans, position=match.start()):
+            return match.group(0)
+
+        if not target or "://" in target or target.startswith(("#", "mailto:")) or Path(target).is_absolute():
+            return match.group(0)
+
+        file_part, hash_sign, anchor = target.partition("#")
+        # a markdown link takes forward slashes on every system
+        replacement = Path(os.path.relpath(os.path.normpath(old_folder / file_part), new_folder)).as_posix() + hash_sign + anchor
+        if target != match.group(1):
+            replacement = f"<{replacement}>"
+        head = match.group(0)[: match.start(1) - match.start(0)]
+        tail = match.group(0)[match.end(1) - match.start(0) :]
+
+        return head + replacement + tail
+
+    for pattern in (MARKDOWN_LINK, REFERENCE_LINK):
+        spans = sections.code_spans(text)
+        text = pattern.sub(move, text)
+
+    return text
+
+
 def moved_links(
     brain: store.Brain,
     document: frontmatter.Document,
