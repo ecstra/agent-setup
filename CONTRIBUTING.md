@@ -14,12 +14,12 @@ behavior.
   or deferred with a written reason, before anything merges.
 - **No merge without the owner's explicit ask.** Same for opening the PR
   itself. When it opens and whether as a draft is this project's own
-  rule in AGENTS.md section 0.
+  rule in `.agents/rules/`.
 - **Single author, no co-authors, no AI attribution anywhere.** Not in
   commits, not in PR titles or bodies, no generated-with footers.
 - **Gates before review.** `brain gates` is green and the working tree
-  is clean before a review starts. It runs the gates AGENTS.md
-  section 0 names, then `brain check` and `brain doctor`, as
+  is clean before a review starts. It runs the gates the project's
+  rules name, then `brain check` and `brain doctor`, as
   [commands.md](.agents/skills/agent-brain/references/commands.md#the-gates)
   says. Reviewers judge committed, working code and a sound brain.
 - **Secrets stay out of git.** They live in the gitignored root `.env`
@@ -34,5 +34,6 @@ behavior.
 Branch from fresh main, write the branch's build spec in
 `.agents/build-specs/` before the code, then work in small undoable
 commits and keep the gates green. The owner calls the review and the
-agent runs it, then merges on their ask. The PR follows section 0, on their ask. The
-branch dies after merge, its ledger is the record.
+agent runs it, then merges on their ask. The PR follows the project's
+rules, on their ask. The branch dies after merge, its ledger is the
+record.

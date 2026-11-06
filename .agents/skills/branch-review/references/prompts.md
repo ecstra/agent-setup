@@ -98,8 +98,8 @@ such as a new command, flag or refusal. Read the build spec at <path>,
 whose Changes say where the work left the plan.
 
 Edit docs only, never code. Check each fact you write against the code
-it describes. Follow .agents/SYSTEM.md sections 6 and 8.1, and section
-0 of AGENTS.md where the project has one. A file under .agents/ that
+it describes. Follow .agents/SYSTEM.md sections 6 and 8.1, and the
+project's rules in .agents/rules/. A file under .agents/ that
 you change takes `updated=<today's date>` through `brain set` with the
 file's name. One fact lives in one place, so link where another doc
 holds it. Never edit a record, which is a decision, a bug, a memory or

@@ -1,6 +1,6 @@
 ---
 name: agent-brain
-description: The one way to read, list, count, file, change, move or check anything in the project's .agents/ brain. Use it to list or count the open entries, show one, file a plan, todo, bug, decision, doc or memory, set the work in hand and mark its steps, run a review ledger, leave the next session's note, retitle a file, or check the brain. Never grep its fields, list its folders or write it by hand.
+description: The one way to read, list, count, file, change, move or check anything in the project's .agents/ brain. Use it to list or count the open entries, show one, file a plan, todo, bug, decision, doc, memory or rule, set the work in hand and mark its steps, run a review ledger, leave the next session's note, retitle a file, or check the brain. Never grep its fields, list its folders or write it by hand.
 ---
 
 # The brain tool
@@ -107,7 +107,9 @@ The same shape files a todo (`--area`, `--by`), a decision (`--area`),
 a memory (`--type project|feedback|reference`), a doc (`--category`),
 a build spec (`--branch`) or a review. Each kind's required headings
 are in [the reference](references/commands.md#writing), and the tool
-names the one that is missing.
+names the one that is missing. A rule takes no field of its own, and
+`brain new rule` adds its import to `AGENTS.md`. It loads only once the
+session is reloaded, so ask the owner to reload it.
 
 A plan is a goal with the steps that reach it, and the steps are a
 table the tool keeps, on a plan and a build spec always and on a todo
@@ -182,6 +184,12 @@ and `brain list --area` finds every entry.
   feedback for a way of working the owner corrected or confirmed, or
   reference for a pointer outside, its body the fact, why it matters
   and how to apply it. A wrong one is fixed or deleted.
+- A rule, in `rules/`, is a durable instruction this project alone
+  needs, which every session loads as it starts, never a note, a todo
+  or a doc, so rules are written sparingly. It has no status.
+  `rules/project.md` is the project's own and always there, and the
+  others load after it by name, as
+  [the rules](references/commands.md#the-rules) says.
 - A bug, in `bugs/`, is wrong behaviour with evidence, graded `breaks`
   where a user's path fails or loses work, `bug` for a wrong result on
   some input or state, `debt` for what works and costs later, `nit` for
@@ -372,9 +380,9 @@ The post write hook runs the check on each file the agent writes, and
 `brain new`, `brain refile --kind` and `brain steps add` run it on the
 file they write, so a slip is fixed in the same round.
 
-Before the check, the same hook runs the linters section 0 of
-`AGENTS.md` names under a Lint heading on each file the agent writes
-outside `.agents/`. Under `lint after that write:` it hands back what
+Before the check, the same hook runs the linters the project's rules
+name under a Lint heading on each file the agent writes outside
+`.agents/`. Under `lint after that write:` it hands back what
 they could not fix, each lint line or command it could not run, and a
 line when they rewrote the file, which is then read again before the
 next edit. It never blocks the write.
@@ -382,8 +390,8 @@ next edit. It never blocks the write.
 is written, what is refused and how long a command may run.
 
 `brain gates` is the one command before a review and before a merge.
-It runs the gates section 0 names, then the check and doctor. The
-[reference](references/commands.md#the-check) says which files the
+It runs the gates the project's rules name, then the check and doctor.
+The [reference](references/commands.md#the-check) says which files the
 check reads and where it falls short, and
 [the gates row](references/commands.md#the-gates) says what makes a
 gate, how each runs and what each exit code means.
@@ -398,9 +406,10 @@ which get the table, a chat style copy that drifted from the Claude
 Code one, a skill stub that is missing or behind its sheet's header, a
 link of any kind, a plain file or a copy of the sheet where a stub
 belongs, which the stub replaces, a missing launcher `.agents/brain`,
-written from the text the tool holds, a read guard rule or sandbox entry
-missing from `.claude/settings.json` while `.claude` stays inside the
-project, an entry's missing `author` or `editor`, which it fills from
+written from the text the tool holds, import lines in `AGENTS.md` that
+leave out a rule, name a file that is none or stand out of load order,
+a read guard rule or sandbox entry missing from `.claude/settings.json`
+while `.claude` stays inside the project, an entry's missing `author` or `editor`, which it fills from
 git's history, and stamps every file it touches, save one where it
 only fills a name. The stubs are real files, so no system needs a link
 for them, and a stub's repair that would take away or write over a
@@ -420,6 +429,7 @@ Run from the project's root, with `<kit>` a checkout of agent-setup.
 `port` installs the kit into a project with no brain and lists what is
 left to file through `brain new`. `upgrade` brings an existing brain up
 to the kit, the old `.agent/` layout included, migrations first. Both
-keep the project's section 0, its own hooks and everything it wrote,
-and end with `doctor --fix`. The full contract is in
+keep the project's rules, its own hooks and everything it wrote, move a
+`## 0. Project Rules` that a front door from before 3.0.0 held into
+`rules/project.md`, and end with `doctor --fix`. The full contract is in
 [commands.md](references/commands.md).

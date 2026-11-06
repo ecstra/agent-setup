@@ -2,7 +2,7 @@
 name: house-rules-agent
 kind: doc
 description: the branch contract and code review protocol, the agent's operating version
-updated: 2026-10-30
+updated: 2026-11-06
 links: [README.md, skills/agent-brain/SKILL.md, skills/branch-review/SKILL.md]
 ---
 
@@ -11,7 +11,7 @@ links: [README.md, skills/agent-brain/SKILL.md, skills/branch-review/SKILL.md]
 The development rules of every project that carries this directory. A
 project may keep a short human cut at `docs/house-rules.md` and the hard
 bans in a root CONTRIBUTING.md, both pointing here. The project's own
-AGENTS.md section 0 names its exact gates, tooling, and PR rules.
+rules in `rules/` name its exact gates, tooling, and PR rules.
 
 ## The branch contract
 
@@ -29,7 +29,7 @@ AGENTS.md section 0 names its exact gates, tooling, and PR rules.
 4. **Main is reviewed code only.** Gates first, then review, then
    merge. No step skips, and nothing merges before the review has
    closed. When the PR opens and whether as a draft is the project's
-   rule in AGENTS.md section 0, never a question the agent asks.
+   rule in `rules/`, never a question the agent asks.
 5. **A branch leaves no gap.** What the build spec promises is built
    and proven, and every doc, test and caller the change makes wrong is
    put right on the branch. A gap that waits on later work is filed as
@@ -37,7 +37,7 @@ AGENTS.md section 0 names its exact gates, tooling, and PR rules.
 
 ## The gates
 
-The project's AGENTS.md section 0 names its linters under a Lint
+The project's rules in `rules/` name its linters under a Lint
 heading and its gates under a Gates heading. The brain runs the Lint
 lines on every file the agent writes, and `brain gates` runs the Gates
 before a review and before a merge. It runs them in order and stops at
@@ -104,7 +104,7 @@ as well, since a review reads committed work only.
   `updated:` or `removed:`, one short sentence, two clauses at most.
 - Push after each commit.
 - PRs only on the owner's explicit ask in the current message, through
-  the project's PR tooling, base main, plain unless section 0 says
+  the project's PR tooling, base main, plain unless a project rule says
   otherwise. Merges only on the owner's explicit ask, never before the
   review has closed.
 - Never commit to main directly.
