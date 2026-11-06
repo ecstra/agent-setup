@@ -368,26 +368,41 @@ it. A word holds until its time ends or its task is done, and the word
 for a moved file is the word for the path it moves from. A task done,
 gone from the brain or doubled by a merge takes the word back for good,
 as it does the standing word, so it never comes back when the task
-reopens or a new entry takes its id. A task the brain cannot read right
+reopens or a new entry takes its id. The session start, each prompt and
+each tick after the agent's tool calls take back every such word, so a
+task done and reopened between two writes still ends the word. Where the
+brain's folder cannot be written the word stays in its file, off while
+its task stays ended, and the next hook tries again, so only a task
+reopened before then gives it back. A task the brain cannot read right
 now, or a review ledger this checkout lacks, holds the word off until
 it is back.
 
 A file is a test file by its name or by its folder.
 
-- By name: `test_*.py`, `*_test.py`, `test.py`, `tests.py`,
-  `*_test.go`, `*_test.dart`, `*_test.rb`, `*_spec.rb`, `test.rs`,
-  `tests.rs`, `*_test.rs`, `*_tests.rs`, `*.test.ts`, `*.spec.js` and
-  the like in JavaScript and TypeScript, and a name that ends in `Test`
-  or `Tests` in Java, Kotlin and Swift.
+- By name: `test_*.py`, `*_test.py`, `tests.py`, `*_test.go`,
+  `*_test.dart`, `*_test.rb`, `*_spec.rb`, `tests.rs`, `*_tests.rs`,
+  `*.test.ts`, `*.spec.js` and the like in JavaScript and TypeScript,
+  and a name that ends in `Test` or `Tests` in Java, Kotlin and Swift. A
+  lone `test.py` or `test.rs` and a `*_test.rs` are not, since such a
+  file is as often a test command's code, so a Rust one is guarded
+  through its tests' attributes, as below.
 - By folder: a code file of those languages inside a folder named
   `tests`, `test`, `__tests__`, `spec` or `specs`, in any case, so
   Swift's `Tests` counts.
 - A snapshot: a `.snap` file anywhere, which is an assertion whole,
   every line below its header.
-- A Rust file anywhere else: only the items a `#[cfg(test)]` line
-  stands on count, such as a `mod tests` block or a function, so a check
-  in the code beside them is the code's. A `#[cfg(test)] mod tests;` keeps its
-  tests in a file of their own, such as `tests.rs`, and counts for
+- A Rust file anywhere else: only the items a test attribute stands on
+  count, a `#[cfg(test)]` on a `mod tests` block or a function, or a
+  test function's own `#[test]` or `#[<path>::test]`, such as
+  `#[tokio::test]`. A check in the code beside them is the code's. An
+  item counts from the line the attribute opens, so
+  `#[cfg(test)] mod tests {` on one line counts, and runs to its closing
+  brace, a header with a `;` inside brackets, such as
+  `fn check(bytes: [u8; 4])`, running on to its body. A test module kept
+  in a file of another name, such as `parser_test.rs`, is guarded
+  through its tests' attributes, and a helper there with no test
+  attribute of its own is the code's. A `#[cfg(test)] mod tests;` keeps
+  its tests in a file of their own, such as `tests.rs`, and counts for
   nothing in the file that names it.
 
 The guard knows a check by the way its language writes one.
@@ -407,27 +422,46 @@ The guard knows a check by the way its language writes one.
 
 A check is held whole, over every line a formatter wraps it onto. It
 runs on while a bracket it opens stays open, a bracket inside a string
-aside, and on to a next line that opens with a `.`, a chained call such
-as `.toBe(3)`. A Go test's `t.Error` and the other `t` calls only
-report a check made on an `if` line, so where one opens the block just
-above the call, that line is part of the check. Each check is compared
-with its lines joined and their indent taken off, as often as it
-stands, so one of two copies removed counts as lost, and a change to
+aside, past a line that ends in a `\`, and on to a next line that opens
+with a `.`, a chained call such as `.toBe(3)`. In Ruby it runs on while
+a block stays open too, one a `do` at a line's end opens or a keyword
+such as `if` at a line's start, so `expect do` holds through the
+`end.to raise_error` that closes it. A Go test's `t.Error` and the
+other `t` calls only report a check made on an `if` line, so the `if`
+line of the block the call sits in, the nearest line above with less
+indent, is part of the check, a `} else if` among them. A comment or a
+`t.Logf` between the two is no part of it, and a call in a block that
+opens on any other line, such as a `for`, is held alone. Each check is
+compared with its lines joined and their indent taken off, as often as
+it stands, so one of two copies removed counts as lost, and a change to
 any line of it is a change to the check.
 
-A patch's hunks that fit the file are applied in turn and the file is
-judged as they leave it. Each hunk that fits nowhere, which Codex's
-`apply_patch` may still place by looser spacing, is judged on its own
-by the assertions its removed lines carry that its added lines do not.
+A patch's hunks that fit the file are applied in turn. Each hunk that
+fits only by looser spacing is then placed as Codex's `apply_patch`
+places it, where its lines match the file's with the spacing at each
+end taken off, and the file is judged as all of them leave it, so a
+check is read whole wherever the hunk lands. A hunk that fits nowhere
+even so is judged on its own, by the assertions its lines before carry
+that its lines after do not, the lines it keeps counted on both sides.
 
 The guard falls short in these places.
 
 - A value the check reads from elsewhere, a variable or a table of
   cases, is the code's, so a change to it passes.
-- A Rust file outside a folder of tests counts only what a
-  `#[cfg(test)]` attribute on a line of its own stands on, so tests
-  behind another attribute, such as `#[cfg(all(test, unix))]`, are not
-  guarded.
+- A Rust file that is no test file by its name or folder counts only
+  what a `#[cfg(test)]`, a `#[test]` or a `#[<path>::test]` stands on,
+  so tests behind another cfg, such as `#[cfg(all(test, unix))]`, or
+  under a test attribute of another name, such as rstest's `#[rstest]`,
+  are not guarded. A `#[should_panic]` there counts only inside a test
+  module or below its test's own attribute.
+- A Go `if` whose condition runs over several lines, or a failure call
+  in an `else` block, leaves the call held alone, without the condition
+  it reports.
+- A Ruby block opened mid line, such as `x = if ready`, is not counted
+  as open, so a check around it ends early, at that block's `end`.
+- A task done and reopened inside one tool call, such as one shell
+  command, is never seen ended, so the owner's word for its test files
+  stands.
 - A write or a delete by a shell command is unseen, since no write hook
   sees it, so there the rule the agent works by is all that holds.
 - A language not named above is not guarded.
