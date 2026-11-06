@@ -19,7 +19,7 @@ def pt(value: float, scale: float) -> str:
 
 def box_text(box: tuple, scale: float) -> str:
     x, y, w, h = box
-    return f"x {x} y {y} w {w} h {h} px ({pt(x, scale)}, {pt(y, scale)}, {pt(w, scale)} x {pt(h, scale)} pt)"
+    return f"x {x} y {y} w {w} h {h} px (x {pt(x, scale)} y {pt(y, scale)} w {pt(w, scale)} h {pt(h, scale)} pt)"
 
 
 def moving_pairs(video: media.Video) -> tuple:
@@ -129,8 +129,10 @@ def report(path: Path, out: Path, scale: float) -> None:
             if r > 2 or not own:
                 print(f"  region {r}: {box_text(box, scale)}")
                 continue
-            overview = region_sheets(video, out, number, r, box, [own[0][0] - 1] + [f for f, _ in own], dict(own), scale)
+            overview, images = region_sheets(video, out, number, r, box, [own[0][0] - 1] + [f for f, _ in own], dict(own), scale)
             print(f"  region {r}: {box_text(box, scale)}" + (", key frames only, scaled" if overview else ""))
+            for line in images:
+                print(f"    {line}")
         print(f"  {'frame':<6} {'ms':>6} {'+ms':>5} {'changed px':>11}  (counted in {CELL} px cells)")
         before = video.times[first]
         for frame, changed, _ in burst:
@@ -138,8 +140,19 @@ def report(path: Path, out: Path, scale: float) -> None:
             before = video.times[frame]
 
 
-def region_sheets(video: media.Video, out: Path, burst: int, region: int, box: tuple, frames: list, weight: dict, scale: float) -> bool:
-    """The tagged frames and frame diffs of one region, and whether it was too big for full quality and got key frames instead."""
+def image_lines(written: list, spans: list) -> list:
+    """A line per sheet written, naming the first and last moment its tiles show, so an agent opens the sheet it needs without opening the rest."""
+    lines, k = [], 0
+    for file, count, width, height in written:
+        first, last = spans[k][0], spans[k + count - 1][1]
+        shows = first if first == last else f"{first} to {last}"
+        lines.append(f"image {file}: {shows}, {count} tile{'s' if count != 1 else ''}, {width}x{height}")
+        k += count
+    return lines
+
+
+def region_sheets(video: media.Video, out: Path, burst: int, region: int, box: tuple, frames: list, weight: dict, scale: float) -> tuple:
+    """The tagged frames and frame diffs of one region written, whether it was too big for full quality and got key frames instead, and a line per sheet."""
     pad = 8
     x, y, w, h = box
     x0, y0 = max(x - pad, 0), max(y - pad, 0)
@@ -170,6 +183,7 @@ def region_sheets(video: media.Video, out: Path, burst: int, region: int, box: t
         tiles.append((top, f"+{1000 * (video.times[frame] - video.times[before]):.0f} MS  {media.changed_px(rgb[before], rgb[frame])} PX CHANGED", BLUE, tile))
     legend = "EACH TILE IS TAGGED: FRAME NUMBER AND MS FROM THE VIDEO'S START, THEN MS AND PIXELS CHANGED SINCE THE TILE BEFORE IT"
     written = draw.tagged_sheets(out, f"burst-{burst}-region-{region}-frames", f"FRAMES OF BURST {burst}, REGION {region}: {where}", [note, quality, legend], tiles, tw, th)
+    lines = image_lines(written, [(f"F{f}", f"F{f}") for f in picked])
     light = media.is_light(rgb[picked[0]])
     diffs = []
     for a, b in zip(picked, picked[1:]):
@@ -179,10 +193,9 @@ def region_sheets(video: media.Video, out: Path, burst: int, region: int, box: t
         "EACH TILE SHOWS WHAT CHANGED FROM ONE FRAME TO THE NEXT. RED: ONLY IN THE EARLIER FRAME. GREEN: ONLY IN THE LATER ONE. YELLOW: CHANGED IN BOTH. GREY: THE SAME",
         "EACH TILE IS TAGGED: THE TWO FRAMES, THEN MS AND PIXELS CHANGED BETWEEN THEM" + ("" if factor == 1 else f". SCALED {factor:.2f}X FOR AN OVERVIEW"),
     ]
-    written += draw.tagged_sheets(out, f"burst-{burst}-region-{region}-diffs", f"FRAME DIFFS OF BURST {burst}, REGION {region}: {where}", notes, diffs, tw, th)
-    for file, count, width, height in written:
-        print(f"    image {file}: {count} tiles, {width}x{height}")
-    return overview
+    written = draw.tagged_sheets(out, f"burst-{burst}-region-{region}-diffs", f"FRAME DIFFS OF BURST {burst}, REGION {region}: {where}", notes, diffs, tw, th)
+    lines += image_lines(written, [(f"F{a}", f"F{b}") for a, b in zip(picked, picked[1:])])
+    return overview, lines
 
 
 def frame(path: Path, index: int, out: Path, box, scale: float) -> None:
@@ -285,5 +298,6 @@ def pair_sheets(out: Path, rows: list, counts: list, frames_a: dict, frames_b: d
         "EACH TILE IS ONE MOMENT, MS FROM THE FIRST MOTION: A ON THE LEFT, B IN THE MIDDLE, THEIR OVERLAY ON THE RIGHT, RED ONLY IN A, GREEN ONLY IN B, GREY THE SAME",
         "FULL QUALITY" if factor == 1 else f"SCALED {factor:.2f}X FOR AN OVERVIEW",
     ]
-    for file, count, width, height in draw.tagged_sheets(out, "compare", f"A AND B SIDE BY SIDE: {box_text(region, scale).upper()}", notes, tiles, 3 * tw + 2 * gap, th):
-        print(f"image {file}: {count} tiles, {width}x{height}")
+    written = draw.tagged_sheets(out, "compare", f"A AND B SIDE BY SIDE: {box_text(region, scale).upper()}", notes, tiles, 3 * tw + 2 * gap, th)
+    for line in image_lines(written, [(f"+{1000 * t:.0f} ms", f"+{1000 * t:.0f} ms") for t, _, _ in rows]):
+        print(line)
