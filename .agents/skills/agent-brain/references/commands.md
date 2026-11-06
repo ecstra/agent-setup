@@ -416,17 +416,29 @@ The guard knows a check by the way its language writes one.
   `t.FailNow` and testify's `assert` and `require`.
 - Swift: the `XCTAssert` calls, `XCTFail`, `#expect` and `#require`.
 - Java and Kotlin: calls of `assert` methods and `fail`.
-- Ruby: `expect`, `assert`, `must_` and `should`.
+- Ruby: `expect`, `assert`, `must_`, `.should` and `.should_not`, and
+  a bare `should` or `should_not` where a matcher follows it, such as
+  `it { should validate_presence_of(:name) }`. A shoulda block such as
+  `should "be valid" do` names an example and is no check.
 - Dart, JavaScript and TypeScript: `expect`, `expectLater`, the
   `assert` calls and `.should`.
+
+A check's word inside a string on its line is no check, so a line that
+names an example, such as `it "should add an item" do` or
+`test "should get index" do`, is none, and the example holds only the
+checks in its body, each on its own.
 
 A check is held whole, over every line a formatter wraps it onto. It
 runs on while a bracket it opens stays open, a bracket inside a string
 aside, past a line that ends in a `\`, and on to a next line that opens
-with a `.`, a chained call such as `.toBe(3)`. In Ruby it runs on while
-a block stays open too, one a `do` at a line's end opens or a keyword
-such as `if` at a line's start, so `expect do` holds through the
-`end.to raise_error` that closes it. A Go test's `t.Error` and the
+with a `.`, a chained call such as `.toBe(3)`. In Ruby only an RSpec
+`expect do` block runs on to the `end` that closes it, the matcher on
+its `end.to` line included, over any block inside it that a `do` at a
+line's end or a keyword such as `if` at a line's start opens. Another
+block check, such as `assert_raises(ArgumentError) do` or
+`assert_difference("Product.count") do`, says what it expects on its
+first line, so that line alone is held and its body is the test's
+code, each check in it held on its own. A Go test's `t.Error` and the
 other `t` calls only report a check made on an `if` line, so the `if`
 line of the block the call sits in, the nearest line above with less
 indent, is part of the check, a `} else if` among them. A comment or a
@@ -458,7 +470,12 @@ The guard falls short in these places.
   in an `else` block, leaves the call held alone, without the condition
   it reports.
 - A Ruby block opened mid line, such as `x = if ready`, is not counted
-  as open, so a check around it ends early, at that block's `end`.
+  as open, so an `expect do` block around it ends early, at that
+  block's `end`.
+- A check's word inside a string that spans lines, such as a heredoc or
+  a triple quoted string, or inside a JavaScript template literal, is
+  read as a check, since the guard takes out only a string that opens
+  and closes in `"` or `'` on one line.
 - A task done and reopened inside one tool call, such as one shell
   command, is never seen ended, so the owner's word for its test files
   stands.
