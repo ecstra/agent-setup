@@ -417,16 +417,22 @@ The guard knows a check by the way its language writes one.
 - Swift: the `XCTAssert` calls, `XCTFail`, `#expect` and `#require`.
 - Java and Kotlin: calls of `assert` methods and `fail`.
 - Ruby: `expect`, `assert`, `must_`, `.should` and `.should_not`, and
-  a bare `should` or `should_not` where a matcher follows it, such as
-  `it { should validate_presence_of(:name) }`. A shoulda block such as
-  `should "be valid" do` names an example and is no check.
+  a bare `should` or `should_not` where a matcher or an operator follows
+  it, such as `it { should validate_presence_of(:name) }`,
+  `it { should == 5 }` or `its(:name) { should =~ /bob/ }`. A shoulda
+  block such as `should "be valid" do` names an example and is no check.
 - Dart, JavaScript and TypeScript: `expect`, `expectLater`, the
   `assert` calls and `.should`.
 
 A check's word inside a string on its line is no check, so a line that
 names an example, such as `it "should add an item" do` or
 `test "should get index" do`, is none, and the example holds only the
-checks in its body, each on its own.
+checks in its body, each on its own. In Rust, Go, Java, Kotlin and Swift
+the guard takes out a quote in `'` only where it holds one character,
+so an apostrophe in a Kotlin test name in backticks, such as
+``fun `doesn't drop the quote`()``, pairs with nothing, and the check on
+its line is still read and held whole. In the other languages a string
+in `'` is taken out whole.
 
 A check is held whole, over every line a formatter wraps it onto. It
 runs on while a bracket it opens stays open, a bracket inside a string
@@ -473,9 +479,9 @@ The guard falls short in these places.
   as open, so an `expect do` block around it ends early, at that
   block's `end`.
 - A check's word inside a string that spans lines, such as a heredoc or
-  a triple quoted string, or inside a JavaScript template literal, is
-  read as a check, since the guard takes out only a string that opens
-  and closes in `"` or `'` on one line.
+  a triple quoted string, or inside a JavaScript template literal or a
+  Go raw string in backticks, is read as a check, since the guard takes
+  out only a string that opens and closes in `"` or `'` on one line.
 - A task done and reopened inside one tool call, such as one shell
   command, is never seen ended, so the owner's word for its test files
   stands.
