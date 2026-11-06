@@ -1,4 +1,4 @@
-# Example Agent Setup
+# Agent Setup
 
 A small kit you drop into a project so a coding agent (Claude Code,
 Codex, Gemini CLI, anything that reads `AGENTS.md`) knows how to behave
@@ -84,17 +84,20 @@ says which files and checks it knows.
 
 The kit installs itself. Get a copy of it next to your project, then run
 its port from your project's root, and the tool puts every file where
-it belongs. Three ways to get the copy, easiest first.
+it belongs. Three ways to get the copy, easiest first. Below,
+`<kit URL>` stands for this repo's clone URL, which the Code button at
+the top of this page gives.
 
 ### Ask your agent
 
-If your machine can already reach the forge (you have cloned from
-`forge.example.com` before, or `tea` is logged in), open your agent in
-your project and paste this prompt.
+If your machine can already reach the forge that hosts this repo (you
+have cloned from it before, or `tea` is logged in), open your agent in
+your project and paste this prompt, with the clone URL in place of
+`<kit URL>`.
 
 ```text
-Clone https://forge.example.com/example/agent-setup into a folder beside
-this repo, then run its port from our root:
+Clone <kit URL> into a folder beside this repo, then run its port
+from our root:
 python3 <that folder>/.agents/skills/agent-brain/scripts/brain.py port
 It refuses while a file it would replace has uncommitted changes, so
 commit first. Copy the kit's CODEOWNERS in with my handle in place of
@@ -110,12 +113,13 @@ Clone the kit beside your project, then run its port from your
 project's root.
 
 ```bash
-git clone https://forge.example.com/example/agent-setup ../agent-setup
+git clone <kit URL> ../agent-setup
 python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py port
 cp ../agent-setup/CODEOWNERS .
 ```
 
-Adjust the `../agent-setup` path if you cloned somewhere else.
+Put the clone URL in place of `<kit URL>`, and adjust the
+`../agent-setup` path if you cloned somewhere else.
 
 ### Download
 
@@ -343,10 +347,11 @@ call the review.
 
 When this repo puts out a new release, bring your copy of the kit up to
 date, or clone one beside your project, and run its upgrade from your
-project's root.
+project's root, with the clone URL in place of `<kit URL>` as
+[Installation](#installation) says.
 
 ```bash
-git -C ../agent-setup pull || git clone https://forge.example.com/example/agent-setup ../agent-setup
+git -C ../agent-setup pull || git clone <kit URL> ../agent-setup
 python3 ../agent-setup/.agents/skills/agent-brain/scripts/brain.py upgrade
 ```
 
@@ -506,19 +511,66 @@ From 3.1.3 the kit runs on native Windows as it does on macOS and
 Linux. The tool writes its files with the line ends their text holds,
 names every path with slashes, reads only a lower case `.md` as a brain
 entry on every system, and stops a linter that runs too long with its
-whole tree at once. Nothing of yours has to change.
+whole tree at once. Nothing of yours has to change. Windows PowerShell
+5.1 sends piped text as ASCII, so accents reach the tool as `?` unless
+you set `$OutputEncoding = [Text.UTF8Encoding]::new($false)` first.
+PowerShell 7 sends UTF-8 as it is.
+
+From 3.1.4 an id runs past three digits, so the thousandth todo is
+TODO-1000, and `brain list` and the indexes put it after TODO-999. A
+port or an upgrade that stopped part way finishes when you run it
+again, a file named with an upper case `.MD` still keeps its id from a
+new entry, and doctor now names any brain file whose `.md` is not in
+lower case, for you to rename, since no system reads it as an entry.
+When the brain tool itself fails in your project, the agent tells you
+the command and what it printed rather than read or patch the tool's
+code.
+
+In a Rust project the mutants gate now tests the change from your
+default branch, `main`, `master` or origin's, and a project in a folder
+of a larger repository tests its own change alone. The upgrade writes
+that gate into the kit's Rust rule. An older `rust-toolchain` file now
+counts as the pin. When `brain doctor --fix`, the port or the upgrade
+adds the Rust rule to a project that had none, it says so and that the
+rule loads once you reload the session.
+[The Rust rule](.agents/skills/agent-brain/references/commands.md#the-rust-rule)
+says the rest.
+
+The test guard lets through a check a formatter only rewrapped, though
+the comma of a tuple of one item and the spaces inside a backticked
+string, such as a template literal, still count. It refuses a move onto
+a test file without that file's word, and judges an edit the agent's
+tool places loosely, such as Claude Code's Edit taking a straight quote
+for a curly one, where it lands in the file. The path
+`brain ack tests` takes is read from the folder the shell is in, and a
+file that is not there is refused. The hook also refuses a new file in
+the kit's own tests folder, since one there would turn the guards off.
+
+The port takes the kit's own `AGENTS.md`, copied with another project's
+rule imports, as the kit's copy and quotes nothing from it. Where
+`.agents` links to a brain kept outside the project, doctor reads a
+`..` in an import as Claude Code does, so `@../../README.md` in a rule
+is your project's readme. A Codex patch that moves a file onto a brain
+entry is refused. On Windows the tool never reads a share of another
+host that a path in a brain file names, since Windows would send your
+credentials to that host. A device path such as
+`\\?\GLOBALROOT\Device\Mup\host\share` can reach one too, so of those
+it reads only the long spelling of a local drive or volume, such as
+`\\?\C:\`. It reads no path that opens with `\\` and holds a `..`
+either, since Windows folds the `..` away first, which can land on a
+share. On Windows the see tool now finds a slow fade, which an ffmpeg
+build there hid by rounding its cells a level high.
 
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
 would replace holds uncommitted work or, before any write, while
 something stands in its way, and names each root file it replaces with
 where git keeps the old one. Run it on its own branch and read the
-diff. Or hand your agent this.
+diff. Or hand your agent this, the clone URL in place of `<kit URL>`.
 
 ```text
-The agent kit at https://forge.example.com/example/agent-setup has a new
-release. Pull the clone beside this repo, or clone it there, then run
-its upgrade from our root:
+The agent kit at <kit URL> has a new release. Pull the clone beside
+this repo, or clone it there, then run its upgrade from our root:
 python3 <that folder>/.agents/skills/agent-brain/scripts/brain.py upgrade
 Read what it printed, fix whatever doctor still names, through brain
 set for a header field and by hand for prose, and tell me what changed.

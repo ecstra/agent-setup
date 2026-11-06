@@ -8,7 +8,8 @@ description: The one way to read, list, count, file, change, move or check anyth
 One command does everything under `.agents/`. It is plain Python with no
 dependencies, and it runs from anywhere inside the project through the
 launcher in the brain's folder, the same in every shell on every
-system, `python3 ../.agents/brain` from a folder below the root.
+system, called by its path from the shell's folder, such as
+`python3 ../.agents/brain` from a folder one level below the root.
 
 ```bash
 python3 .agents/brain status
@@ -26,9 +27,9 @@ listed in [references/commands.md](references/commands.md).
   `brain refile`, and the rows of a steps table through `brain task`
   and `brain steps`. The prose below and around them is yours to edit,
   and doctor reads the file after. A hook holds all of this in every
-  agent that runs hooks, so a new file, an index, a rename, a header
-  change or a step row changed by hand is refused. A delete is not,
-  and doctor runs after it. A write into the brain through the shell
+  agent that runs hooks, so a new file, an index, a rename, a move onto
+  an entry, a header change or a step row changed by hand is refused.
+  A delete is not, and doctor runs after it. A write into the brain through the shell
   is not refused either, and the tick names after it the commands that
   do that work and `brain doctor`, as
   [the nudge](references/commands.md#the-nudge) says.
@@ -50,10 +51,14 @@ listed in [references/commands.md](references/commands.md).
   [The read guard](references/commands.md#the-read-guard) says the rest.
 - An assertion a test file already holds changes or goes only on the
   owner's word. Outside the kit's own checkout the pre write hook
-  refuses an edit that loses one, a test file deleted or moved by a
-  patch among them, until the owner gives their word for that file and
-  you record it with an end, `brain ack tests <file> --for 1h`. New
-  tests, new assertions and the code under test pass.
+  refuses an edit that loses one, a test file deleted, moved or written
+  over by a patch's move among them, until the owner gives their word
+  for that file and you record it with an end,
+  `brain ack tests <file> --for 1h`, naming a file that is there by its
+  path from the shell's folder. New tests, new assertions, a check a
+  formatter only rewrapped and the code under test pass, all but a new
+  file in the kit's own tests folder, which only the kit's checkout
+  makes.
   [The test guard](references/commands.md#the-test-guard) says which
   files and checks it knows and where it falls short.
 
@@ -78,9 +83,9 @@ brain path BUG-004
 brain links DEC-012
 ```
 
-`show --meta` prints the frontmatter only. `--json` on `status`, `list`
-and `links` gives the same answer for a script, less the clock and the
-standing word that `status` opens with.
+`show --meta` prints the frontmatter only. `--json` on `status`, `list`,
+`links`, `doctor` and `check` gives the same answer for a script, less
+the clock and the standing word that `status` opens with.
 
 SYSTEM.md section 8 makes these the way the brain is read for its
 fields, its lists and its counts, never a grep of its fields or a

@@ -25,6 +25,8 @@ UNLISTED = "cannot be listed"
 
 # the hosts Windows serves a WSL distro's files under, casefolded
 WSL_HOSTS = ("wsl.localhost", "wsl$")
+# the long spelling of a local drive or volume, \\?\C: or \\?\Volume{...}, the one device path that reaches no other host
+LOCAL_DEVICE = re.compile(r"\\\\[?.]\\(?:[A-Za-z]:|Volume\{[^}\\]*\})(?:\\|$)", re.IGNORECASE)
 WINDOWS = os.name == "nt"
 
 # where WSL mounts each Windows drive, one folder per letter
@@ -238,6 +240,10 @@ class Brain:
 
         numbers = [entry.number for entry in self.entries_of(kind)]
         numbers += [number_in(filename=path.name, kind=kind) for path in self.unreadable if self.folder(kind) in path.parents]
+        # every file under the folder holds the id in its name, one whose suffix the store reads as no entry, `.MD` for one, among them
+        for _, folders, names in os.walk(self.folder(kind)):
+            folders[:] = [name for name in folders if not schema.is_hidden(name)]
+            numbers += [number_in(filename=name, kind=kind) for name in names]
         taken = [number for number in numbers if number is not None]
         if not taken:
             return 1
@@ -345,6 +351,10 @@ class Brain:
         # a folder whose read would start WSL is never read, and is not this project, since a project there would have WSL installed
         if starts_wsl(expanded):
             return False
+
+        # Windows sends the user's credentials to the host of a share it reads, which a cloned brain file could name, so only the spelling of one can say
+        if WINDOWS and on_network_share(expanded):
+            return PureWindowsPath(expanded) == PureWindowsPath(project) or PurePosixPath(expanded) == PurePosixPath(project.as_posix())
 
         try:
             same_folder: bool = os.path.samefile(
@@ -491,6 +501,33 @@ def on_wsl_share(
     return host.casefold() in WSL_HOSTS
 
 
+def on_network_share(
+    path: str,
+) -> bool:
+    """Whether reading a path may reach a share of another host, by its spelling alone, the long \\\\?\\UNC\\ and \\\\.\\UNC\\ spellings among them.
+
+    A WSL share is this machine's. A device path, \\\\?\\ or \\\\.\\, is
+    this machine's only as the long spelling of a drive or a volume,
+    since \\\\?\\GLOBALROOT\\Device\\Mup\\ and the like reach a share
+    through the redirector. The spelling is read whole rather than its
+    drive, since a Python before 3.12 reads a device path's drive
+    otherwise.
+    """
+    spelled: str = str(plain_unc(PureWindowsPath(path)))
+    if not spelled.startswith("\\\\"):
+        return False
+
+    # Windows folds a .. away before it reads the path, so one that climbs out of a drive or a share may land on another host
+    if ".." in spelled.split("\\"):
+        return True
+
+    host, _, _ = spelled[2:].partition("\\")
+    if host in ("?", "."):
+        return LOCAL_DEVICE.match(spelled) is None
+
+    return host.casefold() not in WSL_HOSTS
+
+
 def plain_unc(
     windows: PureWindowsPath,
 ) -> PureWindowsPath:
@@ -546,8 +583,24 @@ def hidden(
 def in_order(
     paths: Iterable[Path],
 ) -> list[Path]:
-    """The paths sorted part by part and case by case, the order POSIX gives them, since a Windows path sorts with its case folded and would put `bugs/` ahead of `INDEX.md` there alone."""
-    return sorted(paths, key=lambda path: path.parts)
+    """The paths sorted part by part and case by case, the order POSIX gives them, since a Windows path sorts with its case folded and would put `bugs/` ahead of `INDEX.md` there alone.
+
+    A file named with an id goes by the id's number, since an id runs
+    past three digits and TODO-1000 follows TODO-999, never TODO-100.
+    Every other name keeps its place by its text.
+    """
+    return sorted(paths, key=lambda path: tuple(by_number(part) for part in path.parts))
+
+
+def by_number(
+    name: str,
+) -> tuple[str, int, str]:
+    """A name's place in a listing, an id's prefix and number for a file named with one, and the name alone, numbered -1, for any other."""
+    match = schema.FILENAME_WITH_ID.match(name)
+    if match is None:
+        return (name, -1, "")
+
+    return (f"{match.group(1)}-", int(match.group(2)), name)
 
 
 def number_in(
@@ -557,8 +610,12 @@ def number_in(
     """The id number a filename of this kind carries, readable or not.
 
     An id is taken the moment a file holds it in its name, so a file the
-    store could not read still keeps its number out of circulation.
+    store could not read, or one whose `.md` is in another case, still
+    keeps its number out of circulation.
     """
+    if filename[-3:].casefold() == ".md":
+        filename = filename[:-3] + ".md"
+
     match = schema.FILENAME_WITH_ID.match(filename)
     if match is None or match.group(1) != kind.id_prefix:
         return None

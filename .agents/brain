@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The brain tool, called short as python3 .agents/brain from anywhere in the project.
+"""The brain tool, called short as python3 .agents/brain from the project's root, or by its path from any folder inside it.
 
 It runs the tool's brain.py with every argument, standard input and exit
 code as they came, the same in every shell on every system, and a line

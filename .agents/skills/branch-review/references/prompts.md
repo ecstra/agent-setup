@@ -4,6 +4,14 @@ Each prompt is sent as written, with the parts in angle brackets filled
 in. Every sub agent writes its answer to the file its prompt names and
 replies with one line per item.
 
+In a project, each prompt carries this line too, as section 8 of
+`SYSTEM.md` asks. The kit's own checkout, where that code is the work,
+leaves it out.
+
+```text
+Never read the brain tool's code under .agents/skills/agent-brain/scripts/, so leave that folder out of every diff and every search, as the pathspec ':!.agents/skills/agent-brain/scripts' does for git diff and git grep.
+```
+
 ## The finder
 
 ```text

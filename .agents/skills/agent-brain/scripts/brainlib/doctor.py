@@ -118,7 +118,7 @@ def run(
 def key_of(
     finding: Finding,
 ) -> tuple[str, str, str]:
-    """What makes a finding the same one across passes: its file, check and words."""
+    """What makes a finding the same one across passes, its file, check and words."""
     return finding.path, finding.check, finding.message
 
 
@@ -230,6 +230,14 @@ def check_strays(
             continue
 
         found.append(Finding(path=where, check="stray", message=stray_reason(where)))
+
+    # a markdown file whose suffix is in another case is no entry on any system, so a rule there would never load without a word
+    for path in store.in_order(brain.root.rglob("*.[mM][dD]")):
+        relative_path = path.relative_to(brain.root)
+        if path.suffix == ".md" or store.hidden(relative_path) or any(links.names_folder(brain=brain, top=relative_path.parts[0], folder=folder) for folder in SKIP_DIRS):
+            continue
+
+        found.append(Finding(path=relative_path.as_posix(), check="stray", message=f"ends in {path.suffix}, which the brain reads as no entry on any system, so rename it to end in .md"))
 
     return found
 
@@ -1642,7 +1650,7 @@ def check_read_guard(
     # a .claude linked into another checkout, the kit's own among them, is that checkout's to guard, as the upgrade refuses it
     out = upgrade.leads_out(project=upgrade.Project(root=brain.root.parent), relative=upgrade.CLAUDE_SETTINGS)
     if out is not None:
-        return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which sits behind a link that leads out of the project, to {out}, so move the link aside and run brain upgrade, which writes the project its own")]
+        return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which sits behind a link that leads out of the project, to {out.as_posix()}, so move the link aside and run brain upgrade, which writes the project its own")]
 
     return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which brain doctor --fix writes", repair=write_guard(path=settings, where=where))]
 
@@ -2015,7 +2023,7 @@ def line_slips(
 
     spelled = spelled_on_disk(base=base, path=token)
     if spelled is None:
-        if os.path.lexists(base / token):
+        if os.path.lexists(by_its_text(base=base, path=token)):
             return [import_finding(name=name, message=f"imports @{token}, which is not a regular file, so no agent loads it")]
 
         if at_the_root is not None:
@@ -2031,9 +2039,17 @@ def line_slips(
     if spelled != token:
         return [spelled_otherwise(name=name, path=token, spelled=spelled)]
 
-    trouble = target_trouble(base / spelled)
+    trouble = target_trouble(by_its_text(base=base, path=spelled))
 
     return [] if trouble is None else [import_finding(name=name, message=f"imports @{token}, which {trouble}")]
+
+
+def by_its_text(
+    base: Path,
+    path: str,
+) -> Path:
+    """The place a path leads to from `base` as the agents read it, each `..` folded against the folder named before it rather than climbed on the disk, so a linked folder on the way is never left through its target."""
+    return Path(os.path.normpath(base / path))
 
 
 def root_spelling(
@@ -2134,7 +2150,7 @@ def leads_to(
 
             # a path that reaches the wanted file counts even where that is no file to load, since its import line names that trouble already
             spelled = spelled_on_disk(base=folder, path=path)
-            found = folder / (spelled or path)
+            found = by_its_text(base=folder, path=spelled or path)
             place = resolved(found)
             if place == target:
                 return True
@@ -2327,7 +2343,9 @@ def spelled_on_disk(
     Asking the file system for the whole path would follow the machine's
     case rule, and the answer has to be the same on every machine. A
     path from the root of the disk never comes here, for the same
-    reason.
+    reason. A `..` steps up from the folder by its name, as the agents
+    read a path by its text, so it never climbs through the target of a
+    linked folder, a linked `.agents` among them.
     """
     current = base
     spelled: list[str] = []
@@ -2335,7 +2353,7 @@ def spelled_on_disk(
     for part in path.split("/"):
         if part in ("", ".", ".."):
             spelled.append(part)
-            current = current / part
+            current = current.parent if part == ".." else current
             continue
 
         entry = spelling_of(
@@ -2557,7 +2575,7 @@ def check_rust(
     else:
         found = []
 
-    if not (project / rust.TOOLCHAIN).exists():
+    if not any((project / name).exists() for name in (rust.TOOLCHAIN, rust.OLD_TOOLCHAIN)):
         found.append(Finding(path=rust.TOOLCHAIN, check="rust", message=rust.NO_TOOLCHAIN))
 
     try:

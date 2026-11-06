@@ -2,9 +2,9 @@
 
 All of them run through the launcher in the brain's folder, as
 `python3 .agents/brain` from the project's root and
-`python3 ../.agents/brain` from a folder below it, the same in every
-shell on every system. The launcher is a small Python file that runs
-`.agents/skills/agent-brain/scripts/brain.py` with every argument,
+`python3 ../.agents/brain` from a folder one level below it, the same
+in every shell on every system. The launcher is a small Python file
+that runs `.agents/skills/agent-brain/scripts/brain.py` with every argument,
 standard input and exit code as they came, and that long call still
 works. A Python file rather than a shell script, since cmd would read a
 batch file's arguments a second time, a `%NAME%` among them, and a shell
@@ -60,7 +60,7 @@ same way. A count reads `1 finding` for one and `2 findings` for more.
 | `brain status [--json]` | The clock, the standing word and the current work first, then version, doctor health, counts per kind by status, the build specs among them, open reviews, the note waiting for the next session with the branch it was written on and when, unreadable files. A claimed note a session start could not remove, `.handover/handover.md.reading`, is the note waiting while none sits at `.handover/handover.md`, and its line says it was read before. A note still in `handover/` from before 2.2.0 is named only once it moves in, as [the handover](#the-handover) says. The JSON form carries all of that but the clock and the word. The note is under `handover`, null when none waits, else its `branch` and its `written` moment, the first null where the header names none and the second where the header gives none in the one ISO shape the tool writes a moment in, with `again` beside them, true for a note read before. The chain is under `task`, which is null when the file does not read as a chain. The `latest_handover` key and the `handover` count of 1.4.0 are gone. |
 | `brain ack` | The clock and where the owner's standing word to proceed stands, off, held, or on with what is left of it and what ends it. |
 | `brain ack tests` | The clock and each test file the owner's word to change its assertions holds for, with what is left of it, as [the test guard](#the-test-guard) says. |
-| `brain list <kind> [--open \| --status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. The kinds are bug, build-spec, decision, doc, memory, plan, review, rule and todo, each by its plural too. `--open` keeps every entry whose status keeps work open, a bug open or branched, a todo or a plan open, a build spec draft or acked, a review open, so one call answers what is still open. Beside `--status` it stops as an argument the command does not take, and it is refused for a decision, a doc, memory or a rule, which have nothing that stays open. Each file of the kind the list cannot read, and each folder of it the list cannot open, the kind's own folder among them, is named on standard error after the list, `not listed, since it cannot be read:` with its path from `.agents/` and the reason, so no entry is left out without a word, and the list still exits 0. |
+| `brain list <kind> [--open \| --status X] [--severity X] [--area X] [--by X] [--type X] [--branch X] [--date X] [--json]` | One line per entry of that kind, narrowed by any field. Entries with an id come in the order of its number, so TODO-1000 follows TODO-999, as they do in each group of the todo, bug and build spec indexes, and the rest by their path. The kinds are bug, build-spec, decision, doc, memory, plan, review, rule and todo, each by its plural too. `--open` keeps every entry whose status keeps work open, a bug open or branched, a todo or a plan open, a build spec draft or acked, a review open, so one call answers what is still open. Beside `--status` it stops as an argument the command does not take, and it is refused for a decision, a doc, memory or a rule, which have nothing that stays open. Each file of the kind the list cannot read, and each folder of it the list cannot open, the kind's own folder among them, is named on standard error after the list, `not listed, since it cannot be read:` with its path from `.agents/` and the reason, so no entry is left out without a word, and the list still exits 0. |
 | `brain show <key> [--meta]` | The whole file, or with `--meta` its frontmatter only. |
 | `brain path <key>` | The absolute path behind a key. |
 | `brain links <key> [--json]` | What the entry links to, and every entry that links to it. |
@@ -82,8 +82,22 @@ folder lies on a WSL share, `\\wsl.localhost\<distro>` or
 disk only where the registry shows a WSL distro installed, since
 Windows answers a read there by starting WSL and, with no distro,
 offering to install it. Without one such a path answers nothing, as no
-project can lie there. A review answers to its folder too, by its name or its
-path, `reviews/2026-11-fix-login` or `.agents/reviews/2026-11-fix-login/`,
+project can lie there. On Windows a path whose part in front lies on a
+share of any other host, `\\host\share` or `//host/share`, the long
+`\\?\UNC\` and `\\.\UNC\` spellings among them, is never asked of the
+disk, since Windows hands the user's credentials to the host of a share
+it reads and a cloned brain file could name any host. A device path,
+`\\?\` or `\\.\` with either slash, is never asked of the disk either,
+all but the long spelling of a local drive or volume, `\\?\C:\` or
+`\\?\Volume{...}\`, since another such as
+`\\?\GLOBALROOT\Device\Mup\host\share` reaches a share through the
+redirector. No path that opens with `\\` or `//` and holds a `..` part
+is asked of the disk, the long spelling of a local drive and a WSL share
+among them, since Windows folds the `..` away before it reads the path,
+so one such as `\\.\C:\..\UNC\host\share` may land on a share. Such a
+path leads to this brain only where it spells the project's own folder.
+A review answers to its folder too, by its name or its path,
+`reviews/2026-11-fix-login` or `.agents/reviews/2026-11-fix-login/`,
 a slash at the end or not. Every command that takes a key reads it this
 way.
 
@@ -231,11 +245,15 @@ in the rules' order, as [the gates](#the-gates) says.
 - `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`.
 - `cargo test --workspace --locked`.
 - `cargo mutants --in-diff` over the branch's diff from where it left
-  main, or origin/main in a clone that keeps no main branch, edits not
-  yet committed included and files git does not track left out. A
-  mutant that every test survives turns it red, and a change that plants
-  no mutant, main itself among them, passes. Where neither main nor
-  origin/main is there, it turns red and says so.
+  the default branch, the first of `main`, `master`, origin's default
+  branch, `origin/main` and `origin/master` that is there, edits not
+  yet committed included and files git does not track left out. The
+  diff is taken from the folder the gate runs in, the project's root, so
+  a project in a folder of a larger repository tests its own change and
+  no other. A mutant that every test survives turns it red, and a
+  change that plants no mutant, the default branch itself among them,
+  passes. Where none of those branches is there, it turns red and says
+  so.
 - `cargo deny --locked check`, which fetches the advisory database and
   so needs the network.
 
@@ -258,7 +276,12 @@ Doctor's check of the rule gives these findings.
 
 - A root `Cargo.toml` and no rule is fixable. `--fix` writes the rule,
   its import in `AGENTS.md` and the configs the project lacks, and the
-  rule loads once the session is reloaded.
+  rule loads once the session is reloaded. So a run that writes it
+  prints, before its findings,
+  `wrote rules/rust.md, the kit's Rust rules, with its import and the configs the project lacked, and a new rule loads only once the session is reloaded, so ask the owner to reload the session`,
+  on standard error with `--json` so the JSON stays whole, and the
+  port's and the upgrade's report carry the same line where their
+  doctor run wrote the rule.
 - A rule whose words below its header say other than the template is
   fixable, and `--fix` writes the template's words back under the header
   it keeps. One that does not read as text is written again whole.
@@ -271,7 +294,9 @@ Doctor's check of the rule gives these findings.
   written, since a name is an entry's one key. Retitle that entry with
   `brain refile` and the next fix writes the rule.
 - A missing `rust-toolchain.toml` is flagged, since the rule asks for
-  the latest stable toolchain pinned there.
+  the latest stable toolchain pinned there. The older `rust-toolchain`
+  file counts as the pin too, since rustup still reads it and prefers
+  it where both are there, so with it at the root nothing is flagged.
 - Missing lints are flagged, a missing table with
   `workspace-lints.toml` named to paste from. A root `Cargo.toml` with
   a `[workspace]` table and no `[workspace.lints]` table is one finding,
@@ -376,23 +401,27 @@ code must do, so it changes or goes only on the owner's word, in every
 language the guard knows. Outside the kit's own checkout, where the
 kit's tests are the work, the `pre-write` hook refuses, exit 2, a write
 that changes or removes one, unless the owner's word for that file
-holds. A test file deleted or moved by a patch loses all it held, so it
-is refused the same way. An assertion added, moved or reindented
-passes, and so do a new test file and every change to the code under
-test. The refusal names the first assertion lost and the command that
-records the owner's word.
+holds. A test file deleted or moved by a patch loses all it held, and
+so does one a patch moves another file onto, which the move writes
+over, so each is refused the same way. An assertion added, moved,
+reindented or rewrapped passes, and so do a new test file and every
+change to the code under test, though outside the kit's own checkout a
+new file in the kit's own tests folder is refused, as
+[the hook's row](#hooks) says. The refusal names the first assertion
+lost and the command that records the owner's word.
 
 | Command | What it does |
 |---|---|
-| `brain ack tests <file>... --for 1h` | Records the owner's word for each file named, a path from the current folder, with an end read the way `brain ack on` reads one, `--for`, `--until` or `--until-done`, the earlier end winning. A word with no end is refused, and so is a file outside the project. A second word for a file replaces the first. |
-| `brain ack tests off <file>...` | Takes the word back for each file named. It takes no end, and with no file it is refused. |
+| `brain ack tests <file>... --for 1h` | Records the owner's word for each file named, a path read from the folder the shell is in, with an end read the way `brain ack on` reads one, `--for`, `--until` or `--until-done`, the earlier end winning. The word is kept under the file's path from the project's root as the disk spells it, the way the hook spells the file it judges, so a name given in another case on a disk that folds case still reaches it. A word with no end is refused, and so are a file outside the project and a file that is not there, `<file> is no file, read from the folder the shell is in, and the owner's word holds for a test file that is there`. A second word for a file replaces the first. |
+| `brain ack tests off <file>...` | Takes the word back for each file named, read the same way, a file gone since among them. It takes no end, and with no file it is refused. |
 | `brain ack tests` | The clock and each file whose word holds, with what is left of it, or the one line that none does. |
 
 The words live in one dotted file at the root of the brain,
 `.agents/.ack-tests`, each under its file's path from the project's
 root. Git ignores it like `.ack`, and the hook refuses a hand write to
 it. A word holds until its time ends or its task is done, and the word
-for a moved file is the word for the path it moves from. A task done,
+for a moved file is the word for the path it moves from, while a move
+onto a test file that stands needs the word for that file too. A task done,
 gone from the brain or doubled by a merge takes the word back for good,
 as it does the standing word, so it never comes back when the task
 reopens or a new entry takes its id. The session start, each prompt and
@@ -480,8 +509,19 @@ indent, is part of the check, a `} else if` among them. A comment or a
 `t.Logf` between the two is no part of it, and a call in a block that
 opens on any other line, such as a `for`, is held alone. Each check is
 compared with its lines joined and their indent taken off, as often as
-it stands, so one of two copies removed counts as lost, and a change to
-any line of it is a change to the check.
+it stands, so one of two copies removed counts as lost. Its strings are
+compared as written, a string in backticks among them, such as a
+JavaScript or TypeScript template literal or a Go raw string, so the
+spaces inside one stay, and the rest without the space a formatter adds
+or takes away or the comma a wrap leaves before a closing bracket, so a
+check a formatter wraps onto several lines, or joins back onto one,
+reads as the same check. A space between two words stays, so
+`assert not ready` is no `assert notready`. A comma right against its
+bracket stays, and so does the comma of a tuple of one item, a paren
+that holds no other comma and calls nothing, however it is wrapped, so
+`(1,)` is no `(1)`. A snapshot's lines are
+compared as they stand, since their spaces are the output they hold.
+Any other change to a line of a check is a change to the check.
 
 A patch's hunks that fit the file are applied in turn. Each hunk that
 fits only by looser spacing is then placed as Codex's `apply_patch`
@@ -490,6 +530,17 @@ end taken off, and the file is judged as all of them leave it, so a
 check is read whole wherever the hunk lands. A hunk that fits nowhere
 even so is judged on its own, by the assertions its lines before carry
 that its lines after do not, the lines it keeps counted on both sides.
+An edit whose old string the file does not hold word for word may land
+all the same, so it is placed as the agents' tools place one, first
+with a curled quote read as a straight one, as Claude Code's Edit reads
+it, then as whole lines matched whatever their indent, as Gemini CLI's
+replace matches them. An edit meant for every occurrence, Claude Code's
+`replace_all`, Gemini CLI's `allow_multiple` or an
+`expected_replacements` above 1, is placed at every place it matches.
+The whole file is judged as the edit leaves it, so a check is read
+whole wherever the edit lands. One that fits nowhere even so is judged
+by its strings alone, by the assertions the old string carries that the
+new one does not.
 
 The guard falls short in these places.
 
@@ -804,7 +855,7 @@ ledger is never counted, numbered past or written to.
 
 | Command | What it does |
 |---|---|
-| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`, then their count, or `clean` where there is none. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill stubs, the front doors' imports, the import lines inside each rule, the rules' imports in `AGENTS.md`, [the Rust rule](#the-rust-rule) where the project's root holds a `Cargo.toml` or the rule stands, [the read guard](#the-read-guard) in a project and what a write left behind. |
+| `brain doctor [--json]` | Every finding, one per line, `[fixable]` or `[flag]`, then their count, or `clean` where there is none. With `--json` it prints one JSON list in their place, each finding with its `path`, its `check`, its `message` and whether it is `fixable`. Exit 2 while any remain. The checks cover the headers, the sections, the links, the names, the indexes, the steps tables, the review ledgers, the style copies, the skill stubs, the front doors' imports, the import lines inside each rule, the rules' imports in `AGENTS.md`, [the Rust rule](#the-rust-rule) where the project's root holds a `Cargo.toml` or the rule stands, [the read guard](#the-read-guard) in a project and what a write left behind. |
 | `brain doctor --fix` | Applies every fixable repair, in passes until a pass changes nothing, then reports what is left. A repair that fails is reported as a flag with the reason. |
 
 Doctor checks that nothing was left behind by an interrupted write, that
@@ -855,7 +906,12 @@ its time limit. A kit folder named in
 another case, such as `Skills/` for `skills/`, is the kit's only where
 git says the flag is true, so where git gives no answer on a disk that
 ignores case, its files are named as strays under that name, the casing
-to put right.
+to put right. A markdown file whose `.md` is in another case, such as
+`rules/style.MD` or `todos/TODO-007-loud.Md`, outside a dotted path and
+`skills/`, is flagged as a stray too,
+`ends in .MD, which the brain reads as no entry on any system, so rename it to end in .md`,
+since the tool reads only a lower case `.md` as an entry, so a rule
+there would never load and nothing else would say so.
 
 Doctor reads the front doors, `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`,
 for their `@` imports. It reads `AGENTS.md` always, `CLAUDE.md` while
@@ -1017,7 +1073,13 @@ and whether a token leads to a file, which makes it an import, is asked
 from there first. So `@../docs/setup.md` is `.agents/docs/setup.md`,
 and `@README.md` is `.agents/rules/README.md`, named while it is not
 there. A path that climbs out of the rules folder and stays inside the
-project, such as `@../../README.md`, is looked up like any other. The
+project, such as `@../../README.md`, is looked up like any other. A
+`..` steps up from the folder named before it, as the agents read a
+path by its text, here as in a door and in each file a door imports, so
+it never climbs through the target of a linked folder. Where `.agents`
+is a link to a brain kept outside the project, as a brain shared
+between checkouts is, `@../../README.md` in a rule still reaches the
+project's own `README.md`, never a file beside the shared brain. The
 finding on a path from the root of the disk, or on one that climbs back
 in by name, says to write it from
 `.agents/rules/, the folder the rule is read from`, where a door's says
@@ -1531,7 +1593,11 @@ loads, since none of it did in the door, and nothing in `project.md`
 reaches them. On a port that is each door whole, its title and the
 section that moved left off, so a second door's section 0 and its
 imports are quoted too. A door that says what the kit's copy of it says
-is the kit's and gives nothing, a door that copies another, or links to
+is the kit's and gives nothing, each rule import below the line the
+rules are imported under set aside, so the kit's own `AGENTS.md`
+brought from another project with that project's rule imports, such as
+`@.agents/rules/rust.md`, is the kit's copy too, while any other line
+there is the project's own. A door that copies another, or links to
 it, is quoted once, and a door holding nothing but comments and imports
 of the front doors at the root, such as `@AGENTS.md`, says nothing of
 its own. On an upgrade it is what a door an older kit wrote held above
@@ -1669,7 +1735,7 @@ standard input.
 | `session-start` | Prints into the agent's context the clock, the standing word and the current work, then the note the last session left in `.handover/handover.md`, whole under a line that says how it was taken, or the one line that says why a file there stays, another session holding the note's lock among the reasons, then `brain status`, counted once the note is taken, so it names a note this start read only where the start could not take it aside and read it in place, which the next session reads again. Under the counts one line names the launcher's call, `python3 .agents/brain`, and the commands that read the brain through it, `list <kind> --open`, `status` and `show <key>`, and says never to read it by a grep of its fields or a listing of its folders. `--with-rules` adds `SYSTEM.md`, then each of [the rules](#the-rules) in their order, each under `A rule of this project's own, from .agents/rules/<name>:`, and the agent's own chat style copy after those, for an agent that does not expand imports. The note is taken on every start the event's `source` names but a fork, since a fork carries the context it came from, and the handover section above says how, when it waits for the lock, how a note left in `handover/` before 2.2.0 moves in, and what the start says of one that stays. |
 | `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
 | `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Under the moment it adds a line for any call that read or wrote the brain by hand, as [the nudge](#the-nudge) says. Claude Code fires it once after each round of tool calls, whatever the tools, Codex after each shell call, and Gemini CLI after each call to `run_shell_command`, `grep_search`, `search_file_content`, `glob`, `list_directory` or `read_many_files`. |
-| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.ack-tests` file, which `brain ack tests` writes, the `.task` file, which `brain task on` writes, anything in the `.handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. None of these refuses a delete, a stray index's or a dotted file's among them, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. Outside the kit's own checkout it also blocks a write to the project's `AGENTS.md`, in any case of its name, a delete aside, since the port and the upgrade write that file whole, and the refusal says a project's own instruction is a rule, filed through `brain new rule`, and that `brain doctor --fix` writes the import lines again, a merge's conflict in them among what it settles. Outside the kit's own checkout it blocks as well a write to the kit's `rules/rust.md`, in any case of its name, a delete aside, as [the Rust rule](#the-rust-rule) says, and a write that changes or removes an assertion a test file holds, a test file deleted or moved by a patch among them, unless the owner's word for that file holds, as [the test guard](#the-test-guard) says. |
+| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.ack-tests` file, which `brain ack tests` writes, the `.task` file, which `brain task on` writes, anything in the `.handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, a patch's move of any file onto an existing brain file, which would write over its header and its steps by hand, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. None of these refuses a delete, a stray index's or a dotted file's among them, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. Outside the kit's own checkout it also blocks a write to the project's `AGENTS.md`, in any case of its name, a delete aside, since the port and the upgrade write that file whole, and the refusal says a project's own instruction is a rule, filed through `brain new rule`, and that `brain doctor --fix` writes the import lines again, a merge's conflict in them among what it settles. Outside the kit's own checkout it blocks as well a write to the kit's `rules/rust.md`, in any case of its name, a delete aside, as [the Rust rule](#the-rust-rule) says, and a write that changes or removes an assertion a test file holds, a test file deleted or moved by a patch, or written over by a patch's move onto it, among them, unless the owner's word for that file holds, as [the test guard](#the-test-guard) says. Outside the kit's own checkout it blocks too a write that would make a new file of any kind below `.agents/skills/agent-brain/scripts/tests/`, its folders in any case, a patch that adds one or moves one there among them, with `the kit's own tests live only in the kit's checkout, so no file is made in .agents/skills/agent-brain/scripts/tests/ by hand, since one there would mark the project as the kit's checkout and turn off the guards on AGENTS.md, the kit's Rust rule and test assertions`. A file already there may be written or deleted. |
 | `post-write` | After a write, runs the project's own linters on each file just written, as [the lint hook](#the-lint-hook) says, and hands back what they left under `lint after that write:`. Then runs the check on each file just written inside the project, a file reached through a link that leads out of it left out, and hands its slips back as context under `brain check after that write:`, so they are fixed in the same round, a file the check passes over left out as the check leaves it out. A file the check could not judge, since git cannot read its attributes, is named on standard error and never in the context, and a standard error that cannot take the note loses it and nothing else. After a write inside `.agents/`, to a front door, `AGENTS.md`, `CLAUDE.md` or `GEMINI.md` at the top of the project in any case of its name, or to the `Cargo.toml` at the top of the project under that exact name, which [the Rust rule](#the-rust-rule) follows, a delete among them, and after a Codex patch that deletes any file or moves one away, since a brain entry may link to it, runs doctor too and hands its findings back the same way, its front door findings with them, or its error in words where it cannot read the brain, and still exits 0, since an exit 1 would show the person the error and lose the slips. |
 
 What a hook puts on standard error, a refusal, the error that stopped

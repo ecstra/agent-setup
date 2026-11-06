@@ -14,7 +14,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from . import frontmatter, rules
+from . import frontmatter, rules, store
 
 MANIFEST = "Cargo.toml"
 RULE = "rust.md"
@@ -22,6 +22,8 @@ NAME = "rust"
 # the stamp the rule first ships with, before which a rule of that name was the project's own
 SINCE = "3.1.0"
 TOOLCHAIN = "rust-toolchain.toml"
+# the older name rustup still reads the pin under, and prefers where both are there
+OLD_TOOLCHAIN = "rust-toolchain"
 # the configs written once where missing, then the project's, and the table a reader pastes into the root Cargo.toml
 CONFIGS: tuple[str, ...] = ("rustfmt.toml", "clippy.toml", "deny.toml")
 # the other names each tool reads its config under, which keep the reference copy from going beside the project's own, since the tool would read the copy first
@@ -42,6 +44,7 @@ links: []
 
 RELOAD = "and the rule loads once the session is reloaded"
 MISSING = f"the project's root holds a {MANIFEST} and the brain no rust.md, so the kit's Rust rules never load, and the fix writes them with their import and the missing configs, {RELOAD}"
+WROTE = f"wrote {rules.FOLDER}/{RULE}, the kit's Rust rules, with its import and the configs the project lacked, and {rules.RELOAD}"
 CHANGED = "says other than the kit's Rust rules, which the kit writes whole, so the fix writes them back, and the project's own Rust rules go in a rule of its own"
 NO_RUST = f"stands with no {MANIFEST} at the project's root, so the fix retires it with its import, and doctor writes it again once one is back"
 NO_RUST_CHANGED = f"stands with no {MANIFEST} at the project's root and says other than the kit's words, so move what is the project's into a rule of its own and delete it"
@@ -68,6 +71,13 @@ def is_rust(
 ) -> bool:
     """Whether the project's root holds a Cargo.toml, which is what makes it a Rust project to the kit."""
     return (project / MANIFEST).is_file()
+
+
+def has_rule(
+    brain_root: Path,
+) -> bool:
+    """Whether the brain holds the rule, asked before and after a doctor run with --fix, so the caller can say the run wrote it and that the session needs a reload."""
+    return store.readable_file(brain_root / rules.FOLDER / RULE)
 
 
 def template(
@@ -229,7 +239,7 @@ def workspace_members(
         found.add(manifest)
         waiting += path_dependencies(folder=folder, text=manifest.read_text(encoding="utf-8-sig"))
 
-    return sorted(found)
+    return store.in_order(found)
 
 
 def tables(

@@ -1,13 +1,14 @@
 """The brain tool. Files, changes, counts and checks everything in .agents/.
 
 Run from anywhere inside a project that carries the kit, through the
-launcher in the brain's folder:
+launcher in the brain's folder, called by its path from the shell's
+folder, as here from the project's root.
 
-    .agents/brain status
+    python3 .agents/brain status
 
 Prose for a new file comes in on standard input, so a heredoc in single
-quotes passes it through without the shell touching it. Exit codes: 0
-when it did the thing, 1 when it refused and said why, 2 while doctor's
+quotes passes it through without the shell touching it. It exits 0 when
+it did the thing, 1 when it refused and said why, and 2 while doctor's
 or the check's findings remain.
 """
 
@@ -18,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional, TextIO, cast
 
-from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, guard, handover, index, ledger, plans, reads, rules, schema, steps, store, task, upgrade, writes
+from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, guard, handover, index, ledger, plans, reads, rules, rust, schema, steps, store, task, upgrade, writes
 from brainlib.store import FINDINGS_REMAIN, REFUSED
 
 FIELD_FLAGS = ("status", "severity", "area", "by", "type", "branch", "date")
@@ -248,11 +249,19 @@ def run_ack_tests(
     project = brain.root.parent.resolve()
     relatives: list[str] = []
     for name in named:
-        try:
-            relatives.append((Path.cwd() / name).resolve().relative_to(project).as_posix())
-        except ValueError:
+        # read from the shell's folder and spelled as the pre write hook spells the file it judges, its folder resolved and each part as the disk lists it
+        typed = Path.cwd() / name
+        inside = store.below(path=typed.parent.resolve() / typed.name, root=project)
+        if inside is None:
             print(f"{name} is outside the project, and the owner's word holds for the project's own test files", file=sys.stderr)
             return REFUSED
+
+        spelled = store.as_on_disk(project / inside, root=project)
+        if not taking_back and not store.readable_file(spelled):
+            print(f"{name} is no file, read from the folder the shell is in, and the owner's word holds for a test file that is there", file=sys.stderr)
+            return REFUSED
+
+        relatives.append(spelled.relative_to(project).as_posix())
 
     for relative in relatives:
         if taking_back:
@@ -307,7 +316,7 @@ def run_conclude(
 def add_task(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("task", help="the current work: on an entry, its step done, skipped or pending again, off, or where it stands")
+    command = commands.add_parser("task", help="start work on an entry, mark its step done, skipped or pending again, drop it, or say where the work stands")
     actions = command.add_subparsers(dest="action")
 
     starting = actions.add_parser("on", help="start work on a plan, a todo, a bug or a review")
@@ -491,9 +500,9 @@ def run_list(
     print(json.dumps(found, indent=2) if args.json else reads.render_rows(kind=kind, found=found))
     # a file of the kind that cannot be read may be one the list was asked for, so it is named rather than left out without a word
     folder = brain.folder(kind)
-    for path, reason in sorted(brain.unreadable.items()):
+    for path in store.in_order(brain.unreadable):
         if path == folder or folder in path.parents:
-            print(f"not listed, since it cannot be read: {path.relative_to(brain.root).as_posix()}, {reason}", file=sys.stderr)
+            print(f"not listed, since it cannot be read: {path.relative_to(brain.root).as_posix()}, {brain.unreadable[path]}", file=sys.stderr)
     return 0
 
 
@@ -735,7 +744,12 @@ def run_doctor(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
+    had_rust_rule = rust.has_rule(brain.root)
     found = doctor.run(brain=brain, fix=args.fix)
+    # a rule loads only as a session starts, so the one the fix wrote is said with the reload it needs, beside the JSON where that is asked for
+    if not had_rust_rule and rust.has_rule(brain.root):
+        print(rust.WROTE, file=sys.stderr if args.json else sys.stdout)
+
     if args.json:
         print(json.dumps([finding.as_dict() for finding in found], indent=2))
     else:
@@ -847,7 +861,7 @@ def run_gates(
 def add_steps(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("steps", help="the steps of a plan, a todo or a bug: show them, add some, or mark a plain one")
+    command = commands.add_parser("steps", help="show the steps of a plan, a todo or a bug, add some, or mark a plain one")
     command.add_argument("key", help="the entry, by id, name or path")
     actions = command.add_subparsers(dest="action")
 
@@ -920,7 +934,7 @@ def run_steps_mark(
 def add_ledger(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("ledger", help="review ledgers: open, batch, add, set, report, close")
+    command = commands.add_parser("ledger", help="open a review ledger, add or set its batches and findings, report where it stands, or close it")
     actions = command.add_subparsers(dest="action")
 
     opening = actions.add_parser("open", help="start the ledger for a branch")
