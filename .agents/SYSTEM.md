@@ -79,7 +79,7 @@ Tests are the agent's success criteria. Strong criteria let it loop on its own, 
 - A bug fix starts with a test that reproduces the bug and fails, then the fix makes it pass.
 - Test what a user or a caller can see. Never test a case no real input reaches.
 - Many cases of one function go in one table or in input and expected output files. A rule that must always hold gets a property test where the project has one.
-- Never delete or weaken a test to get green.
+- Never delete or weaken a test to get green. The brain's guard refuses an edit that changes or removes an assertion without the owner's word, which the agent records with `brain ack tests` once the owner gives it.
 
 > **These guidelines are working if** there are fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 ---

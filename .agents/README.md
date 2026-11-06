@@ -53,6 +53,9 @@ the repo root when the project keeps one, agents read this.
 - `VERSION`: the kit release this brain is on, read by the tool.
 - `.ack`: the owner's standing word to proceed and its end, the tool's
   own, which git ignores since it lives on one machine.
+- `.ack-tests`: the owner's word to change a test file's assertions,
+  each file with its end, set with `brain ack tests` and ignored the
+  same way.
 - `.task`: the current work, the chain from the plan down to the step
   the agent is on, which every hook prints, the tool's own and ignored
   the same way.
