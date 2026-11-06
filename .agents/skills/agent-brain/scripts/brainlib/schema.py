@@ -16,7 +16,8 @@ SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 # A bug's severities, worst first, the one order every reader uses.
 SEVERITIES: tuple[str, ...] = ("breaks", "bug", "debt", "nit")
 
-FILENAME_WITH_ID = re.compile(r"^(BUG|TODO|DEC|BUILD)-(\d{3})-(.+)\.md$")
+# three digits at least, so the thousandth entry of a kind is TODO-1000 and every number after it reads
+FILENAME_WITH_ID = re.compile(r"^(BUG|TODO|DEC|BUILD)-(\d{3,})-(.+)\.md$")
 
 # A review folder is <yyyy-mm>-<branch-slug>.
 REVIEW_FOLDER = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-[a-z0-9]+(-[a-z0-9]+)*$")
