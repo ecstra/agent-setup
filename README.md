@@ -511,7 +511,17 @@ From 3.1.3 the kit runs on native Windows as it does on macOS and
 Linux. The tool writes its files with the line ends their text holds,
 names every path with slashes, reads only a lower case `.md` as a brain
 entry on every system, and stops a linter that runs too long with its
-whole tree at once. Nothing of yours has to change.
+whole tree at once. Nothing of yours has to change. Windows PowerShell
+5.1 sends piped text as ASCII, so accents reach the tool as `?` unless
+you set `$OutputEncoding = [Text.UTF8Encoding]::new($false)` first.
+PowerShell 7 sends UTF-8 as it is.
+
+From 3.1.4 an id runs past three digits, so the thousandth todo is
+TODO-1000. A port or an upgrade that stopped part way finishes when you
+run it again, a file named with an upper case `.MD` still keeps its id
+from a new entry, and when the brain tool itself fails in your project,
+the agent tells you the command and what it printed rather than read or
+patch the tool's code.
 
 It works on the nearest folder at or above you that carries a brain,
 refuses a kit older than the one you are on, refuses while a file it
