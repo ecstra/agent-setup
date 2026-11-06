@@ -315,8 +315,8 @@ def set_findings(
     body = entry.document.body
 
     for position, identifier in enumerate(identifiers):
-        if identifier in identifiers[:position]:
-            raise LedgerError(f"{identifier} is named twice, name each finding once")
+        if number_of(identifier) in [number_of(earlier) for earlier in identifiers[:position]]:
+            raise LedgerError(f"F-{number_of(identifier):02d} is named twice, name each finding once")
 
         body = changed(
             body=body,
@@ -851,13 +851,20 @@ def save(
     brain.refresh()
 
 
+def number_of(
+    identifier: str,
+) -> int:
+    """A finding's number, the same for F-3 and F-03, or -1 for a word that names no finding."""
+    return int(identifier[2:]) if FINDING_ID.fullmatch(identifier) else -1
+
+
 def finding_span(
     body: str,
     identifier: str,
 ) -> Optional[tuple[int, int]]:
-    """Where one finding's block starts and ends, up to the next heading outside code and comments."""
+    """Where one finding's block starts and ends, up to the next heading outside code and comments, the finding known by its number, so F-3 is F-03."""
     for match in finding_headings(body):
-        if match.group(1) != identifier:
+        if number_of(match.group(1)) != number_of(identifier):
             continue
 
         return match.start(), sections.heading_after(body=body, start=match.end())

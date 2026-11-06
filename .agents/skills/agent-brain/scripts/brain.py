@@ -950,6 +950,11 @@ def run_ledger_batch(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
+    # a ledger is named <yyyy-mm>-<branch>, so a key of digits alone is a batch's number given in its place
+    if args.key.isdigit():
+        print(f"'{args.key}' reads as a batch's number, give the ledger's key before it", file=sys.stderr)
+        return REFUSED
+
     if args.number is None:
         if args.status or args.ack:
             print("give the batch's number to set its status or ack", file=sys.stderr)
@@ -1091,6 +1096,9 @@ def pairs(
             raise writes.WriteError(f"'{item}' is not field=value")
 
         field, _, value = item.partition("=")
+        if field.strip() in found:
+            raise writes.WriteError(f"'{item}' sets {field.strip()} a second time, give each field once")
+
         found[field.strip()] = value.strip()
 
     return found
