@@ -1,7 +1,9 @@
 """A video read for what moved, where and how evenly, as a report and tagged sheets of frames and of frame diffs, and two recordings read side by side."""
 
+import bisect
 import math
 from pathlib import Path
+from typing import Optional
 
 from . import draw, media
 
@@ -10,7 +12,10 @@ CELL = 16
 CELL_FLOOR = 3
 FRAME_FLOOR = 12
 BURST_GAP = 0.25
+# a cell's mean grey drifting this far over this many frames is a fade, while a still frame's encoder noise moves a mean a level at most
+FADE_SPAN, FADE_FLOOR = 6, 6
 HOLDS_NAMED = 8
+LEGEND = "EACH TILE IS TAGGED: FRAME NUMBER AND MS FROM THE VIDEO'S START, THEN MS AND PIXELS CHANGED SINCE THE TILE BEFORE IT"
 GOLD, BLUE, TEAL = (120, 90, 0), (30, 50, 110), (20, 80, 60)
 
 
@@ -26,10 +31,18 @@ def box_text(box: tuple, scale: float) -> str:
 def moving_pairs(video: media.Video) -> tuple:
     """Per frame after the first, the pixels it changed past the noise floor and its live cells, and the grid's size."""
     cw, ch, pairs = video.change_cells(CELL)
+    means = video.cell_means(CELL)
     moving = []
     for i, cells in enumerate(pairs):
-        live = bytes(c if c >= CELL_FLOOR else 0 for c in cells)
-        moving.append((i + 1, round(sum(live) / 255 * CELL * CELL), live))
+        frame = i + 1
+        live = [c if c >= CELL_FLOOR else 0 for c in cells]
+        # a fade or a colour transition moves a few levels a frame, under the step floor, so a cell whose mean grey is still changing and has drifted past the fade floor over the last few frames counts too
+        if frame < len(means):
+            now, last, back = means[frame], means[frame - 1], means[max(0, frame - FADE_SPAN)]
+            for k in range(len(live)):
+                if now[k] != last[k] and abs(now[k] - back[k]) >= FADE_FLOOR:
+                    live[k] = 255
+        moving.append((frame, round(sum(live) / 255 * CELL * CELL), bytes(live)))
     return cw, ch, moving
 
 
@@ -127,7 +140,7 @@ def report(path: Path, out: Path, scale: float) -> None:
         span = 1000 * (video.times[last] - video.times[first])
         print(f"\nburst {number}: frames {first} to {last}, {1000 * video.times[first]:.0f} to {1000 * video.times[last]:.0f} ms ({span:.0f} ms), {len(burst)} frames changed")
         print(f"  pacing: {pacing(video, burst)}")
-        for r, (x0, y0, x1, y1, _) in enumerate(regions_of(union(burst, cw * ch), cw, ch)[:4], 1):
+        for r, (x0, y0, x1, y1, _) in enumerate(regions_of(union(burst, cw * ch), cw, ch), 1):
             box = (x0 * CELL, y0 * CELL, min((x1 + 1) * CELL, video.width) - x0 * CELL, min((y1 + 1) * CELL, video.height) - y0 * CELL)
             own = [(f, sum(live[cy * cw + cx] for cy in range(y0, y1 + 1) for cx in range(x0, x1 + 1))) for f, _, live in burst]
             own = [(f, n) for f, n in own if n]
@@ -162,7 +175,12 @@ def region_sheets(video: media.Video, out: Path, burst: int, region: int, box: t
     x, y, w, h = box
     x0, y0 = max(x - pad, 0), max(y - pad, 0)
     w, h = min(x + w + pad, video.width) - x0, min(y + h + pad, video.height) - y0
-    factor = min(1.0, media.EDGE / w, math.sqrt(media.AREA * 0.8 / (w * h)))
+    # the crop keeps a margin around the region so an edge that moved is never cut, and the header says so, since its numbers differ from the region line's
+    where = f"X {x0} Y {y0} W {w} H {h} PX (PT {pt(x0, scale)},{pt(y0, scale)} {pt(w, scale)}X{pt(h, scale)}), THE REGION AND UP TO {pad} PX AROUND IT"
+    title = f"FRAME DIFFS OF BURST {burst}, REGION {region}: {where}"
+    longest = ["KEY FRAMES ONLY: THE ONE BEFORE, THOSE CHANGING A THIRD OF THE PEAK OR MORE, AND THE LAST. EVERY CHANGED FRAME IS IN THE TEXT TABLE", "SCALED 0.00X FOR AN OVERVIEW, TAKE ONE FRAME WITH THE FRAME COMMAND TO JUDGE PIXELS", LEGEND]
+    one = draw.sheet_fit(w, h, title, longest)
+    factor = min(1.0, media.EDGE / w, math.sqrt(media.AREA * 0.8 / (w * h)), one)
     note = "EVERY FRAME WHERE THIS REGION CHANGED"
     overview = factor < 1
     picked = frames
@@ -171,13 +189,11 @@ def region_sheets(video: media.Video, out: Path, burst: int, region: int, box: t
         keys = [f for f in frames[1:] if weight.get(f, 0) >= peak / 3][:4]
         picked = sorted({frames[0], *keys, frames[-1]})
         rows = math.ceil(len(picked) / 2)
-        factor = min((media.EDGE - draw.GAP) / 2 / w, ((media.AREA / media.EDGE - 140) / rows - 48) / h)
-        note = "KEY FRAMES ONLY: THE ONE BEFORE, THOSE CHANGING A THIRD OF THE PEAK OR MORE, AND THE LAST. EVERY CHANGED FRAME IS IN THE TEXT TABLE"
+        factor = min((media.EDGE - draw.GAP) / 2 / w, ((media.AREA / media.EDGE - 140) / rows - 48) / h, one)
+        note = longest[0]
     tw, th = max(1, round(w * factor)), max(1, round(h * factor))
     rgb = video.frames(picked, (x0, y0, w, h))
     quality = "FULL QUALITY, 1 IMAGE PX = 1 DEVICE PX" if factor == 1 else f"SCALED {factor:.2f}X FOR AN OVERVIEW, TAKE ONE FRAME WITH THE FRAME COMMAND TO JUDGE PIXELS"
-    # the crop keeps a margin around the region so an edge that moved is never cut, and the header says so, since its numbers differ from the region line's
-    where = f"X {x0} Y {y0} W {w} H {h} PX (PT {pt(x0, scale)},{pt(y0, scale)} {pt(w, scale)}X{pt(h, scale)}), THE REGION AND UP TO {pad} PX AROUND IT"
     tiles = []
     for k, frame in enumerate(picked):
         tile, _, _ = media.scaled(rgb[frame], w, h, factor)
@@ -187,8 +203,7 @@ def region_sheets(video: media.Video, out: Path, burst: int, region: int, box: t
             continue
         before = picked[k - 1]
         tiles.append((top, f"+{1000 * (video.times[frame] - video.times[before]):.0f} MS  {media.changed_px(rgb[before], rgb[frame])} PX CHANGED", BLUE, tile))
-    legend = "EACH TILE IS TAGGED: FRAME NUMBER AND MS FROM THE VIDEO'S START, THEN MS AND PIXELS CHANGED SINCE THE TILE BEFORE IT"
-    written = draw.tagged_sheets(out, f"burst-{burst}-region-{region}-frames", f"FRAMES OF BURST {burst}, REGION {region}: {where}", [note, quality, legend], tiles, tw, th)
+    written = draw.tagged_sheets(out, f"burst-{burst}-region-{region}-frames", f"FRAMES OF BURST {burst}, REGION {region}: {where}", [note, quality, LEGEND], tiles, tw, th)
     lines = image_lines(written, [(f"F{f}", f"F{f}") for f in picked])
     light = media.is_light(rgb[picked[0]])
     diffs = []
@@ -212,10 +227,14 @@ def frame(path: Path, index: int, out: Path, box, scale: float) -> None:
     if clipped:
         print(f"the crop is clipped to x {region[0]} y {region[1]} w {region[2]} h {region[3]} to fit the frame")
     rgb = video.frames([index], region)[index]
-    factor = min(1.0, media.EDGE / region[2], math.sqrt(media.AREA / (region[2] * region[3])))
+
+    def texts_at(quality: str) -> list:
+        return [(f"FRAME {index} AT {1000 * video.times[index]:.0f} MS OF {path.name}, {box_text(region, scale).upper()}, {quality.upper()}", draw.WHITE)]
+
+    factor = media.fit(region[2], region[3], 0, draw.header_height(texts_at("scaled 0.00x"), 400), 1.0, 400)
     tile, tw, th = media.scaled(rgb, region[2], region[3], factor)
     quality = "full quality" if factor == 1 else f"scaled {factor:.2f}x"
-    texts = [(f"FRAME {index} AT {1000 * video.times[index]:.0f} MS OF {path.name}, {box_text(region, scale).upper()}, {quality.upper()}", draw.WHITE)]
+    texts = texts_at(quality)
     width = max(tw, 400)
     head = draw.header_height(texts, width)
     canvas = draw.Canvas(width, head + th, draw.HEAD)
@@ -225,9 +244,13 @@ def frame(path: Path, index: int, out: Path, box, scale: float) -> None:
     print(f"image {out}: frame {index} at {1000 * video.times[index]:.0f} ms, {quality}, {canvas.width}x{canvas.height}")
 
 
-def first_motion(video: media.Video, moving: list) -> int:
-    """The first frame that changed past the noise floor, or 0 for a video that never moves."""
-    return next((frame for frame, changed, _ in moving if changed >= FRAME_FLOOR), 0)
+def first_motion(video: media.Video, moving: list, cells: Optional[list] = None) -> int:
+    """The first frame that changed past the noise floor, within the given cells where some are given, or 0 for a video that never moves there."""
+    for frame, changed, live in moving:
+        inside = changed if cells is None else round(sum(live[k] for k in cells) / 255 * CELL * CELL)
+        if inside >= FRAME_FLOOR:
+            return frame
+    return 0
 
 
 def compare(path_a: Path, path_b: Path, out: Path, box, scale: float) -> None:
@@ -238,7 +261,12 @@ def compare(path_a: Path, path_b: Path, out: Path, box, scale: float) -> None:
         raise media.SeeError("the two recordings differ in size, so they cannot be laid side by side, record both at one size")
     cw, ch, moving_a = moving_pairs(a)
     _, _, moving_b = moving_pairs(b)
-    start_a, start_b = first_motion(a, moving_a), first_motion(b, moving_b)
+    # with a box, motion outside it, such as the pointer on its way to the button, never sets the start
+    cells = None
+    if box is not None:
+        (bx, by, bw, bh), _ = media.clip(box, a.width, a.height)
+        cells = [cy * cw + cx for cy in range(by // CELL, (by + bh - 1) // CELL + 1) for cx in range(bx // CELL, (bx + bw - 1) // CELL + 1)]
+    start_a, start_b = first_motion(a, moving_a, cells), first_motion(b, moving_b, cells)
     print(f"a moves from F{start_a} and b from F{start_b}, lined up there")
     if box is None:
         cells = bytearray(cw * ch)
@@ -258,11 +286,13 @@ def compare(path_a: Path, path_b: Path, out: Path, box, scale: float) -> None:
     print(f"compared over {box_text(region, scale)}" + (", clipped to the frame" if clipped else ""))
     base_a, base_b = max(start_a - 1, 0), max(start_b - 1, 0)
     rows = []
+    since_b = [t - b.times[base_b] for t in b.times[base_b:]]
     for i in range(base_a, len(a.times)):
         t = a.times[i] - a.times[base_a]
-        j = min(range(base_b, len(b.times)), key=lambda k: abs(b.times[k] - b.times[base_b] - t))
-        if abs(b.times[j] - b.times[base_b] - t) > a.period:
+        # b's frame on screen at that moment, the last one shown by then, so frames b's recorder dropped hold its last frame, and the reading stops where b ends
+        if t > since_b[-1] + b.period:
             break
+        j = base_b + bisect.bisect_right(since_b, t + a.period / 2) - 1
         rows.append((t, i, j))
     frames_a = a.frames([i for _, i, _ in rows], region)
     frames_b = b.frames([j for _, _, j in rows], region)
@@ -288,7 +318,12 @@ def pair_sheets(out: Path, rows: list, counts: list, frames_a: dict, frames_b: d
     """Each moment as one tile, a beside b beside their overlay, tagged with the ms from the start, the frames and the pixels that differ."""
     _, _, w, h = region
     gap = 6
-    factor = min(1.0, (media.EDGE - 2 * gap) / (3 * w), math.sqrt(media.AREA * 0.5 / (3 * w * h)))
+    notes = [
+        "EACH TILE IS ONE MOMENT, MS FROM THE FIRST MOTION: A ON THE LEFT, B IN THE MIDDLE, THEIR OVERLAY ON THE RIGHT, RED ONLY IN A, GREEN ONLY IN B, GREY THE SAME",
+        "SCALED 0.00X FOR AN OVERVIEW",
+    ]
+    title = f"A AND B SIDE BY SIDE: {box_text(region, scale).upper()}"
+    factor = min(1.0, (media.EDGE - 2 * gap) / (3 * w), math.sqrt(media.AREA * 0.5 / (3 * w * h)), draw.sheet_fit(3 * w, h, title, notes, 2 * gap))
     tw, th = max(1, round(w * factor)), max(1, round(h * factor))
     light = media.is_light(frames_a[rows[0][1]]) if rows else False
     tiles = []
@@ -300,10 +335,7 @@ def pair_sheets(out: Path, rows: list, counts: list, frames_a: dict, frames_b: d
                 at = (row * (3 * tw + 2 * gap) + p * (tw + gap)) * 3
                 joined[at : at + tw * 3] = part[row * tw * 3 : (row + 1) * tw * 3]
         tiles.append((f"+{1000 * t:.0f} MS  A F{i}  B F{j}", f"{n} PX DIFFER", BLUE if n else TEAL, bytes(joined)))
-    notes = [
-        "EACH TILE IS ONE MOMENT, MS FROM THE FIRST MOTION: A ON THE LEFT, B IN THE MIDDLE, THEIR OVERLAY ON THE RIGHT, RED ONLY IN A, GREEN ONLY IN B, GREY THE SAME",
-        "FULL QUALITY" if factor == 1 else f"SCALED {factor:.2f}X FOR AN OVERVIEW",
-    ]
-    written = draw.tagged_sheets(out, "compare", f"A AND B SIDE BY SIDE: {box_text(region, scale).upper()}", notes, tiles, 3 * tw + 2 * gap, th)
+    notes[1] = "FULL QUALITY" if factor == 1 else f"SCALED {factor:.2f}X FOR AN OVERVIEW"
+    written = draw.tagged_sheets(out, "compare", title, notes, tiles, 3 * tw + 2 * gap, th)
     for line in image_lines(written, [(f"+{1000 * t:.0f} ms", f"+{1000 * t:.0f} ms") for t, _, _ in rows]):
         print(line)

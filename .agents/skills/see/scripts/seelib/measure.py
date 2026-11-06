@@ -6,6 +6,7 @@ from . import draw, media
 
 INK = 8  # a white card on a near white page is 11 levels off, and a screenshot carries no noise, so 8 finds both
 MERGE = 14  # pieces this close become one item, the letters and words of a label, about 7 pt at 2x
+MIN_W = 400  # a canvas at least this wide, so its header reads on a small picture
 PURPLE, CYAN, MAGENTA, ORANGE, GREEN, RED = (124, 77, 255), (0, 170, 230), (230, 40, 200), (255, 150, 0), (40, 200, 90), (230, 40, 40)
 
 
@@ -261,15 +262,20 @@ def place_label(cx: int, cy: int, lw: int, lh: int, placed: list, bounds: tuple,
 
 
 def draw_redline(crop, w, h, elements, gaps, out, path, region, scale):
-    zoom = 2 if w * 2 + 60 <= media.EDGE and (w * 2 + 60) * (h * 2 + 160) <= media.AREA else 1
-    factor = zoom if zoom > 1 else min(1.0, (media.EDGE - 60) / w, ((media.AREA / (w + 60)) - 160) / h)
-    tile, tw, th = media.scaled(crop, w, h, factor)
     margin = 30
-    texts = [
-        (f"REDLINE OF {path.name}, REGION X {region[0]} Y {region[1]} W {w} H {h}, SHOWN AT {factor:.2g}X. NUMBERS ARE DEVICE PX, PT = PX / {scale:g}", draw.WHITE),
-        ("MAGENTA: ELEMENTS, NUMBERED. PURPLE: WIDTH. CYAN: HEIGHT. ORANGE: ITEMS INSIDE. GREEN: PADDING AND GAPS INSIDE. RED: GAPS BETWEEN ELEMENTS", draw.DIM),
-    ]
-    width = tw + 2 * margin
+
+    def texts_at(factor: float) -> list:
+        return [
+            (f"REDLINE OF {path.name}, REGION X {region[0]} Y {region[1]} W {w} H {h}, SHOWN AT {factor:.2g}X. NUMBERS ARE DEVICE PX, PT = PX / {scale:g}", draw.WHITE),
+            ("MAGENTA: ELEMENTS, NUMBERED. PURPLE: WIDTH. CYAN: HEIGHT. ORANGE: ITEMS INSIDE. GREEN: PADDING AND GAPS INSIDE. RED: GAPS BETWEEN ELEMENTS", draw.DIM),
+        ]
+
+    # up to twice the size where it fits, a whole number so every pixel stays square, else as large as the budget allows, the header and the margins counted
+    factor = media.fit(w, h, 2 * margin, draw.header_height(texts_at(0.55), MIN_W) + 2 * margin, 2.0, MIN_W)
+    factor = int(factor) if factor >= 1 else factor
+    tile, tw, th = media.scaled(crop, w, h, factor)
+    texts = texts_at(factor)
+    width = max(tw + 2 * margin, MIN_W)
     head = draw.header_height(texts, width)
     canvas = draw.Canvas(width, head + th + 2 * margin, (40, 40, 44))
     draw.draw_header(canvas, texts)
@@ -396,6 +402,9 @@ def zoom(out: Path, box: tuple, paths: list, scale: float) -> None:
     if clipped:
         print(f"the region is clipped to x {x} y {y} w {w} h {h} to fit the image")
     ruler = 46
+    # a zoom shows every pixel at a whole number, so a region that does not fit at 1x is refused rather than shrunk
+    if media.fit(len(paths) * w, h, len(paths) * (ruler + 16), ruler + 160) < 1:
+        raise media.SeeError(f"the region is too big to zoom, since a zoom shows every pixel and {w} x {h} px does not fit the image budget, give a smaller region")
     factor = max(1, min(16, (media.EDGE // len(paths) - ruler - 16) // w, (media.EDGE - ruler - 160) // h))
     while factor > 1 and (len(paths) * (w * factor + ruler + 16)) * (h * factor + ruler + 160) > media.AREA:
         factor -= 1

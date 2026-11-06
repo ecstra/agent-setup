@@ -149,6 +149,13 @@ def draw_header(canvas: Canvas, texts: list) -> int:
     return height
 
 
+def sheet_fit(w: int, h: int, title: str, notes: list, extra_w: int = 0) -> float:
+    """The largest scale up to 1 at which one tile w by h, with its tag and the sheet's header, makes a sheet within the budget."""
+    probe = [(title, WHITE), ("SHEET 10 OF 10", WHITE)] + [(note, DIM) for note in notes]
+    # the header is measured at the narrowest a sheet gets, where it wraps the most lines
+    return media.fit(w, h, extra_w, header_height(probe, TAG_W) + 2 * text_size("X")[1] + 4, 1.0, TAG_W)
+
+
 def tagged_sheets(out: Path, stem: str, title: str, notes: list, tiles: list, tw: int, th: int) -> list:
     """Tiles in a grid, each under a two line tag, over as many sheets as the image budget needs, and the files written with their tile counts and sizes.
 
