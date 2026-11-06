@@ -241,16 +241,23 @@ def redline(path: Path, out: Path, box, scale: float) -> None:
     draw_redline(crop, w, h, elements, gaps, out, path, region, scale)
 
 
-def place_label(cx: int, cy: int, lw: int, lh: int, placed: list, bounds: tuple) -> tuple:
-    """Where a label lw by lh wanted around a point goes, the nearest row above or below that no placed label covers, kept inside the bounds, or the wanted row where none within three is free."""
+def place_label(cx: int, cy: int, lw: int, lh: int, placed: list, bounds: tuple, avoid: list = ()) -> tuple:
+    """Where a label lw by lh wanted around a point goes, kept inside the bounds.
+
+    The nearest spot within three steps each way that covers no placed
+    label and no box to avoid, else the nearest that covers no label, else the wanted spot.
+    """
     left, top, right, bottom = bounds
-    x = min(max(cx - lw // 2, left), right - lw)
-    wanted = cy - lh // 2
-    for step in (0, 1, -1, 2, -2, 3, -3):
-        y = min(max(wanted + step * (lh + 2), top), bottom - lh)
-        if not any(x < px + pw and px < x + lw and y < py + ph and py < y + lh for px, py, pw, ph in placed):
-            return x, y
-    return x, min(max(wanted, top), bottom - lh)
+    steps = [(dx * (lw // 2 + 4), dy * (lh + 2)) for dx in range(-3, 4) for dy in range(-3, 4)]
+    spots = []
+    for dx, dy in sorted(steps, key=lambda d: (d[0] * d[0] + d[1] * d[1], d[1] < 0, d[0] < 0)):
+        spots.append((min(max(cx - lw // 2 + dx, left), right - lw), min(max(cy - lh // 2 + dy, top), bottom - lh)))
+
+    def free(spot: tuple, boxes) -> bool:
+        x, y = spot
+        return not any(x < bx + bw and bx < x + lw and y < by + bh and by < y + lh for bx, by, bw, bh in boxes)
+
+    return next((spot for spot in spots if free(spot, placed) and free(spot, avoid)), next((spot for spot in spots if free(spot, placed)), spots[0]))
 
 
 def draw_redline(crop, w, h, elements, gaps, out, path, region, scale):
@@ -275,20 +282,38 @@ def draw_redline(crop, w, h, elements, gaps, out, path, region, scale):
 
     bounds = (0, head, canvas.width, canvas.height)
 
-    def pill(cx: int, cy: int, text: str, colour: tuple) -> None:
+    def box_of(b: tuple) -> tuple:
+        return ox + s(b[0]), oy + s(b[1]), max(1, s(b[2] - b[0] + 1)), max(1, s(b[3] - b[1] + 1))
+
+    # a label never covers what was drawn, the items inside an element and the elements that hold none, such as a line of text or a shape, while a card's free space may take its own labels
+    avoid = [box_of(b) for _, el, items, _ in elements for b in (items or [el])]
+
+    def pill(cx: int, cy: int, text: str, colour: tuple, around: tuple = ()) -> None:
         lw, lh = draw.text_size(text)
-        lx, ly = place_label(cx, cy, lw + 4, lh, placed, bounds)
+        lx, ly = place_label(cx, cy, lw + 4, lh, placed, bounds, [b for b in avoid if b not in around])
         placed.append((lx, ly, lw + 4, lh))
         canvas.text(lx, ly, text, 2, draw.WHITE, colour)
 
-    for n, el, items, how in elements:
+    # the names go first and the gaps next, so the sizes find their places around them
+    for n, el, _, _ in elements:
         x0, y0, x1, y1 = ox + s(el[0]), oy + s(el[1]), ox + s(el[2] + 1), oy + s(el[3] + 1)
         canvas.outline(x0, y0, x1 - x0, y1 - y0, MAGENTA, 1)
-        name = f"E{n}"
-        nw, nh = draw.text_size(name)
-        ny = y0 - 18 if y0 - 18 > head else y1 + 2
-        placed.append((x0, ny, nw + 4, nh))
-        canvas.text(x0, ny, name, 2, draw.WHITE, MAGENTA)
+        nw, nh = draw.text_size(f"E{n}")
+        nx, ny = place_label(x0 + (nw + 4) // 2, y0 - nh // 2 - 2, nw + 4, nh, placed, bounds, avoid)
+        placed.append((nx, ny, nw + 4, nh))
+        canvas.text(nx, ny, f"E{n}", 2, draw.WHITE, MAGENTA)
+    # a gap's rule and its number sit in the gap itself, the one place sure to be empty, the rule where the two elements face each other, and a narrow gap's number may touch the two it measures
+    for way, _, _, g, a, b in gaps:
+        if way == "across":
+            row = oy + s((max(a[1], b[1]) + min(a[3], b[3])) / 2)
+            canvas.rect(ox + s(a[2] + 1), row, max(1, s(g)), 2, RED)
+            pill(ox + s(a[2] + 1 + g / 2), row, f"{g}", RED, (box_of(a), box_of(b)))
+        else:
+            col = ox + s((max(a[0], b[0]) + min(a[2], b[2])) / 2)
+            canvas.rect(col, oy + s(a[3] + 1), 2, max(1, s(g)), RED)
+            pill(col, oy + s(a[3] + 1 + g / 2), f"{g}", RED, (box_of(a), box_of(b)))
+    for n, el, items, how in elements:
+        x0, y0, x1, y1 = ox + s(el[0]), oy + s(el[1]), ox + s(el[2] + 1), oy + s(el[3] + 1)
         mid = (y0 + y1) // 2
         canvas.rect(x0, mid, x1 - x0, 1, PURPLE)
         canvas.rect(x0, mid - 5, 1, 11, PURPLE)
@@ -319,15 +344,6 @@ def draw_redline(crop, w, h, elements, gaps, out, path, region, scale):
                 if b - a - 1 > 0:
                     canvas.rect(col, oy + s(a + 1), 1, s(b - a - 1), GREEN)
                     pill(col - 20, oy + s((a + b) / 2), f"{b - a - 1}", GREEN)
-    for way, _, _, g, a, b in gaps:
-        if way == "across":
-            row = oy + s(max(a[1], b[1]) + 4)
-            canvas.rect(ox + s(a[2] + 1), row, max(1, s(g)), 2, RED)
-            pill(ox + s(a[2] + 1 + g / 2), row + 14, f"{g}", RED)
-        else:
-            col = ox + s(max(a[0], b[0]) + 4)
-            canvas.rect(col, oy + s(a[3] + 1), 2, max(1, s(g)), RED)
-            pill(col + 24, oy + s(a[3] + 1 + g / 2), f"{g}", RED)
     canvas.save(out)
     print(f"image {out}: the redline, {canvas.width}x{canvas.height}")
 
