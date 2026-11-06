@@ -597,15 +597,13 @@ def leads_out(
 ) -> Optional[Path]:
     """Where the folder a kit file lands in really is, where a link takes it out of the project, else None, so a `.claude` linked into the kit checkout never gets a project's settings."""
     try:
-        # spelled as the disk spells them, so a link into the project under another case of its folder stays inside it
-        real: Path = store.as_on_disk((project.root / relative).parent.resolve())
-        real.relative_to(store.as_on_disk(project.root.resolve()))
-    except ValueError:
-        return real
-    except (OSError, RuntimeError):
+        real: Path = (project.root / relative).parent.resolve()
+        root: Path = project.root.resolve()
+    except (OSError, RuntimeError, ValueError):
         return None
 
-    return None
+    # by the disk's identity, so a link into the project under another case of its folder stays inside it
+    return real if store.below(path=real, root=root) is None else None
 
 
 def prepare(
@@ -685,6 +683,10 @@ def prepare(
         if out is not None:
             raise UpgradeError(f"{relative.as_posix()} sits behind a link that leads out of the project, to {out}, so move the link aside first")
 
+    blocked = in_the_way(kit=kit, project=project, stamped=stamped)
+    if blocked is not None:
+        raise UpgradeError(blocked)
+
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
     if rules.MARK not in front_doors["AGENTS.md"]:
@@ -729,6 +731,85 @@ def prepare(
         merged=merged,
         layout=project.state(),
     )
+
+
+DEFINITIONS = Path(".claude") / "agents"
+SANDBOXED = (
+    f"nothing can be written under {DEFINITIONS.as_posix()}, where the run puts the review's sub agent definitions, and Claude Code's sandbox refuses every write there whatever a project's settings say, so run brain port or brain upgrade from a terminal, or let Claude Code run this one command outside the sandbox"
+)
+
+
+def in_the_way(
+    kit: Kit,
+    project: Project,
+    stamped: tuple[int, ...],
+) -> Optional[str]:
+    """Why the install would stop part way, or None, asked before its first write so a refusal leaves the project as it was.
+
+    A file or a dangling link stands where the install makes a folder, a
+    folder stands where it writes a file, or the folder of the review's
+    definitions takes no write while the run has one to make there,
+    which Claude Code's sandbox refuses on purpose. The places are the
+    ones the install writes, the front doors, the kit's files under the
+    brain and the agent folders, the project's own rule, the doc of the
+    doors' own words, the ignore file, the stamp and the kind folders.
+    """
+    files: list[Path] = [
+        *(Path(name) for name in ROOT_FILES),
+        *(Path(FOLDER) / relative for relative in kit.brain_files()),
+        *kit.agent_files(),
+        Path(FOLDER) / rules.FOLDER / rules.PROJECT,
+        Path(FOLDER) / QUOTED_DOC,
+        Path(IGNORE_FILE),
+        Path(FOLDER) / VERSION,
+    ]
+    folders = {parent for relative in files for parent in relative.parents if parent != Path(".")}
+    folders |= {Path(FOLDER) / kind.folder for kind in schema.KINDS.values()}
+    for folder in sorted(folders, key=lambda path: (len(path.parts), path.as_posix())):
+        place = project.root / folder
+        if os.path.lexists(place) and not store.quietly(place.is_dir):
+            return f"a file stands at {folder.as_posix()}, where the run makes a folder, so move it aside first"
+
+    for relative in files:
+        if store.quietly((project.root / relative).is_dir):
+            return f"a folder stands at {relative.as_posix()}, where the run writes a file, so move it aside first"
+
+    definitions = [relative for relative in kit.agent_files() if relative.parent == DEFINITIONS]
+    owed = any(not store.same_bytes(one=project.root / relative, other=kit.root / relative) for relative in definitions)
+    owed = owed or any(schema.carries(since=definition.since, stamp=stamped) and store.readable_file(project.root / definition.path) for definition in schema.RETIRED_DEFINITIONS)
+    if owed and not takes_a_write(project.root / DEFINITIONS):
+        return SANDBOXED
+
+    return None
+
+
+def takes_a_write(
+    folder: Path,
+) -> bool:
+    """Whether a file can be made in the folder, with the folders above it that are missing, and taken away again, every trace of the try removed."""
+    missing: list[Path] = []
+    current = folder
+    while not os.path.lexists(current) and current != current.parent:
+        missing.append(current)
+        current = current.parent
+
+    made: list[Path] = []
+    try:
+        for step in reversed(missing):
+            step.mkdir()
+            made.append(step)
+        handle, name = tempfile.mkstemp(dir=folder, prefix=".probe.")
+        os.close(handle)
+        os.unlink(name)
+        return True
+    except OSError:
+        return False
+    finally:
+        for step in reversed(made):
+            try:
+                step.rmdir()
+            except OSError:
+                pass
 
 
 def install(

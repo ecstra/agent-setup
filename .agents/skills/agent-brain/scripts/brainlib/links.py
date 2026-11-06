@@ -5,7 +5,6 @@ names instead, so resolving still accepts an id or a name, and the
 upgrade turns them into paths.
 """
 
-import functools
 import os
 import re
 import tempfile
@@ -253,9 +252,10 @@ def within(
     The path is never resolved. A symlink filed inside the brain is
     inside it, and `..` is folded lexically, so a path cannot climb out
     unseen and a symlink loop on disk cannot raise here. It is held to
-    the root as written, then to the root resolved, since a `.agents`
-    that is a link stays the project's own while a path inside it
-    reaches the hook through the link's target.
+    the root as written, then to the root by the disk's identity, since
+    a `.agents` that is a link stays the project's own while a path
+    inside it reaches the hook through the link's target, and another
+    case of the root is the root on a disk that folds case.
     """
     folded = Path(os.path.normpath(str(path)))
     written = Path(os.path.normpath(str(brain.root)))
@@ -263,20 +263,9 @@ def within(
     if inside is not None:
         return inside
 
-    resolved = resolved_root(written)
+    found = store.below(path=folded, root=written)
 
-    return None if resolved is None or resolved == written else inside_of(root=resolved, folded=folded)
-
-
-@functools.lru_cache(maxsize=8)
-def resolved_root(
-    root: Path,
-) -> Optional[Path]:
-    """The brain's root resolved and spelled as the disk spells it, asked once per root, since a check of every link asks it again."""
-    try:
-        return store.as_on_disk(root.resolve())
-    except (OSError, RuntimeError, ValueError):
-        return None
+    return None if found is None else found.as_posix()
 
 
 def inside_of(

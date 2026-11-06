@@ -340,7 +340,7 @@ def pre_write(
     event: dict,
     agent: str,
 ) -> int:
-    touched = touches(event=event, agent=agent)
+    touched = as_the_project_spells(brain=brain, touched=touches(event=event, agent=agent))
     for touch in touched:
         verdict = front_door_refusal(brain=brain, touch=touch) or refusal(brain=brain, touch=touch) or assertion_refusal(brain=brain, touch=touch)
         if verdict is None:
@@ -1230,7 +1230,7 @@ def post_write(
     and an exit 1 would show the person the error and lose the slips, so
     a broken brain never hides one.
     """
-    touched = touches(event=event, agent=agent)
+    touched = as_the_project_spells(brain=brain, touched=touches(event=event, agent=agent))
     parts: list[str] = []
 
     lint_part: Optional[str] = lint_after(
@@ -1549,19 +1549,36 @@ def absolute(
 def settled(
     path: Path,
 ) -> Path:
-    """The path with its folder resolved on disk and the file itself left alone, every part spelled as the disk spells it.
+    """The path with its folder resolved on disk and the file itself left alone.
 
     Only the folder is followed, so a symlinked file still counts where
     it sits. A folder that cannot be resolved, a loop on the 3.9 floor
     or a path with a stray null byte in it, keeps its lexical spelling
-    and is judged as written. On a disk that folds case a part written
-    in another case is spelled as its folder lists it, so `.AGENTS/.ack`
-    is the brain's `.ack` to every rule that compares paths as text.
+    and is judged as written.
     """
     try:
-        return store.as_on_disk(path.parent.resolve() / path.name)
+        return path.parent.resolve() / path.name
     except (OSError, RuntimeError, ValueError):
         return path
+
+
+def as_the_project_spells(
+    brain: store.Brain,
+    touched: list[Touch],
+) -> list[Touch]:
+    """The touches with each path inside the project spelled as the project and the disk spell it, so every rule that compares paths as text sees one spelling.
+
+    On a disk that folds case `<PROJECT>/.AGENTS/.ack` is the brain's
+    `.ack`, and `todos/index.md` is the index. A path outside the
+    project keeps its spelling.
+    """
+    project = brain.root.parent
+
+    def spelled(path: Path) -> Path:
+        inside = store.below(path=path, root=project)
+        return path if inside is None else store.as_on_disk(project / inside, root=project)
+
+    return [replace(touch, path=spelled(touch.path), moved_from=None if touch.moved_from is None else spelled(touch.moved_from)) for touch in touched]
 
 
 # What each agent calls the event after a write, which the reply names.

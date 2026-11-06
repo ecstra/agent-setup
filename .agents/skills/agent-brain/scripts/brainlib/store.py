@@ -729,15 +729,15 @@ def find_brain(
                     project = brain.parent.resolve()
                 except (OSError, RuntimeError, ValueError):
                     project = brain.parent
-                return Brain(root=as_on_disk(project) / ".agents")
+                return Brain(root=project / ".agents")
 
     for candidate in [here, *here.parents]:
         if candidate.name == ".agents" and readable_file(candidate / "INDEX.md"):
-            return Brain(root=as_on_disk(candidate))
+            return Brain(root=candidate)
 
         inside = candidate / ".agents"
         if readable_file(inside / "INDEX.md"):
-            return Brain(root=as_on_disk(inside))
+            return Brain(root=inside)
 
     raise StoreError(
         "no .agents/ directory here or above, so there is no brain to work on",
@@ -763,8 +763,42 @@ def counted(
     return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
 
 
+def below(
+    path: Path,
+    root: Path,
+) -> Optional[Path]:
+    """The path relative to the root, where the path or a folder above it is the root folder itself, else None.
+
+    The root is matched lexically first, then by the disk's identity, so
+    another spelling of its case on a disk that folds case, or a link
+    that leads to it, still lies within it. Each folder on the way up is
+    only stat'ed, never listed.
+    """
+    try:
+        inside = path.relative_to(root)
+    except ValueError:
+        inside = None
+
+    if inside is None:
+        try:
+            wanted = os.stat(root)
+        except (OSError, ValueError):
+            return None
+
+        for ancestor in path.parents:
+            try:
+                if os.path.samestat(os.stat(ancestor), wanted):
+                    inside = path.relative_to(ancestor)
+                    break
+            except (OSError, ValueError):
+                continue
+
+    return inside
+
+
 def as_on_disk(
     path: Path,
+    root: Optional[Path] = None,
 ) -> Path:
     """The path with each part that names an entry there spelled as its folder lists it.
 
@@ -773,14 +807,18 @@ def as_on_disk(
     spelled this way. A part is respelled only where the folder holds no
     entry of that exact name and the two names open the same file, so a
     disk that keeps case apart, where another case is another file, and
-    a part that names nothing yet keep the spelling they were given.
+    a part that names nothing yet keep the spelling they were given. A
+    root the path lies under is kept as given, so no folder above it is
+    listed.
     """
-    parts = path.parts
-    if not parts:
+    if root is not None:
+        spelled, rest = root, path.relative_to(root).parts
+    elif path.parts:
+        spelled, rest = Path(path.parts[0]), path.parts[1:]
+    else:
         return path
 
-    spelled = Path(parts[0])
-    for part in parts[1:]:
+    for part in rest:
         candidate = spelled / part
         if part not in (".", "..") and os.path.lexists(candidate):
             try:

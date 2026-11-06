@@ -673,33 +673,18 @@ def within_project(
 ) -> Optional[Path]:
     """The path resolved, or None where that lies outside the project or cannot be resolved.
 
-    A path that reads outside only by its case is spelled as the disk
-    spells it and asked again, so on a disk that folds case another case
-    of the project is the project, and the folders are listed only then.
+    The project is known by the disk's identity where the text does not
+    match, so on a disk that folds case another case of its folder is
+    the project, and the path comes back from the project's own spelling.
     """
     try:
         resolved = path.resolve()
     except (OSError, RuntimeError, ValueError):
         return None
 
-    if is_under(path=resolved, root=root):
-        return resolved
+    inside = store.below(path=resolved, root=root)
 
-    spelled = store.as_on_disk(resolved)
-
-    return spelled if is_under(path=spelled, root=root) else None
-
-
-def is_under(
-    path: Path,
-    root: Path,
-) -> bool:
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return False
-
-    return True
+    return None if inside is None else root / inside
 
 
 def target_of(

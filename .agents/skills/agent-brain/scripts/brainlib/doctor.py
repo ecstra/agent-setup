@@ -1157,7 +1157,8 @@ def skills_folder_outside(
     folder = resolved(project / SKILL_LINKS)
     root = resolved(project)
 
-    return folder is not None and root is not None and not folder.is_relative_to(root)
+    # by the disk's identity, since a link may name the project's folder in another case on a disk that folds case
+    return folder is not None and root is not None and store.below(path=folder, root=root) is None
 
 
 def skills_folder_in_brain(
@@ -1167,7 +1168,7 @@ def skills_folder_in_brain(
     folder = resolved(brain.root.parent / SKILL_LINKS)
     root = resolved(brain.root)
 
-    return folder is not None and root is not None and folder.is_relative_to(root)
+    return folder is not None and root is not None and store.below(path=folder, root=root) is not None
 
 
 def on_the_way(
@@ -1271,12 +1272,10 @@ def resolved(
     itself from 3.13 on, a folder the process cannot search raises
     OSError, and a name the system refuses raises ValueError. Each is
     a path that reaches nothing, answered here once for every check
-    that resolves one. The answer is spelled as the disk spells it,
-    since a link may name a folder in another case on a disk that folds
-    case, and every check compares the paths it gets as text.
+    that resolves one.
     """
     try:
-        return store.as_on_disk(path.resolve())
+        return path.resolve()
     except (OSError, RuntimeError, ValueError):
         return None
 
