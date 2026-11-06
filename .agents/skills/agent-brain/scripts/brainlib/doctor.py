@@ -1833,6 +1833,30 @@ def check_front_doors(
     return found
 
 
+def check_rule_imports(
+    brain: store.Brain,
+) -> list[Finding]:
+    """The findings on the import lines inside each rule, every path read from the rules folder, as Claude Code and Gemini CLI read an import from the folder of the file that holds it.
+
+    A project's section 0 sat in AGENTS.md before 3.0.0, where the front
+    door check read its imports, and it is a rule now, so a slip there is
+    named the same way, under the rule's path in the brain.
+    """
+    project = brain.root.parent
+    folder = brain.root / rules.FOLDER
+    found: list[Finding] = []
+    for rule in rules.names(brain.root):
+        name = f"{rules.FOLDER}/{rule}"
+        text, trouble = text_of_door(folder / rule)
+        if text is None:
+            found.append(import_finding(name=name, message=trouble))
+            continue
+
+        found += [finding for line in IMPORT_LINE.finditer(visible_text(text)) for finding in line_slips(name=name, token=line.group(1), project=project, base=folder)]
+
+    return found
+
+
 def text_of_door(
     path: Path,
 ) -> tuple[Optional[str], str]:
@@ -1922,8 +1946,9 @@ def line_slips(
     name: str,
     token: str,
     project: Path,
+    base: Optional[Path] = None,
 ) -> list[Finding]:
-    """What is wrong with the import an import line holds, judged as every agent reads it.
+    """What is wrong with the import an import line holds, judged as every agent reads it, from `base`, the folder of the file that holds it, the project's own by default.
 
     A path with an escaped space or a fragment, or with emphasis markers
     after it, is passed over, since the agents read it more than one
@@ -1932,8 +1957,12 @@ def line_slips(
     of the disk and a climb back in, and last the target, which has to
     be there, under its own case, a regular file that can be read and
     holds text. A target git ignores is each clone's own, so its absence
-    is never named.
+    is never named, and git and the fix are asked by its path from the
+    project's root.
     """
+    base = project if base is None else base
+    inside = "" if base == project else f" in {base.relative_to(project).as_posix()}/"
+    home = "the project's folder" if base == project else f"{base.relative_to(project).as_posix()}/, the folder the rule is read from"
     if "\\ " in token or "#" in token or MARKED.search(token):
         return []
 
@@ -1942,12 +1971,12 @@ def line_slips(
         return []
 
     if "\\" in bare:
-        if not is_import(bare=bare.replace("\\", "/"), project=project):
+        if not is_import(bare=bare.replace("\\", "/"), project=base):
             return []
 
         return [import_finding(name=name, message=f"imports @{token} with a backslash in its path, which no agent reads as a folder's slash, so write it with slashes")]
 
-    if not is_import(bare=bare, project=project):
+    if not is_import(bare=bare, project=base):
         return []
 
     if bare != token:
@@ -1957,26 +1986,27 @@ def line_slips(
         return []
 
     if token.startswith("/"):
-        return [from_root(name=name, path=token)]
+        return [from_root(name=name, path=token, home=home)]
 
-    if climbs_back_in(path=token, project=project):
-        return [back_in_by_name(name=name, path=token)]
+    if climbs_back_in(path=token, project=project, base=base):
+        return [back_in_by_name(name=name, path=token, home=home)]
 
-    spelled = spelled_on_disk(base=project, path=token)
+    spelled = spelled_on_disk(base=base, path=token)
     if spelled is None:
-        if os.path.lexists(project / token):
+        if os.path.lexists(base / token):
             return [import_finding(name=name, message=f"imports @{token}, which is not a regular file, so no agent loads it")]
 
-        if ignored_by_git(project=project, path=token):
+        from_the_root = Path(os.path.relpath(base / token, project)).as_posix()
+        if ignored_by_git(project=project, path=from_the_root):
             return []
 
-        fixed = ", and brain doctor --fix writes it" if fix_writes(project=project, path=token) else ""
-        return [import_finding(name=name, message=f"imports @{token}, which is not there{fixed}")]
+        fixed = ", and brain doctor --fix writes it" if fix_writes(project=project, path=from_the_root) else ""
+        return [import_finding(name=name, message=f"imports @{token}, which is not there{inside}{fixed}")]
 
     if spelled != token:
         return [spelled_otherwise(name=name, path=token, spelled=spelled)]
 
-    trouble = target_trouble(project / spelled)
+    trouble = target_trouble(base / spelled)
 
     return [] if trouble is None else [import_finding(name=name, message=f"imports @{token}, which {trouble}")]
 
@@ -2151,30 +2181,33 @@ def glued_on(
 def from_root(
     name: str,
     path: str,
+    home: str = "the project's folder",
 ) -> Finding:
     """An import that opens with a slash is never looked up, since it is there on one machine and missing on the next, and so never counts as the rules import."""
     return import_finding(
         name=name,
-        message=f"imports @{path} from the root of the disk, which is there on one machine and missing on the next, so write it from the project's folder",
+        message=f"imports @{path} from the root of the disk, which is there on one machine and missing on the next, so write it from {home}",
     )
 
 
 def back_in_by_name(
     name: str,
     path: str,
+    home: str = "the project's folder",
 ) -> Finding:
     """An import that climbs out of the project's folder and comes back in by its name is never looked up, since another checkout of the project may go by another name, and so never counts as the rules import."""
     return import_finding(
         name=name,
-        message=f"imports @{path} out of the project's folder and back in by its name, which another checkout may not share, so write it from the project's folder",
+        message=f"imports @{path} out of the project's folder and back in by its name, which another checkout may not share, so write it from {home}",
     )
 
 
 def climbs_back_in(
     path: str,
     project: Path,
+    base: Optional[Path] = None,
 ) -> bool:
-    """Whether the path climbs above the project's folder and comes back into it by retracing the names it climbed out of.
+    """Whether the path, read from `base`, the project's folder by default, climbs above the project's folder and comes back into it by retracing the names it climbed out of.
 
     It is decided from the path's parts and the names of the project's
     own folder and its parents, never from the disk. The path is walked
@@ -2184,7 +2217,7 @@ def climbs_back_in(
     A path that climbs out and stays out is looked up like any other.
     """
     home = list(project.parts)
-    trail = list(home)
+    trail = list((project if base is None else base).parts)
     climbed_out = False
 
     for part in path.split("/"):
@@ -2505,6 +2538,7 @@ CHECKS: tuple[Callable[[store.Brain], list[Finding]], ...] = (
     check_hygiene,
     check_layout,
     check_front_doors,
+    check_rule_imports,
     check_rust,
     check_rules,
     check_read_guard,
