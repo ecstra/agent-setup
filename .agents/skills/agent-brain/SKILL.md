@@ -179,9 +179,10 @@ the `by` of a todo or a plan, which still says whether the owner asked
 for it or the agent raised it. Git ignores `.ack`, the owner's
 standing word, `.ack-tests`, the owner's word to change a test file's
 assertions, `.conclude`, the conclude word, and `.task`, the current
-work, with their writes in flight, `.handover/`, the note for the next
-session, and `handover/`, its folder before 2.2.0, `.worktrees/` and
-the Python and ruff caches. The rest is
+work, with their writes in flight, `.lines/`, where a line of work
+started beside the folder's own keeps those of its own, `.handover/`,
+the note for the next session, and `handover/`, its folder before
+2.2.0, `.worktrees/` and the Python and ruff caches. The rest is
 committed, and a closed bug, todo, plan or ledger is never deleted,
 since it is the record. Every file
 names the file each claim it makes about the code holds in, and stays
@@ -355,6 +356,20 @@ brain task on agent-setup-phase-7
 brain task on TODO-015
 brain task done
 brain task off
+```
+
+Where another session's work is in hand in the same folder, start
+yours beside it with `--beside`, which gives this session a line of
+work of its own, with its own chain, standing word and conclude word,
+and leaves the other session's alone. Take up a line that stands by
+naming its work with a plain `brain task on`. `brain status` names the
+other lines, and
+[the reference](references/commands.md#the-lines-of-work) says how a
+line is kept and when it ends.
+
+```bash
+brain task on TODO-016 --beside
+brain task on TODO-015
 ```
 
 ## The handover
