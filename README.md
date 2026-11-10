@@ -1,4 +1,9 @@
-# Agent Setup
+<p align="center">
+  <img
+    width="760"
+    alt="Agent Setup"
+    src="assets/header.png" />
+</p>
 
 <p align="center">
   <br>
