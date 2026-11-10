@@ -880,11 +880,7 @@ reported as reaching nothing even while the note is there, the steps
 tables as the steps section says, indexes current, no em dash, typed
 as the mark or as two hyphens between words, or semicolon in a header's
 name, description or links, which flow into the indexes, an en dash
-and a dash inside a code span passing, no machine paths, each a path
-from the root through a `Users` or `home` folder to a name under it, a
-`file:` address of one among them, or a drive letter's root, while a web
-address, a path that starts with a name or a dot, such a folder with
-nothing under it and anything in code pass, nothing shaped
+and a dash inside a code span passing, no machine paths, nothing shaped
 like a secret, the version stamp a version, the chat style copies for
 Codex and Gemini CLI matching the Claude Code one where the project
 keeps those agents' folders, and the skill stubs Claude Code finds each
@@ -920,6 +916,22 @@ to put right. A markdown file whose `.md` is in another case, such as
 `ends in .MD, which the brain reads as no entry on any system, so rename it to end in .md`,
 since the tool reads only a lower case `.md` as an entry, so a rule
 there would never load and nothing else would say so.
+
+A machine path is a path from the root that runs through a `Users` or
+`home` folder to a name under it, such as `/mnt/c/Users/someone`, behind
+`file:` or inside a link too, or a drive letter's root in either case,
+such as `C:\` or `c:\`, with no letter before the letter and, for a
+lower case one, no backslash either, since that is an escape.
+A web address, one that opens with `http://`, `https://`, `ws://` or
+`wss://`, passes up to its query or a pipe, so a path in its query is
+still reported, and so is one in an address of any other scheme. A path
+that starts with a name or a dot passes, as in `web/home/page.tsx`, and
+so does such a folder with nothing under it, as in `/home/`, and
+anything in code. Two limits stay on purpose. A home folder under a
+mount whose name holds a space is not seen, since that name cannot be
+told from the words before a path. A route from the root through a
+`home` folder, such as `/app/home/feed`, is reported like any machine
+path, so it goes in a code span.
 
 Doctor reads the front doors, `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`,
 for their `@` imports. It reads `AGENTS.md` always, `CLAUDE.md` while
