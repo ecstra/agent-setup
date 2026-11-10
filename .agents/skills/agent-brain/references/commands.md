@@ -880,7 +880,11 @@ reported as reaching nothing even while the note is there, the steps
 tables as the steps section says, indexes current, no em dash, typed
 as the mark or as two hyphens between words, or semicolon in a header's
 name, description or links, which flow into the indexes, an en dash
-and a dash inside a code span passing, no machine paths, nothing shaped
+and a dash inside a code span passing, no machine paths, each a path
+from the root through a `Users` or `home` folder to a name under it, a
+`file:` address of one among them, or a drive letter's root, while a web
+address, a path that starts with a name or a dot, such a folder with
+nothing under it and anything in code pass, nothing shaped
 like a secret, the version stamp a version, the chat style copies for
 Codex and Gemini CLI matching the Claude Code one where the project
 keeps those agents' folders, and the skill stubs Claude Code finds each

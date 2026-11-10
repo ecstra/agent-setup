@@ -27,7 +27,14 @@ from . import autoack, conclude, frontmatter, guard, handover, index, links, peo
 # the walk skips with every dotted path.
 SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, ".worktrees"})
 
-MACHINE_PATH = re.compile(r"(/Users/|/home/|[A-Z]:\\)")
+# A web address names no machine, whatever folders its own path holds.
+# A file: address and an editor's ://file/ one do, so they stay in.
+WEB_ADDRESS = re.compile(r"\b(?!file:)[A-Za-z][A-Za-z0-9+.-]*://(?!file/)\S+")
+
+# A home folder with a name under it, in a path that starts at the root,
+# or a drive letter's root. A slash after a name, a dot or a closing
+# bracket is mid path, as in web/home/page.tsx, which is the project's own.
+MACHINE_PATH = re.compile(r"(?<![\w./)\]])/+(?:[\w.~-]+/+)*?(?:Users|home)/+\w|(?<![A-Za-z])[A-Z]:\\")
 
 SECRET_SHAPES = (
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
@@ -1005,7 +1012,7 @@ def check_hygiene(
 
         where = relative(brain=brain, path=path)
 
-        if MACHINE_PATH.search(sections.prose_of(text)):
+        if MACHINE_PATH.search(WEB_ADDRESS.sub(" ", sections.prose_of(text))):
             found.append(Finding(path=where, check="hygiene", message="names a machine's local path"))
 
         for shape in SECRET_SHAPES:
