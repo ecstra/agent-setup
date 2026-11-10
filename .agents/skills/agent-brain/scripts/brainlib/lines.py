@@ -26,6 +26,7 @@ from typing import Optional
 
 FOLDER = ".lines"
 SESSIONS = "sessions"
+BY_HAND = f"{FOLDER}/ holds the work in hand, the standing word and the stop time of each line of work started with brain task on --beside, and nothing there is written by hand"
 
 # what Claude Code, Codex and Gemini CLI put into the environment of what they run, read in that order
 SESSION_VARS: tuple[str, ...] = ("CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "GEMINI_SESSION_ID")

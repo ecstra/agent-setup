@@ -38,7 +38,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, TextIO, Union
 
-from brainlib import autoack, check, clock, conclude, doctor, frontmatter, guard, handover, links, lint, nudge, reads, rust, schema, steps, store, task
+from brainlib import autoack, check, clock, conclude, doctor, frontmatter, guard, handover, lines, links, lint, nudge, reads, rust, schema, steps, store, task
 from brainlib import rules as project_rules
 
 BLOCK = 2
@@ -559,6 +559,10 @@ def refusal(
     top_folder: str = parts_inside[0] if parts_inside else ""
     if top_folder.casefold() == handover.FOLDER:
         return f"{inside}: {handover.BY_HAND}"
+
+    # a line's own files are the folder's three under another roof, so a hand write there is refused as one to them is
+    if top_folder.casefold() == lines.FOLDER:
+        return f"{inside}: {lines.BY_HAND}"
 
     if not markdown_named(path):
         return None

@@ -35,6 +35,13 @@
 .agents/.conclude
 .agents/..conclude.*.tmp
 
+# A line of work started beside the folder's own keeps its current
+# work, its standing word and its conclude word in a folder of its own
+# under this one, with a mark for each session that is on it. They
+# belong to one machine as those three files do, so the folder never
+# enters git.
+.agents/.lines
+
 # The brain tool writes the one note a session leaves for the next in
 # this folder, through brain handover, and the session start hook reads
 # it once and removes it, with the copy it reads and the lock beside it.
