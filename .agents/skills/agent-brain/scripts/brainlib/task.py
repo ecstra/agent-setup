@@ -18,7 +18,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from . import clock, frontmatter, schema, steps, store
+from . import clock, frontmatter, lines, schema, steps, store
 
 FILE = ".task"
 NONE = "task none"
@@ -53,7 +53,8 @@ class Item:
 def path_of(
     brain: store.Brain,
 ) -> Path:
-    return brain.root / FILE
+    """The chain's file on the line this session is on, the folder's own unless it was put on another."""
+    return lines.home(brain.root) / FILE
 
 
 def read(

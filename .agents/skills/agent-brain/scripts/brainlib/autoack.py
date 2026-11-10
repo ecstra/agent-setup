@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from . import clock, frontmatter, schema, store
+from . import clock, frontmatter, lines, schema, store
 
 FILE = ".ack"
 OFF = "auto ack off"
@@ -60,7 +60,8 @@ class Grant:
 def path_of(
     brain: store.Brain,
 ) -> Path:
-    return brain.root / FILE
+    """The word's file on the line this session is on, the folder's own unless it was put on another."""
+    return lines.home(brain.root) / FILE
 
 
 def turn_on(

@@ -1,4 +1,4 @@
-"""The session a command or a hook runs in.
+"""The session a command or a hook runs in, and the line of work it is on.
 
 Two agents may work in one project folder, each on its own line of
 work. What tells them apart is the session each runs in, which the
@@ -10,11 +10,22 @@ the folder's own files as it did before 3.2.0.
 
 Only a short hash of the id is ever kept or compared, so no file of
 the brain holds the id itself.
+
+The work in hand, the standing word and the stop time belong to a line
+of work. The folder's own line keeps them at the root of the brain,
+where they always were. A line started beside it is a folder under
+`.lines/`, which holds the same three files under the same names and,
+under `sessions/`, one empty file per session that is on it, named by
+the session's hash. So no file is shared between two lines.
 """
 
 import hashlib
 import os
+from pathlib import Path
 from typing import Optional
+
+FOLDER = ".lines"
+SESSIONS = "sessions"
 
 # what Claude Code, Codex and Gemini CLI put into the environment of what they run, read in that order
 SESSION_VARS: tuple[str, ...] = ("CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "GEMINI_SESSION_ID")
@@ -31,3 +42,28 @@ def session() -> Optional[str]:
             return hashlib.sha256(given.encode("utf-8")).hexdigest()[:HASH_LENGTH]
 
     return None
+
+
+def home(
+    root: Path,
+) -> Path:
+    """The folder that holds this session's work in hand, standing word and stop time, its line's or else the brain's own root.
+
+    A session no agent names, one on no line, and one whose lines cannot
+    be listed all stand on the folder's line, so nothing a line holds is
+    ever read for a session that was not put on it.
+    """
+    named: Optional[str] = session()
+    if named is None:
+        return root
+
+    try:
+        folders: list[Path] = sorted(path for path in (root / FOLDER).iterdir() if path.is_dir())
+    except OSError:
+        return root
+
+    for folder in folders:
+        if os.path.isfile(folder / SESSIONS / named):
+            return folder
+
+    return root

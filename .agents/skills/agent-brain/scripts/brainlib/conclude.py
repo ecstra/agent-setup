@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
 
-from . import autoack, clock, frontmatter, store
+from . import autoack, clock, frontmatter, lines, store
 
 FILE = ".conclude"
 OFF = "conclude off"
@@ -31,7 +31,8 @@ class ConcludeError(Exception):
 def path_of(
     brain: store.Brain,
 ) -> Path:
-    return brain.root / FILE
+    """The stop time's file on the line this session is on, the folder's own unless it was put on another."""
+    return lines.home(brain.root) / FILE
 
 
 def turn_on(
