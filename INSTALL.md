@@ -102,6 +102,11 @@ linters run on every file the agent writes, and the gates run before
 each review and merge. A project with neither yet can leave the file
 as it is.
 
+The prose check reads every markdown file git lists. To leave out text
+your project did not write, such as a vendored library, a fork or
+generated docs, mark its folder in `.gitattributes`, as in
+`vendor/** linguist-vendored` or `docs/api/** linguist-generated`.
+
 Any other instruction your project needs is a rule of its own. Ask the
 agent to add one and it files it beside `project.md`.
 
