@@ -917,6 +917,22 @@ to put right. A markdown file whose `.md` is in another case, such as
 since the tool reads only a lower case `.md` as an entry, so a rule
 there would never load and nothing else would say so.
 
+A machine path is a path from the root that runs through a `Users` or
+`home` folder to a name under it, such as `/mnt/c/Users/someone`, behind
+`file:` or inside a link too, or a drive letter's root in either case,
+such as `C:\` or `c:\`, with no letter before the letter and, for a
+lower case one, no backslash either, since that is an escape.
+A web address, one that opens with `http://`, `https://`, `ws://` or
+`wss://`, passes up to its query or a pipe, so a path in its query is
+still reported, and so is one in an address of any other scheme. A path
+that starts with a name or a dot passes, as in `web/home/page.tsx`, and
+so does such a folder with nothing under it, as in `/home/`, and
+anything in code. Two limits stay on purpose. A home folder under a
+mount whose name holds a space is not seen, since that name cannot be
+told from the words before a path. A route from the root through a
+`home` folder, such as `/app/home/feed`, is reported like any machine
+path, so it goes in a code span.
+
 Doctor reads the front doors, `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`,
 for their `@` imports. It reads `AGENTS.md` always, `CLAUDE.md` while
 the project keeps a `.claude/` folder and `GEMINI.md` while it keeps a

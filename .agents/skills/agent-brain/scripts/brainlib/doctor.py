@@ -27,7 +27,21 @@ from . import autoack, conclude, frontmatter, guard, handover, index, links, peo
 # the walk skips with every dotted path.
 SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, ".worktrees"})
 
-MACHINE_PATH = re.compile(r"(/Users/|/home/|[A-Z]:\\)")
+# A web address names no machine, whatever folders its own path holds.
+# Its query stays in, since a value there can carry a path of this
+# machine, and so does an address of any other scheme, an editor's link
+# to a local file among them. A pipe ends it, as a table's cell does.
+WEB_ADDRESS = re.compile(r"\b(?:https?|wss?)://[^\s?|]+")
+
+# A home folder with a name under it, in a path that starts at the root,
+# or a drive letter's root. A slash after a letter, a digit, a dot or a
+# closing bracket is mid path, as in web/home/page.tsx, which is the
+# project's own, and so is one after the one or two underscores that end
+# a name, as in __tests__/home, while underscores with no name before
+# them open an emphasis and start a path. A backslash before a lower case
+# drive letter makes it an escape, as in \d:\d, while one before an upper
+# case letter is a long path's prefix, as in \\?\C:\Users.
+MACHINE_PATH = re.compile(r"(?<![^\W_])(?<![./)\]])(?<![^\W_]_)(?<![^\W_]__)/+(?:[\w.~+-]+/+)*?(?:Users|home)/+\w|(?<![A-Za-z])[A-Z]:\\|(?<![A-Za-z\\])[a-z]:\\")
 
 SECRET_SHAPES = (
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
@@ -1005,7 +1019,7 @@ def check_hygiene(
 
         where = relative(brain=brain, path=path)
 
-        if MACHINE_PATH.search(sections.prose_of(text)):
+        if MACHINE_PATH.search(WEB_ADDRESS.sub(" ", sections.prose_of(text))):
             found.append(Finding(path=where, check="hygiene", message="names a machine's local path"))
 
         for shape in SECRET_SHAPES:
