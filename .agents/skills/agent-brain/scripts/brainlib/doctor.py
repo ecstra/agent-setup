@@ -36,10 +36,12 @@ WEB_ADDRESS = re.compile(r"\b(?:https?|wss?)://[^\s?|]+")
 # A home folder with a name under it, in a path that starts at the root,
 # or a drive letter's root. A slash after a letter, a digit, a dot or a
 # closing bracket is mid path, as in web/home/page.tsx, which is the
-# project's own, and so is one after a name's last underscore, while the
-# underscore that opens an emphasis starts a path. A backslash before the
-# drive letter makes it a regular expression's class, as in \d:\d.
-MACHINE_PATH = re.compile(r"(?<![^\W_])(?<![./)\]])(?<!\w_)/+(?:[\w.~+-]+/+)*?(?:Users|home)/+\w|(?<![A-Za-z\\])[A-Za-z]:\\")
+# project's own, and so is one after the one or two underscores that end
+# a name, as in __tests__/home, while underscores with no name before
+# them open an emphasis and start a path. A backslash before a lower case
+# drive letter makes it an escape, as in \d:\d, while one before an upper
+# case letter is a long path's prefix, as in \\?\C:\Users.
+MACHINE_PATH = re.compile(r"(?<![^\W_])(?<![./)\]])(?<![^\W_]_)(?<![^\W_]__)/+(?:[\w.~+-]+/+)*?(?:Users|home)/+\w|(?<![A-Za-z])[A-Z]:\\|(?<![A-Za-z\\])[a-z]:\\")
 
 SECRET_SHAPES = (
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
