@@ -28,6 +28,9 @@ from urllib.parse import unquote
 from . import doctor, frontmatter, handover, links, people, rules, rust, schema, sections, store, style
 
 FOLDER = ".agents"
+# the file beside the tool's code that marks a checkout of the kit, a dotfile so it ships into no project
+KIT_SCRIPTS = Path(FOLDER) / schema.SKILLS / "agent-brain" / "scripts"
+CHECKOUT_MARK = ".kit"
 
 # The brain's spec files the kit shipped before 2.0.0, which an upgrade
 # takes out of a project, since the tool and the skill sheet carry
@@ -1232,16 +1235,17 @@ def in_kit_copy(
 ) -> bool:
     """Whether the path sits in a checkout of the kit kept inside the project, a vendored copy or the one the run comes from, whose files name the old folder as the kit's own history and are never the project's to migrate.
 
-    A checkout is known as the check knows the kit's own, by the tool's
-    tests beside its code, which ship into no project.
+    A checkout is known by the mark it carries beside the tool's code,
+    or by the tool's tests there in a checkout from before they left
+    the kit's repository. Neither ships into a project.
     """
     for folder in path.parents:
         if folder == project.root or project.root not in folder.parents:
             return False
 
-        tests = folder / FOLDER / schema.SKILLS / "agent-brain" / "scripts" / "tests"
+        scripts = folder / KIT_SCRIPTS
         try:
-            if any(store.readable_file(found) for found in tests.glob("test_*.py")):
+            if store.readable_file(scripts / CHECKOUT_MARK) or any(store.readable_file(found) for found in (scripts / "tests").glob("test_*.py")):
                 return True
         except OSError:
             continue
@@ -2547,9 +2551,8 @@ def kit_config(
 ) -> str:
     """The kit's Claude Code settings as they go into a project, with the read guards under permissions.deny.
 
-    The kit's own checkout never gets them, since the run refuses to
-    install the kit onto itself, and that checkout is where the tool's
-    code is the work.
+    The kit itself never gets them, since the run refuses to install the
+    kit onto itself.
     """
     text = kit.text(CLAUDE_SETTINGS)
     try:

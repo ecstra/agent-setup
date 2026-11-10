@@ -196,8 +196,8 @@ markdown file in a folder below `rules/` is no rule, which doctor
 flags.
 
 `AGENTS.md` is the kit's whole, written by the port and the upgrade, so
-nothing in it is edited by hand, and outside the kit's own checkout the
-`pre-write` hook refuses a write to it, as [its row](#hooks) says. Its
+nothing in it is edited by hand, and the `pre-write` hook refuses a
+write to it, as [its row](#hooks) says. Its
 prose imports `@.agents/SYSTEM.md`, and below one comment line, which
 says the lines under it are the brain tool's to write, it carries one
 `@.agents/rules/<name>` import per rule, `project.md` first and the
@@ -325,8 +325,7 @@ at the next session start, and `brain gates` stays red on it until it
 is fixed. The port and the upgrade run `doctor --fix` at their end, so
 a Rust project gets the rule there with no step of their own.
 
-Outside the kit's own checkout the `pre-write` hook refuses a hand
-write to `rules/rust.md`, in any case of its name, a delete aside, after
+The `pre-write` hook refuses a hand write to `rules/rust.md`, in any case of its name, a delete aside, after
 which doctor names the rule missing and the fix writes it again.
 `brain check` passes over it, as it does every file the kit writes
 whole. `brain new rule` and `brain refile` refuse a rule named `rust`,
@@ -398,16 +397,13 @@ the word is off, and the report says it waits for the owner's word.
 
 An assertion a test file already holds is the spec's word on what the
 code must do, so it changes or goes only on the owner's word, in every
-language the guard knows. Outside the kit's own checkout, where the
-kit's tests are the work, the `pre-write` hook refuses, exit 2, a write
+language the guard knows. The `pre-write` hook refuses, exit 2, a write
 that changes or removes one, unless the owner's word for that file
 holds. A test file deleted or moved by a patch loses all it held, and
 so does one a patch moves another file onto, which the move writes
 over, so each is refused the same way. An assertion added, moved,
 reindented or rewrapped passes, and so do a new test file and every
-change to the code under test, though outside the kit's own checkout a
-new file in the kit's own tests folder is refused, as
-[the hook's row](#hooks) says. The refusal names the first assertion
+change to the code under test. The refusal names the first assertion
 lost and the command that records the owner's word.
 
 | Command | What it does |
@@ -1270,17 +1266,13 @@ attributes mark `linguist-generated` or `linguist-vendored` is one,
 which is how a project leaves out text it did not write, and where git
 cannot read the attributes the run is refused in git's words. The files
 the tool writes are others, the indexes, the review ledgers and the
-handover note, since no hand puts them right. In a project the files the
-kit writes whole are passed over too, since a slip there is the kit's
+handover note, since no hand puts them right. The files the kit writes
+whole are passed over too, since a slip there is the kit's
 and the next upgrade writes them back. Which files those are goes by the
 project's version stamp, as the upgrade decides, so a project's own file
 under a name the kit took later is read. `AGENTS.md` is among them, and
 so is the kit's Rust rule, `rules/rust.md`, whatever the stamp, while
-the project's own rules are its own prose and are read. In the kit's
-own checkout, which
-holds the tool's tests under
-`.agents/skills/agent-brain/scripts/tests/`, the kit's files are the
-work and are read, the tool's own files aside. A file named on the
+the project's own rules are its own prose and are read. A file named on the
 command line and passed over is named on standard error with the reason,
 and one under a folder named is passed over in silence.
 
@@ -1344,9 +1336,6 @@ The check falls short in these places.
 - A wrapped line of a paragraph that opens with a number and a period,
   such as `2026. Then`, reads as a numbered list item, so keep such a
   number off the start of a line.
-- A copy of the kit's tests kept in a project, under
-  `.agents/skills/agent-brain/scripts/tests/`, makes the check take the
-  project for the kit's own checkout.
 - Two hyphens set between words with a space on each side that mean no
   dash, such as a flag written outside a code span, are named as an em
   dash, and the fix is a code span.
@@ -1438,27 +1427,8 @@ line on standard error that names the shell. On Windows a bash under the
 Windows folder, the WSL launcher, is passed over for the next one on the
 path.
 
-In the kit's own checkout the tool's own tests come first, as one gate,
-`<interpreter> -m tests.parallel` in the scripts folder, which runs
-each test class, a long one cut into batches of six tests, in a
-process of its own, as many at once as the machine has cores, and
-turns red where a batch fails or a test module will not import. It
-runs them under the interpreter running the command and under
-`/usr/bin/python3` where that is another interpreter and answers at the
-kit's floor of 3.9 or above, given as `--python /usr/bin/python3`. One
-below 3.9 is named in one line as not run, and the gate names the
-Python versions it runs under. Two gates of ruff follow in the same
-folder, `ruff format --check .` and `ruff check .`, under the config
-the scripts folder carries, which [the lint hook](#the-lint-hook)
-describes. The see tool's tests come next, `<interpreter> -m unittest
-discover -s tests -t .` in `.agents/skills/see/scripts`, one gate under
-each interpreter the tool's tests run under, and their cases skip
-where ffmpeg is not installed. Two gates of ruff follow over the see
-tool's code, in its folder and under the config it carries. Where ruff
-is not on the path, one line says neither tool's code is linted and
-all four are left out. The rules' gates follow, where
-the kit's own rules name any. An interpreter whose `sys.executable`
-is empty exits 1 with nothing run.
+The tool has no gates of its own, so the gates the rules name are the
+only ones that run.
 
 The gates fall short in these places.
 
@@ -1506,7 +1476,8 @@ The gates fall short in these places.
 Both run from a checkout of the kit, since a project without the tool
 has nothing to run, so the port is
 `python3 <kit>/.agents/skills/agent-brain/scripts/brain.py port` from
-the project's root. A project that already carries the tool can run
+the project's root, and the shorter `python3 <kit>/.agents/brain port`
+works too. A project that already carries the tool can run
 its own copy with `--kit` pointing at the newer checkout. Without
 `--project`, a port works on the top of the git repository around the
 current folder and an upgrade on the nearest folder at or above the
@@ -1544,7 +1515,7 @@ Claude Code run that one command outside the sandbox.
 | Command | What it does |
 |---|---|
 | `brain port [--kit PATH] [--project PATH]` | Installs the kit into a project with no brain, which means the kit's files under `.agents/`, the front doors, `AGENTS.md` with an import of each of [the rules](#the-rules), and `.agents/rules/project.md`, which carries the first `## 0.` section an old `AGENTS.md`, `CLAUDE.md` or `GEMINI.md` held, or else the placeholder, with every other word those doors held of their own quoted in `.agents/docs/front-door-words.md`, as the paragraphs under this table say, the hook configs merged beside the project's own hooks, Claude Code's with [the read guard](#the-read-guard), the review's sub agent definitions, the chat style, the ignore lines, the version stamp, then `doctor --fix`. Ends by listing what is left to file through `brain new`, the markdown git sees outside the dot folders, root files one by one and deeper ones counted by folder, with `docs/` marked as the one the rules let a project keep (outside git, the root markdown and the usual folder names, a dot named file left out either way since the brain never files one). Refuses when a brain exists. |
-| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those, and a copy of the kit kept in a folder inside the project aside too, known by the tool's tests under its `.agents/skills/agent-brain/scripts/tests/`, since its files name the old folder as the kit's own history (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md` into `.agents/rules/project.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Every run removes what the kit wrote and no longer ships, each file named in the report, a file the kit dropped from one of its skill folders, the brain's spec files the kit kept under `.agents/spec/` before 2.0.0, with the folder once it is empty, and the review's fixer and hunter definitions under `.claude/agents/` where the project's stamp says the kit wrote them, from the release each shipped in up to 2.0.0. A file of the project's own in `.agents/spec/` stays, named in the report to file under `docs/` through `brain new`. The doctor run at its end fills the `author` and `editor` of each entry that lacks them from git, as [doctor](#doctor) says, and the report says how many entries it filled. Refuses without a brain, refuses while a file it would replace holds uncommitted work, a hand edit to a kit skill's stub under `.claude/skills` among them since the doctor run at its end rewrites it, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills` or in `.claude/skills` where the stub goes, and a project stamped before a sub agent definition shipped that keeps a file of its own under that definition's name, each definition counted from its own release since a skill gains them later, until the folder or file is moved aside. A folder or a file the kit itself wrote is known by its bytes, a stub by its body, and passes. Refuses as well, before its first write, a brain holding an entry named `project` anywhere but `rules/project.md`, or `front-door-words` anywhere but `docs/front-door-words.md`, since a name is an entry's one key and those are the names the project's own rule and the doc of the front doors' own words take, with words such as `.agents/docs/project.md is named project, the name the project's own rule takes from 3.0.0, so retitle it first with brain refile`. Refuses the same way a project stamped before 3.1.0 whose `rules/rust.md` says other than the kit's Rust rule, since that file was the project's own rule before the kit took its name, as [the Rust rule](#the-rust-rule) says. Refuses too a project that is the kit itself, or a worktree or a clone of it, since that is where the tool's code is the work. It knows one by the folder under any spelling, or where the two folders, each the top of its own work tree, meet on walking back through their local origins, at most eight clones and a bare repository among them, to a folder or a remote repository both come from, so a kit vendored inside a project's repository, or a project folder inside the kit's, is no clone of it. The walk looks for a local origin under the names git's clone tries for it, the path with `/.git` after it, the path itself, then with `.git/.git` and with `.git` after it, and goes into the first that is a folder, where git is asked under `GIT_CEILING_DIRECTORIES` set to that folder's parent, so it answers for that folder alone and never for a repository above it. Every git call of the walk runs without the variables `git rev-parse --local-env-vars` names, so a `GIT_DIR` or a `GIT_WORK_TREE` a git hook exported never answers for a folder the walk asks about, while config given in command scope, through `git -c` or `GIT_CONFIG_COUNT` with its keys and values, still holds, so a `safe.directory` or a `safe.bareRepository` given that way reaches every git the walk runs. The walk asks git only `rev-parse` and `remote get-url`, so it opens no transport and runs no command a walked folder's config names. It reaches a folder whose name holds a byte that is not UTF-8 on every POSIX file system, while such a path on Windows, and under a locale that is not UTF-8 a name outside its codec, is taken as not there. It ends where git opens no repository, at a plain folder standing under a name git's clone tries first, such as `/srv/hub` beside the bare `/srv/hub.git` a project was cloned from by `git clone /srv/hub`, and at one git keeps closed for safety, a bare origin while the owner's config sets `safe.bareRepository` to `explicit` or a folder git refuses for its owner. Two clones of one such folder still meet there, since a folder is recorded before git is asked. An origin that is a file naming its repository is no folder to go into, so the walk ends at its path. Two clones that name it by two spellings of that path do not meet. On Windows an origin on a WSL share, a path or a file URL, is gone into only where a WSL distro is installed, as [a key](#reading) on such a share is read, and without one the walk records it by its spelling, a `.git` at its end taken off, and ends there, so WSL never starts. A clone the walk misses in any of these ways is upgraded as any project is, the kit's files written over its copies of them under the refusal over uncommitted work. A walked folder holding a named pipe called `HEAD` holds the walk up as it holds git's own clone up, since the upgrade's git runs with no time limit. Git matches the ceiling against the folder's path as text, in the system's spelling, so an origin spelled another way on a disk that takes two spellings for one, by case or by Unicode form, or reached through a second path to the same volume such as macOS's `/System/Volumes/Data`, leaves git free to answer for a repository above it. Git also reads a `:` in the ceiling, or a `;` on Windows, as a break between folders, so an origin whose parent's path holds that separator does the same. That matters only where one repository holds both the kit and the project, and there the upgrade takes the project for a clone of the kit and installs nothing, which writes over no work. The walk is built for git 2.28 or later. Every run moves the tool's note and its claimed copy for the checkout's branch, `handover.md` and `handover.md.reading`, out of `handover/`, where the note lived before 2.2.0, into `.handover/`, the move a session start makes too under the same branch rules, as [the handover](#the-handover) says. The report names each note it moved, each for another branch, which stays there for that branch, each that waits behind a note `.handover/` already holds under either name until that one is gone, and each the system refused to move, with the reason, to move by hand, and the run goes on. The kit's ignore block keeps the `.agents/handover` line beside `.agents/.handover`, so a note an older session left there never enters git before it moves. Every run names too, while they remain, the notes a project filed under `handover/` before the folder became the tool's, any markdown file there, nested too, that is not the tool's note, one at the note's own path whose header is not the tool's included, and says to move what still matters into `docs/` or `memory/` through `brain new` and delete the rest, which the upgrade never does itself. |
+| `brain upgrade [--kit PATH] [--project PATH]` | Brings a project that has a brain up to the kit. Runs the migrations the tree calls for first, then the same install. The one migration so far, to 1.0.0, runs while a `.agent/` folder is there. It moves it to `.agents/`, points every file git tracks or sees that names the old folder at the new name, the kit's own skill folders aside since the install replaces those, and a copy of the kit kept in a folder inside the project aside too, known by the dotfile `.kit` beside the tool's code at `.agents/skills/agent-brain/scripts/.kit`, which ships into no project, or by the tool's tests beside its code in a copy from before they moved out, since its files name the old folder as the kit's own history (outside git, the root markdown, the ignore file and the brain's own markdown), refuses by name while a file git ignores names it, since such a file can neither be saved first nor be left behind, and carries section 0 out of the old `CLAUDE.md` into `.agents/rules/project.md`. The stamp in `.agents/VERSION` says which release the project is on, and a kit older than it is refused. Every run removes what the kit wrote and no longer ships, each file named in the report, a file the kit dropped from one of its skill folders, the brain's spec files the kit kept under `.agents/spec/` before 2.0.0, with the folder once it is empty, and the review's fixer and hunter definitions under `.claude/agents/` where the project's stamp says the kit wrote them, from the release each shipped in up to 2.0.0. A file of the project's own in `.agents/spec/` stays, named in the report to file under `docs/` through `brain new`. The doctor run at its end fills the `author` and `editor` of each entry that lacks them from git, as [doctor](#doctor) says, and the report says how many entries it filled. Refuses without a brain, refuses while a file it would replace holds uncommitted work, a hand edit to a kit skill's stub under `.claude/skills` among them since the doctor run at its end rewrites it, and refuses, before its first write, a project stamped before a kit skill shipped that keeps its own folder under that skill's name, in `.agents/skills` or in `.claude/skills` where the stub goes, and a project stamped before a sub agent definition shipped that keeps a file of its own under that definition's name, each definition counted from its own release since a skill gains them later, until the folder or file is moved aside. A folder or a file the kit itself wrote is known by its bytes, a stub by its body, and passes. Refuses as well, before its first write, a brain holding an entry named `project` anywhere but `rules/project.md`, or `front-door-words` anywhere but `docs/front-door-words.md`, since a name is an entry's one key and those are the names the project's own rule and the doc of the front doors' own words take, with words such as `.agents/docs/project.md is named project, the name the project's own rule takes from 3.0.0, so retitle it first with brain refile`. Refuses the same way a project stamped before 3.1.0 whose `rules/rust.md` says other than the kit's Rust rule, since that file was the project's own rule before the kit took its name, as [the Rust rule](#the-rust-rule) says. Refuses too a project that is the kit itself, or a worktree or a clone of it, since that is where the tool's code is the work. It knows one by the folder under any spelling, or where the two folders, each the top of its own work tree, meet on walking back through their local origins, at most eight clones and a bare repository among them, to a folder or a remote repository both come from, so a kit vendored inside a project's repository, or a project folder inside the kit's, is no clone of it. The walk looks for a local origin under the names git's clone tries for it, the path with `/.git` after it, the path itself, then with `.git/.git` and with `.git` after it, and goes into the first that is a folder, where git is asked under `GIT_CEILING_DIRECTORIES` set to that folder's parent, so it answers for that folder alone and never for a repository above it. Every git call of the walk runs without the variables `git rev-parse --local-env-vars` names, so a `GIT_DIR` or a `GIT_WORK_TREE` a git hook exported never answers for a folder the walk asks about, while config given in command scope, through `git -c` or `GIT_CONFIG_COUNT` with its keys and values, still holds, so a `safe.directory` or a `safe.bareRepository` given that way reaches every git the walk runs. The walk asks git only `rev-parse` and `remote get-url`, so it opens no transport and runs no command a walked folder's config names. It reaches a folder whose name holds a byte that is not UTF-8 on every POSIX file system, while such a path on Windows, and under a locale that is not UTF-8 a name outside its codec, is taken as not there. It ends where git opens no repository, at a plain folder standing under a name git's clone tries first, such as `/srv/hub` beside the bare `/srv/hub.git` a project was cloned from by `git clone /srv/hub`, and at one git keeps closed for safety, a bare origin while the owner's config sets `safe.bareRepository` to `explicit` or a folder git refuses for its owner. Two clones of one such folder still meet there, since a folder is recorded before git is asked. An origin that is a file naming its repository is no folder to go into, so the walk ends at its path. Two clones that name it by two spellings of that path do not meet. On Windows an origin on a WSL share, a path or a file URL, is gone into only where a WSL distro is installed, as [a key](#reading) on such a share is read, and without one the walk records it by its spelling, a `.git` at its end taken off, and ends there, so WSL never starts. A clone the walk misses in any of these ways is upgraded as any project is, the kit's files written over its copies of them under the refusal over uncommitted work. A walked folder holding a named pipe called `HEAD` holds the walk up as it holds git's own clone up, since the upgrade's git runs with no time limit. Git matches the ceiling against the folder's path as text, in the system's spelling, so an origin spelled another way on a disk that takes two spellings for one, by case or by Unicode form, or reached through a second path to the same volume such as macOS's `/System/Volumes/Data`, leaves git free to answer for a repository above it. Git also reads a `:` in the ceiling, or a `;` on Windows, as a break between folders, so an origin whose parent's path holds that separator does the same. That matters only where one repository holds both the kit and the project, and there the upgrade takes the project for a clone of the kit and installs nothing, which writes over no work. The walk is built for git 2.28 or later. Every run moves the tool's note and its claimed copy for the checkout's branch, `handover.md` and `handover.md.reading`, out of `handover/`, where the note lived before 2.2.0, into `.handover/`, the move a session start makes too under the same branch rules, as [the handover](#the-handover) says. The report names each note it moved, each for another branch, which stays there for that branch, each that waits behind a note `.handover/` already holds under either name until that one is gone, and each the system refused to move, with the reason, to move by hand, and the run goes on. The kit's ignore block keeps the `.agents/handover` line beside `.agents/.handover`, so a note an older session left there never enters git before it moves. Every run names too, while they remain, the notes a project filed under `handover/` before the folder became the tool's, any markdown file there, nested too, that is not the tool's note, one at the note's own path whose header is not the tool's included, and says to move what still matters into `docs/` or `memory/` through `brain new` and delete the rest, which the upgrade never does itself. |
 
 What is the project's stays the project's, which is everything under
 `.agents/` that is not the kit's, its rules among them but the kit's
@@ -1630,12 +1601,12 @@ file every time. Such a file is a skill the kit ships, the brain's own
 agent definition, the chat style source or one of its copies. An import
 slip in a front door that the kit's own text of that door gives too
 counts the same way, as many times as that text gives it, while an
-import slip in a rule is the project's every time. The kit's skills
-ship without their tests, the chat style copies in `.codex/` and
-`.gemini/` are the doctor's to make from the source in
-`.claude/output-styles/`, and the skill stubs under `.claude/skills/`
-are the doctor's to write from the project's own sheets, so the install
-copies none, not even the ones the kit's own checkout holds.
+import slip in a rule is the project's every time. The chat style
+copies in `.codex/` and `.gemini/` are the doctor's to make from the
+source in `.claude/output-styles/`, and the skill stubs under
+`.claude/skills/` are the doctor's to write from the project's own
+sheets, so the install copies none, not even the ones the kit's own
+repository holds.
 
 A root file the kit replaces is named in the report with a `git show`
 command for each old one the last commit holds, the file named as that
@@ -1701,7 +1672,7 @@ sandbox off nothing changes, and the deny rules refuse both. A live run
 on 2026-11-03 showed this. Under the sandbox, then, the agent's own word
 is all that keeps a shell read off the code.
 
-In a project, doctor names a rule or a sandbox entry of the guard
+Doctor names a rule or a sandbox entry of the guard
 missing from `.claude/settings.json` as
 `the read guard is missing from .claude/settings.json, which brain doctor --fix writes`,
 and `--fix` writes both in, the rest of the file kept. So a project an
@@ -1710,10 +1681,7 @@ that the two rules and the two entries be there, in any order among the
 project's own. It stays silent where the file is missing, which the
 next upgrade writes, and where it is not valid JSON, is not a JSON
 object or holds one of the keys above in the wrong shape, which the
-next upgrade refuses in words. The kit's own checkout is never asked
-for the guard, since its code is the work there. Doctor knows it by the
-tool's tests under `.agents/skills/agent-brain/scripts/tests`, which
-never ship to a project.
+next upgrade refuses in words.
 
 Where `.claude` is a link that leads out of the project, such as into a
 kit checkout, doctor still reads the file, silent in the same cases,
@@ -1735,7 +1703,7 @@ standard input.
 | `session-start` | Prints into the agent's context the clock, the standing word and the current work, then the note the last session left in `.handover/handover.md`, whole under a line that says how it was taken, or the one line that says why a file there stays, another session holding the note's lock among the reasons, then `brain status`, counted once the note is taken, so it names a note this start read only where the start could not take it aside and read it in place, which the next session reads again. Under the counts one line names the launcher's call, `python3 .agents/brain`, and the commands that read the brain through it, `list <kind> --open`, `status` and `show <key>`, and says never to read it by a grep of its fields or a listing of its folders. `--with-rules` adds `SYSTEM.md`, then each of [the rules](#the-rules) in their order, each under `A rule of this project's own, from .agents/rules/<name>:`, and the agent's own chat style copy after those, for an agent that does not expand imports. The note is taken on every start the event's `source` names but a fork, since a fork carries the context it came from, and the handover section above says how, when it waits for the lock, how a note left in `handover/` before 2.2.0 moves in, and what the start says of one that stays. |
 | `prompt` | On each prompt the owner sends, puts the clock, the standing word and the current work in front of the model, since a model does not know the time and forgets what it was told and what it is on. |
 | `tick` | After the agent's tool calls, the clock, the standing word and the current work again, off and none included, so a long stretch of work never loses any of them and sees the word end or the chain move. Under the moment it adds a line for any call that read or wrote the brain by hand, as [the nudge](#the-nudge) says. Claude Code fires it once after each round of tool calls, whatever the tools, Codex after each shell call, and Gemini CLI after each call to `run_shell_command`, `grep_search`, `search_file_content`, `glob`, `list_directory` or `read_many_files`. |
-| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.ack-tests` file, which `brain ack tests` writes, the `.task` file, which `brain task on` writes, anything in the `.handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, a patch's move of any file onto an existing brain file, which would write over its header and its steps by hand, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. None of these refuses a delete, a stray index's or a dotted file's among them, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. Outside the kit's own checkout it also blocks a write to the project's `AGENTS.md`, in any case of its name, a delete aside, since the port and the upgrade write that file whole, and the refusal says a project's own instruction is a rule, filed through `brain new rule`, and that `brain doctor --fix` writes the import lines again, a merge's conflict in them among what it settles. Outside the kit's own checkout it blocks as well a write to the kit's `rules/rust.md`, in any case of its name, a delete aside, as [the Rust rule](#the-rust-rule) says, and a write that changes or removes an assertion a test file holds, a test file deleted or moved by a patch, or written over by a patch's move onto it, among them, unless the owner's word for that file holds, as [the test guard](#the-test-guard) says. Outside the kit's own checkout it blocks too a write that would make a new file of any kind below `.agents/skills/agent-brain/scripts/tests/`, its folders in any case, a patch that adds one or moves one there among them, with `the kit's own tests live only in the kit's checkout, so no file is made in .agents/skills/agent-brain/scripts/tests/ by hand, since one there would mark the project as the kit's checkout and turn off the guards on AGENTS.md, the kit's Rust rule and test assertions`. A file already there may be written or deleted. |
+| `pre-write` | Blocks, exit 2, a write that would create a new brain file by hand, an `INDEX.md`, a dotted path, which the brain never lists or checks, the `.ack` file, which `brain ack on` writes, the `.ack-tests` file, which `brain ack tests` writes, the `.task` file, which `brain task on` writes, anything in the `.handover/` folder, which holds the one note `brain handover` writes, a rename of a brain file, which `brain refile` does, a patch's move of any file onto an existing brain file, which would write over its header and its steps by hand, or a change to the header block of an existing brain file, its `updated` date aside, or to a row of the steps table a plan, a todo or a bug holds, a mark moving through `brain task` or `brain steps` or following the entry the step points at, a step never reworded, repointed or deleted by hand, a cell left empty by an older write filled in by hand, and the table never taken away, a plan's not even empty. A row after the last passes when it is held to what `brain steps add` holds a step to, with text, pending, pointing at an entry the brain knows, one file carries and whose steps do not lead back here, or at nothing, and on an open entry. A numbered list under Steps, new or written to, is the list the tool turns into the table, so it is held to the same, whole, as the write leaves it, and refused on a closed entry. A patch that reaches several brain files is judged across them too, the pointers on disk and the rows it adds walked together, so a loop it closes through two files is refused, though a pointer it removes still counts until it lands. A write that would leave the table unreadable is refused, a table that does not read now is doctor's, and the hook's keys and names come from the store, whatever case the path is spelled in. Edits to the prose of an existing file, the kit's own files and anything under `skills/` pass. The header and table checks judge the file as the write would leave it, the whole new text, the text after the edit, or the file after the patch's hunks. None of these refuses a delete, a stray index's or a dotted file's among them, and doctor runs after it. A file the hook cannot read is already broken, so the write is taken as its repair and doctor judges the result. The hunks of a patch are placed one after another as the patch applies them, and the result is judged. A hunk that fits nowhere is refused if any line it carries, kept, removed or added, is a fence, a field the file's header carries or its kind allows, a table row, a numbered step opening with a key or the Steps heading, and on a closed entry any numbered line it adds, since the hook cannot tell where it would land, and the refusal names the line. A loose hunk that carries only prose is left alone. It also blocks a write to the project's `AGENTS.md`, in any case of its name, a delete aside, since the port and the upgrade write that file whole, and the refusal says a project's own instruction is a rule, filed through `brain new rule`, and that `brain doctor --fix` writes the import lines again, a merge's conflict in them among what it settles. It blocks as well a write to the kit's `rules/rust.md`, in any case of its name, a delete aside, as [the Rust rule](#the-rust-rule) says, and a write that changes or removes an assertion a test file holds, a test file deleted or moved by a patch, or written over by a patch's move onto it, among them, unless the owner's word for that file holds, as [the test guard](#the-test-guard) says. |
 | `post-write` | After a write, runs the project's own linters on each file just written, as [the lint hook](#the-lint-hook) says, and hands back what they left under `lint after that write:`. Then runs the check on each file just written inside the project, a file reached through a link that leads out of it left out, and hands its slips back as context under `brain check after that write:`, so they are fixed in the same round, a file the check passes over left out as the check leaves it out. A file the check could not judge, since git cannot read its attributes, is named on standard error and never in the context, and a standard error that cannot take the note loses it and nothing else. After a write inside `.agents/`, to a front door, `AGENTS.md`, `CLAUDE.md` or `GEMINI.md` at the top of the project in any case of its name, or to the `Cargo.toml` at the top of the project under that exact name, which [the Rust rule](#the-rust-rule) follows, a delete among them, and after a Codex patch that deletes any file or moves one away, since a brain entry may link to it, runs doctor too and hands its findings back the same way, its front door findings with them, or its error in words where it cannot read the brain, and still exits 0, since an exit 1 would show the person the error and lose the slips. |
 
 What a hook puts on standard error, a refusal, the error that stopped
@@ -1943,7 +1911,7 @@ cannot read for its calls, while the moment still prints.
 The post write hook runs the project's own linters on each file the
 agent writes, adds or moves with its edit tools inside the project, a
 deleted file and one reached through a link that leads out of the
-project left out, and in a project never on a file inside `.agents/`.
+project left out, and never on a file inside `.agents/`.
 The project's [rules](#the-rules) name them, `project.md` first and the
 others by name, under each heading whose text is Lint, such as
 `### Lint` or `### 0.3 Lint`, at any level, in the fenced blocks up to
@@ -2013,16 +1981,12 @@ run, and
 where the file's bytes changed, each line once. It never blocks the
 write and exits 0.
 
-In the kit's own checkout the hook runs the kit's own lines in place of
-the rules', `ruff format {file}` then `ruff check --fix {file}` on each
-`*.py` file, the brain's own files included, under the `ruff.toml` in
-the scripts folder, which the kit's gates run too, and the see tool's
-code under the same config in its own scripts folder. That config holds
-the code to Python 3.9, lets a line run to 320 characters, selects
-ruff's rules F, E9, TID251 and RET505, bans
+The hook has no lines of its own, so the lines the rules name are the
+only ones that run. The tool's scripts folder carries a `ruff.toml`,
+and the see tool's carries the same, which ruff reads for a file of
+either tool's code. That config holds the code to Python 3.9, lets a line run to 320
+characters, selects ruff's rules F, E9, TID251 and RET505, bans
 `from __future__ import annotations`, and never removes an unused
 import on its own, since the hook runs on every write and an import is
 often added one edit before its use, so ruff names it and the agent
-removes it. A copy of the kit's tests kept in a project, under
-`.agents/skills/agent-brain/scripts/tests/`, makes the hook take the
-project for the kit's checkout, so the rules' lines do not run there.
+removes it.

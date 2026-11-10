@@ -40,7 +40,7 @@ listed in [references/commands.md](references/commands.md).
   without a search. `brain refile` carries every link along.
 - `brain doctor` is a gate. It exits 0 only when the brain is clean, so
   it runs green before any review.
-- The tool's code is never read by hand, save in the kit's own checkout
+- The tool's code is never read by hand, save in the kit's own repository
   where it is the work. SYSTEM.md section 8 carries the rule, and this
   sheet with the reference is what to read instead. In a project Claude
   Code's settings carry the read guard, deny rules that refuse the read
@@ -50,15 +50,13 @@ listed in [references/commands.md](references/commands.md).
   Read tool is refused, so there the rule holds by your word alone.
   [The read guard](references/commands.md#the-read-guard) says the rest.
 - An assertion a test file already holds changes or goes only on the
-  owner's word. Outside the kit's own checkout the pre write hook
-  refuses an edit that loses one, a test file deleted, moved or written
-  over by a patch's move among them, until the owner gives their word
-  for that file and you record it with an end,
-  `brain ack tests <file> --for 1h`, naming a file that is there by its
-  path from the shell's folder. New tests, new assertions, a check a
-  formatter only rewrapped and the code under test pass, all but a new
-  file in the kit's own tests folder, which only the kit's checkout
-  makes.
+  owner's word. The pre write hook refuses an edit that loses one, a
+  test file deleted, moved or written over by a patch's move among
+  them, until the owner gives their word for that file and you record
+  it with an end, `brain ack tests <file> --for 1h`, naming a file that
+  is there by its path from the shell's folder. New tests, new
+  assertions, a check a formatter only rewrapped and the code under
+  test pass.
   [The test guard](references/commands.md#the-test-guard) says which
   files and checks it knows and where it falls short.
 

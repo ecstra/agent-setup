@@ -38,7 +38,7 @@ These are never findings.
 - a rule that adds a restriction with no harm behind it
 - an older case, which goes straight to `.agents/bugs/` through
   `brain new bug`, its link to the ledger
-- in a project, a defect in a file the kit writes whole, which is the
+- a defect in a file the kit writes whole, which is the
   kit's to fix, its skills, `SYSTEM.md`, the brain's `README.md` and
   `house-rules.md`, the launcher `.agents/brain`, `.agents/VERSION`,
   the definitions under `.claude/agents/`, the skill stubs under

@@ -5,9 +5,8 @@ JSON on standard input and the event name as the first argument. Five
 events matter, the start of a session, each prompt the owner sends, a
 tick after the agent's tool calls, a write, an edit or a patch about to
 land anywhere in the project, refused where it does by hand what the
-brain tool does, or, outside the kit's own checkout, writes the
-project's AGENTS.md or the kit's Rust rule, makes a file among the
-kit's own tests or loses an assertion a test file holds, and a write
+brain tool does, or writes the project's AGENTS.md or the kit's Rust
+rule, or loses an assertion a test file holds, and a write
 that just landed anywhere in the project, after which the project's
 linters and the check read the file written, and doctor reads the
 whole brain where it landed inside .agents/, on a front
@@ -347,7 +346,7 @@ def pre_write(
 ) -> int:
     touched = as_the_project_spells(brain=brain, touched=touches(event=event, agent=agent))
     for touch in touched:
-        verdict = front_door_refusal(brain=brain, touch=touch) or kit_tests_refusal(brain=brain, touch=touch) or refusal(brain=brain, touch=touch) or assertion_refusal(brain=brain, touch=touch)
+        verdict = front_door_refusal(brain=brain, touch=touch) or refusal(brain=brain, touch=touch) or assertion_refusal(brain=brain, touch=touch)
         if verdict is None:
             continue
 
@@ -373,9 +372,9 @@ def front_door_refusal(
     brain: store.Brain,
     touch: Touch,
 ) -> Optional[str]:
-    """Why a write to the project's AGENTS.md or to the kit's Rust rule is refused, or None, the kit's own checkout aside, where the files are the work."""
+    """Why a write to the project's AGENTS.md or to the kit's Rust rule is refused, or None."""
     project = brain.root.parent
-    if touch.deleted or check.is_kit_checkout(project):
+    if touch.deleted:
         return None
 
     try:
@@ -391,39 +390,11 @@ def front_door_refusal(
     return AGENTS_BY_HAND if is_agents else None
 
 
-# the folder of the kit's own tests below the brain, which ship nowhere, read in any case since a disk that folds case opens it in any
-KIT_TESTS = (SKILLS, "agent-brain", "scripts", "tests")
-KIT_TESTS_BY_HAND = "the kit's own tests live only in the kit's checkout, so no file is made in .agents/skills/agent-brain/scripts/tests/ by hand, since one there would mark the project as the kit's checkout and turn off the guards on AGENTS.md, the kit's Rust rule and test assertions"
-
-
-def kit_tests_refusal(
-    brain: store.Brain,
-    touch: Touch,
-) -> Optional[str]:
-    """Why a write that would make a new file in the kit's tests folder is refused, or None, the kit's own checkout aside, where the tests are the work.
-
-    A test file there is what marks the kit's checkout, so outside it a
-    file is never made there, while one already there may be written.
-    """
-    if touch.deleted or check.is_kit_checkout(brain.root.parent):
-        return None
-
-    inside = links.within(brain=brain, path=touch.path)
-    if inside is None:
-        return None
-
-    parts = tuple(part.casefold() for part in Path(inside).parts)
-    if len(parts) <= len(KIT_TESTS) or parts[: len(KIT_TESTS)] != KIT_TESTS or os.path.lexists(touch.path):
-        return None
-
-    return KIT_TESTS_BY_HAND
-
-
 def assertion_refusal(
     brain: store.Brain,
     touch: Touch,
 ) -> Optional[str]:
-    """Why a write that loses an assertion a test file holds is refused, or None, the kit's own checkout aside, where its tests are the work, and a file the owner's word holds.
+    """Why a write that loses an assertion a test file holds is refused, or None, a file the owner's word holds aside.
 
     A file deleted or moved away loses all it held, and so does a file a
     move lands on, which the move writes over. A patch's hunks that fit
@@ -436,9 +407,6 @@ def assertion_refusal(
     alone where it fits nowhere. A new file holds none yet.
     """
     project = brain.root.parent
-    if check.is_kit_checkout(project):
-        return None
-
     source = touch.moved_from or touch.path
     read = project_text(project=project, path=source)
     losses: list[tuple[str, list[str]]] = []
@@ -1396,14 +1364,13 @@ def lint_after(
     brain: store.Brain,
     paths: list[Path],
 ) -> Optional[str]:
-    """The project's linters over each file written as one part of the context, the brain's own files aside outside the kit's checkout, or None when they leave nothing."""
+    """The project's linters over each file written as one part of the context, the brain's own files aside, or None when they leave nothing."""
     project = brain.root.parent
-    in_kit = check.is_kit_checkout(project)
     lines: list[str] = []
     # one budget for the whole write, so a patch over many files still ends inside the agent's hook timeout
     deadline = time.monotonic() + lint.BUDGET
     for path in paths:
-        if not in_project(brain=brain, path=path) or (is_inside(brain=brain, path=path) and not in_kit):
+        if not in_project(brain=brain, path=path) or is_inside(brain=brain, path=path):
             continue
 
         result: lint.Linted = lint.run(

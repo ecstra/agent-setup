@@ -776,18 +776,16 @@ def passed_over(
     if not to_judge:
         return reasons
 
-    kit_checkout: bool = is_kit_checkout(project)
     stamp: tuple[int, ...] = store.stamp_of(project / BRAIN_FOLDER) or schema.as_tuple(schema.NO_VERSION)
     for relative in to_judge:
         if is_tools(relative):
             reasons[relative] = TOOLS_OWN
             continue
 
-        from_kit: bool = written_by_kit(
+        if written_by_kit(
             relative=relative,
             stamp=stamp,
-        )
-        if from_kit and not kit_checkout:
+        ):
             reasons[relative] = KITS_OWN
 
     unmarked = [relative for relative in to_judge if reasons[relative] is None]
@@ -852,17 +850,6 @@ def batches(
     return found
 
 
-def is_kit_checkout(
-    project: Path,
-) -> bool:
-    """Whether the project is the kit's own checkout, where a `test_*.py` file of the tool's tests lives, since they ship nowhere else, so a folder an upgrade left behind holding a dotfile alone is no checkout."""
-    tests = project / BRAIN_FOLDER / schema.SKILLS / "agent-brain" / "scripts" / "tests"
-    try:
-        return any(store.readable_file(path) for path in tests.glob("test_*.py"))
-    except OSError:
-        return False
-
-
 # The kind folder the review ledgers go in, one folder each.
 REVIEWS: str = schema.KINDS["review"].folder
 
@@ -870,7 +857,7 @@ REVIEWS: str = schema.KINDS["review"].folder
 def is_tools(
     relative: str,
 ) -> bool:
-    """Whether the file is one the brain tool writes whole where it writes it, in a project and in the kit's own checkout alike, the index at the brain's root and in each folder it indexes, a review ledger, and the handover note.
+    """Whether the file is one the brain tool writes whole where it writes it, the index at the brain's root and in each folder it indexes, a review ledger, and the handover note.
 
     An index is the tool's rendering of other files' header values, a
     ledger the tool's record, whose claims name a file by its line with

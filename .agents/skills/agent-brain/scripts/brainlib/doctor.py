@@ -1615,15 +1615,12 @@ def check_read_guard(
 ) -> list[Finding]:
     """A project's Claude Code settings carry the rules that keep the agent out of the tool's code and the folders the sandbox may read, which an older tool's upgrade leaves out.
 
-    The kit's own checkout carries neither, since its code is the work
-    there, and it is known by the tool's tests, which never ship to a
-    project.
     """
     # the upgrade reads doctor, so the guard's rules come from it once both are loaded
     from . import upgrade
 
     settings = brain.root.parent / upgrade.CLAUDE_SETTINGS
-    if store.quietly(question=(brain.root / schema.SKILLS / "agent-brain" / "scripts" / "tests").is_dir) or not store.readable_file(path=settings):
+    if not store.readable_file(path=settings):
         return []
 
     where = upgrade.CLAUDE_SETTINGS.as_posix()
