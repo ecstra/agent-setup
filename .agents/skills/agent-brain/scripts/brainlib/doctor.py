@@ -28,13 +28,18 @@ from . import autoack, conclude, frontmatter, guard, handover, index, links, peo
 SKIP_DIRS: frozenset[str] = frozenset({schema.SKILLS, ".worktrees"})
 
 # A web address names no machine, whatever folders its own path holds.
-# A file: address and an editor's ://file/ one do, so they stay in.
-WEB_ADDRESS = re.compile(r"\b(?!file:)[A-Za-z][A-Za-z0-9+.-]*://(?!file/)\S+")
+# Its query stays in, since a value there can carry a path of this
+# machine, and so does an address of any other scheme, an editor's link
+# to a local file among them. A pipe ends it, as a table's cell does.
+WEB_ADDRESS = re.compile(r"\b(?:https?|wss?)://[^\s?|]+")
 
 # A home folder with a name under it, in a path that starts at the root,
-# or a drive letter's root. A slash after a name, a dot or a closing
-# bracket is mid path, as in web/home/page.tsx, which is the project's own.
-MACHINE_PATH = re.compile(r"(?<![\w./)\]])/+(?:[\w.~-]+/+)*?(?:Users|home)/+\w|(?<![A-Za-z])[A-Z]:\\")
+# or a drive letter's root. A slash after a letter, a digit, a dot or a
+# closing bracket is mid path, as in web/home/page.tsx, which is the
+# project's own, and so is one after a name's last underscore, while the
+# underscore that opens an emphasis starts a path. A backslash before the
+# drive letter makes it a regular expression's class, as in \d:\d.
+MACHINE_PATH = re.compile(r"(?<![^\W_])(?<![./)\]])(?<!\w_)/+(?:[\w.~+-]+/+)*?(?:Users|home)/+\w|(?<![A-Za-z\\])[A-Za-z]:\\")
 
 SECRET_SHAPES = (
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
