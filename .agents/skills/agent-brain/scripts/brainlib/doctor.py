@@ -2546,12 +2546,15 @@ def check_rust(
 
     # the words below the header, which doctor's own fills of people and dates never touch, or None where the file does not read as text
     try:
-        says: Optional[str] = rust.body_of(rule.read_text(encoding="utf-8-sig")).strip() if has_rule else ""
+        text: str = rule.read_text(encoding="utf-8-sig") if has_rule else ""
+        says: Optional[str] = rust.body_of(text).strip()
     except (OSError, UnicodeDecodeError):
+        text = ""
         says = None
 
     if not rust.is_rust(project):
-        if says != kits.strip():
+        # the words an earlier release wrote are Agent Setup's too, so a rule no hand touched since is retired like today's
+        if says != kits.strip() and (says is None or not rust.says_an_earlier_releases(says)):
             return [Finding(path=where, check="rust", message=rust.NO_RUST_CHANGED)]
 
         return [Finding(path=where, check="rust", message=rust.NO_RUST, repair=lambda: rust.retire(brain.root))]
@@ -2565,7 +2568,7 @@ def check_rust(
     elif says is None:
         # the file is Agent Setup's whole, so one that does not read as text is written again from the template
         found = [Finding(path=where, check="rust", message=rust.CHANGED, repair=lambda: rust.write_rule(brain.root))]
-    elif says != kits.strip():
+    elif says != kits.strip() or rust.described_by_an_earlier_release(text):
         found = [Finding(path=where, check="rust", message=rust.CHANGED, repair=lambda: rust.rewrite_body(brain.root))]
     else:
         found = []

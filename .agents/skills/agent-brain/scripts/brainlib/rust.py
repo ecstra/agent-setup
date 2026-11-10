@@ -8,6 +8,7 @@ so Rust that arrives after the port gets the rule, and Rust that leaves
 takes it away.
 """
 
+import hashlib
 import os
 import re
 from datetime import date
@@ -32,15 +33,29 @@ LINTS_TABLE = "workspace-lints.toml"
 TEMPLATES = Path(__file__).resolve().parents[2] / "templates" / "rust"
 TEMPLATE_PATH = f".agents/skills/agent-brain/templates/rust/{LINTS_TABLE}"
 
-HEADER = """---
+DESCRIPTION = "Agent Setup's Rust rules, which every agent loads in a project whose root holds a Cargo.toml"
+HEADER = f"""---
 name: rust
 kind: rule
-description: Agent Setup's Rust rules, which every agent loads in a project whose root holds a Cargo.toml
-updated: {date}
+description: {DESCRIPTION}
+updated: {{date}}
 links: []
 ---
 
 """
+# What the header's line said in the releases before the product was
+# called by its name, so the fix writes today's over it and never over a
+# line a hand wrote.
+EARLIER_DESCRIPTIONS: tuple[str, ...] = ("the kit's Rust rules, which every agent loads in a project whose root holds a Cargo.toml",)
+# The rule's words as each earlier release wrote them, 3.1.0 to 3.1.3
+# and then 3.1.4, by the SHA-256 of the words with their edges stripped,
+# so a rule no hand touched since reads as Agent Setup's still.
+EARLIER_BODIES = frozenset(
+    {
+        "9498457d2c5f3aba04d116ea374fe429b9e010ce7e4f163ce2808271d225a64c",
+        "65727ccd03c2e81f6dfc5ce1d23a4b30fb565d2a9a4f4082acf3159a172d7e21",
+    }
+)
 
 RELOAD = "and the rule loads once the session is reloaded"
 MISSING = f"the project's root holds a {MANIFEST} and the brain no rust.md, so Agent Setup's Rust rules never load, and the fix writes them with their import and the missing configs, {RELOAD}"
@@ -121,7 +136,7 @@ def write_rule(
 def rewrite_body(
     brain_root: Path,
 ) -> None:
-    """Write the template's words back below the rule's header, which keeps its people and its date."""
+    """Write the template's words back below the rule's header, which keeps its people and its date, and a line of its own that an earlier release wrote takes today's."""
     path = brain_root / rules.FOLDER / RULE
     text = path.read_text(encoding="utf-8-sig").replace("\r\n", "\n")
     fence = f"{frontmatter.FENCE}\n"
@@ -130,6 +145,8 @@ def rewrite_body(
     head = text[: closing + len(fence) + 1] if closing != -1 else HEADER.format(date=today).rstrip("\n") + "\n"
     # the words changed, so the header's date says so, as every write in the brain does
     head = UPDATED.sub(f"updated: {today}", head, count=1)
+    for earlier in EARLIER_DESCRIPTIONS:
+        head = head.replace(f"\ndescription: {earlier}\n", f"\ndescription: {DESCRIPTION}\n", 1)
     frontmatter.write_text(path=str(path), text=f"{head}\n{template_body()}")
 
 
@@ -145,6 +162,22 @@ def says_the_kits(
 ) -> bool:
     """Whether a rule's words below its header are the template's, as doctor compares them."""
     return body_of(text).strip() == template_body().strip()
+
+
+def says_an_earlier_releases(
+    words: str,
+) -> bool:
+    """Whether a rule's words, its header taken off, are the ones an earlier release wrote, untouched since."""
+    return hashlib.sha256(words.strip().encode("utf-8")).hexdigest() in EARLIER_BODIES
+
+
+def described_by_an_earlier_release(
+    text: str,
+) -> bool:
+    """Whether a rule's header still describes it in an earlier release's words."""
+    head = text[: len(text) - len(rules.body_of(text))]
+
+    return any(f"description: {earlier}" in head.splitlines() for earlier in EARLIER_DESCRIPTIONS)
 
 
 def workspace_array(
