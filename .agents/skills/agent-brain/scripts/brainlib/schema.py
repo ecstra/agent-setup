@@ -97,7 +97,7 @@ COMMON_FIELDS: tuple[Field, ...] = (
 )
 
 # Who made an entry and who last changed it, by git name. Indexes and the
-# kit's files carry neither, so doctor asks for them on entries alone.
+# Agent Setup's files carry neither, so doctor asks for them on entries alone.
 PEOPLE_FIELDS: tuple[Field, ...] = (
     Field(name="author", required=False),
     Field(name="editor", required=False),
@@ -359,14 +359,14 @@ KINDS: dict[str, Kind] = {
 # dot it carries since 2.2.0.
 HANDOVER_FOLDER = ".handover"
 
-# Files the kit owns at the root of .agents/. They carry no project
-# content, so doctor judges them against the kit rather than a kind.
+# Files Agent Setup owns at the root of .agents/. They carry no project
+# content, so doctor judges them against Agent Setup rather than a kind.
 # The launcher calls the brain tool short, python3 .agents/brain, the
 # same in every shell on every system. It is a Python file rather than a
 # shell script, since cmd reads a batch file's arguments a second time,
 # a %NAME% among them, and a shell script breaks when git checks it out
 # with CRLF. Doctor writes it back from this text when it is missing, and
-# the kit's own copy holds this text exactly.
+# Agent Setup's own copy holds this text exactly.
 LAUNCHER = "brain"
 LAUNCHERS: tuple[str, ...] = (LAUNCHER,)
 LAUNCHER_TEXT = '''#!/usr/bin/env python3
@@ -416,11 +416,11 @@ class Definition:
 
 @dataclass(frozen=True)
 class KitSkill:
-    """One skill the kit ships under skills/, a folder with a SKILL.md.
+    """One skill Agent Setup ships under skills/, a folder with a SKILL.md.
 
     Claude Code finds it through a stub under .claude/skills/, which
-    doctor writes, and the port and the upgrade treat the folder as the
-    kit's own, replaced whole, from the release named in `since` on. A
+    doctor writes, and the port and the upgrade treat the folder as
+    Agent Setup's own, replaced whole, from the release named in `since` on. A
     project stamped older than that with a folder of the same name made
     it itself, and the upgrade refuses to write over it. The same holds
     for the sub agent definitions a skill brings, each from its own
@@ -466,8 +466,8 @@ KIT_SKILLS: tuple[KitSkill, ...] = (
 )
 KIT_SKILL_NAMES: tuple[str, ...] = tuple(skill.name for skill in KIT_SKILLS)
 
-# Definitions the kit shipped from `since` and stopped shipping at 2.0.0.
-# A project stamped in between got the file from the kit, so the
+# Definitions Agent Setup shipped from `since` and stopped shipping at 2.0.0.
+# A project stamped in between got the file from Agent Setup, so the
 # upgrade removes it, and one stamped outside that made it itself.
 RETIRED_AT = "2.0.0"
 RETIRED_DEFINITIONS: tuple[Definition, ...] = (
@@ -528,7 +528,7 @@ NO_FRONTMATTER: tuple[str, ...] = ("SYSTEM.md", *LAUNCHERS)
 # table lives in one place.
 INDEXED_FOLDERS: tuple[str, ...] = tuple(kind.folder for kind in KINDS.values())
 
-# The files the kit writes at the top of a project: the front doors every
+# The files Agent Setup writes at the top of a project: the front doors every
 # agent reads first, the contributing note and the ignore file.
 FRONT_DOORS: tuple[str, ...] = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
 ROOT_FILES: tuple[str, ...] = (*FRONT_DOORS, "CONTRIBUTING.md")
@@ -542,7 +542,7 @@ LEDGER = "ledger.md"
 SKILLS = "skills"
 SKILL_FILE = "SKILL.md"
 
-# The kit's version stamp at the root of .agents/, written by a port or
+# Agent Setup's version stamp at the root of .agents/, written by a port or
 # an upgrade and read by the doctor and the status line.
 VERSION_FILE = "VERSION"
 
@@ -557,7 +557,7 @@ def is_hidden(
 
     A dotfile or anything inside a dot folder is nobody's: an editor's
     swap file, a scratch folder a write left behind, a tool's cache. It
-    is never an entry, never the kit's, never linked, listed or checked.
+    is never an entry, never Agent Setup's, never linked, listed or checked.
     """
     return any(part.startswith(".") for part in relative.split("/"))
 
@@ -565,9 +565,9 @@ def is_hidden(
 def is_kit_path(
     relative: str,
 ) -> bool:
-    """Whether a path inside .agents/ names a file the kit owns.
+    """Whether a path inside .agents/ names a file Agent Setup owns.
 
-    That is a root kit file or the index of a folder that carries one.
+    That is one of its files at the root or the index of a folder that carries one.
     Everything else in the brain is an entry or a stray, and a dotted
     path is neither.
     """

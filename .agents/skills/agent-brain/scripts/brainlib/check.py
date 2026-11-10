@@ -63,7 +63,7 @@ TRACE = "GIT_TRACE"
 # Why the check passes over a file, said of a file named on the command line.
 NOT_MARKDOWN = "it is not markdown, and the project's own linters judge code"
 TOOLS_OWN = "the brain tool writes it"
-KITS_OWN = "the kit writes it whole and the next upgrade writes it back"
+KITS_OWN = "Agent Setup writes it whole and the next upgrade writes it back"
 
 # What a line of prose may not carry, read as it renders, is an em dash,
 # the mark or two hyphens between words typed for it, with a space on
@@ -766,7 +766,7 @@ def passed_over(
     """Why the check passes over each file, named from the project as the disk spells it, or None for each it judges, the one test the tree, the paths and the post write hook share.
 
     A file is judged where it is markdown by its suffix in any case,
-    the brain tool does not write it, the kit does not write it
+    the brain tool does not write it, Agent Setup does not write it
     whole in a project, and git's attributes do not mark it generated or
     vendored, which outside git marks no file. Where git cannot read the
     attributes, the check is refused in git's words.
@@ -776,18 +776,16 @@ def passed_over(
     if not to_judge:
         return reasons
 
-    kit_checkout: bool = is_kit_checkout(project)
     stamp: tuple[int, ...] = store.stamp_of(project / BRAIN_FOLDER) or schema.as_tuple(schema.NO_VERSION)
     for relative in to_judge:
         if is_tools(relative):
             reasons[relative] = TOOLS_OWN
             continue
 
-        from_kit: bool = written_by_kit(
+        if written_by_kit(
             relative=relative,
             stamp=stamp,
-        )
-        if from_kit and not kit_checkout:
+        ):
             reasons[relative] = KITS_OWN
 
     unmarked = [relative for relative in to_judge if reasons[relative] is None]
@@ -852,17 +850,6 @@ def batches(
     return found
 
 
-def is_kit_checkout(
-    project: Path,
-) -> bool:
-    """Whether the project is the kit's own checkout, where a `test_*.py` file of the tool's tests lives, since they ship nowhere else, so a folder an upgrade left behind holding a dotfile alone is no checkout."""
-    tests = project / BRAIN_FOLDER / schema.SKILLS / "agent-brain" / "scripts" / "tests"
-    try:
-        return any(store.readable_file(path) for path in tests.glob("test_*.py"))
-    except OSError:
-        return False
-
-
 # The kind folder the review ledgers go in, one folder each.
 REVIEWS: str = schema.KINDS["review"].folder
 
@@ -870,7 +857,7 @@ REVIEWS: str = schema.KINDS["review"].folder
 def is_tools(
     relative: str,
 ) -> bool:
-    """Whether the file is one the brain tool writes whole where it writes it, in a project and in the kit's own checkout alike, the index at the brain's root and in each folder it indexes, a review ledger, and the handover note.
+    """Whether the file is one the brain tool writes whole where it writes it, the index at the brain's root and in each folder it indexes, a review ledger, and the handover note.
 
     An index is the tool's rendering of other files' header values, a
     ledger the tool's record, whose claims name a file by its line with
@@ -894,12 +881,12 @@ def is_tools(
     return "/".join(inside) == handover.RELATIVE
 
 
-# The files at the project's top the kit writes whole, AGENTS.md among
+# The files at the project's top Agent Setup writes whole, AGENTS.md among
 # them since the project's own words are its rules, and the chat style
 # in each agent folder, the source and doctor's copies.
 KIT_ROOT_FILES: tuple[str, ...] = schema.ROOT_FILES
 CHAT_STYLE: tuple[str, ...] = tuple(path.as_posix() for path in (style.SOURCE, *style.COPIES))
-# the kit's Rust rule, which doctor writes whole from the tool's template in a project with Rust
+# Agent Setup's Rust rule, which doctor writes whole from the tool's template in a project with Rust
 KIT_RULE = f"{BRAIN_FOLDER}/rules/rust.md"
 
 
@@ -907,10 +894,10 @@ def written_by_kit(
     relative: str,
     stamp: tuple[int, ...],
 ) -> bool:
-    """Whether a project stamped `stamp` holds the file from the kit, which the next upgrade writes back whole, so a slip there is the kit's and never the project's.
+    """Whether a project stamped `stamp` holds the file from Agent Setup, which the next upgrade writes back whole, so a slip there is Agent Setup's and never the project's.
 
-    The upgrade's own test decides, so a kit skill's folder and a sub
-    agent definition are the kit's from the release that shipped each
+    The upgrade's own test decides, so a skill folder of Agent Setup's
+    and a sub agent definition are Agent Setup's from the release that shipped each
     on, and one of that name in a project stamped older is the project's
     own and judged.
     """

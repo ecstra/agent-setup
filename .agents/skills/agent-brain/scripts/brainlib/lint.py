@@ -38,12 +38,6 @@ ESCAPES = "" if os.name == "nt" else "\\"
 # what cmd, which runs a batch file such as an npm shim, reads as code in a path it is handed, quoted or not
 CMD_CODE = frozenset('&|<>^%!"')
 
-# the kit's own checkout lints the tool's Python with ruff, from the config beside the scripts
-KIT_LINES: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("*.py", ("ruff", "format", FILE)),
-    ("*.py", ("ruff", "check", "--fix", FILE)),
-)
-
 
 @dataclass(frozen=True)
 class Line:
@@ -66,9 +60,6 @@ def lines_of(
     project: Path,
 ) -> tuple[list[Line], list[str]]:
     """The lint lines the project names, and a reason for each line refused."""
-    if check.is_kit_checkout(project):
-        return [Line(pattern=pattern, words=words) for pattern, words in KIT_LINES], []
-
     try:
         found = rules.texts(project / check.BRAIN_FOLDER)
     except rules.RuleUnreadable as error:

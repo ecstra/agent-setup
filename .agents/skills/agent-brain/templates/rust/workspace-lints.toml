@@ -1,4 +1,4 @@
-# The kit's lint levels for every Rust project. Paste both tables into the
+# Agent Setup's lint levels for every Rust project. Paste both tables into the
 # root Cargo.toml, and give every crate's own Cargo.toml these two lines.
 #
 #   [lints]

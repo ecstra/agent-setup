@@ -1,6 +1,6 @@
 ---
 name: review-docs
-description: Brings the docs a branch made false up to the code at the end of the kit's code review, editing docs only. Spawned by the branch-review skill, never picked on its own.
+description: Brings the docs a branch made false up to the code at the end of Agent Setup's code review, editing docs only. Spawned by the branch-review skill, never picked on its own.
 model: opus
 tools: Read, Edit, Write, Bash
 omitClaudeMd: true

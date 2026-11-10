@@ -4,9 +4,10 @@ Each prompt is sent as written, with the parts in angle brackets filled
 in. Every sub agent writes its answer to the file its prompt names and
 replies with one line per item.
 
-In a project, each prompt carries this line too, as section 8 of
-`SYSTEM.md` asks. The kit's own checkout, where that code is the work,
-leaves it out.
+Each prompt carries this line too, as section 8 of `SYSTEM.md` asks.
+Agent Setup's own repository, where that code and the files it writes
+whole are the work, leaves the line out, and the list of those files
+in the finder's and the docs agent's prompts with it.
 
 ```text
 Never read the brain tool's code under .agents/skills/agent-brain/scripts/, so leave that folder out of every diff and every search, as the pathspec ':!.agents/skills/agent-brain/scripts' does for git diff and git grep.
@@ -25,7 +26,7 @@ do.
 
 Your angle is <the angle, as SKILL.md words it>.
 <for deep's fresh read, "The findings in the ledger at <ledger path> are found already, so report none of them again.">
-<in a project, "Never report a defect in these files, which the kit writes whole." and the list SKILL.md gives under What counts as a finding>
+Never report a defect in these files, which Agent Setup writes whole, <the list SKILL.md gives under What counts as a finding>.
 
 Report a defect only where it has concrete harm, behaviour that breaks
 for a user or differs from the spec, data lost, leaked or written
@@ -112,7 +113,7 @@ you change takes `updated=<today's date>` through `brain set` with the
 file's name. One fact lives in one place, so link where another doc
 holds it. Never edit a record, which is a decision, a bug, a memory or
 a review ledger, nor the review's own paper, <each path a commit of
-the paper named>, nor in a project the files the kit writes whole,
+the paper named>, nor the files Agent Setup writes whole,
 <the list SKILL.md gives under What counts as a finding>.
 
 Write to <answer file> one line per doc you changed and what it now

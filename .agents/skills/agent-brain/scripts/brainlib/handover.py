@@ -92,7 +92,7 @@ OBJECT_NAME_SHAPE: re.Pattern[str] = re.compile(pattern=r"[0-9a-f]{40}|[0-9a-f]{
 
 # the one shape the tool writes a moment in, to the second with a fraction
 # of one to six digits, then an offset or a Z, since the interpreters of
-# the kit's floor and ceiling read different sets of ISO forms, the ceiling
+# Agent Setup's floor and ceiling read different sets of ISO forms, the ceiling
 # taking hour 24 for the next day's midnight and both taking an offset's
 # minutes past 59 for more hours, so an hour runs to 23 and a minute to 59
 MOMENT_SHAPE: re.Pattern[str] = re.compile(pattern=r"([0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9])(?:\.([0-9]{1,6}))?([+-](?:[01][0-9]|2[0-3]):[0-5][0-9]|Z)")
@@ -1149,11 +1149,11 @@ def note_of(
 def moment_of(
     value: Optional[str],
 ) -> Optional[datetime]:
-    """The moment a header names in the one shape the tool writes, or None for anything else, so every interpreter the kit runs on reads and refuses the same headers.
+    """The moment a header names in the one shape the tool writes, or None for anything else, so every interpreter Agent Setup runs on reads and refuses the same headers.
 
     The fraction is filled out to six digits and a Z read as +00:00
     before `datetime.fromisoformat` sees it, the two forms of that shape
-    the interpreters of the kit's floor read otherwise.
+    the interpreters of Agent Setup's floor read otherwise.
     """
     shape: Optional[re.Match[str]] = MOMENT_SHAPE.fullmatch(string=value or "")
     if shape is None:
@@ -1255,7 +1255,7 @@ def kept_out_of_git(
     except OSError:
         return
 
-    # the kit's own ignore line still keeps the folder out of git on every branch of 2.2.0 or later, so a file that cannot be written costs nothing there
+    # Agent Setup's own ignore line still keeps the folder out of git on every branch of 2.2.0 or later, so a file that cannot be written costs nothing there
     try:
         os.write(handle, b"*\n")
     except OSError:
@@ -1272,7 +1272,7 @@ def adopt(
     A checkout that came to 2.2.0 through a pull or a merge has run no
     upgrade, so the session start moves them too. A note for another
     branch stays where that branch's own hook reads it while the branch
-    is on a kit before 2.2.0, and moves in at a start on that branch. A
+    is on a release before 2.2.0, and moves in at a start on that branch. A
     note waiting in the hidden folder under either name holds the one
     slot, so an old one waits behind it until it is gone. The old folder
     goes once nothing is left in it.

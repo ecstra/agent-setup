@@ -5,7 +5,7 @@ exactly as it came in, which is why nothing reflows, strips or re-indents
 it. Frontmatter lines are kept as raw text too, so a field nobody edited
 is written back character for character.
 
-The header is the kit's own shape, not general YAML: one key per line
+The header is Agent Setup's own shape, not general YAML: one key per line
 at the margin, `key: value`, each key once, nothing blank or indented
 between the fences. A value is plain text taken as written, a colon
 inside it is fine and nothing is quoted. A list sits on its key's line
@@ -30,7 +30,7 @@ FENCE = "---"
 # shape and sweeps it where the tool writes in every run, so one left by
 # an interrupted run there is found. A person's own dotfile matches only
 # when its own suffix is eight such characters, so at the top of the
-# project doctor looks only beside the kit's own files.
+# project doctor looks only beside Agent Setup's own files.
 TEMP_SUFFIX = ".tmp"
 TEMP_SHAPE = re.compile(r"^\.(.+)\.[a-z0-9_]{8}\.tmp$")
 
@@ -217,13 +217,13 @@ def line_trouble(
 ) -> str:
     """Why a header line is not `key: value`, in words that say what to write."""
     if not line.strip():
-        return f"line {number} of the header is blank, the kit writes one key per line with nothing between"
+        return f"line {number} of the header is blank, Agent Setup writes one key per line with nothing between"
 
     if line.strip().startswith("- "):
-        return f"line {number} of the header is a block list item, the kit writes a list on its key's line as [a, b]"
+        return f"line {number} of the header is a block list item, Agent Setup writes a list on its key's line as [a, b]"
 
     if line[:1] in (" ", "\t"):
-        return f"line {number} of the header is indented, the kit writes one key per line at the margin"
+        return f"line {number} of the header is indented, Agent Setup writes one key per line at the margin"
 
     return f"line {number} of the header is not key: value"
 

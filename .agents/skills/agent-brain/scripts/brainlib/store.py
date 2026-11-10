@@ -225,7 +225,7 @@ class Brain:
         return listed | set(self.unreadable)
 
     def kit_files(self) -> list[Path]:
-        """The kit's own files that exist here, the rulebook excepted."""
+        """Agent Setup's own files that exist here, the rulebook excepted."""
         candidates = [self.root / name for name in schema.KIT_FILES if name not in schema.NO_FRONTMATTER]
         candidates += [self.root / folder / schema.INDEX for folder in schema.INDEXED_FOLDERS]
 
@@ -415,7 +415,7 @@ class Brain:
         return self.keyed
 
     def kit_documents(self) -> list[tuple[Path, frontmatter.Document]]:
-        """The kit's own files that carry a header the tool reads, read once per scan.
+        """Agent Setup's own files that carry a header the tool reads, read once per scan.
 
         Each caller gets its own copy of every document, so a change one
         makes in memory never shows up in another's read.
@@ -652,7 +652,7 @@ def same_bytes(
 ) -> bool:
     """Whether the two files hold exactly the same bytes, false when either cannot be read.
 
-    The one answer to "is this file the kit's copy", asked by doctor of
+    The one answer to "is this file Agent Setup's copy", asked by doctor of
     a skill folder and by the upgrade of a file it would replace.
     """
     try:
@@ -675,7 +675,7 @@ def stamp_text(
 def stamp_of(
     brain: Path,
 ) -> Optional[tuple[int, ...]]:
-    """The kit release the brain is stamped with, as numbers, or None when the stamp is missing or not a version."""
+    """The Agent Setup release the brain is stamped with, as numbers, or None when the stamp is missing or not a version."""
     stamp = brain / schema.VERSION_FILE
     if not readable_file(stamp):
         return None
@@ -689,7 +689,7 @@ def stamp_of(
 def kit_skills_shipped(
     brain: Path,
 ) -> list[str]:
-    """The kit skills a brain should carry by its stamp, those the stamped release shipped, with no stamp to read taken as the oldest release."""
+    """Agent Setup's skills a brain should carry by its stamp, those the stamped release shipped, with no stamp to read taken as the oldest release."""
     stamped = stamp_of(brain) or schema.as_tuple(schema.NO_VERSION)
 
     return [skill.name for skill in schema.KIT_SKILLS if schema.ships(skill=skill, stamp=stamped)]
@@ -717,9 +717,9 @@ def project_skills(
     brain: Path,
     shipped: list[str],
 ) -> list[str]:
-    """The skill folders the project keeps beside the kit's shipped ones, in name order.
+    """The skill folders the project keeps beside Agent Setup's shipped ones, in name order.
 
-    The one split of skills/ into the kit's and the project's, read by
+    The one split of skills/ into Agent Setup's and the project's, read by
     doctor for the stubs and by the spine for its lines, so the two
     never disagree. Raises OSError when the folder cannot be listed,
     the way `skill_folders` does.

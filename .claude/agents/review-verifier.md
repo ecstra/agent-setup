@@ -1,6 +1,6 @@
 ---
 name: review-verifier
-description: Votes on the findings of the kit's code review against the code, or rechecks the diff of a fix for a finding still there or a new break. Spawned by the branch-review skill, never picked on its own.
+description: Votes on the findings of Agent Setup's code review against the code, or rechecks the diff of a fix for a finding still there or a new break. Spawned by the branch-review skill, never picked on its own.
 model: opus
 tools: Read, Bash, Write
 omitClaudeMd: true

@@ -1,6 +1,6 @@
 """The brain tool. Files, changes, counts and checks everything in .agents/.
 
-Run from anywhere inside a project that carries the kit, through the
+Run from anywhere inside a project that carries Agent Setup, through the
 launcher in the brain's folder, called by its path from the shell's
 folder, as here from the project's root.
 
@@ -163,7 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
 def add_version(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("version", help="the kit version this project carries")
+    command = commands.add_parser("version", help="the Agent Setup version this project carries")
     command.set_defaults(handler=run_version)
 
 
@@ -1191,7 +1191,7 @@ def missing(
 def add_port(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("port", help="install the kit into a project that has no brain yet")
+    command = commands.add_parser("port", help="install Agent Setup into a project that has no brain yet")
     add_kit_arguments(command)
     command.set_defaults(handler=run_port, needs_brain=False)
 
@@ -1199,7 +1199,7 @@ def add_port(
 def add_upgrade(
     commands: argparse._SubParsersAction,
 ) -> None:
-    command = commands.add_parser("upgrade", help="bring a project's brain up to this kit, migrations included")
+    command = commands.add_parser("upgrade", help="bring a project's brain up to this release of Agent Setup, migrations included")
     add_kit_arguments(command)
     command.set_defaults(handler=run_upgrade, needs_brain=False)
 
@@ -1207,7 +1207,7 @@ def add_upgrade(
 def add_kit_arguments(
     command: argparse.ArgumentParser,
 ) -> None:
-    command.add_argument("--kit", help="a checkout of agent-setup, by default the one this tool runs from")
+    command.add_argument("--kit", help="a checkout of Agent Setup, by default the one this tool runs from")
     command.add_argument("--project", help="the project's root folder, by default the git root around the current one for a port and the nearest brain above it for an upgrade")
 
 

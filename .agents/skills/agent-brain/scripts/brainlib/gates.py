@@ -6,15 +6,14 @@ gate, the project's own rule first and the others by name, and this
 runs them in order under the shell each block names, with errexit and,
 where the shell has it, pipefail, the way a CI step runs them. It stops
 at the first red one and says which, then runs the check over the tree
-and the branch's commits, and doctor over the brain. The kit's own
+and the branch's commits, and doctor over the brain. Agent Setup's own
 checkout names its gates in no rule, so there the gates are the tool's
 own tests under the interpreter running this and under the system's
-`/usr/bin/python3` where that is another one at the kit's floor or
-above, which is what every commit to the kit runs green first.
+`/usr/bin/python3` where that is another one at Agent Setup's floor or
+above, which is what every commit to Agent Setup runs green first.
 """
 
 import os
-import platform
 import re
 import shutil
 import signal
@@ -111,19 +110,6 @@ WINDOWS = os.name == "nt"
 GATE_SHAPE = "a gate is a fenced bash, sh or zsh block under it, one block per gate"
 NO_GATES = "no rule names a gate under a Gates heading, so the check and doctor are the gates here"
 
-# The system interpreter on a Mac or a Linux box, the second one the
-# kit's own tests run under where it answers at the floor the kit holds
-# to and is not the one running this. On a Mac it is a shim that hands
-# over to the developer tools' interpreter, so it is asked which one it
-# is rather than judged by its own path.
-FLOOR = Path("/usr/bin/python3")
-FLOOR_VERSION = "3.9"
-PROBE = "import platform, sys; print(sys.executable); print(sys.version_info >= (3, 9)); print(platform.python_version())"
-SCRIPTS = Path(check.BRAIN_FOLDER) / "skills" / "agent-brain" / "scripts"
-SUITE = ("-m", "tests.parallel")
-SEE_SCRIPTS = Path(check.BRAIN_FOLDER) / "skills" / "see" / "scripts"
-SEE_SUITE = ("-m", "unittest", "discover", "-s", "tests", "-t", ".")
-
 
 class GatesError(Exception):
     """The gates could not be read or built, so no gate ran, with the reason in the message."""
@@ -131,13 +117,12 @@ class GatesError(Exception):
 
 @dataclass(frozen=True)
 class Gate:
-    """One gate, with its command, the folder it runs in, the one line that names it, and the shell its block runs under, or the argument list it runs as with no shell, which the kit's own gates are."""
+    """One gate, with its command, the folder it runs in, the one line that names it, and the shell its block runs under."""
 
     command: str
     cwd: Path
     name: str
     shell: str = "bash"
-    argv: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -147,15 +132,6 @@ class Named:
     gates: list[Gate] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     empty: list[str] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class Answer:
-    """What the floor's interpreter says of itself, the path it runs from, whether it is at the kit's floor, and its version."""
-
-    path: str
-    at_floor: bool
-    version: str
 
 
 @dataclass(frozen=True)
@@ -244,135 +220,13 @@ def check_lines(
 def gates_of(
     project: Path,
 ) -> Named:
-    """The gates the project names, the kit's own tests first in the kit's checkout, then the rules', with the lines on what does not run."""
+    """The gates the project names in its rules, with the lines on what does not run."""
     in_rules: Named = rule_gates(project)
-    if check.is_kit_checkout(project):
-        kits_own: Named = kit_gates(project)
-
-        return Named(
-            gates=kits_own.gates + in_rules.gates,
-            notes=kits_own.notes + in_rules.notes,
-            empty=in_rules.empty,
-        )
-
     # every Gates heading gives a gate or a line that it holds none, so with neither no rule has such a heading
     if not in_rules.gates and not in_rules.empty:
         return Named(notes=[*in_rules.notes, NO_GATES])
 
     return in_rules
-
-
-def kit_gates(
-    project: Path,
-) -> Named:
-    """The tool's tests as one gate, every test class in a process of its own at once, under the interpreter running this and the floor's where it answers at the floor or above and is another one, with a line where it is below the floor."""
-    if not sys.executable:
-        raise GatesError("the interpreter running this gives no path of its own in sys.executable, so the tool's tests have nothing to run under, and no gate ran")
-
-    interpreters: list[tuple[str, str]] = [(sys.executable, platform.python_version())]
-    notes: list[str] = []
-    answer: Optional[Answer] = floor_answer()
-    if answer is not None and not same_interpreter(
-        one=Path(answer.path),
-        other=Path(sys.executable),
-    ):
-        if answer.at_floor:
-            interpreters.append((str(FLOOR), answer.version))
-        else:
-            notes.append(f"{FLOOR.as_posix()} is Python {answer.version}, below the kit's floor of {FLOOR_VERSION}, so the tool's tests do not run under it")
-
-    others = [word for interpreter, _ in interpreters[1:] for word in ("--python", interpreter)]
-    versions = ", ".join(version for _, version in interpreters)
-    gates = [
-        Gate(
-            command=" ".join([sys.executable, *SUITE, *others]),
-            cwd=project / SCRIPTS,
-            name=f"the tool's tests, every class at once, under Python {versions}",
-            argv=(sys.executable, *SUITE, *others),
-        ),
-    ]
-
-    ruff: Optional[str] = ruff_path()
-    if ruff is None:
-        notes.append("ruff is not installed, so neither the tool's code nor the see tool's is linted, and pip or uv installs it")
-    gates += ruff_gates(ruff=ruff, cwd=project / SCRIPTS, whose="the tool's code")
-    # the see tool's suite is small, so one process per interpreter runs it, and it skips its cases where ffmpeg is not installed
-    for interpreter, version in interpreters:
-        gates.append(
-            Gate(
-                command=" ".join([interpreter, *SEE_SUITE]),
-                cwd=project / SEE_SCRIPTS,
-                name=f"the see tool's tests under Python {version}",
-                argv=(interpreter, *SEE_SUITE),
-            ),
-        )
-    gates += ruff_gates(ruff=ruff, cwd=project / SEE_SCRIPTS, whose="the see tool's code")
-
-    return Named(
-        gates=gates,
-        notes=notes,
-    )
-
-
-def ruff_gates(
-    ruff: Optional[str],
-    cwd: Path,
-    whose: str,
-) -> list[Gate]:
-    """Ruff's layout check and its lint over one folder of the kit's code, by the config that folder holds, or none where ruff is not installed."""
-    if ruff is None:
-        return []
-
-    return [
-        Gate(
-            command=" ".join(["ruff", *words]),
-            cwd=cwd,
-            name=f"ruff's {what} over {whose}",
-            argv=(ruff, *words),
-        )
-        for words, what in ((("format", "--check", "."), "layout"), (("check", "."), "lint"))
-    ]
-
-
-def ruff_path() -> Optional[str]:
-    """Where ruff runs from on this machine, which the kit's own checkout lints its code with, or None."""
-    return shutil.which("ruff")
-
-
-def floor_answer() -> Optional[Answer]:
-    """What the floor's interpreter says of itself, or None where it is not there or does not answer, as a Mac's stub does with no developer tools."""
-    if not store.quietly(FLOOR.is_file):
-        return None
-
-    try:
-        answered: subprocess.CompletedProcess[str] = subprocess.run(
-            args=[str(FLOOR), "-c", PROBE],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError:
-        return None
-
-    lines = answered.stdout.splitlines()
-    if answered.returncode != 0 or len(lines) != 3 or lines[1] not in ("True", "False"):
-        return None
-
-    return Answer(
-        path=lines[0],
-        at_floor=lines[1] == "True",
-        version=lines[2],
-    )
-
-
-def same_interpreter(
-    one: Path,
-    other: Path,
-) -> bool:
-    try:
-        return one.resolve() == other.resolve()
-    except (OSError, RuntimeError):
-        return False
 
 
 def rule_gates(
@@ -788,7 +642,7 @@ def run_gate(
     gate: Gate,
 ) -> int:
     """Run one gate in its folder with its output passed straight through, and hand back its exit code, negative where a signal killed it."""
-    argv: list[str] = list(gate.argv) or shell_line(gate)
+    argv: list[str] = shell_line(gate)
 
     # the gate writes to this process's streams straight, and stderr writes the complaint's line at once, so the name line the caller printed leaves the buffer first
     sys.stdout.flush()

@@ -100,7 +100,7 @@ def render_status(
     data: dict,
 ) -> str:
     health = "doctor clean" if data["findings"] == 0 else f"doctor {store.counted(number=data['findings'], noun='finding')}, {data['fixable']} fixable"
-    lines = [f"kit {data['version']}    {health}"]
+    lines = [f"agent-setup {data['version']}    {health}"]
 
     for kind_name in ("rule", "plan", "build-spec", "todo", "bug", "decision", "review", "doc", "memory"):
         counts = data["counts"].get(kind_name, {})

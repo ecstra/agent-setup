@@ -61,7 +61,7 @@ QUOTE_DEPTH = 32
 
 # An HTML comment hides what it holds from a reader that asks, a gate
 # or a heading an owner commented out for one. It is no code, so the
-# kit's marker, itself a comment, is still found outside code. One that
+# Agent Setup's marker, itself a comment, is still found outside code. One that
 # opens a line or a list item's text is a block of its own, as markdown
 # reads it, one inside a list item ends with the item where no `-->`
 # comes first, and one inside a sentence ends with its paragraph. Its
