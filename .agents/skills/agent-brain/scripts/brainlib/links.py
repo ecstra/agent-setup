@@ -49,7 +49,7 @@ def resolve(
     """The file a link means, whether it was written as a path or a name.
 
     A path is read as a key is, so one written from the project's root,
-    the repository's top or the disk's root reaches a kit file as it
+    the repository's top or the disk's root reaches a file of Agent Setup's as it
     reaches an entry, and one into another project's brain reaches
     nothing.
     """
@@ -370,7 +370,7 @@ def bare(
 def documents(
     brain: store.Brain,
 ) -> list[tuple[Path, frontmatter.Document]]:
-    """Every file that carries links: the entries and the kit's own files."""
+    """Every file that carries links: the entries and Agent Setup's own files."""
     found = [(entry.path, entry.document) for entry in brain.entries()]
 
     return found + kit_documents(brain)
@@ -613,5 +613,5 @@ def moved_links(
 def kit_documents(
     brain: store.Brain,
 ) -> list[tuple[Path, frontmatter.Document]]:
-    """The kit's own files that carry frontmatter, so names still resolve."""
+    """Agent Setup's own files that carry frontmatter, so names still resolve."""
     return brain.kit_documents()

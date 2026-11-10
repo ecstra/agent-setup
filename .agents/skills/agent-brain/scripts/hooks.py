@@ -5,7 +5,7 @@ JSON on standard input and the event name as the first argument. Five
 events matter, the start of a session, each prompt the owner sends, a
 tick after the agent's tool calls, a write, an edit or a patch about to
 land anywhere in the project, refused where it does by hand what the
-brain tool does, or writes the project's AGENTS.md or the kit's Rust
+brain tool does, or writes the project's AGENTS.md or Agent Setup's Rust
 rule, or loses an assertion a test file holds, and a write
 that just landed anywhere in the project, after which the project's
 linters and the check read the file written, and doctor reads the
@@ -364,15 +364,15 @@ def pre_write(
     return 0
 
 
-RUST_BY_HAND = "rules/rust.md is the kit's Rust rule, which doctor writes whole from the tool's template, so nothing in it is edited by hand. The project's own Rust rules go in .agents/rules/project.md or a rule of their own through brain new rule, in addition to the kit's"
-AGENTS_BY_HAND = "AGENTS.md is the kit's, written whole by the upgrade, so nothing in it is edited by hand. A project's own instruction is a rule, filed through brain new rule, which AGENTS.md then imports, and it loads once the session is reloaded. brain doctor --fix writes the import lines again, a merge's conflict in them among what it settles"
+RUST_BY_HAND = "rules/rust.md is Agent Setup's Rust rule, which doctor writes whole from the tool's template, so nothing in it is edited by hand. The project's own Rust rules go in .agents/rules/project.md or a rule of their own through brain new rule, in addition to Agent Setup's"
+AGENTS_BY_HAND = "AGENTS.md is Agent Setup's, written whole by the upgrade, so nothing in it is edited by hand. A project's own instruction is a rule, filed through brain new rule, which AGENTS.md then imports, and it loads once the session is reloaded. brain doctor --fix writes the import lines again, a merge's conflict in them among what it settles"
 
 
 def front_door_refusal(
     brain: store.Brain,
     touch: Touch,
 ) -> Optional[str]:
-    """Why a write to the project's AGENTS.md or to the kit's Rust rule is refused, or None."""
+    """Why a write to the project's AGENTS.md or to Agent Setup's Rust rule is refused, or None."""
     project = brain.root.parent
     if touch.deleted:
         return None

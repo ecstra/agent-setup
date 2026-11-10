@@ -206,7 +206,7 @@ def retitle(
     if not slug:
         raise WriteError(f"'{title}' leaves nothing to name a file with")
 
-    # the kit's Rust rule keeps its name, and no rule of the project's takes it
+    # Agent Setup's Rust rule keeps its name, and no rule of the project's takes it
     if entry.kind.name == "rule" and rust.NAME in (slug, entry.path.stem):
         raise WriteError(rust.NAME_IS_THE_KITS)
 
@@ -355,9 +355,9 @@ def holder_of(
     brain: store.Brain,
     name: str,
 ) -> Optional[str]:
-    """The brain relative path of whatever already carries this name, entry or kit file, or None.
+    """The brain relative path of whatever already carries this name, entry or file of Agent Setup's, or None.
 
-    A name is unique across the whole brain, the kit's own files
+    A name is unique across the whole brain, Agent Setup's own files
     included, so a doc may not be called agent-index, as the index is.
     A name two files already share is refused with both named.
     """

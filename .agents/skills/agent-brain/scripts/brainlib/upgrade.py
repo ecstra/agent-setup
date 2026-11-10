@@ -1,11 +1,11 @@
-"""Bringing a project to the kit, a port when it has no brain and an upgrade when it has one.
+"""Bringing a project to Agent Setup, a port when it has no brain and an upgrade when it has one.
 
-The kit is a checkout of agent-setup, by default the one this tool runs
+The source is a checkout of Agent Setup, by default the one this tool runs
 from. The project is the folder the command runs in. Both commands
-install the kit's own files, keep everything the project wrote, carry
+install Agent Setup's own files, keep everything the project wrote, carry
 the section 0 a front door held into the project's own rule, and end
 with doctor --fix. Between the two
-sits the migration table, one step per layout change the kit has made,
+sits the migration table, one step per layout change Agent Setup has made,
 each gated on the tree it changes, while the version stamp names the
 release the project is on.
 """
@@ -28,11 +28,11 @@ from urllib.parse import unquote
 from . import doctor, frontmatter, handover, links, people, rules, rust, schema, sections, store, style
 
 FOLDER = ".agents"
-# the file beside the tool's code that marks a checkout of the kit, a dotfile so it ships into no project
+# the file beside the tool's code that marks a checkout of Agent Setup, a dotfile so it ships into no project
 KIT_SCRIPTS = Path(FOLDER) / schema.SKILLS / "agent-brain" / "scripts"
 CHECKOUT_MARK = ".kit"
 
-# The brain's spec files the kit shipped before 2.0.0, which an upgrade
+# The brain's spec files Agent Setup shipped before 2.0.0, which an upgrade
 # takes out of a project, since the tool and the skill sheet carry
 # their rules now.
 # the release from which code goes to the project's own linters and brain check reads prose alone
@@ -47,7 +47,7 @@ ROOT_FILES = schema.ROOT_FILES
 AGENT_FOLDERS = store.NEAR_ROOTS[1:]
 
 # The hook configs are merged into what the project has, so its own hooks
-# stay beside the kit's. Everything else the kit ships is copied whole.
+# stay beside Agent Setup's. Everything else it ships is copied whole.
 MERGED = ("settings.json", "hooks.json")
 NOT_SHIPPED = ("settings.local.json",)
 
@@ -63,7 +63,7 @@ ORIGIN_HOPS = 8
 # repository, so the walk keeps them too.
 COMMAND_SCOPE_CONFIG: frozenset[str] = frozenset({"GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT"})
 
-# The rules that refuse Claude Code's Read of the kit's code in a
+# The rules that refuse Claude Code's Read of Agent Setup's code in a
 # project, which the port writes and the upgrade replaces whole, for the
 # reason section 8 of SYSTEM.md and the read guard section of the
 # command reference give. Since an Edit needs a Read of its file first,
@@ -71,10 +71,10 @@ COMMAND_SCOPE_CONFIG: frozenset[str] = frozenset({"GIT_CONFIG_PARAMETERS", "GIT_
 # file can still be written. The folder is named by both paths Claude Code reaches it
 # through, the brain's and the skill link's, and the leading slash
 # anchors each at the settings file's project, not at the filesystem
-# root. A deny rule on Read is the kit's when it names that folder at
+# root. A deny rule on Read is Agent Setup's when it names that folder at
 # the project, by either of those paths or the brain's old name, so a
-# release that rewords a rule replaces the earlier one the way a kit
-# hook group is replaced, while a rule for a copy kept elsewhere is the
+# release that rewords a rule replaces the earlier one the way one of
+# its hook groups is replaced, while a rule for a copy kept elsewhere is the
 # project's own and stays.
 CLAUDE_SETTINGS = Path(".claude") / "settings.json"
 READ_GUARDS = (
@@ -102,11 +102,11 @@ KIT_RULE = re.compile(
     + r")/agent-brain/scripts(?:/.*)?\)$",
 )
 
-# A hook group is the kit's when its command is one of two shapes with
-# plain arguments after it: a call of a script under the kit's own skill
+# A hook group is Agent Setup's when its command is one of two shapes with
+# plain arguments after it: a call of a script under its own skill
 # folder, by either name of the brain, anchored at the project root the
-# way each agent allows or not at all, which is what the kit shipped
-# before the launcher, or python3 -c with a launcher text the kit has
+# way each agent allows or not at all, which is what Agent Setup shipped
+# before the launcher, or python3 -c with a launcher text it has
 # shipped, every version of it listed. A command that wraps such a
 # call, or calls a copy kept elsewhere, is the project's own.
 #
@@ -114,7 +114,7 @@ KIT_RULE = re.compile(
 # the hook script from the project folder the agent names, or by walking
 # up from the session's own folder where none is named, hands it the
 # event, and does nothing where there is no script, so a checkout
-# without the kit never blocks a prompt or a write. Run through -c,
+# without Agent Setup never blocks a prompt or a write. Run through -c,
 # Python puts the session's folder first on the import path, where a
 # file named like a standard module would shadow it, so that entry goes
 # before anything is imported.
@@ -130,14 +130,14 @@ LAUNCHER = (
     "sys.argv[0]=str(p);"
     "runpy.run_path(str(p),run_name='__main__')"
 )
-# the anchors of the kit's commands before the launcher
+# the anchors of Agent Setup's commands before the launcher
 ROOT_ANCHORS = (
     r'"\$CLAUDE_PROJECT_DIR"/',
     r"\$CLAUDE_PROJECT_DIR/",
     r'"\$GEMINI_PROJECT_DIR"/',
     r"\$GEMINI_PROJECT_DIR/",
 )
-# every launcher text the kit has shipped, the current one first, since a
+# every launcher text Agent Setup has shipped, the current one first, since a
 # project ported under an earlier text upgrades by that text, so a change
 # to the launcher appends the text it replaces here, a port from any
 # commit being possible. The second is the first text, before the import
@@ -151,7 +151,9 @@ KIT_HOOK = re.compile(
     r'|^python3 -c "(?:' + "|".join(re.escape(text) for text in LAUNCHERS) + r')"(?: [\w.-]+)*$',
 )
 IGNORE_FILE = schema.IGNORE_FILE
-IGNORE_HEADING = "# The agent kit's own ignores."
+IGNORE_HEADING = "# Agent Setup's own ignores."
+# the headings earlier releases wrote over the block, which a later run still takes as the block
+OLD_IGNORE_HEADINGS = ("# The agent kit's own ignores.",)
 BOM = codecs.BOM_UTF8.decode("utf-8")
 # a carriage return with or without a newline after it, the line ends
 # text mode reads as a newline
@@ -178,26 +180,27 @@ GIT_ESCAPES = {
 GIT_TAKES_CHARACTERS = os.name == "nt"
 
 # The project's own section, whatever it was called before, takes the
-# heading the rulebook named. In an AGENTS.md a kit before 3.0.0 wrote
-# it ends at the comment line that says where the kit's words start, so
-# nothing is told apart by the kit's wording, which changes between
+# heading the rulebook named. In an AGENTS.md a release before 3.0.0 wrote
+# it ends at the comment line that says where Agent Setup's words start, so
+# nothing is told apart by Agent Setup's wording, which changes between
 # releases. From 3.0.0 the section lives in the project's own rule and
-# the kit writes no such line.
+# Agent Setup writes no such line.
 SECTION_ZERO_HEADING = "## 0. Project Rules"
 # the doc that holds, quoted, what the front doors held of their own beside section 0, where nothing loads, gates or lints
 QUOTED_DOC = Path("docs") / "front-door-words.md"
 QUOTED_TEMPLATE = """---
 name: front-door-words
 kind: doc
-description: what the project's front doors held of their own before kit 3.0.0, quoted for the agent to read against the rulebook
+description: what the project's front doors held of their own before Agent Setup 3.0.0, quoted for the agent to read against the rulebook
 updated: {date}
 links: []
 ---
 
 # Front door words
 
-The port or the upgrade to kit 3.0.0 found these words in the project's front doors, which the kit now writes whole. Nothing here loads, runs as a gate or lints. Read each part against the rulebook and the project's rule, write what still holds as a rule through brain new rule or into .agents/rules/project.md, then delete the part, and this file once it is empty.
+The port or the upgrade to Agent Setup 3.0.0 found these words in the project's front doors, which Agent Setup now writes whole. Nothing here loads, runs as a gate or lints. Read each part against the rulebook and the project's rule, write what still holds as a rule through brain new rule or into .agents/rules/project.md, then delete the part, and this file once it is empty.
 """
+# the marker line an AGENTS.md of a release before 3.0.0 carries, kept word for word since it matches files on disk
 KIT_MARK = "<!-- The kit's words start here. Section 0 goes above this line. -->"
 MARK = re.compile(re.escape(KIT_MARK))
 MARK_LINE = re.compile(
@@ -205,10 +208,10 @@ MARK_LINE = re.compile(
     flags=re.MULTILINE,
 )
 
-# Before 1.1.0 the kit's AGENTS.md carried no marker line, so in a file
-# that kit wrote, section 0 ends where that release's first paragraph
+# Before 1.1.0 Agent Setup's AGENTS.md carried no marker line, so in a file
+# that release wrote, section 0 ends where that release's first paragraph
 # stood. The paragraph is history and never changes, which is what makes
-# it safe to match, unlike the kit's current wording.
+# it safe to match, unlike Agent Setup's current wording.
 FIRST_KIT_WORDS = "The rules for working in this repo are in @.agents/SYSTEM.md and every\nagent works by them. Claude Code and Gemini CLI pull that file into\ncontext on their own. Codex gets it from its session start hook. Anything\nelse that reads this file as plain text opens it first.\n"
 FIRST_KIT = re.compile(re.escape(FIRST_KIT_WORDS))
 
@@ -253,7 +256,7 @@ class Report:
 
         if self.kits_own:
             parts.append("")
-            parts.append("In the kit's own files, for the kit to put right, not counted here:")
+            parts.append("In Agent Setup's own files, for Agent Setup to put right, not counted here:")
             parts += [f"  {finding.line()}" for finding in self.kits_own]
 
         if self.candidates:
@@ -274,7 +277,7 @@ class Report:
 
 @dataclass
 class Kit:
-    """A checkout of agent-setup, the source of everything the kit owns."""
+    """A checkout of Agent Setup, the source of everything it owns."""
 
     root: Path
 
@@ -285,12 +288,12 @@ class Kit:
     def version(self) -> str:
         stamp = self.brain / VERSION
         if not store.readable_file(stamp):
-            raise UpgradeError(f"{self.root} is not a kit checkout, it carries no {FOLDER}/{VERSION}")
+            raise UpgradeError(f"{self.root} is not a checkout of Agent Setup, it carries no {FOLDER}/{VERSION}")
 
         return read_version(stamp)
 
     def brain_files(self) -> list[Path]:
-        """The kit's own files under .agents/, relative to it, the indexes left out since the tool builds those, and the tool's tests too.
+        """Agent Setup's own files under .agents/, relative to it, the indexes left out since the tool builds those, and the tool's tests too.
 
         The skills are the checkout's own, every folder under its skills/
         that carries a SKILL.md, since the checkout may be a newer release
@@ -305,7 +308,7 @@ class Kit:
         return found
 
     def agent_files(self) -> list[Path]:
-        """The hook configs and the chat style source under the agent folders, relative to the kit root.
+        """The hook configs and the chat style source under the agent folders, relative to the checkout's root.
 
         The skill stubs under `.claude/skills` are the doctor's to write,
         from each project's own sheets, and so are the chat style copies,
@@ -328,28 +331,28 @@ class Kit:
         self,
         relative: Path,
     ) -> str:
-        """A kit file the run composes with, read as text."""
+        """A file of Agent Setup's the run composes with, read as text."""
         try:
             return (self.root / relative).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as error:
-            raise UpgradeError(f"the kit's {Path(relative).as_posix()} cannot be read: {error}") from error
+            raise UpgradeError(f"Agent Setup's {Path(relative).as_posix()} cannot be read: {error}") from error
 
     def data(
         self,
         relative: Path,
     ) -> tuple[bytes, int]:
-        """A kit file copied whole, its bytes and its mode, whatever it holds."""
+        """A file of Agent Setup's copied whole, its bytes and its mode, whatever it holds."""
         path = self.root / relative
         try:
             return path.read_bytes(), os.stat(path).st_mode & 0o777
         except OSError as error:
-            raise UpgradeError(f"the kit's {Path(relative).as_posix()} cannot be read: {error}") from error
+            raise UpgradeError(f"Agent Setup's {Path(relative).as_posix()} cannot be read: {error}") from error
 
 
 def ships(
     path: Path,
 ) -> bool:
-    """Whether a file in the kit's tree is one the kit ships: a real file, not bytecode or a linter's cache, not a dotfile."""
+    """Whether a file in Agent Setup's tree is one it ships: a real file, not bytecode or a linter's cache, not a dotfile."""
     if path.is_symlink() or not path.is_file():
         return False
 
@@ -358,7 +361,7 @@ def ships(
 
 @dataclass
 class Project:
-    """The folder being brought to the kit."""
+    """The folder being brought to Agent Setup."""
 
     root: Path
 
@@ -396,7 +399,7 @@ class Applies(Protocol):
 
 @dataclass
 class Migration:
-    """One layout change, applied while the tree calls for it and the kit is at least `to`.
+    """One layout change, applied while the tree calls for it and Agent Setup is at least `to`.
 
     The tree, not the stamp, says whether a migration runs. A stamp can
     be missing or wrong, and a migration applied to a tree that does not
@@ -426,7 +429,7 @@ def read_version(
 
 
 def default_kit() -> Kit:
-    """The kit this tool runs from, five folders above this file."""
+    """The checkout of Agent Setup this tool runs from, five folders above this file."""
     return Kit(root=Path(__file__).resolve().parents[5])
 
 
@@ -435,7 +438,7 @@ def port(
     project: Project,
     out: Optional[TextIO] = None,
 ) -> Report:
-    """Install the kit into a project that has no brain yet, and say what is left to file."""
+    """Install Agent Setup into a project that has no brain yet, and say what is left to file."""
     state = project.state()
     if state != "none":
         raise UpgradeError(f"{project.root} already carries a brain, run brain upgrade instead")
@@ -460,7 +463,7 @@ def upgrade(
     project: Project,
     out: Optional[TextIO] = None,
 ) -> Report:
-    """Bring a project that has a brain up to the kit, migrations first, then the kit's files."""
+    """Bring a project that has a brain up to Agent Setup, migrations first, then Agent Setup's files."""
     state = project.state()
     if state == "none":
         raise UpgradeError(f"{project.root} carries no brain, run brain port instead")
@@ -477,7 +480,7 @@ def upgrade(
     report.done(f"upgrading {project.root.resolve()}")
     refuse_when_dirty(kit=kit, project=project, paths=guarded_paths(kit=kit, project=project), report=report)
     if schema.as_tuple(prepared.project_version) > schema.as_tuple(prepared.stamp):
-        raise UpgradeError(f"the project is on {prepared.project_version} and this kit is {prepared.stamp}, use a kit at least that new")
+        raise UpgradeError(f"the project is on {prepared.project_version} and this checkout of Agent Setup is {prepared.stamp}, use one at least that new")
 
     for migration in pending_migrations(project=project, want=prepared.stamp):
         migration.apply(project=project, report=report)
@@ -570,7 +573,7 @@ def never_home(
     """The root found around `start`, refused when it is the home folder.
 
     A loose folder under the home, or a home that carries a brain or a
-    repository of its own, would otherwise get the kit installed into
+    repository of its own, would otherwise get Agent Setup installed into
     the home itself and its own agent configs merged. The two are
     compared as files, not as spellings, so a case folding file system
     cannot slip the home past by another case.
@@ -585,7 +588,7 @@ def pending_migrations(
     project: Project,
     want: str,
 ) -> list[Migration]:
-    """The migrations the project's tree calls for, up to a kit stamped `want`, in order."""
+    """The migrations the project's tree calls for, up to a release stamped `want`, in order."""
     high = schema.as_tuple(want)
 
     return [migration for migration in MIGRATIONS if schema.as_tuple(migration.to) <= high and migration.needed(project)]
@@ -593,7 +596,7 @@ def pending_migrations(
 
 @dataclass
 class Prepared:
-    """What a run composes from the kit and the project's own configs, read and checked before any write, the project's stamp read once with them."""
+    """What a run composes from Agent Setup and the project's own configs, read and checked before any write, the project's stamp read once with them."""
 
     stamp: str
     project_version: str
@@ -607,7 +610,7 @@ def leads_out(
     project: Project,
     relative: Path,
 ) -> Optional[Path]:
-    """Where the folder a kit file lands in really is, where a link takes it out of the project, else None, so a `.claude` linked into the kit checkout never gets a project's settings."""
+    """Where the folder a file of Agent Setup's lands in really is, where a link takes it out of the project, else None, so a `.claude` linked into the checkout of Agent Setup never gets a project's settings."""
     try:
         real: Path = (project.root / relative).parent.resolve()
         root: Path = project.root.resolve()
@@ -622,7 +625,7 @@ def prepare(
     kit: Kit,
     project: Project,
 ) -> Prepared:
-    """Read the kit's stamp and front doors and merge the hook configs, so a refusal comes before the first write."""
+    """Read Agent Setup's stamp and front doors and merge the hook configs, so a refusal comes before the first write."""
     project_version = project.version()
     stamped = schema.as_tuple(project_version)
     for name in store.skill_folders(kit.brain):
@@ -655,12 +658,12 @@ def prepare(
             )
             if not kits_copy and skill is None:
                 raise UpgradeError(
-                    f"the kit ships a skill named {name} this tool does not know, and {folder}/{schema.SKILLS}/{name} differs from it, so run the upgrade with the project's own tool if a kit wrote that folder, else move it aside first",
+                    f"Agent Setup ships a skill named {name} this tool does not know, and {folder}/{schema.SKILLS}/{name} differs from it, so run the upgrade with the project's own tool if Agent Setup wrote that folder, else move it aside first",
                 )
 
             if not kits_copy:
                 raise UpgradeError(
-                    f"the kit now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
+                    f"Agent Setup now ships a skill named {name}, and {folder}/{schema.SKILLS}/{name} is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
         place = project.root / doctor.SKILL_LINKS / name
@@ -668,7 +671,7 @@ def prepare(
         kits_stub = doctor.is_stub(path=place / schema.SKILL_FILE, name=name) or store.same_bytes(one=place / schema.SKILL_FILE, other=kits_own_file)
         if not shipped and own_folder and not kits_stub:
             raise UpgradeError(
-                f"the kit now ships a skill named {name}, and {(doctor.SKILL_LINKS / name).as_posix()} holds a folder of the project's own where the kit's skill stub goes, move it aside first",
+                f"Agent Setup now ships a skill named {name}, and {(doctor.SKILL_LINKS / name).as_posix()} holds a folder of the project's own where Agent Setup's skill stub goes, move it aside first",
             )
 
         for definition in skill.definitions if skill else ():
@@ -686,7 +689,7 @@ def prepare(
             )
             if not kits_copy:
                 raise UpgradeError(
-                    f"the kit now ships a sub agent definition at {definition.path} with the {name} skill, and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
+                    f"Agent Setup now ships a sub agent definition at {definition.path} with the {name} skill, and the file there is the project's own, move it aside first, or delete it if an interrupted upgrade left it",
                 )
 
     # the folder before 1.0.0 too, which the migration renames to .agents before the install writes through it
@@ -702,7 +705,7 @@ def prepare(
     stamp = kit.version()
     front_doors = {name: kit.text(Path(name)) for name in ROOT_FILES}
     if rules.MARK not in front_doors["AGENTS.md"]:
-        raise UpgradeError("the kit's AGENTS.md has no line the rules are imported below, so no rule of the project's would load")
+        raise UpgradeError("Agent Setup's AGENTS.md has no line the rules are imported below, so no rule of the project's would load")
 
     # a name is the one key of an entry in the brain, so another entry named as the project's own rule is settled before any write
     for folder in (FOLDER, OLD_FOLDER):
@@ -717,10 +720,10 @@ def prepare(
             if name in takes and entry.path != takes[name][0]:
                 raise UpgradeError(f"{folder}/{entry.relative} is named {name}, the name {takes[name][1]} takes from {rules.SINCE}, so retitle it first with brain refile")
 
-        # before the kit shipped its Rust rule a rule of that name was the project's own, which doctor would write the kit's words over
+        # before Agent Setup shipped its Rust rule a rule of that name was the project's own, which doctor would write Agent Setup's words over
         own_rust = brain_root / rules.FOLDER / rust.RULE
         if stamped < schema.as_tuple(rust.SINCE) and store.readable_file(own_rust) and not rust.says_the_kits(read_as_is(own_rust).removeprefix("\N{ZERO WIDTH NO-BREAK SPACE}").replace("\r\n", "\n")):
-            raise UpgradeError(f"{folder}/{rules.FOLDER}/{rust.RULE} is the project's own rule, and from {rust.SINCE} that name is the kit's Rust rule, so retitle it first with brain refile")
+            raise UpgradeError(f"{folder}/{rules.FOLDER}/{rust.RULE} is the project's own rule, and from {rust.SINCE} that name is Agent Setup's Rust rule, so retitle it first with brain refile")
 
     settings = kit_config(kit=kit)
     merged: list[Path] = []
@@ -761,7 +764,7 @@ def in_the_way(
     folder stands where it writes a file, or the folder of the review's
     definitions takes no write while the run has one to make there,
     which Claude Code's sandbox refuses on purpose. The places are the
-    ones the install writes, the front doors, the kit's files under the
+    ones the install writes, the front doors, Agent Setup's files under the
     brain and the agent folders, the project's own rule, the doc of the
     doors' own words, the ignore file, the stamp and the kind folders,
     the brain's read where it stands now, `.agent/` on the layout before
@@ -833,9 +836,9 @@ def install(
     prepared: Prepared,
     report: Report,
 ) -> None:
-    """Copy the kit's own files in, leaving the project's alone, the version stamp last.
+    """Copy Agent Setup's own files in, leaving the project's alone, the version stamp last.
 
-    The kit's texts were read and the hook configs merged once by
+    Agent Setup's texts were read and the hook configs merged once by
     `prepare` before anything was touched, so a refusal came first.
     Section 0 is read here and the configs are merged again here, from
     the files as the migration left them, pointed at the new folder name.
@@ -892,9 +895,9 @@ def install(
     retired += retire_definitions(
         project=project,
     )
-    report.done(f"the kit's {len(shipped)} files under {FOLDER}/, {written} written, {len(retired)} retired")
+    report.done(f"Agent Setup's {len(shipped)} files under {FOLDER}/, {written} written, {len(retired)} retired")
     for relative in retired:
-        report.done(f"retired {relative}, the kit no longer ships it")
+        report.done(f"retired {relative}, Agent Setup no longer ships it")
 
     for kind in schema.KINDS.values():
         (project.brain / kind.folder).mkdir(parents=True, exist_ok=True)
@@ -903,7 +906,9 @@ def install(
     old_notes: list[str] = old_handovers(project=project)
     if old_notes:
         report.done(
-            f"{FOLDER}/{handover.OLD_FOLDER}/ holds {len(old_notes)} the kit never wrote, which it no longer reads or lists, since the one note brain handover writes lives in {FOLDER}/{handover.FOLDER}/: " + ", ".join(old_notes) + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest",
+            f"{FOLDER}/{handover.OLD_FOLDER}/ holds {len(old_notes)} Agent Setup never wrote, which it no longer reads or lists, since the one note brain handover writes lives in {FOLDER}/{handover.FOLDER}/: "
+            + ", ".join(old_notes)
+            + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest",
         )
 
     for relative in kit.agent_files():
@@ -1027,15 +1032,15 @@ def check(
     project: Project,
     kit: Kit,
 ) -> tuple[list[doctor.Finding], list[doctor.Finding]]:
-    """Doctor with --fix over the brain as installed: what it could not clear in the project's files, and what sits in the kit's own.
+    """Doctor with --fix over the brain as installed: what it could not clear in the project's files, and what sits in Agent Setup's own.
 
-    A finding in one of the brain's files the kit ships, under one of its
-    skill folders, or in a file of the agent folders the kit copies
-    whole, is in a file the install replaces every time, so it is the
-    kit's to put right, reported apart and never counted against the
-    project. So is an import finding in a front door that the kit's own
+    A finding in one of the brain's files Agent Setup ships, under one of its
+    skill folders, or in a file of the agent folders it copies
+    whole, is in a file the install replaces every time, so it is
+    Agent Setup's to put right, reported apart and never counted against the
+    project. So is an import finding in a front door that Agent Setup's own
     text of that door gives too, counted, so the same slip once more
-    than the kit's text gives it is the project's.
+    than Agent Setup's text gives it is the project's.
     """
     found = doctor.run(brain=store.Brain(root=project.brain), fix=True)
     names = store.skill_folders(kit.brain)
@@ -1078,18 +1083,18 @@ def kits_own(
 ) -> bool:
     """Whether a doctor finding sits in what the install writes whole.
 
-    That is one of the brain's files the kit ships, named relative to
+    That is one of the brain's files Agent Setup ships, named relative to
     the brain in `shipped`, or anything else in one of the named skill
     folders, its path spelled from the brain or from the project root.
     It is a file of the agent folders in `copied`, named from the
     project root, which the install copies whole or doctor makes from
-    the kit's chat style source, a merged config never. It is an import
-    finding in a front door that the kit's own text of that door gives
-    too, as the install writes every front door as the kit's text,
-    AGENTS.md with an import of each of the project's rules. The kit's
+    Agent Setup's chat style source, a merged config never. It is an import
+    finding in a front door that Agent Setup's own text of that door gives
+    too, as the install writes every front door as Agent Setup's text,
+    AGENTS.md with an import of each of the project's rules. Agent Setup's
     text gives each such finding so many times, and every one taken for
-    the kit's comes off its count in `in_kits_words`, so the same
-    finding once more is the project's, and so is one the kit's text
+    Agent Setup's comes off its count in `in_kits_words`, so the same
+    finding once more is the project's, and so is one Agent Setup's text
     never gives, a door that is missing, misspelled or cannot be read.
     An import finding is known by its check, so a project file of the
     same name inside the brain is never taken for a front door.
@@ -1190,7 +1195,7 @@ def to_agents_folder(
 def migration_targets(
     project: Project,
 ) -> list[Path]:
-    """The files the folder migration points at the new name, every file naming .agent/ that git tracks, sees or ignores, symlinks and the kit's own skill folders left out.
+    """The files the folder migration points at the new name, every file naming .agent/ that git tracks, sees or ignores, symlinks and Agent Setup's own skill folders left out.
 
     Outside git the root markdown, the ignore file and the brain's own
     markdown are read instead. The guard lists the same files, so the
@@ -1233,11 +1238,11 @@ def in_kit_copy(
     project: Project,
     path: Path,
 ) -> bool:
-    """Whether the path sits in a checkout of the kit kept inside the project, a vendored copy or the one the run comes from, whose files name the old folder as the kit's own history and are never the project's to migrate.
+    """Whether the path sits in a checkout of Agent Setup kept inside the project, a vendored copy or the one the run comes from, whose files name the old folder as Agent Setup's own history and are never the project's to migrate.
 
     A checkout is known by the mark it carries beside the tool's code,
     or by the tool's tests there in a checkout from before they left
-    the kit's repository. Neither ships into a project.
+    Agent Setup's repository. Neither ships into a project.
     """
     for folder in path.parents:
         if folder == project.root or project.root not in folder.parents:
@@ -1266,7 +1271,7 @@ def in_skill_folder(
     project: Project,
     path: Path,
 ) -> bool:
-    """Whether the path sits under one of the kit's own skill folders, by either name of the brain."""
+    """Whether the path sits under one of Agent Setup's own skill folders, by either name of the brain."""
     parts = path.relative_to(project.root).parts
 
     return bool(parts) and parts[0] in (OLD_FOLDER, FOLDER) and kits_skill(parts[1:])
@@ -1275,7 +1280,7 @@ def in_skill_folder(
 def kits_skill(
     parts: tuple[str, ...],
 ) -> bool:
-    """Whether a path split under the brain leads into one of the kit's skill folders."""
+    """Whether a path split under the brain leads into one of Agent Setup's skill folders."""
     return len(parts) > 1 and parts[0] == schema.SKILLS and parts[1] in schema.KIT_SKILL_NAMES
 
 
@@ -1291,11 +1296,11 @@ def kit_skill_folders(
     brain: Path,
     kit: Kit,
 ) -> list[Path]:
-    """The kit's skill folders under a brain, whether or not they are there yet, by the skills the kit checkout ships.
+    """Agent Setup's skill folders under a brain, whether or not they are there yet, by the skills its checkout ships.
 
     The checkout decides, not the running tool's table, since the
     checkout may be a newer release with a skill the tool never heard
-    of, and that folder is the kit's to write, retire under and guard
+    of, and that folder is Agent Setup's to write, retire under and guard
     like any other.
     """
     return [
@@ -1310,14 +1315,14 @@ def kit_skill_folders(
 def kit_skill_named(
     name: str,
 ) -> Optional[schema.KitSkill]:
-    """The running tool's entry for a kit skill, or None for one the checkout ships that this tool never heard of."""
+    """The running tool's entry for a skill of Agent Setup's, or None for one the checkout ships that this tool never heard of."""
     return next((skill for skill in schema.KIT_SKILLS if skill.name == name), None)
 
 
 def brain_markdown(
     brain: Path,
 ) -> list[Path]:
-    """Every markdown file under the brain outside the kit's own skill folders, what the folder migration reads outside git."""
+    """Every markdown file under the brain outside Agent Setup's own skill folders, what the folder migration reads outside git."""
     if not store.quietly(brain.is_dir):
         return []
 
@@ -1333,7 +1338,7 @@ def has_old_folder(
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         to="1.0.0",
-        says=f"the brain lives in {FOLDER}/, the rules in the kit's own files, and section 0 in AGENTS.md",
+        says=f"the brain lives in {FOLDER}/, the rules in Agent Setup's own files, and section 0 in AGENTS.md",
         needed=has_old_folder,
         apply=to_agents_folder,
     ),
@@ -1407,22 +1412,22 @@ def is_the_kit(
     kit: Kit,
     project: Project,
 ) -> Optional[str]:
-    """Why the project gets nothing installed, being the kit's own checkout, or None when it is not.
+    """Why the project gets nothing installed, being Agent Setup's own checkout, or None when it is not.
 
-    The same folder under any spelling, or another checkout of the
-    kit's repository, a worktree, a clone of the kit's origin, or a
-    clone at most ORIGIN_HOPS local clones away. The kit is where the
+    The same folder under any spelling, or another checkout of
+    Agent Setup's repository, a worktree, a clone of its origin, or a
+    clone at most ORIGIN_HOPS local clones away. Agent Setup is where the
     tool's code is the work, so it never gets the read guard and never
     has its own files written over.
     """
     if store.quietly(lambda: kit.root.samefile(project.root)):
-        return "the kit is the project, there is nothing to install"
+        return "the project is the checkout of Agent Setup itself, there is nothing to install"
 
     if same_repository(
         kit=kit,
         project=project,
     ):
-        return "the project is a worktree or a clone of the kit, there is nothing to install"
+        return "the project is a worktree or a clone of Agent Setup, there is nothing to install"
 
     return None
 
@@ -1431,12 +1436,12 @@ def same_repository(
     kit: Kit,
     project: Project,
 ) -> bool:
-    """Whether the project is a checkout of the kit's repository, which it is when the two ancestries meet.
+    """Whether the project is a checkout of Agent Setup's repository, which it is when the two ancestries meet.
 
     Each folder has to be the top of its own repository first, since a
-    kit vendored as plain files inside a project's repository, or a
-    project folder inside the kit's, shares a `.git` and its origin
-    without being a checkout of the kit. Every git call of the walk runs
+    copy vendored as plain files inside a project's repository, or a
+    project folder inside Agent Setup's, shares a `.git` and its origin
+    without being a checkout of Agent Setup. Every git call of the walk runs
     without the variables that name a repository for git, asked of git
     once for the run, so a `GIT_DIR` or a `GIT_WORK_TREE` a git hook
     exported never answers for a folder the walk asks about, while the
@@ -1689,13 +1694,13 @@ def local_origin(
     scheme is remote, and text with no scheme is a local path unless a
     colon comes before its first slash, which makes it host:path, a
     drive letter aside. A file URL keeps its percent escapes in the
-    config, `my%20kit` for `my kit`, so they are decoded to the bytes
+    config, `my%20setup` for `my setup`, so they are decoded to the bytes
     they stand for, one that is not UTF-8 kept as the runner keeps it,
     and its path is read after them as git reads it. A host before the
     path, `localhost` or any other, is dropped where paths have no
     shares, as git drops it, and names the share's server on Windows,
     as git for Windows reads it, and a drive after the third slash,
-    `file:///C:/kit`, the form Windows writes, keeps its drive.
+    `file:///C:/setup`, the form Windows writes, keeps its drive.
     The folder is a Path where this machine spells it for its disk. Where
     it cannot, the folder is the PurePath resolved from the text itself,
     which reaches nothing on this disk and compares the way this
@@ -1841,16 +1846,16 @@ def section_zero_of(
 
     The layout is the project's state before any migration. On the old
     layout CLAUDE.md held the rules and AGENTS.md copied it, so CLAUDE.md
-    is read first there. Otherwise AGENTS.md is, since that is where the
-    kit kept section 0. On a port, with no such section anywhere, a
+    is read first there. Otherwise AGENTS.md is, since that is where
+    Agent Setup kept section 0. On a port, with no such section anywhere, a
     front door that says something of its own goes whole under the
-    heading, for the agent to read against the rulebook, because the
-    kit's copy is about to replace it. A door that says only what the
-    kit's copy of it says is the kit's and goes nowhere. Never on an
-    upgrade, where a front door without a section is the kit's own
+    heading, for the agent to read against the rulebook, because
+    Agent Setup's copy is about to replace it. A door that says only what
+    Agent Setup's copy of it says is Agent Setup's and goes nowhere. Never on an
+    upgrade, where a front door without a section is Agent Setup's own
     earlier text. A project stamped with the release the rules came in,
-    or a later one, has no section 0, since its front doors are the
-    kit's whole and one edited by hand is written back like any other.
+    or a later one, has no section 0, since its front doors are
+    Agent Setup's whole and one edited by hand is written back like any other.
     """
     layout = prepared.layout
     if schema.carries(since=rules.SINCE, stamp=schema.as_tuple(prepared.project_version)):
@@ -1876,8 +1881,8 @@ def section_zero_of(
 
     # The rest of what a door says of its own goes to a doc, quoted, never into a rule, since it never ran or loaded as section 0 did,
     # and in a rule a Gates or Lint heading in it, or a block section 0 left open, would change what the project runs.
-    # On a port a door is the kit's copy only where it says exactly what the kit's says, its rule imports aside, and on an upgrade only a door the
-    # kit wrote with a marker tells the project's words from the kit's.
+    # On a port a door is Agent Setup's copy only where it says exactly what Agent Setup's says, its rule imports aside, and on an upgrade only a door
+    # Agent Setup wrote with a marker tells the project's words from Agent Setup's.
     quoted: list[tuple[str, str]] = []
     seen: list[str] = []
     for name, text in texts.items():
@@ -1917,7 +1922,7 @@ def door_text(
 def without_rule_imports(
     text: str,
 ) -> str:
-    """A door's text as `door_text` reads it, each rule import below the rules mark set aside, since the brain tool writes those for the project's own rules, so the kit's AGENTS.md reads the same whichever rules a project imports."""
+    """A door's text as `door_text` reads it, each rule import below the rules mark set aside, since the brain tool writes those for the project's own rules, so Agent Setup's AGENTS.md reads the same whichever rules a project imports."""
     above, mark, below = door_text(text).partition(rules.MARK)
     prefix = rules.IMPORT.format(name="")
     kept = [line for line in below.split("\n") if not line.strip().startswith(prefix)]
@@ -1928,7 +1933,7 @@ def without_rule_imports(
 def only_shares(
     words: str,
 ) -> bool:
-    """Whether a door's words hold nothing but comments and imports of the front doors at the project's root, which is the kit's way of sharing the rules, so the door says nothing of its own.
+    """Whether a door's words hold nothing but comments and imports of the front doors at the project's root, which is Agent Setup's way of sharing the rules, so the door says nothing of its own.
 
     Code is words, so a line of a fence is never an import here.
     """
@@ -1950,7 +1955,7 @@ def door_words(
     text: str,
     keep_section: bool,
 ) -> str:
-    """What a front door says above the kit's marker, or whole where it carries none, its title left off and its section 0 too unless kept, as it stands."""
+    """What a front door says above Agent Setup's marker, or whole where it carries none, its title left off and its section 0 too unless kept, as it stands."""
     span: Optional[tuple[int, int, int]] = None if keep_section else section_zero_span(text)
     if span is not None:
         text = text[: span[0]] + text[span[2] :]
@@ -1971,18 +1976,18 @@ def section_zero_in(
 ) -> Optional[str]:
     """The `## 0.` section of a file under the rulebook's heading, or None when there is none or it says nothing.
 
-    In an AGENTS.md the kit wrote, the section is everything down to
-    the kit's marker line, headings included, so the file gives back the
-    section it was given whatever the kit's own words say now. In one
-    the first kit wrote, before the marker, it ends where that kit's
+    In an AGENTS.md Agent Setup wrote, the section is everything down to
+    its marker line, headings included, so the file gives back the
+    section it was given whatever Agent Setup's own words say now. In one
+    the first release wrote, before the marker, it ends where that release's
     words stood. Anywhere else it runs to the next `#` or `##` heading
     outside code and HTML comments. The marker ends it at the first place
     it stands outside code and outside any other comment. Where it stands
     nowhere outside them, the marker on a line of its own still ends it
     inside a fence left open to the end of the text, or inside a comment
     that no `-->` closes before the marker's own, since that line is the
-    kit's boundary, so the fence or the comment the project left open
-    closes there and the kit's words never read as the project's. Code
+    boundary of Agent Setup's words, so the fence or the comment the project left open
+    closes there and Agent Setup's words never read as the project's. Code
     and comments end it nowhere else, so a `## `, or a marker quoted
     inside a closed fence of backticks or tildes, an indented block, a
     code span or a comment, stays in it, and a heading inside a comment
@@ -2071,7 +2076,7 @@ def first_outside_code(
 ) -> int:
     """Where the pattern first matches between `start` and `end` outside code and outside any HTML comment that opens before the match, or -1 when it does not.
 
-    The kit's marker is a comment itself, so the comment that opens
+    Agent Setup's marker is a comment itself, so the comment that opens
     where it stands is its own, and one quoted inside another comment
     is the other's words.
     """
@@ -2100,7 +2105,7 @@ def marker_line_left_open(
     start: int,
     end: int,
 ) -> int:
-    """Where the kit's marker first stands between `start` and `end` on a line of its own inside a fence left open to the end of the text, or inside an HTML comment that no `-->` closes before the marker's own, or -1 where it stands on no such line."""
+    """Where Agent Setup's marker first stands between `start` and `end` on a line of its own inside a fence left open to the end of the text, or inside an HTML comment that no `-->` closes before the marker's own, or -1 where it stands on no such line."""
     left_open: Optional[sections.Fence] = next((fence for fence in sections.blocks_of(text).fences if not fence.closed), None)
     comments: list[tuple[int, int]] = sections.comment_spans(text)
     for line in MARK_LINE.finditer(
@@ -2121,7 +2126,7 @@ def marker_line_left_open(
 def kit_mark_in(
     text: str,
 ) -> int:
-    """Where the kit's words start in a front door, by the marker as section_zero_in reads it, where it first stands outside code and HTML comments, else at its line inside a fence or a comment the project left open, or -1 where it stands on neither."""
+    """Where Agent Setup's words start in a front door, by the marker as section_zero_in reads it, where it first stands outside code and HTML comments, else at its line inside a fence or a comment the project left open, or -1 where it stands on neither."""
     mark: int = first_outside_code(
         text=text,
         pattern=MARK,
@@ -2280,7 +2285,7 @@ def rule_body(
 def fence_closed(
     text: str,
 ) -> str:
-    """The text with a fence it leaves open at its end closed, as the kit's marker line closed it where section 0 stood, so a rule written after it later never reads as that fence's code.
+    """The text with a fence it leaves open at its end closed, as Agent Setup's marker line closed it where section 0 stood, so a rule written after it later never reads as that fence's code.
 
     The closer stands where the opener's run of backticks or tildes
     stands, so a fence opened on a list item's line closes inside the
@@ -2382,17 +2387,17 @@ def merged_config(
     kit: str,
     where: str,
 ) -> str:
-    """The project's hook config with the kit's hooks in it, its own hooks kept.
+    """The project's hook config with Agent Setup's hooks in it, its own hooks kept.
 
-    The kit's earlier groups go first, under every event they sit in,
+    Agent Setup's earlier groups go first, under every event they sit in,
     so a release that renames a command or moves an event leaves no
-    double, and then the kit's current groups are added under theirs.
+    double, and then its current groups are added under theirs.
     An event left with no group stays as an empty list, which runs
     nothing, so a list the project wrote empty on purpose is kept too.
-    An event whose value is not a list is left alone unless the kit
-    defines it. The kit's deny rules go in the same way as its hook
+    An event whose value is not a list is left alone unless Agent Setup
+    defines it. Agent Setup's deny rules go in the same way as its hook
     groups, its earlier ones replaced and the project's own kept. Any
-    other key the kit sets is added only where the project has none.
+    other key Agent Setup sets is added only where the project has none.
     The file keeps its indent and its own characters.
     """
     try:
@@ -2470,7 +2475,7 @@ def merge_guards(
     guards: list,
     where: str,
 ) -> None:
-    """The kit's deny rules into the project's list, the kit's earlier spellings dropped and the project's own rules kept in their order."""
+    """Agent Setup's deny rules into the project's list, its earlier spellings dropped and the project's own rules kept in their order."""
     permissions = have.setdefault(
         "permissions",
         {},
@@ -2499,7 +2504,7 @@ def merge_openings(
     openings: list,
     where: str,
 ) -> None:
-    """The folders the kit opens to the sandbox into the project's allowed reads, the kit's own entries written once and the project's own kept in their order."""
+    """The folders Agent Setup opens to the sandbox into the project's allowed reads, its own entries written once and the project's own kept in their order."""
     sandbox = have.setdefault("sandbox", {})
     if not isinstance(sandbox, dict):
         raise UpgradeError(f"sandbox in {where} is not a JSON object")
@@ -2549,22 +2554,22 @@ def is_kit_rule(
 def kit_config(
     kit: Kit,
 ) -> str:
-    """The kit's Claude Code settings as they go into a project, with the read guards under permissions.deny.
+    """Agent Setup's Claude Code settings as they go into a project, with the read guards under permissions.deny.
 
-    The kit itself never gets them, since the run refuses to install the
-    kit onto itself.
+    Agent Setup's own checkout never gets them, since the run refuses to
+    install Agent Setup onto itself.
     """
     text = kit.text(CLAUDE_SETTINGS)
     try:
         settings = json.loads(text)
     except json.JSONDecodeError as error:
-        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS.as_posix()} is not valid JSON: {error}") from error
+        raise UpgradeError(f"Agent Setup's {CLAUDE_SETTINGS.as_posix()} is not valid JSON: {error}") from error
 
     if not isinstance(
         settings,
         dict,
     ):
-        raise UpgradeError(f"the kit's {CLAUDE_SETTINGS.as_posix()} is not a JSON object")
+        raise UpgradeError(f"Agent Setup's {CLAUDE_SETTINGS.as_posix()} is not a JSON object")
 
     settings["permissions"] = {"deny": list(READ_GUARDS)}
     settings["sandbox"] = {"filesystem": {"allowRead": list(READ_OPENINGS)}}
@@ -2585,7 +2590,7 @@ def put_config(
     text: str,
     report: Report,
 ) -> bool:
-    """Write a composed kit config into the project, and say whether anything was written."""
+    """Write a composed config of Agent Setup's into the project, and say whether anything was written."""
     target = project.root / relative
     if store.readable_file(target) and says(
         path=target,
@@ -2627,15 +2632,16 @@ def ignore(
     kit: Kit,
     report: Report,
 ) -> None:
-    """The kit's ignore block at the top of the project's .gitignore, the project's own lines below it.
+    """Agent Setup's ignore block at the top of the project's .gitignore, the project's own lines below it.
 
     Git reads the file top down and the last match wins, so the block
     goes first and everything the project wrote outranks it: an
     exception of the project's, a file it ignores by name, a spelling
-    of its own, all stand as written, and the kit's lines reach only
-    what the project says nothing about. The block holds the kit's
-    lines in the kit's order under one heading, and is rebuilt at the
-    top on a later run wherever it sat. Every other line stays in the
+    of its own, all stand as written, and Agent Setup's lines reach only
+    what the project says nothing about. The block holds Agent Setup's
+    lines in its order under one heading, and is rebuilt at the
+    top on a later run wherever it sat, under the heading an earlier
+    release wrote too. Every other line stays in the
     order the project wrote it, a line the project put inside an
     earlier block included, which stays where that block was, so no
     two of the project's own lines ever swap places. A file already in
@@ -2651,7 +2657,7 @@ def ignore(
     rest: list[str] = []
     in_block = False
     for line in lines:
-        if line.rstrip() == IGNORE_HEADING:
+        if line.rstrip() in (IGNORE_HEADING, *OLD_IGNORE_HEADINGS):
             in_block = True
             continue
 
@@ -2678,7 +2684,7 @@ def ignore(
 
     # the text holds the file's own line ends, so the write adds none
     frontmatter.write_text(path=str(target), text=text, newline="")
-    report.done(f"set the kit's ignore block at the top of {IGNORE_FILE}, the project's own lines below it win")
+    report.done(f"set Agent Setup's ignore block at the top of {IGNORE_FILE}, the project's own lines below it win")
 
 
 def guarded_paths(
@@ -2687,10 +2693,10 @@ def guarded_paths(
 ) -> list[str]:
     """Every project path a port or upgrade writes over or removes, relative to the project.
 
-    The front doors and CONTRIBUTING.md are replaced whole, so are the
-    kit's files under the brain and the style files in the agent
-    folders, the kit's skill folders are cleared and rewritten, the
-    doctor rewrites the stubs of the kit's skills, and the folder
+    The front doors and CONTRIBUTING.md are replaced whole, so are
+    Agent Setup's files under the brain and the style files in the agent
+    folders, Agent Setup's skill folders are cleared and rewritten, the
+    doctor rewrites the stubs of Agent Setup's skills, and the folder
     migration rewrites every file that names the old folder. On the old
     layout the brain is still .agent/, and git names its files by that
     spelling, so the list uses it too. The ignore file and the hook
@@ -2741,7 +2747,7 @@ def files_under(
 def retire_takes(
     path: Path,
 ) -> bool:
-    """What retire removes under a kit skill folder file by file: a shipped shape file or a symlink, never bytecode or a dotfile.
+    """What retire removes under a skill folder of Agent Setup's file by file: a shipped shape file or a symlink, never bytecode or a dotfile.
 
     A folder of nothing but bytecode goes whole with retire's own rule,
     since bytecode is never listed, guarded or worth keeping.
@@ -2771,8 +2777,8 @@ def refuse_when_dirty(
     is matched against the paths without regard to case, so a front
     door spelled `Agents.md` is seen, and with each of the paths spelled
     the way git's answer spells it, a byte that is not UTF-8 kept as a
-    surrogate escape, so a file of the project's under a kit skill
-    folder named with one is seen too. Git names paths from the
+    surrogate escape, so a file of the project's under a skill folder
+    of Agent Setup's named with one is seen too. Git names paths from the
     repository's root, so the project's place below it is put in front
     of each path first. A name the refusal prints has such a byte
     replaced, as the handover's own calls replace it.
@@ -2916,16 +2922,16 @@ def same_as_kit(
 ) -> bool:
     """Whether a file git names as changed already has exactly what the run would write, so nothing is at stake.
 
-    A port followed by an upgrade before a commit leaves every kit file
-    untracked and identical, a project that ignores an agent folder
-    leaves the kit's files there ignored and identical, and a run that
+    A port followed by an upgrade before a commit leaves every file of
+    Agent Setup's untracked and identical, a project that ignores an agent folder
+    leaves Agent Setup's files there ignored and identical, and a run that
     stopped part way leaves the tracked files it already wrote changed
-    and identical. Only a file that maps to one the kit copies whole can
+    and identical. Only a file that maps to one Agent Setup copies whole can
     be judged this way, and the version stamp, which the run never
-    copies but writes as the kit's stamp trimmed, so it is judged
+    copies but writes as Agent Setup's stamp trimmed, so it is judged
     against that text. A skill's stub is judged against the stub doctor
-    writes from the kit's sheet, which the run copies whole. AGENTS.md
-    is judged against the kit's with an import of each rule the project
+    writes from Agent Setup's sheet, which the run copies whole. AGENTS.md
+    is judged against Agent Setup's with an import of each rule the project
     holds, which is what the run writes.
     """
     if Path(relative) == Path(FOLDER) / VERSION:
@@ -2966,11 +2972,11 @@ def same_text(
 ) -> bool:
     """Whether two text files say the same, their line ends aside, false when either cannot be read.
 
-    Every file the kit ships is text, and the root files, the version
+    Every file Agent Setup ships is text, and the root files, the version
     stamp and the chat style copies are written in text mode, so on
-    Windows the port leaves them with CRLF while the kit's checkout may
+    Windows the port leaves them with CRLF while Agent Setup's checkout may
     hold either, and bytes would tell the port's own copy apart from
-    the kit's.
+    Agent Setup's.
     """
     try:
         return one.read_text(encoding="utf-8") == other.read_text(encoding="utf-8")
@@ -2981,9 +2987,9 @@ def same_text(
 def kit_source(
     relative: str,
 ) -> Optional[Path]:
-    """The kit file at the same path as a project path under the kit's folders or among the root files, or None for any other path.
+    """Agent Setup's file at the same path as a project path under its folders or among the root files, or None for any other path.
 
-    The front doors count, since they are the kit's text verbatim, and
+    The front doors count, since they are Agent Setup's text verbatim, and
     one edited by hand differs and is guarded as the project's own. A
     hook config the run merges comes
     back too, and reads as an untouched copy only where the project
@@ -3027,7 +3033,7 @@ def settle_case(
     name: str,
     report: Report,
 ) -> None:
-    """A front door spelled in another case, `Agents.md` for one, takes the kit's spelling first."""
+    """A front door spelled in another case, `Agents.md` for one, takes Agent Setup's spelling first."""
     found = any_case(folder=project.root, name=name)
     if found is None or found.name == name:
         return
@@ -3131,7 +3137,7 @@ def copy(
     project: Project,
     relative: Path,
 ) -> bool:
-    """Copy one kit file whole, bytes and mode, and say whether anything was written.
+    """Copy one file of Agent Setup's whole, bytes and mode, and say whether anything was written.
 
     A target that already holds the same bytes is left alone, so a run
     that changes nothing touches nothing.
@@ -3180,9 +3186,9 @@ def retire_specs(
     project: Project,
     report: Report,
 ) -> list[str]:
-    """Remove the brain's spec files the kit shipped before 2.0.0, whose rules the tool and the skill sheet now carry, and the folder once it is empty.
+    """Remove the brain's spec files Agent Setup shipped before 2.0.0, whose rules the tool and the skill sheet now carry, and the folder once it is empty.
 
-    A file in the folder that the kit never shipped is the project's
+    A file in the folder that Agent Setup never shipped is the project's
     own, so it stays and is named, with where it belongs now.
     """
     spec = project.brain / "spec"
@@ -3196,7 +3202,7 @@ def retire_specs(
 
     left = sorted(path.name for path in spec.iterdir())
     if left:
-        report.done(f"{FOLDER}/spec/ still holds {', '.join(left)}, the project's own, which the kit no longer reads, so file them under docs/ with brain new")
+        report.done(f"{FOLDER}/spec/ still holds {', '.join(left)}, the project's own, which Agent Setup no longer reads, so file them under docs/ with brain new")
     else:
         spec.rmdir()
 
@@ -3206,7 +3212,7 @@ def retire_specs(
 def kits_specs(
     brain: Path,
 ) -> list[Path]:
-    """The spec files the kit shipped before 2.0.0 that the brain still holds, which the upgrade removes."""
+    """The spec files Agent Setup shipped before 2.0.0 that the brain still holds, which the upgrade removes."""
     spec = brain / "spec"
     if not store.quietly(spec.is_dir) or store.quietly(spec.is_symlink):
         return []
@@ -3218,9 +3224,9 @@ def retire_definitions(
     project: Project,
     remove: bool = True,
 ) -> list[str]:
-    """The sub agent definitions the kit wrote into the project and no longer ships, removed unless `remove` is off.
+    """The sub agent definitions Agent Setup wrote into the project and no longer ships, removed unless `remove` is off.
 
-    The project's stamp says whether the kit wrote the file, so one
+    The project's stamp says whether Agent Setup wrote the file, so one
     from before the definition shipped or after it retired stays.
     """
     stamp = schema.as_tuple(project.version())
@@ -3240,10 +3246,10 @@ def retire(
     folder: Path,
     keep: set[Path],
 ) -> list[str]:
-    """Remove the files under one of the kit's skill folders that the kit no longer ships, and the folders that emptied.
+    """Remove the files under one of Agent Setup's skill folders that it no longer ships, and the folders that emptied.
 
-    The kit's new files are written before this runs, so the tool is
-    never half gone. The folder is the kit's own, so what the kit does
+    Agent Setup's new files are written before this runs, so the tool is
+    never half gone. The folder is Agent Setup's own, so what it does
     not ship goes, named in the report, and the guard has already
     refused if any of it held uncommitted work. A dotfile is left. A
     bytecode folder holding nothing else goes whole and unnamed, since

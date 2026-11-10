@@ -42,15 +42,16 @@ the repo root when the project keeps one, agents read this.
   written before the code.
 - `decisions/`: decisions taken and why, one per file.
 - `reviews/`: one folder per code review, the ledger inside.
-- `skills/`: the kit's skills. `agent-brain` is the brain tool, the one
+- `skills/`: Agent Setup's skills. `agent-brain` is the brain tool, the one
   way anything here is read, listed, counted, filed, changed or checked,
   `branch-review` is the code review the agent runs on the owner's
   word, and `see` reads a screen recording or a screenshot as numbers
   and labelled images. A project may keep skills of its own here under
   other names, and doctor links them for Claude Code.
 - `brain`: the launcher the brain tool is called through,
-  `python3 .agents/brain`, the kit's own.
-- `VERSION`: the kit release this brain is on, read by the tool.
+  `python3 .agents/brain`, Agent Setup's own.
+- `VERSION`: the release of Agent Setup this brain is on, read by the
+  tool.
 - `.ack`: the owner's standing word to proceed and its end, the tool's
   own, which git ignores since it lives on one machine.
 - `.ack-tests`: the owner's word to change a test file's assertions,

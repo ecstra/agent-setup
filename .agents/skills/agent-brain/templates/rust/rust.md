@@ -1,6 +1,6 @@
 # Rust rules
 
-The kit writes this rule into every project whose root holds a `Cargo.toml`, and keeps it whole, so it is never edited by hand. The project's own Rust rules go in `.agents/rules/project.md` or a rule of their own, in addition to these. A rule a tool can hold is held by the lints, the configs and the gates below, and this file says what no tool can check.
+Agent Setup writes this rule into every project whose root holds a `Cargo.toml`, and keeps it whole, so it is never edited by hand. The project's own Rust rules go in `.agents/rules/project.md` or a rule of their own, in addition to these. A rule a tool can hold is held by the lints, the configs and the gates below, and this file says what no tool can check.
 
 ## Toolchain and versions
 
@@ -72,7 +72,7 @@ The kit writes this rule into every project whose root holds a `Cargo.toml`, and
 
 ## The configs
 
-- `rustfmt.toml`, `clippy.toml` and `deny.toml` at the root start as the kit's reference copies and are the project's once written, so the project tunes them there.
+- `rustfmt.toml`, `clippy.toml` and `deny.toml` at the root start as Agent Setup's reference copies and are the project's once written, so the project tunes them there.
 - `.agents/skills/agent-brain/templates/rust/workspace-lints.toml`, beside this rule's template, holds the `[workspace.lints]` tables to paste into the root `Cargo.toml`, and every crate opts in with `[lints] workspace = true`. A single crate with no workspace takes them as its own `[lints]` tables.
 - `clippy.toml` holds the values lints read and the banned calls, never lint levels, which live in those tables.
 

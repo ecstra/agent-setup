@@ -6,11 +6,11 @@ gate, the project's own rule first and the others by name, and this
 runs them in order under the shell each block names, with errexit and,
 where the shell has it, pipefail, the way a CI step runs them. It stops
 at the first red one and says which, then runs the check over the tree
-and the branch's commits, and doctor over the brain. The kit's own
+and the branch's commits, and doctor over the brain. Agent Setup's own
 checkout names its gates in no rule, so there the gates are the tool's
 own tests under the interpreter running this and under the system's
-`/usr/bin/python3` where that is another one at the kit's floor or
-above, which is what every commit to the kit runs green first.
+`/usr/bin/python3` where that is another one at Agent Setup's floor or
+above, which is what every commit to Agent Setup runs green first.
 """
 
 import os

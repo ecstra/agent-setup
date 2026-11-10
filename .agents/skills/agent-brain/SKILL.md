@@ -40,8 +40,8 @@ listed in [references/commands.md](references/commands.md).
   without a search. `brain refile` carries every link along.
 - `brain doctor` is a gate. It exits 0 only when the brain is clean, so
   it runs green before any review.
-- The tool's code is never read by hand, save in the kit's own repository
-  where it is the work. SYSTEM.md section 8 carries the rule, and this
+- The tool's code is never read by hand, save in Agent Setup's own
+  repository where it is the work. SYSTEM.md section 8 carries the rule, and this
   sheet with the reference is what to read instead. In a project Claude
   Code's settings carry the read guard, deny rules that refuse the read
   and two entries under `sandbox.filesystem.allowRead` that let every
@@ -119,7 +119,7 @@ a memory (`--type project|feedback|reference`), a doc (`--category`),
 a build spec (`--branch`) or a review. Each kind's required headings
 are in [the reference](references/commands.md#writing), and the tool
 names the one that is missing. A rule takes no field of its own and no
-category, never the name `rust`, which is the kit's Rust rule's, and
+category, never the name `rust`, which is Agent Setup's Rust rule's, and
 `brain new rule` adds its import to `AGENTS.md`. It loads
 only once the session is reloaded, so when the command says so, ask the
 owner to reload it. Where it says `AGENTS.md` does not import the rule,
@@ -207,7 +207,7 @@ and `brain list --area` finds every entry.
   others load after it by name, as
   [the rules](references/commands.md#the-rules) says. In a project
   whose root holds a `Cargo.toml`, `rules/rust.md` is among them, the
-  kit's Rust rule, which doctor writes whole from the tool's template
+  Rust rule of Agent Setup, which doctor writes whole from the tool's template
   and nobody edits by hand, so the project's own Rust rules go in a
   rule of its own, as
   [the Rust rule](references/commands.md#the-rust-rule) says.
@@ -351,7 +351,7 @@ skip` marks it skipped, `brain task step <n>` reopens one, and
 each line looks like and what each refuses.
 
 ```bash
-brain task on kit-phase-7
+brain task on agent-setup-phase-7
 brain task on TODO-015
 brain task done
 brain task off
@@ -430,7 +430,7 @@ belongs, which the stub replaces, a missing launcher `.agents/brain`,
 written from the text the tool holds, the lines below the rules line
 of `AGENTS.md` where they leave out a rule, name a file that is none,
 repeat a rule, stand out of load order or hold anything but a rule's
-import, a merge's conflict markers among them, the kit's Rust rule,
+import, a merge's conflict markers among them, Agent Setup's Rust rule,
 written where the root holds a `Cargo.toml` with its import and the
 configs the project lacks, its words written back where they drifted
 and the rule retired where Rust is gone, a read guard rule or
@@ -444,19 +444,20 @@ step of the brain's own way to its sheet is kept back and named, as
 decision, so read it and act on it. Silencing a finding is never the
 answer.
 
-## Bringing a project to the kit
+## Bringing a project to Agent Setup
 
 ```bash
-python3 <kit>/.agents/skills/agent-brain/scripts/brain.py port
-python3 <kit>/.agents/skills/agent-brain/scripts/brain.py upgrade
+python3 <agent-setup>/.agents/skills/agent-brain/scripts/brain.py port
+python3 <agent-setup>/.agents/skills/agent-brain/scripts/brain.py upgrade
 ```
 
-Run from the project's root, with `<kit>` a checkout of agent-setup,
+Run from the project's root, with `<agent-setup>` the folder of your
+clone of Agent Setup,
 and outside Claude Code's sandbox, which refuses every write under
 `.claude/agents`. Both refuse before their first write where they
-would stop part way, and say why. `port` installs the kit into a
+would stop part way, and say why. `port` installs Agent Setup into a
 project with no brain and lists what is left to file through
-`brain new`. `upgrade` brings an existing brain up to the kit, the old
+`brain new`. `upgrade` brings an existing brain up to Agent Setup, the old
 `.agent/` layout included, migrations first. Both keep the project's
 rules, its own hooks and everything it wrote, and end with
 `doctor --fix`. The port, and the upgrade from a release

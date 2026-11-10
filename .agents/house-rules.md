@@ -39,7 +39,8 @@ rules in `rules/` name its exact linters and gates, and how its PRs open.
 
 The project's rules in `rules/` name its linters under a Lint
 heading and its gates under a Gates heading, and in a project whose
-root holds a `Cargo.toml` the kit's Rust rule there names Rust's own.
+root holds a `Cargo.toml` Agent Setup's Rust rule there names Rust's
+own.
 The brain runs the Lint lines on every file the agent writes, and
 `brain gates` runs the Gates before a review and before a merge. It
 runs them in order and stops at the first red one, and once all are
@@ -55,7 +56,7 @@ as well, since a review reads committed work only.
 1. **The timing is the owner's, the running is the agent's.** The owner
    says when a branch gets reviewed and the agent never decides that on
    its own. On the word, the agent runs the review itself with the
-   kit's `branch-review` skill
+   `branch-review` skill of Agent Setup
    ([skills/branch-review/SKILL.md](skills/branch-review/SKILL.md)),
    which holds the steps, at the level the branch earns. Quick fits a
    small change, standard is the usual level, and deep fits a release

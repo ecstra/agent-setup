@@ -1,6 +1,6 @@
 """The project's own rules, one markdown file each in .agents/rules/, every one a system instruction that AGENTS.md imports below its mark.
 
-AGENTS.md is the kit's, written whole by the port and the upgrade, and
+AGENTS.md is Agent Setup's, written whole by the port and the upgrade, and
 everything after its mark is this module's to write, one import line
 per rule, so each agent loads every rule at a session's start. A rule
 added, renamed or deleted loads or stops loading once the session is
@@ -21,7 +21,7 @@ MARK = "<!-- The project's rules, one import per line below, are the brain tool'
 IMPORT = "@.agents/rules/{name}"
 RELOAD = "a new rule loads only once the session is reloaded, so ask the owner to reload the session"
 NOT_IMPORTED = "AGENTS.md does not import the rule, so it does not load, and brain doctor says why"
-# the release the rules came in, from which AGENTS.md is the kit's whole and holds no section 0
+# the release the rules came in, from which AGENTS.md is Agent Setup's whole and holds no section 0
 SINCE = "3.0.0"
 
 PLACEHOLDER = """---
@@ -98,7 +98,7 @@ def with_imports(
     text: str,
     names: list[str],
 ) -> str:
-    """AGENTS.md's text with everything after its mark written again as one import line per rule, the kit's words above it kept."""
+    """AGENTS.md's text with everything after its mark written again as one import line per rule, Agent Setup's words above it kept."""
     above = text.split(MARK, 1)[0].rstrip("\n")
 
     return f"{above}\n\n{MARK}\n" + "".join(IMPORT.format(name=name) + "\n" for name in names)

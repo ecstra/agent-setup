@@ -7,7 +7,7 @@ context on their own. Codex gets them from its session start hook.
 Anything else that reads this file as plain text opens each of them
 first.
 
-This file is the kit's and is written whole, so nothing here is edited
+This file is Agent Setup's and is written whole, so nothing here is edited
 by hand. A project's own instruction is a rule, one file in
 `.agents/rules/`, filed through `brain new rule`, which adds its line
 below. A rule loads as a session starts, so a new one needs the session

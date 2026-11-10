@@ -1,6 +1,6 @@
 ---
 name: branch-review
-description: The kit's code review of one branch, run on the owner's word. A few finder sub agents read the whole branch at once, verifiers vote on what they found, the main agent fixes the confirmed findings in one go, a recheck reads the fix, and one docs agent brings the docs up to the code. Use it when the owner asks for a review, and never start one on your own.
+description: Agent Setup's code review of one branch, run on the owner's word. A few finder sub agents read the whole branch at once, verifiers vote on what they found, the main agent fixes the confirmed findings in one go, a recheck reads the fix, and one docs agent brings the docs up to the code. Use it when the owner asks for a review, and never start one on your own.
 argument-hint: [quick|standard|deep] [<base>...<head>]
 ---
 
@@ -38,8 +38,8 @@ These are never findings.
 - a rule that adds a restriction with no harm behind it
 - an older case, which goes straight to `.agents/bugs/` through
   `brain new bug`, its link to the ledger
-- a defect in a file the kit writes whole, which is the
-  kit's to fix, its skills, `SYSTEM.md`, the brain's `README.md` and
+- a defect in a file Agent Setup writes whole, which is
+  Agent Setup's to fix, its skills, `SYSTEM.md`, the brain's `README.md` and
   `house-rules.md`, the launcher `.agents/brain`, `.agents/VERSION`,
   the definitions under `.claude/agents/`, the skill stubs under
   `.claude/skills/`, the chat

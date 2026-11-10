@@ -16,7 +16,7 @@ from . import frontmatter, schema, store
 SPINE_INTRO = "The spine. Read this first, then follow into the folder indexes.\nBuilt by the brain tool from the files it lists, so change those files\nrather than this one.\n"
 
 SYSTEM_HOOK = "the rulebook every agent works by, reached through AGENTS.md"
-VERSION_HOOK = "the kit release this brain is on"
+VERSION_HOOK = "the Agent Setup release this brain is on"
 
 # The ways a bug stops being open, in the order the index lists them.
 CLOSED_BUG = ("fixed", "wontfix", "refiled")
@@ -170,7 +170,7 @@ def render_index(
     """The whole index as the tool writes it, header and body.
 
     The date here is a placeholder: `write` stamps the real one and
-    `fingerprint` ignores it. A link to a kit file is carried only while
+    `fingerprint` ignores it. A link to a file of Agent Setup's is carried only while
     that file exists, so a project that dropped one does not get a
     dangling link rebuilt forever. The link to the spine is always
     carried, since the tool writes the spine in the same run.
@@ -243,7 +243,7 @@ def spine_body(
 def kit_listing(
     brain: store.Brain,
 ) -> list[str]:
-    """The kit files the spine names, in the order a reader meets them."""
+    """Agent Setup's files the spine names, in the order a reader meets them."""
     listing = ["README.md", "house-rules.md"]
 
     return [relative for relative in listing if store.readable_file(brain.root / relative)]

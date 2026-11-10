@@ -20,7 +20,7 @@ rather than this one.
 - [skills/agent-brain/SKILL.md](skills/agent-brain/SKILL.md), the brain tool, the one way anything here is filed, changed or checked
 - [skills/branch-review/SKILL.md](skills/branch-review/SKILL.md), the code review, run on the owner's word with sub agents in parallel
 - [skills/see/SKILL.md](skills/see/SKILL.md), the see tool, a video or a screenshot read as numbers and labelled images
-- [VERSION](VERSION), the kit release this brain is on
+- [VERSION](VERSION), the Agent Setup release this brain is on
 
 ## The rules
 

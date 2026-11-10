@@ -1,8 +1,8 @@
-"""The kit's Rust rule, `rules/rust.md`, which stands in a project exactly while its root holds a Cargo.toml, and the reference configs written beside it once.
+"""Agent Setup's Rust rule, `rules/rust.md`, which stands in a project exactly while its root holds a Cargo.toml, and the reference configs written beside it once.
 
 The rule's words and the configs come from templates the tool carries
 beside its own code, so doctor writes them in any project, git or none,
-and the rule is the kit's, written whole like AGENTS.md. A project's own
+and the rule is Agent Setup's, written whole like AGENTS.md. A project's own
 Rust rules go in a rule of its own. Doctor holds all of it on every run,
 so Rust that arrives after the port gets the rule, and Rust that leaves
 takes it away.
@@ -35,7 +35,7 @@ TEMPLATE_PATH = f".agents/skills/agent-brain/templates/rust/{LINTS_TABLE}"
 HEADER = """---
 name: rust
 kind: rule
-description: the kit's Rust rules, which every agent loads in a project whose root holds a Cargo.toml
+description: Agent Setup's Rust rules, which every agent loads in a project whose root holds a Cargo.toml
 updated: {date}
 links: []
 ---
@@ -43,17 +43,17 @@ links: []
 """
 
 RELOAD = "and the rule loads once the session is reloaded"
-MISSING = f"the project's root holds a {MANIFEST} and the brain no rust.md, so the kit's Rust rules never load, and the fix writes them with their import and the missing configs, {RELOAD}"
-WROTE = f"wrote {rules.FOLDER}/{RULE}, the kit's Rust rules, with its import and the configs the project lacked, and {rules.RELOAD}"
-CHANGED = "says other than the kit's Rust rules, which the kit writes whole, so the fix writes them back, and the project's own Rust rules go in a rule of its own"
+MISSING = f"the project's root holds a {MANIFEST} and the brain no rust.md, so Agent Setup's Rust rules never load, and the fix writes them with their import and the missing configs, {RELOAD}"
+WROTE = f"wrote {rules.FOLDER}/{RULE}, Agent Setup's Rust rules, with its import and the configs the project lacked, and {rules.RELOAD}"
+CHANGED = "says other than Agent Setup's Rust rules, which Agent Setup writes whole, so the fix writes them back, and the project's own Rust rules go in a rule of its own"
 NO_RUST = f"stands with no {MANIFEST} at the project's root, so the fix retires it with its import, and doctor writes it again once one is back"
-NO_RUST_CHANGED = f"stands with no {MANIFEST} at the project's root and says other than the kit's words, so move what is the project's into a rule of its own and delete it"
-NAME_TAKEN = "is the kit's Rust rule, and {path} is named rust already, so retitle it with brain refile and the fix writes the rule"
+NO_RUST_CHANGED = f"stands with no {MANIFEST} at the project's root and says other than Agent Setup's words, so move what is the project's into a rule of its own and delete it"
+NAME_TAKEN = "is Agent Setup's Rust rule, and {path} is named rust already, so retitle it with brain refile and the fix writes the rule"
 NO_TOOLCHAIN = "is missing, so no toolchain is pinned, and the Rust rule asks for the latest stable one pinned here"
 NO_WORKSPACE_LINTS = f"names a workspace and no [workspace.lints] table, so paste the one in {TEMPLATE_PATH}"
 NO_CRATE_LINTS = f"names no [lints] table, so paste the one in {TEMPLATE_PATH} as [lints]"
 NOT_OPTED_IN = "is a crate of the workspace that never sets [lints] workspace = true, so the workspace's lints never reach it"
-NAME_IS_THE_KITS = "rust is the name of the kit's Rust rule, which doctor writes in a project with a Cargo.toml, so the project's own Rust rules go in project.md or a rule of another name"
+NAME_IS_THE_KITS = "rust is the name of Agent Setup's Rust rule, which doctor writes in a project with a Cargo.toml, so the project's own Rust rules go in project.md or a rule of another name"
 
 TABLE = re.compile(r"^\s*\[([^\]]+)\]\s*(?:#.*)?$")
 UPDATED = re.compile(r"^updated:.*$", re.MULTILINE)
@@ -69,7 +69,7 @@ NOT_DEPENDENCIES = {"patch", "replace", "workspace"}
 def is_rust(
     project: Path,
 ) -> bool:
-    """Whether the project's root holds a Cargo.toml, which is what makes it a Rust project to the kit."""
+    """Whether the project's root holds a Cargo.toml, which is what makes it a Rust project to Agent Setup."""
     return (project / MANIFEST).is_file()
 
 

@@ -670,7 +670,7 @@ def where(
     path: str,
     root: str,
 ) -> Optional[str]:
-    """ROOT for the brain's folder itself, ENTRIES for a path in a tracker folder or one of the brain's own files, a pattern that reaches one among them, and None for anywhere else, the kit's own files in the brain's folder among them."""
+    """ROOT for the brain's folder itself, ENTRIES for a path in a tracker folder or one of the brain's own files, a pattern that reaches one among them, and None for anywhere else, Agent Setup's own files in the brain's folder among them."""
     if path == root:
         return ROOT
 

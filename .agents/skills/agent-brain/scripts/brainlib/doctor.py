@@ -164,7 +164,7 @@ def check_all(
 def markdown_files(
     brain: store.Brain,
 ) -> list[Path]:
-    """The files the frontmatter checks look at: the entries and the kit's files.
+    """The files the frontmatter checks look at: the entries and Agent Setup's files.
 
     A file that is neither is a stray, reported once by its own check
     rather than measured against rules written for something else. The
@@ -220,7 +220,7 @@ def all_markdown(
 def check_strays(
     brain: store.Brain,
 ) -> list[Finding]:
-    """Files under the brain that neither the store nor the kit accounts for."""
+    """Files under the brain that neither the store nor Agent Setup accounts for."""
     accounted = brain.known()
     found: list[Finding] = []
 
@@ -253,7 +253,7 @@ def check_leftovers(
     to delete, and a suffix of eight letters looks like the tail the
     writer draws, so a temp file counts only when its target is one the
     tool would write, a markdown or JSON file, VERSION, the word, the
-    current work, a file that exists beside it, or one of the kit's own
+    current work, a file that exists beside it, or one of Agent Setup's own
     files at the top of the project. The places the tool writes to in
     every run are looked at, the whole brain with its skills, each
     agent's own folder down to its sub agent files, and the top of the
@@ -1023,9 +1023,9 @@ def check_layout(
     project = brain.root.parent
 
     if not store.readable_file(brain.root / schema.VERSION_FILE):
-        found.append(Finding(path=schema.VERSION_FILE, check="layout", message="no kit version stamp, run the upgrade"))
+        found.append(Finding(path=schema.VERSION_FILE, check="layout", message="no Agent Setup version stamp, run the upgrade"))
     elif store.stamp_of(brain.root) is None:
-        found.append(Finding(path=schema.VERSION_FILE, check="layout", message="the kit version stamp is not a version like 1.0.0, write the kit's release in it"))
+        found.append(Finding(path=schema.VERSION_FILE, check="layout", message="the Agent Setup version stamp is not a version like 1.0.0, write the release of Agent Setup in it"))
 
     shared = skills_folder_outside(project)
     shipped = store.kit_skills_shipped(brain.root)
@@ -1042,7 +1042,7 @@ def check_layout(
             Finding(
                 path=schema.SKILLS,
                 check="layout",
-                message=f"the skills folder cannot be listed, so only the kit's skill stubs were checked: {reason}",
+                message=f"the skills folder cannot be listed, so only Agent Setup's skill stubs were checked: {reason}",
             ),
         )
         listed = False
@@ -1127,9 +1127,9 @@ INTO_THE_BRAIN = ", and the skills folder is a link into the brain's own, so a s
 SKILL_GONE = "the stub or the link here is for a skill that is gone"
 STUB_MISSING = "the stub Claude Code finds this skill through is missing"
 STUB_BEHIND = "the stub is behind the skill's sheet"
-A_LINK = "is a link, where the kit writes a stub Claude Code finds the skill through"
-A_PLAIN_FILE = "is a plain file, where the kit writes a stub Claude Code finds the skill through"
-A_COPY = "is a copy of the skill's sheet, where the kit writes a stub Claude Code finds the skill through"
+A_LINK = "is a link, where Agent Setup writes a stub Claude Code finds the skill through"
+A_PLAIN_FILE = "is a plain file, where Agent Setup writes a stub Claude Code finds the skill through"
+A_COPY = "is a copy of the skill's sheet, where Agent Setup writes a stub Claude Code finds the skill through"
 ON_THE_WAY = ", and the brain reaches the skill's sheet through it, so the fix leaves it, keep the sheet under .agents/skills with no link through .claude/skills first"
 STUB_IN_THE_MAKING = ".stub"
 LAUNCHER_MISSING = "the launcher python3 .agents/brain runs is missing, which brain doctor --fix writes"
@@ -1292,7 +1292,7 @@ def resolved(
 def skill_missing(
     name: str,
 ) -> str:
-    return f"the skill itself is missing from {(SKILL_HOMES / name).as_posix()}, reinstall the kit"
+    return f"the skill itself is missing from {(SKILL_HOMES / name).as_posix()}, reinstall Agent Setup"
 
 
 def stray_skill_links(
@@ -1301,9 +1301,9 @@ def stray_skill_links(
     shared: bool,
     inside: bool,
 ) -> list[Finding]:
-    """A stub the kit wrote, or a link an older kit made, under .claude/skills for a project skill now gone from the brain, with its removal as the repair.
+    """A stub Agent Setup wrote, or a link an older release made, under .claude/skills for a project skill now gone from the brain, with its removal as the repair.
 
-    A stub is the kit's to remove once the sheet it names is gone, and
+    A stub is Agent Setup's to remove once the sheet it names is gone, and
     its folder goes with it when nothing else is left there, so a file a
     copy or a person left beside it stays. A link is when it points into the
     brain's skills folder and dangles, leading to nothing at all. One
@@ -1407,13 +1407,13 @@ def skill_stub_trouble(
 ) -> Optional[Trouble]:
     """What is wrong with the named skill's stub under `.claude/skills`, or None when Claude Code finds this skill through it.
 
-    What Claude Code needs is `.claude/skills/<name>/SKILL.md`, and the
-    kit puts there a stub, the sheet's header over a body that sends the
+    What Claude Code needs is `.claude/skills/<name>/SKILL.md`, and
+    Agent Setup puts there a stub, the sheet's header over a body that sends the
     agent to the sheet. A stub whose header has fallen behind the
     sheet's is rewritten. A link of any kind, a Windows junction among
     them, a plain file git left in a link's place, and a copy of the
     sheet are replaced by the stub, a copy being one byte for byte or,
-    for a skill the stamp says the kit shipped, `kits`, any SKILL.md of
+    for a skill the stamp says Agent Setup shipped, `kits`, any SKILL.md of
     the skill's name, the copy an older release kept up to date. A real
     folder with no SKILL.md, or one whose SKILL.md is a skill of its
     own, is a person's and is left. The caller keeps every repair back
@@ -1513,7 +1513,7 @@ def is_stub(
     path: Path,
     name: str,
 ) -> bool:
-    """Whether the file is a stub the kit wrote for this skill, by its body, whatever its header says."""
+    """Whether the file is a stub Agent Setup wrote for this skill, by its body, whatever its header says."""
     try:
         _, body = split_at_header(frontmatter.load(str(path)))
     except frontmatter.FrontmatterError:
@@ -1613,9 +1613,7 @@ def carries_skill(
 def check_read_guard(
     brain: store.Brain,
 ) -> list[Finding]:
-    """A project's Claude Code settings carry the rules that keep the agent out of the tool's code and the folders the sandbox may read, which an older tool's upgrade leaves out.
-
-    """
+    """A project's Claude Code settings carry the rules that keep the agent out of the tool's code and the folders the sandbox may read, which an older tool's upgrade leaves out."""
     # the upgrade reads doctor, so the guard's rules come from it once both are loaded
     from . import upgrade
 
@@ -1644,7 +1642,7 @@ def check_read_guard(
     if all(rule in deny for rule in upgrade.READ_GUARDS) and all(entry in allowed for entry in upgrade.READ_OPENINGS):
         return []
 
-    # a .claude linked into another checkout, the kit's own among them, is that checkout's to guard, as the upgrade refuses it
+    # a .claude linked into another checkout, Agent Setup's own among them, is that checkout's to guard, as the upgrade refuses it
     out = upgrade.leads_out(project=upgrade.Project(root=brain.root.parent), relative=upgrade.CLAUDE_SETTINGS)
     if out is not None:
         return [Finding(path=where, check="layout", message=f"the read guard is missing from {where}, which sits behind a link that leads out of the project, to {out.as_posix()}, so move the link aside and run brain upgrade, which writes the project its own")]
@@ -1781,7 +1779,7 @@ def check_front_doors(
     """The findings on the imports of the root files the agents read.
 
     A slip here unloads the rulebook with nothing said, which is what
-    bit the kit once. CLAUDE.md is read only while the project keeps a
+    bit Agent Setup once. CLAUDE.md is read only while the project keeps a
     .claude folder and GEMINI.md only while it keeps a .gemini folder,
     since a project without one runs no such agent. A front door that is
     a link to AGENTS.md is that file, read once under its own name. A
@@ -1911,14 +1909,14 @@ def import_slips(
     text: str,
     project: Path,
 ) -> list[Finding]:
-    """The import findings of one front door's text, read against the project's files, so the upgrade can ask the same of the kit's own text.
+    """The import findings of one front door's text, read against the project's files, so the upgrade can ask the same of Agent Setup's own text.
 
     Only an import line is judged, one `@path` alone on its line once
     code, comments and raw HTML are blanked, and every other `@` is left
     alone, since each agent reads the rest by rules of its own and a
     check that cannot tell says nothing. Each import line gives its own
     findings, a slip written twice named twice, which the upgrade counts
-    on to tell the kit's slips from the project's. The rules imports are
+    on to tell Agent Setup's slips from the project's. The rules imports are
     the one question asked of the whole door. CLAUDE.md and GEMINI.md
     are named when no `@` an agent may open leads to AGENTS.md, by
     itself or through the files the door imports, and GEMINI.md not
@@ -2476,7 +2474,7 @@ def check_rules(
 ) -> list[Finding]:
     """The findings on AGENTS.md's imports of the rules, every rule imported once in load order below the mark and nothing else, which the fix writes.
 
-    AGENTS.md is the kit's, and the lines after its mark are the tool's,
+    AGENTS.md is Agent Setup's, and the lines after its mark are the tool's,
     so a rule added, renamed or deleted by hand gets its import put
     right. An AGENTS.md from before the rules carries no mark, which the
     upgrade writes, so that is named and left alone. A missing or
@@ -2525,12 +2523,12 @@ def check_rules(
 def check_rust(
     brain: store.Brain,
 ) -> list[Finding]:
-    """The findings on the kit's Rust rule, which stands exactly while the project's root holds a Cargo.toml, and on what a Rust project lacks of the rule's asks.
+    """The findings on Agent Setup's Rust rule, which stands exactly while the project's root holds a Cargo.toml, and on what a Rust project lacks of the rule's asks.
 
     The rule is written from the template the tool carries, with its
     import and the configs the project lacks, rewritten where it says
     other than the template, and retired where Rust is gone, unless it
-    says more than the kit's words, which the project moves first. A
+    says more than Agent Setup's words, which the project moves first. A
     toolchain pin and the lints tables are the project's to write, from
     the reference copy, so they are named and left alone.
     """
@@ -2544,7 +2542,7 @@ def check_rust(
     try:
         kits = rust.template_body()
     except (OSError, UnicodeDecodeError) as error:
-        return [Finding(path=where, check="rust", message=f"cannot be held to the kit's words, since the tool's template of them cannot be read, {store.explain(error)}, and the upgrade writes it back")]
+        return [Finding(path=where, check="rust", message=f"cannot be held to Agent Setup's words, since the tool's template of them cannot be read, {store.explain(error)}, and the upgrade writes it back")]
 
     # the words below the header, which doctor's own fills of people and dates never touch, or None where the file does not read as text
     try:
@@ -2565,7 +2563,7 @@ def check_rust(
         else:
             found = [Finding(path=where, check="rust", message=rust.MISSING, repair=lambda: rust.write_rule(brain.root))]
     elif says is None:
-        # the file is the kit's whole, so one that does not read as text is written again from the template
+        # the file is Agent Setup's whole, so one that does not read as text is written again from the template
         found = [Finding(path=where, check="rust", message=rust.CHANGED, repair=lambda: rust.write_rule(brain.root))]
     elif says != kits.strip():
         found = [Finding(path=where, check="rust", message=rust.CHANGED, repair=lambda: rust.rewrite_body(brain.root))]
