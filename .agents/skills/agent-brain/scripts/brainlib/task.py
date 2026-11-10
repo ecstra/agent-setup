@@ -14,11 +14,12 @@ multi step work starts with `brain task on`.
 """
 
 import json
+import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from . import clock, frontmatter, lines, schema, steps, store
+from . import clock, conclude, frontmatter, lines, schema, steps, store
 
 FILE = ".task"
 NONE = "task none"
@@ -414,7 +415,13 @@ def turn_on(
         if item in in_hand:
             raise TaskError(f"{item.key} is on the chain in hand already, so it starts no line of its own")
 
-        lines.put(root=brain.root, line=lines.started(brain.root))
+        # the stop time was named to this session, so it comes along to its line, while the standing word stays with the work it was given for
+        stop_time = here / conclude.FILE
+        line = lines.started(brain.root)
+        if store.readable_file(stop_time):
+            shutil.copyfile(stop_time, line / conclude.FILE)
+
+        lines.put(root=brain.root, line=line)
         write(brain=brain, chain=[item])
         return [item]
 

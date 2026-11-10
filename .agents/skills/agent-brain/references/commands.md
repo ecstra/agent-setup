@@ -683,8 +683,11 @@ under `.agents/.lines/`, with its own `.task`, `.ack` and `.conclude`,
 and puts the session on it. From then on every command and every hook
 line of that session reads and writes its line's three alone, so
 `brain task`, `brain ack`, `brain conclude` and a review's gates never
-touch the first agent's. The word to change a test file's assertions
-stays the folder's, since it is about files.
+touch the first agent's. The session's conclude word comes along to its
+new line, since the owner named that time to the session, while the
+standing word stays behind with the work it was given for. The word to
+change a test file's assertions stays the folder's, since it is about
+files.
 
 The tool knows the session from what the agent puts into the
 environment of the commands and hooks it runs, `CLAUDE_CODE_SESSION_ID`,
