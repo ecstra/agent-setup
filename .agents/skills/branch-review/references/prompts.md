@@ -5,6 +5,9 @@ in. Every sub agent writes its answer to the file its prompt names and
 replies with one line per item.
 
 Each prompt carries this line too, as section 8 of `SYSTEM.md` asks.
+Agent Setup's own repository, where that code and the files it writes
+whole are the work, leaves the line out, and the list of those files
+in the finder's and the docs agent's prompts with it.
 
 ```text
 Never read the brain tool's code under .agents/skills/agent-brain/scripts/, so leave that folder out of every diff and every search, as the pathspec ':!.agents/skills/agent-brain/scripts' does for git diff and git grep.
