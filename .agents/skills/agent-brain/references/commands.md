@@ -286,12 +286,18 @@ Doctor's check of the rule gives these findings.
   doctor run wrote the rule.
 - A rule whose words below its header say other than the template is
   fixable, and `--fix` writes the template's words back under the header
-  it keeps. One that does not read as text is written again whole.
+  it keeps. So is a rule whose header still carries the `description`
+  line an earlier release wrote, from before the product was called
+  Agent Setup, and the same fix writes today's line over that one. A
+  `description` a hand wrote is never touched. One that does not read
+  as text is written again whole.
 - A rule with no `Cargo.toml` at the root is fixable while it says
-  Agent Setup's words, and `--fix` deletes it with its import, since git
-  keeps its history and doctor writes it again once a `Cargo.toml` is
-  back. One that says other than Agent Setup's words is only flagged, so what is
-  the project's moves into a rule of its own before the file goes.
+  Agent Setup's words, today's or those an earlier release from 3.1.0
+  on wrote, untouched since, and `--fix` deletes it with its import,
+  since git keeps its history and doctor writes it again once a
+  `Cargo.toml` is back. One that says anything else is only flagged, so
+  what is the project's moves into a rule of its own before the file
+  goes.
 - Another entry already named `rust` is flagged and the rule is not
   written, since a name is an entry's one key. Retitle that entry with
   `brain refile` and the next fix writes the rule.
@@ -1166,7 +1172,8 @@ from `.claude/settings.json` while `.claude` stays inside the project.
 Each repaired file gets today's date, and a repaired entry the name of
 whoever runs the fix as its `editor`, save one whose only repair is
 that fill, which keeps its date, and the Rust rule whose words were
-written back, which keeps its header whole. The only things `--fix` removes are
+written back, which keeps its header's people, and its `description`
+too but one an earlier release wrote. The only things `--fix` removes are
 what an interrupted write left behind, a temporary file or a scratch
 folder named the way the tool names them, the half made stub an
 interrupted stub repair left beside its place, which the next repair
@@ -1177,7 +1184,7 @@ folder once nothing else is left there, or a link an older release made
 under `.claude/skills` into the brain's skills folder that dangles,
 leading to nothing at all, and Agent Setup's Rust rule with its import
 once no `Cargo.toml` stands at the root, while it still says
-Agent Setup's words. The stray pass never removes a link or a
+Agent Setup's words, today's or an earlier release's. The stray pass never removes a link or a
 folder that still leads somewhere, whatever it holds, nor a file
 beside a stub. A repair that rewrites a file, a stub, a
 stale index, a chat style copy or the settings the read guard goes
@@ -1590,7 +1597,11 @@ project's own that calls the script bare counts as Agent Setup's and goes
 with them, while a group that wraps that call, or calls a copy kept
 elsewhere, is the project's and stays, and an event left with no group
 stays as an empty list. A rename goes through git where git tracks the
-file, so the move shows as one. The ignore file is written with a
+file, so the move shows as one. Agent Setup's ignore lines sit in one
+block at the top of the ignore file, under the heading
+`# Agent Setup's own ignores.`, rebuilt there on every run, and a block
+an earlier release wrote under its older heading is taken as that block
+and given today's. The ignore file is written with a
 carriage return and a line feed at each line's end where any of its
 lines ends that way, else a line feed alone, a new one too, and a file
 the 1.0.0 migration points at `.agents/` keeps its own line ends, so on
