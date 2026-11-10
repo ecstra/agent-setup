@@ -21,11 +21,13 @@ the session's hash. So no file is shared between two lines.
 
 import hashlib
 import os
+import shutil
 from pathlib import Path
 from typing import Optional
 
 FOLDER = ".lines"
 SESSIONS = "sessions"
+NO_SESSION = "this agent names no session to its commands, so a line of work of its own cannot be told apart here"
 BY_HAND = f"{FOLDER}/ holds the work in hand, the standing word and the stop time of each line of work started with brain task on --beside, and nothing there is written by hand"
 
 # what Claude Code, Codex and Gemini CLI put into the environment of what they run, read in that order
@@ -58,13 +60,64 @@ def home(
     if named is None:
         return root
 
-    try:
-        folders: list[Path] = sorted(path for path in (root / FOLDER).iterdir() if path.is_dir())
-    except OSError:
-        return root
-
-    for folder in folders:
+    for folder in folders(root):
         if os.path.isfile(folder / SESSIONS / named):
             return folder
 
     return root
+
+
+def folders(
+    root: Path,
+) -> list[Path]:
+    """Every line's folder, in the order the lines were started, or none where they cannot be listed."""
+    try:
+        found: list[Path] = [path for path in (root / FOLDER).iterdir() if path.is_dir()]
+    except OSError:
+        return []
+
+    return sorted(found, key=lambda path: (not path.name.isdigit(), int(path.name) if path.name.isdigit() else 0, path.name))
+
+
+def started(
+    root: Path,
+) -> Path:
+    """A new line's folder, numbered one past the highest there is, so a line that ended never lends its number to the next."""
+    taken: list[int] = [int(folder.name) for folder in folders(root) if folder.name.isdigit()]
+    folder: Path = root / FOLDER / str(max(taken, default=0) + 1)
+    folder.mkdir(parents=True)
+
+    return folder
+
+
+def put(
+    root: Path,
+    line: Optional[Path],
+) -> None:
+    """Put this session on the line, or with None back on the folder's own, its mark taken off every other line."""
+    named: Optional[str] = session()
+    if named is None:
+        raise ValueError(NO_SESSION)
+
+    for folder in folders(root):
+        if folder != line:
+            try:
+                (folder / SESSIONS / named).unlink()
+            except FileNotFoundError:
+                pass
+
+    if line is not None:
+        (line / SESSIONS).mkdir(parents=True, exist_ok=True)
+        (line / SESSIONS / named).touch()
+
+
+def ended(
+    folder: Path,
+) -> None:
+    """Take the line away with everything it held, so each session that was on it stands on the folder's line again."""
+    shutil.rmtree(folder, ignore_errors=True)
+    # the folder of all lines goes with its last one, and stays while another line is in it
+    try:
+        folder.parent.rmdir()
+    except OSError:
+        pass

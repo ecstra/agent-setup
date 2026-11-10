@@ -61,7 +61,13 @@ def read(
     brain: store.Brain,
 ) -> Optional[list[Item]]:
     """The chain as written, an empty list when there is no file, or None when the file does not read as a chain, a folder in its place included."""
-    path = path_of(brain)
+    return read_at(path_of(brain))
+
+
+def read_at(
+    path: Path,
+) -> Optional[list[Item]]:
+    """The chain as the file at this path holds it, which is how a line other than the session's own is read."""
     if not store.readable_file(path):
         return [] if not store.quietly(path.exists) and not store.quietly(path.is_symlink) else None
 
@@ -81,11 +87,28 @@ def write(
     brain: store.Brain,
     chain: list[Item],
 ) -> None:
-    """Record the chain, whole or not at all, or take the file away when the chain is empty, and refuse a folder standing in the file's place."""
+    """Record the chain, whole or not at all, or take the file away when the chain is empty, and refuse a folder standing in the file's place.
+
+    A line started beside the folder's own ends with its chain, so an
+    empty chain written there takes the whole line away, and its
+    sessions stand on the folder's line again.
+    """
     path = path_of(brain)
     if folder_in_the_way(brain):
         raise TaskError(FOLDER)
 
+    if not chain and path.parent != brain.root:
+        lines.ended(path.parent)
+        return
+
+    write_at(path=path, chain=chain)
+
+
+def write_at(
+    path: Path,
+    chain: list[Item],
+) -> None:
+    """Record the chain in the file at this path, or take the file away when the chain is empty."""
     if not chain:
         try:
             path.unlink()
@@ -95,6 +118,44 @@ def write(
 
     text = json.dumps({"chain": [asdict(item) for item in chain], "since": clock.now().isoformat()}) + "\n"
     frontmatter.write_text(path=str(path), text=text)
+
+
+def homes(
+    brain: store.Brain,
+) -> list[Path]:
+    """Every folder that holds a chain, the brain's own root for the folder's line and then each line started beside it."""
+    return [brain.root, *lines.folders(brain.root)]
+
+
+def rooted_at(
+    brain: store.Brain,
+    item: Item,
+) -> Optional[Path]:
+    """The folder of the line whose chain, as it stands, has this entry at its root, or None where no line has."""
+    for home in homes(brain):
+        chain = read_at(home / FILE)
+        if chain and pruned(brain=brain, chain=chain)[:1] == [item]:
+            return home
+
+    return None
+
+
+def settle(
+    brain: store.Brain,
+) -> None:
+    """End the line this session is on once nothing is in hand there, so the work it starts next is judged from the folder's line.
+
+    A reading never ends a line, as it never writes the chain. A line
+    whose work closed stays until the session's next command that
+    starts work, which calls this first.
+    """
+    home = lines.home(brain.root)
+    if home == brain.root:
+        return
+
+    chain = read(brain)
+    if chain is not None and not pruned(brain=brain, chain=chain):
+        lines.ended(home)
 
 
 def folder_in_the_way(
@@ -315,10 +376,47 @@ def turn_on(
     brain: store.Brain,
     key: str,
     replace: bool = False,
+    beside: bool = False,
 ) -> list[Item]:
-    """Start work on the entry: as the root of a fresh chain, pushed under the innermost link where the rules allow, or in place of the chain when told to replace it. The entry already innermost is left where it is."""
+    """Start work on the entry: as the root of a fresh chain, pushed under the innermost link where the rules allow, or in place of the chain when told to replace it. The entry already innermost is left where it is.
+
+    Two agents in one folder each keep a line of work. An entry that is
+    the root of another line's chain puts the session on that line,
+    with no flag, the folder's own line among them. `beside` starts a
+    line of the session's own for the entry and leaves the chain in
+    hand to whoever works on it, so it is refused with nothing in hand,
+    where plain is the way, and where no agent names the session.
+    """
+    if beside and replace:
+        raise TaskError("--beside starts a line of work of its own and --replace sets the chain aside, so give one of the two")
+
     entry = resolve(brain=brain, key=key)
     item = Item(kind=entry.kind.name, key=key_of(entry))
+
+    settle(brain)
+    here = lines.home(brain.root)
+    there = rooted_at(brain=brain, item=item)
+    if there is not None and there != here:
+        if lines.session() is None:
+            raise TaskError(f"{item.key} is the work of a line of its own, and {lines.NO_SESSION}")
+
+        lines.put(root=brain.root, line=None if there == brain.root else there)
+        return current(brain=brain)
+
+    if beside:
+        if lines.session() is None:
+            raise TaskError(lines.NO_SESSION)
+
+        in_hand = current(brain=brain, chain=written(brain))
+        if not in_hand:
+            raise TaskError("nothing is in hand here to start beside, so start it with brain task on and no --beside")
+
+        if item in in_hand:
+            raise TaskError(f"{item.key} is on the chain in hand already, so it starts no line of its own")
+
+        lines.put(root=brain.root, line=lines.started(brain.root))
+        write(brain=brain, chain=[item])
+        return [item]
 
     chain: list[Item] = []
     if not replace:
@@ -456,14 +554,23 @@ def renamed(
     old: str,
     new: str,
 ) -> None:
-    """Follow a retitle in the chain, where a plan is stored by its name, and leave a file that does not read alone."""
-    stored = read(brain)
-    if not stored:
-        return
+    """Follow a retitle in the chain of every line, where a plan is stored by its name, and leave a file that does not read alone."""
+    own = path_of(brain)
+    for home in homes(brain):
+        path = home / FILE
+        stored = read_at(path)
+        if not stored:
+            continue
 
-    chain = [Item(kind=item.kind, key=new) if item.kind == kind and item.key == old else item for item in stored]
-    if chain != stored:
-        write(brain=brain, chain=chain)
+        chain = [Item(kind=item.kind, key=new) if item.kind == kind and item.key == old else item for item in stored]
+        if chain == stored:
+            continue
+
+        # the session's own chain is written as every command writes it, so what stands in its way is refused by name
+        if path == own:
+            write(brain=brain, chain=chain)
+        else:
+            write_at(path=path, chain=chain)
 
 
 def describe(
@@ -482,6 +589,41 @@ def describe(
         return NONE
 
     return "\n".join(f"{WORDS[item.kind]} {describe_item(brain=brain, item=item)}" for item in chain)
+
+
+def others(
+    brain: store.Brain,
+) -> list[str]:
+    """One line for each line of work but the session's own that has work in hand, the root's key and what it is about, and since when it stands."""
+    own = lines.home(brain.root)
+    said: list[str] = []
+    for home in homes(brain):
+        if home == own:
+            continue
+
+        chain = read_at(home / FILE)
+        standing = pruned(brain=brain, chain=chain) if chain else []
+        if not standing:
+            continue
+
+        root = standing[0]
+        entry = entry_of(brain=brain, item=root)
+        about = entry.field("description") if entry is not None else ""
+        said.append(f"{WORDS[root.kind]} {root.key}{', ' + about if about else ''}, since {since_of(home / FILE)}")
+
+    return said
+
+
+def since_of(
+    path: Path,
+) -> str:
+    """The moment the chain in the file was last set, to the minute, as the file itself records it."""
+    try:
+        since = str(json.loads(path.read_text(encoding="utf-8"))["since"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return "an unknown time"
+
+    return since[:16].replace("T", " ")
 
 
 def describe_item(

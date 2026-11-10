@@ -322,6 +322,7 @@ def add_task(
     starting = actions.add_parser("on", help="start work on a plan, a todo, a bug or a review")
     starting.add_argument("key", help="the entry, by id, name or path")
     starting.add_argument("--replace", action="store_true", help="in place of the chain that stands, which is otherwise kept")
+    starting.add_argument("--beside", action="store_true", help="as a line of work of this session's own, beside the chain in hand, which another session keeps working on")
 
     finishing = actions.add_parser("done", help="mark the step the work stands on done, and stand on the next")
     finishing.set_defaults(status="done")
@@ -371,6 +372,7 @@ def run_task_on(
         brain=brain,
         key=args.key,
         replace=args.replace,
+        beside=args.beside,
     )
     print(task.describe(brain=brain))
     return 0
@@ -456,6 +458,10 @@ def run_status(
     args: argparse.Namespace,
 ) -> int:
     data = reads.status(brain=brain)
+    # the lines of work other sessions keep in this folder, said only where there are any and only here, never by a hook
+    beside = task.others(brain=brain)
+    if beside:
+        data["beside"] = beside
     if args.json:
         print(json.dumps(data, indent=2))
         return 0
@@ -466,6 +472,8 @@ def run_status(
     if word is not None:
         print(word)
     print(task.describe(brain=brain))
+    for line in beside:
+        print(f"beside {line}")
     print(reads.render_status(data))
     return 0
 
