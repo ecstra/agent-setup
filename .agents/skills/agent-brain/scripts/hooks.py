@@ -38,7 +38,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import BinaryIO, NoReturn, Optional, TextIO, Union
 
-from brainlib import autoack, check, clock, conclude, doctor, frontmatter, guard, handover, links, lint, nudge, reads, rust, schema, steps, store, task
+from brainlib import autoack, check, clock, conclude, doctor, frontmatter, guard, handover, lines, links, lint, nudge, reads, rust, schema, steps, store, task
 from brainlib import rules as project_rules
 
 BLOCK = 2
@@ -128,6 +128,8 @@ def run(
     if brain is None:
         return 0
 
+    name_the_session(agent=args.agent, event=event)
+
     if args.event == "session-start":
         return session_start(
             brain=brain,
@@ -146,6 +148,23 @@ def run(
         return pre_write(brain=brain, event=event, agent=args.agent)
 
     return post_write(brain=brain, event=event, agent=args.agent)
+
+
+def name_the_session(
+    agent: str,
+    event: dict,
+) -> None:
+    """Give this hook the session its agent's commands run in, where the agent names it to the hook another way.
+
+    Codex puts the session's id into the environment of the commands it
+    runs and not into a hook's, which gets the same id in its event, so
+    a Codex hook takes it from there, over one a Codex that started this
+    one left in the environment. Claude Code names the session to both
+    alike, and Gemini CLI to no command, so nothing is done for them.
+    """
+    given = event.get("session_id")
+    if agent == "codex" and isinstance(given, str) and given.strip():
+        os.environ[lines.CODEX_SESSION] = given
 
 
 def read_event() -> dict:
@@ -210,6 +229,11 @@ def locate(
 # session that wrote the note still holds everything in it.
 FORK = "fork"
 
+# The session starts that begin fresh, with no context of an earlier one
+# to go on, so such a session takes the one note that waits whoever wrote
+# it, while a resume or a compaction takes its own session's note alone.
+NEW_STARTS = ("startup", "clear")
+
 # Claude Code shows up to this many characters of a hook's added context,
 # and past it keeps the whole text in a file of the session's and shows
 # its path with the first 2,000 characters without asking the model to
@@ -244,9 +268,12 @@ def session_start(
     fails to go out leaves the file for the next start, which reads it
     again. A note for another branch, a file the tool never wrote and
     one it cannot open stay, each said in one line in the note's place.
+    Where the agent names the session, the note is the session's own at
+    every such start, and a note another session wrote is taken only by
+    a start that begins fresh and finds that one note alone.
     """
     # the note's lock is held from the first look to the removal, so a second start waits and finds none, and a fork takes no note and no lock
-    with handover.taken(brain=brain) if source != FORK else contextlib.nullcontext(enter_result=None) as claim:
+    with handover.taken(brain=brain, new=source in NEW_STARTS) if source != FORK else contextlib.nullcontext(enter_result=None) as claim:
         text = the_moment(brain=brain) + handover_text(claim=claim)
         text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(data=reads.status(brain=brain)) + "\n" + nudge.START
         if with_rules:
@@ -559,6 +586,10 @@ def refusal(
     top_folder: str = parts_inside[0] if parts_inside else ""
     if top_folder.casefold() == handover.FOLDER:
         return f"{inside}: {handover.BY_HAND}"
+
+    # a line's own files are the folder's three under another roof, so a hand write there is refused as one to them is
+    if top_folder.casefold() == lines.FOLDER:
+        return f"{inside}: {lines.BY_HAND}"
 
     if not markdown_named(path):
         return None

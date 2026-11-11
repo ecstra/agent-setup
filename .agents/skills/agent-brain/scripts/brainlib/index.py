@@ -24,10 +24,10 @@ CLOSED_BUG = ("fixed", "wontfix", "refiled")
 SPINE_DESCRIPTION = "the spine of the agent directory, what exists and where"
 SPINE_LINKS = ("README.md", "house-rules.md")
 
-# The handover folder's line never changes, since the folder holds one
-# note that the session start hook removes, so counting it would have
-# the spine change under every session.
-HANDOVER_LINE = f"- {schema.HANDOVER_FOLDER}/, the one note brain handover leaves for the next session, which the session start hook reads once and removes"
+# The handover folder's line never changes, since the folder holds
+# notes that the session start hook removes, so counting them would
+# have the spine change under every session.
+HANDOVER_LINE = f"- {schema.HANDOVER_FOLDER}/, the notes brain handover leaves for the next session, which the session start hook reads once and removes"
 
 
 def build(

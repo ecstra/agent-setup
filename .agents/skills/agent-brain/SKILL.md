@@ -179,9 +179,10 @@ the `by` of a todo or a plan, which still says whether the owner asked
 for it or the agent raised it. Git ignores `.ack`, the owner's
 standing word, `.ack-tests`, the owner's word to change a test file's
 assertions, `.conclude`, the conclude word, and `.task`, the current
-work, with their writes in flight, `.handover/`, the note for the next
-session, and `handover/`, its folder before 2.2.0, `.worktrees/` and
-the Python and ruff caches. The rest is
+work, with their writes in flight, `.lines/`, where a line of work
+started beside the folder's own keeps those of its own, `.handover/`,
+the note for the next session, and `handover/`, its folder before
+2.2.0, `.worktrees/` and the Python and ruff caches. The rest is
 committed, and a closed bug, todo, plan or ledger is never deleted,
 since it is the record. Every file
 names the file each claim it makes about the code holds in, and stays
@@ -257,8 +258,14 @@ and `brain list --area` finds every entry.
   claim is wrong, `wontfix` where it holds on purpose, or `deferred` on
   the owner's word into a bug that links the ledger, each of the last
   three with its reason.
-- The handover note, `.handover/handover.md`, is the one note a session
-  leaves for the next. A write replaces the note left on its branch or
+- The handover note is the one a session leaves for the next. Where the
+  agent names the session, each keeps its own in
+  `.handover/<hash>/handover.md`, written and taken back by that
+  session alone whatever the branch, as
+  [the reference](references/commands.md#a-note-per-session) says. The
+  rest of this item is the unnamed note, `.handover/handover.md`, of an
+  agent that names no session. A write replaces the note left on its
+  branch or
   one that names no branch, `no git` or `git could not answer`, and
   refuses any other until `--replace`. A note is for a session on its
   branch, the three just named are for any session, and so is any note
@@ -357,6 +364,20 @@ brain task done
 brain task off
 ```
 
+Where another session's work is in hand in the same folder, start
+yours beside it with `--beside`, which gives this session a line of
+work of its own, with its own chain, standing word and conclude word,
+and leaves the other session's alone. Take up a line that stands by
+naming its work with a plain `brain task on`. `brain status` names the
+other lines, and
+[the reference](references/commands.md#the-lines-of-work) says how a
+line is kept and when it ends.
+
+```bash
+brain task on TODO-016 --beside
+brain task on TODO-015
+```
+
 ## The handover
 
 SYSTEM.md section 8.4 says when a session leaves the note for the next
@@ -380,6 +401,13 @@ END_OF_NOTE
 A heredoc, quoted or not, ends at the first line that is its word
 alone, so the word is one no line of the note is, which rules out `EOF`
 once a trap quotes a heredoc of its own.
+
+The note is this session's own, and its next start gets it back.
+`brain handover list` numbers the notes that wait, `take <n>` prints
+one and removes it, `cleanup` removes every note but this session's
+own, and `off` drops this session's own once its work is done. `take`
+and `cleanup` run on the owner's word, unless the session is a new one
+picking its work up.
 
 ## Checking the brain and the project
 
