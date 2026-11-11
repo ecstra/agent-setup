@@ -25,7 +25,8 @@ Made on macOS and tested on native Windows 11. It needs Python 3.9 or later and 
 
 - **One rulebook for every agent:** how to write and test code, keep docs, use git, review a branch and reply to you. Your project's own rules load after it.
 - **A memory in your repo:** docs, decisions, plans, build specs, bugs, todos and short notes, each a markdown file in `.agents/`.
-- **Handover between sessions:** a session that stops partway through a task writes a note, and the next session on that branch gets it first.
+- **Handover between sessions:** a session that stops partway through a task writes a note and gets it back first when it starts again. A new session picks up the note that is waiting.
+- **Several agents in one folder:** each agent keeps its own work in hand, its own approvals and its own handover note, so two of them working side by side never mix.
 - **Linting as it writes:** every file the agent writes goes through your project's linters right away, and the results go back to the agent to fix.
 - **A guard on your tests:** an edit that changes or removes an assertion in an existing test is blocked until you approve that file.
 - **Code review when you ask:** sub agents read the whole branch, two more verify each finding, and the agent fixes what was confirmed.
