@@ -49,11 +49,25 @@ def status(
 def waiting_handover(
     brain: store.Brain,
 ) -> Optional[dict]:
-    """The waiting note for the status, its branch and its moment, None for each its header does not give, and whether a session start read it before and could not remove it, or None when no note waits."""
-    note: Optional[handover.Note] = handover.read(brain=brain)
-    if note is None:
+    """The waiting note for the status, its branch and its moment, None for each its header does not give, and whether a session start read it before and could not remove it, or None when no note waits.
+
+    Where more than one waits, it is the reader's own where it has one,
+    else the oldest, with the count of them all beside it.
+    """
+    found: list[handover.Waiting] = handover.waiting(brain=brain)
+    if not found:
         return None
 
+    note: handover.Note = next((each.note for each in found if each.own), found[0].note)
+    if len(found) > 1:
+        return {**header_of(note=note), "count": len(found)}
+
+    return header_of(note=note)
+
+
+def header_of(
+    note: handover.Note,
+) -> dict:
     return {
         "branch": note.branch,
         "written": note.written.isoformat() if note.written is not None else None,
@@ -127,7 +141,10 @@ def render_status(
 def handover_words(
     waiting: dict,
 ) -> str:
-    """The waiting note in words, from the header the status carries, the one place the status's sentence is built."""
+    """The waiting note in words, from the header the status carries, the one place the status's sentence is built, or how many wait where it is more than one."""
+    if waiting.get("count"):
+        return f"{waiting['count']} waiting, and brain handover list names each"
+
     written: Optional[datetime] = handover.moment_of(value=waiting.get("written"))
     words = f"waiting, written {handover.when(moment=written)} on {waiting.get('branch') or 'an unknown branch'}"
     if not waiting.get("again"):

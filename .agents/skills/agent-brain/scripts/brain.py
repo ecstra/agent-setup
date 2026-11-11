@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional, TextIO, cast
 
-from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, guard, handover, index, ledger, plans, reads, rules, rust, schema, steps, store, task, upgrade, writes
+from brainlib import autoack, builds, check, clock, conclude, doctor, frontmatter, gates, guard, handover, index, ledger, lines, plans, reads, rules, rust, schema, steps, store, task, upgrade, writes
 from brainlib.store import FINDINGS_REMAIN, REFUSED
 
 FIELD_FLAGS = ("status", "severity", "area", "by", "type", "branch", "date")
@@ -368,6 +368,7 @@ def run_task_on(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
+    before = lines.home(brain.root)
     task.turn_on(
         brain=brain,
         key=args.key,
@@ -375,6 +376,11 @@ def run_task_on(
         beside=args.beside,
     )
     print(task.describe(brain=brain))
+    # a session that just went to another line of work is told of the note another session left for that work
+    if lines.home(brain.root) != before:
+        for each in handover.for_the_work_in_hand(brain=brain):
+            print(f"handover {each.number} waits for this work, and brain handover take {each.number} reads it")
+
     return 0
 
 
@@ -412,7 +418,19 @@ def add_handover(
 ) -> None:
     command = commands.add_parser(
         name="handover",
-        help="the note for the next session, prose on standard input, in place of the one there",
+        help="the note for the next session, prose on standard input, in place of the one there, or with list, take, cleanup or off the notes that wait",
+    )
+    command.add_argument(
+        "action",
+        nargs="?",
+        choices=("list", "take", "cleanup", "off"),
+        help="list the notes that wait, take one by its number, cleanup every note but this session's own or the ones numbered, off to drop this session's own, nothing to write the note",
+    )
+    command.add_argument(
+        "numbers",
+        nargs="*",
+        type=int,
+        help="with take the one note's number, with cleanup the notes to remove, as list numbers them",
     )
     command.add_argument(
         "--replace",
@@ -426,15 +444,99 @@ def run_handover(
     brain: store.Brain,
     args: argparse.Namespace,
 ) -> int:
+    handlers = {
+        None: run_handover_write,
+        "list": run_handover_list,
+        "take": run_handover_take,
+        "cleanup": run_handover_cleanup,
+        "off": run_handover_off,
+    }
+
+    return handlers[args.action](brain=brain, args=args)
+
+
+def run_handover_list(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    if args.numbers:
+        print("brain handover list takes no number", file=sys.stderr)
+        return REFUSED
+
+    found = handover.waiting(brain=brain)
+    print("\n".join(handover.line_of(found=each) for each in found) if found else handover.NONE_WAITS)
+    return 0
+
+
+def run_handover_take(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    if len(args.numbers) != 1:
+        print("brain handover take takes the one number brain handover list gives the note", file=sys.stderr)
+        return REFUSED
+
+    with handover.taking(brain=brain, number=args.numbers[0]) as found:
+        print(found.note.text.rstrip())
+
+    joined = handover.join(brain=brain, note=found.note)
+    if joined is not None:
+        item, went = joined
+        work = f"{task.WORDS[item.kind]} {item.key}"
+        if went:
+            print(f"\nthis session now stands on that note's line of work, {work}")
+        else:
+            print(f"that note's work, {work}, is on a line of its own, and {lines.NO_SESSION}", file=sys.stderr)
+
+    return 0
+
+
+def run_handover_cleanup(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    gone, own_stays = handover.cleanup(brain=brain, numbers=args.numbers)
+    for each in gone:
+        print(f"removed handover {each.number}, {handover.written_words(note=each.note)}")
+
+    if not gone:
+        print(handover.ONLY_OWN_WAITS if own_stays else handover.NONE_WAITS)
+
+    return 0
+
+
+def run_handover_off(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
+    if args.numbers:
+        print("brain handover off takes no number", file=sys.stderr)
+        return REFUSED
+
+    own = handover.off(brain=brain)
+    print(f"removed this session's handover, {handover.written_words(note=own.note)}" if own is not None else handover.NO_OWN)
+    return 0
+
+
+def run_handover_write(
+    brain: store.Brain,
+    args: argparse.Namespace,
+) -> int:
     handover.write(
         brain=brain,
         prose=stdin_text(),
         replace=args.replace,
     )
-    print(handover.RELATIVE)
-    print(
-        "the session start hook puts it in front of the next session on this branch, or one that stands the same way on a detached head or before the first commit, or any session where git could not answer for it or for this one, and removes it, a fork aside",
-    )
+    written = handover.path_of(brain=brain)
+    print(handover.name_of(path=written))
+    if handover.is_sessions(path=written):
+        print(
+            "the session start hook puts it in front of this session at its next start, a resume and a compaction among them, or of a new session where it is the one note that waits, and removes it, a fork aside",
+        )
+    else:
+        print(
+            "the session start hook puts it in front of the next session on this branch, or one that stands the same way on a detached head or before the first commit, or any session where git could not answer for it or for this one, and removes it, a fork aside",
+        )
     # a note written past the time is the session concluding, so it ends the word, while one written before it, a wind down's before a compaction included, keeps it
     if conclude.passed(brain=brain):
         try:

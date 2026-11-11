@@ -1,4 +1,4 @@
-"""The handover, the one note a session leaves for the next.
+"""The handover, the note a session leaves for the next.
 
 A session that passes its work on writes the note through
 `brain handover`. The session start hook claims it, renaming it aside
@@ -7,11 +7,20 @@ claimed file once the context that puts it whole in front of the next
 session is out, so a note is read once. The tool records what it can
 read off the machine, the branch and its head, the uncommitted files,
 the standing word and the current work, and the prose on standard
-input says the rest. The folder holds one note and git ignores it,
-since the note belongs to one machine and one stretch of work, like the
-standing word and the current work beside it. A file at the note's
-path the tool never wrote is the project's own, and the tool neither
-claims nor writes over it.
+input says the rest. Git ignores the folder, since a note belongs to
+one machine and one stretch of work, like the standing word and the
+current work beside it. A file at a note's path the tool never wrote
+is the project's own, and the tool neither claims nor writes over it.
+
+Two agents in one folder each keep a note. Where the agent names the
+session, as `lines.session` reads it, the note is the session's own, in
+a folder named by the session's hash under the notes' folder, under the
+same two file names. That session takes it back at its next start,
+whatever its branch, and a new session takes the one note that waits.
+Where no agent names the session, the folder's one unnamed note is
+written and taken by the branch rules it always had. Every note shares
+the one lock, and `waiting` numbers them for the commands that list,
+take and remove them.
 """
 
 import contextlib
@@ -33,7 +42,7 @@ if os.name == "nt":
 else:
     import fcntl
 
-from . import autoack, clock, frontmatter, schema, store, task
+from . import autoack, clock, frontmatter, lines, schema, store, task
 
 FOLDER: str = schema.HANDOVER_FOLDER
 # the folder the note lived in before 2.2.0, which the upgrade moves it out of
@@ -48,10 +57,21 @@ NO_COMMITS = "no commits yet"
 DETACHED = "detached"
 UNKNOWN_TIME = "an unknown time"
 NO_WORDS = "a handover carries words, give them on standard input"
-FOLDER_IN_THE_WAY = f"{RELATIVE} is a folder the tool never made, move it away by hand"
-CLAIMED_FOLDER_IN_THE_WAY = f"{FOLDER}/{CLAIMED_NAME} is a folder the tool never made, move it away by hand"
+FOLDER_IN_THE_WAY = "{name} is a folder the tool never made, move it away by hand"
 FILE_IN_THE_WAY = f"{FOLDER} is a file the tool never made, where the note's folder goes, move it away by hand"
+SESSION_FILE_IN_THE_WAY = "{name} is a file the tool never made, where this session's note goes, move it away by hand"
 BY_HAND = f"{FOLDER}/ holds the one note brain handover writes for the next session, and nothing there is written by hand"
+NONE_WAITS = "no handover waits"
+ONLY_OWN_WAITS = "no handover waits but this session's own"
+NO_OWN = "this session has no handover waiting"
+# the two headings of a note's body, the tool's record under the first and the session's own words under the second
+RECORD_HEADING = "## As the tool found it\n\n"
+PROSE_HEADING = "\n\n## As the session left it"
+# the standing word's line in the record, which the chain's lines follow to the record's end
+WORD_LINE = "- auto ack"
+KIND_OF_WORD: dict[str, str] = {word: kind for kind, word in task.WORDS.items()}
+# a session's own folder under the notes', named by the hash `lines.session` gives
+SESSION_SHAPE: re.Pattern[str] = re.compile(pattern=rf"[0-9a-f]{{{lines.HASH_LENGTH}}}")
 # the lock a session start holds from its first look for the note to its removal, and a write for its own steps
 LOCK_NAME = "handover.lock"
 LOCK_SECONDS = 10.0
@@ -179,10 +199,55 @@ class Reply:
     trouble: str
 
 
+@dataclass(frozen=True)
+class Waiting:
+    """One note that waits, under the number the list gives it, oldest first, with the file that holds it and whether it is the caller's own."""
+
+    number: int
+    path: Path
+    note: Note
+    own: bool
+
+
+def folder_of(
+    brain: store.Brain,
+) -> Path:
+    """The folder of all the notes, which holds the unnamed note, each session's own folder and the one lock."""
+    return brain.root / FOLDER
+
+
+def unnamed_path(
+    brain: store.Brain,
+) -> Path:
+    return folder_of(brain=brain) / FILE
+
+
 def path_of(
     brain: store.Brain,
 ) -> Path:
-    return brain.root / FOLDER / FILE
+    """The note this caller writes and takes back, the session's own under a folder named by its hash, or the folder's one unnamed note where no agent names the session."""
+    named: Optional[str] = lines.session()
+    if named is None:
+        return unnamed_path(brain=brain)
+
+    return folder_of(brain=brain) / named / FILE
+
+
+def is_sessions(
+    path: Path,
+) -> bool:
+    """Whether the file is in a session's own folder, not the unnamed note's place right under the notes' folder."""
+    return path.parent.name != FOLDER
+
+
+def name_of(
+    path: Path,
+) -> str:
+    """The path as the tool's words give it, from the brain's root, a session's own under its folder there."""
+    if not is_sessions(path=path):
+        return f"{FOLDER}/{path.name}"
+
+    return f"{FOLDER}/{path.parent.name}/{path.name}"
 
 
 def project_of(
@@ -212,20 +277,31 @@ def write(
     the note written takes its place. The write holds the note's lock
     from its first look at what waits until the note is written, and is
     refused where another session holds it through the whole wait.
+
+    Where the agent names the session, the note written is the
+    session's own. It replaces the one that session wrote before,
+    whatever branch either was written on, and no other note is judged
+    or touched, so `replace` has nothing to write over there.
     """
     trimmed_prose: str = trimmed(prose=prose)
     if not trimmed_prose:
         raise HandoverError(NO_WORDS)
 
     path: Path = path_of(brain=brain)
+    top: Path = folder_of(brain=brain)
+    if os.path.lexists(top) and not store.quietly(question=top.is_dir):
+        raise HandoverError(FILE_IN_THE_WAY)
+
     in_the_way: Optional[str] = obstacle(path=path)
     if in_the_way is not None:
         raise HandoverError(in_the_way)
 
-    path.parent.mkdir(exist_ok=True)
-    with locked(folder=path.parent) as turn:
+    top.mkdir(exist_ok=True)
+    with locked(folder=top) as turn:
         if not turn:
             raise HandoverError(BUSY_WRITE)
+
+        path.parent.mkdir(exist_ok=True)
 
         return write_held(brain=brain, path=path, trimmed_prose=trimmed_prose, replace=replace, at=at)
 
@@ -240,6 +316,8 @@ def write_held(
     """The steps of the write that the note's lock covers, from the look at what waits to the removal of the claimed note it replaces."""
     project: Path = project_of(brain=brain)
     branch: str = current_branch(project=project)
+    # a session's own note replaces the one that session wrote before and nothing else, so no branch is judged and no older folder read
+    unnamed: bool = not is_sessions(path=path)
 
     aside: Path = path.with_name(name=CLAIMED_NAME)
     waiting_path: Path = path if os.path.lexists(path) else aside
@@ -247,14 +325,14 @@ def write_held(
     # with the hidden folder empty, a note an older session left in the folder before 2.2.0 is the one note waiting, so one note waits across both,
     # and the note written replaces it and the claimed copy beside it, as it replaces both in the hidden folder
     left_before: list[Path] = []
-    if waiting_note is None and not os.path.lexists(aside):
+    if unnamed and waiting_note is None and not os.path.lexists(aside):
         for name in (FILE, CLAIMED_NAME):
             old_note: Optional[Note] = note_at(path=brain.root / OLD_FOLDER / name, again=False)
             if old_note is not None:
                 waiting_note = waiting_note or old_note
                 left_before.append(brain.root / OLD_FOLDER / name)
 
-    if waiting_note is not None and not replace:
+    if unnamed and waiting_note is not None and not replace:
         ignore_case: bool = ignore_case_for(
             note=waiting_note,
             branch=branch,
@@ -280,6 +358,7 @@ def write_held(
     head: str = current_head(project=project)
     note_body: str = body(
         brain=brain,
+        path=path,
         branch=branch,
         head=head,
         at=here,
@@ -308,7 +387,7 @@ def write_held(
         except OSError as error:
             why: str = store.explain(error=error)
             raise HandoverError(
-                f"{RELATIVE} is written, and {FOLDER}/{CLAIMED_NAME}, the note it replaces, could not be removed, {why}, so delete it by hand",
+                f"{name_of(path=path)} is written, and {name_of(path=aside)}, the note it replaces, could not be removed, {why}, so delete it by hand",
             ) from error
 
     for replaced in left_before:
@@ -381,15 +460,15 @@ def obstacle(
     what it leads to, so it is judged as anything else at that name is.
     """
     if os.path.lexists(path.parent) and not store.quietly(question=path.parent.is_dir):
-        return FILE_IN_THE_WAY
+        return SESSION_FILE_IN_THE_WAY.format(name=name_of(path=path.parent)) if is_sessions(path=path) else FILE_IN_THE_WAY
 
     if store.quietly(question=path.is_dir):
-        return FOLDER_IN_THE_WAY
+        return FOLDER_IN_THE_WAY.format(name=name_of(path=path))
 
     claimed: Path = path.with_name(name=CLAIMED_NAME)
     linked: bool = store.quietly(question=claimed.is_symlink)
     if not linked and store.quietly(question=claimed.is_dir):
-        return CLAIMED_FOLDER_IN_THE_WAY
+        return FOLDER_IN_THE_WAY.format(name=name_of(path=claimed))
 
     return None
 
@@ -405,7 +484,7 @@ def note_in_the_way(
     if not os.path.lexists(path):
         return None
 
-    where = f"{FOLDER}/{path.name}"
+    where: str = name_of(path=path)
     try:
         text: str = opened(path=path)
     except OSError as error:
@@ -421,23 +500,22 @@ def note_in_the_way(
 
 def body(
     brain: store.Brain,
+    path: Path,
     branch: str,
     head: str,
     at: datetime,
     prose: str,
 ) -> str:
-    """The note's body, the record the tool reads off the machine with the standing word judged at the note's moment, then the session's own prose."""
+    """The body of the note that goes to the path, the record the tool reads off the machine with the standing word judged at the note's moment, then the session's own prose."""
     project: Path = project_of(brain=brain)
-    note_path: Path = path_of(brain=brain)
+    top: Path = folder_of(brain=brain)
     record: list[str] = [f"- branch {branch} at {head}"]
 
-    claimed_path: Path = note_path.with_name(name=CLAIMED_NAME)
-    note_name: str = note_path.relative_to(project).as_posix()
-    claimed_name: str = claimed_path.relative_to(project).as_posix()
-    lock_name: str = note_path.with_name(name=LOCK_NAME).relative_to(project).as_posix()
+    # the note under either of its names and the lock, with the unnamed note's two beside a session's own
+    own_files: set[Path] = {path, path.with_name(name=CLAIMED_NAME), top / FILE, top / CLAIMED_NAME, top / LOCK_NAME}
     record += uncommitted_lines(
         project=project,
-        notes={note_name, claimed_name, lock_name},
+        notes={own_file.relative_to(project).as_posix() for own_file in own_files},
     )
 
     standing_word: str = autoack.describe(
@@ -452,7 +530,7 @@ def body(
     when_written: str = clock.words(at=at)
     record_text = "\n".join(record)
 
-    return f"\n# Handover\n\nWritten {when_written} on {branch}.\n\n## As the tool found it\n\n{record_text}\n\n## As the session left it\n\n{prose}\n"
+    return f"\n# Handover\n\nWritten {when_written} on {branch}.\n\n{RECORD_HEADING}{record_text}{PROSE_HEADING}\n\n{prose}\n"
 
 
 def uncommitted_lines(
@@ -1073,6 +1151,214 @@ def read(
     )
 
 
+def session_folders(
+    top: Path,
+) -> list[Path]:
+    """Each session's own folder under the notes', or none where the notes' folder cannot be listed."""
+    try:
+        return sorted(path for path in top.iterdir() if SESSION_SHAPE.fullmatch(string=path.name) and path.is_dir())
+    except OSError:
+        return []
+
+
+def waiting(
+    brain: store.Brain,
+) -> list[Waiting]:
+    """Every note that waits, the unnamed one and each session's own, numbered from the oldest.
+
+    Each folder holds one note, read as `read` reads it: the file at the
+    note's name, or with none there the claimed one a start left on
+    disk, unless a claim of this process holds it. The caller's own is
+    its session's, or the unnamed note where no agent names the session.
+    A note whose header gives no moment counts as the oldest.
+    """
+    top: Path = folder_of(brain=brain)
+    own_folder: Path = path_of(brain=brain).parent
+    found: list[tuple[Path, Note]] = []
+    for folder in (top, *session_folders(top=top)):
+        held: Path = folder / FILE
+        again: bool = not os.path.lexists(held)
+        if again:
+            held = folder / CLAIMED_NAME
+            if held in HELD_PATHS:
+                continue
+
+        note: Optional[Note] = note_at(path=held, again=again)
+        if note is not None:
+            found.append((held, note))
+
+    found.sort(key=lambda pair: (pair[1].written is not None, pair[1].written or datetime.min, pair[0].as_posix()))
+
+    return [Waiting(number=number, path=path, note=note, own=path.parent == own_folder) for number, (path, note) in enumerate(found, start=1)]
+
+
+def work_of(
+    note: Note,
+) -> Optional[task.Item]:
+    """The root of the work chain the note's record names, or None where it recorded none or carries no record the tool wrote."""
+    record: str = note.text.partition(RECORD_HEADING)[2].partition(PROSE_HEADING)[0]
+    listed_lines: list[str] = record.split(sep="\n")
+    # the chain's lines close the record, right after the standing word's
+    word_at: int = max((at for at, line in enumerate(listed_lines) if line.startswith(WORD_LINE)), default=len(listed_lines))
+    chain: list[str] = listed_lines[word_at + 1 :]
+    if not chain or chain[0].startswith(f"- {task.NONE}"):
+        return None
+
+    word, _, rest = chain[0].removeprefix("- ").partition(" ")
+    key: str = rest.partition(",")[0]
+    if word not in KIND_OF_WORD or not key:
+        return None
+
+    return task.Item(kind=KIND_OF_WORD[word], key=key)
+
+
+def join(
+    brain: store.Brain,
+    note: Note,
+) -> Optional[tuple[task.Item, bool]]:
+    """Put this session on the line of work the note's writer was on, and give that work and whether the session went there.
+
+    The line is the one the work the note recorded stands at the root
+    of now, the folder's own among them. None where the note recorded
+    no work, where that work roots no line any more, and where the
+    session is on that line already. Where no agent names the session
+    it cannot be put anywhere, so it stays and the answer says so.
+    """
+    item: Optional[task.Item] = work_of(note=note)
+    if item is None:
+        return None
+
+    there: Optional[Path] = task.rooted_at(brain=brain, item=item)
+    if there is None or there == lines.home(root=brain.root):
+        return None
+
+    if lines.session() is None:
+        return item, False
+
+    lines.put(root=brain.root, line=None if there == brain.root else there)
+
+    return item, True
+
+
+def line_of(
+    found: Waiting,
+) -> str:
+    """One waiting note as the list gives it: its number, when and where it was written, the work it recorded, and whether it is the caller's own."""
+    item: Optional[task.Item] = work_of(note=found.note)
+    work: str = f"{task.WORDS[item.kind]} {item.key}" if item is not None else "no work in hand"
+    own: str = ", this session's own" if found.own else ""
+
+    return f"{found.number}  {written_words(note=found.note)}, {work}{own}"
+
+
+def written_words(
+    note: Note,
+) -> str:
+    return f"written {when(moment=note.written)} on {note.branch or 'an unknown branch'}"
+
+
+def numbered(
+    found: list[Waiting],
+    numbers: list[int],
+) -> list[Waiting]:
+    """The waiting notes under these numbers, in the list's order, refused with the list where a number is no note's."""
+    by_number: dict[int, Waiting] = {each.number: each for each in found}
+    for number in numbers:
+        if number not in by_number:
+            listing: str = "\n".join(line_of(found=each) for each in found)
+            raise HandoverError(f"no handover is numbered {number}, and these wait\n{listing}" if found else f"no handover is numbered {number}, and none waits")
+
+    return [by_number[number] for number in sorted(set(numbers))]
+
+
+@contextlib.contextmanager
+def held_for_a_command(
+    brain: store.Brain,
+) -> Iterator[None]:
+    """The notes' lock for a command that removes one, refused where another session holds it through the whole wait."""
+    with locked(folder=folder_of(brain=brain)) as turn:
+        if not turn:
+            raise HandoverError(BUSY_WRITE)
+
+        yield
+
+
+@contextlib.contextmanager
+def taking(
+    brain: store.Brain,
+    number: int,
+) -> Iterator[Waiting]:
+    """The numbered note for a command to print, removed once the caller is done with it, so a note that could not be printed stays."""
+    with held_for_a_command(brain=brain):
+        found: Waiting = numbered(found=waiting(brain=brain), numbers=[number])[0]
+
+        yield found
+
+        removed(found=found)
+
+
+def cleanup(
+    brain: store.Brain,
+    numbers: list[int],
+) -> tuple[list[Waiting], bool]:
+    """Remove the notes numbered, or with no number every note but the caller's own, and give the ones removed and whether the caller's own still waits."""
+    with held_for_a_command(brain=brain):
+        found: list[Waiting] = waiting(brain=brain)
+        going: list[Waiting] = numbered(found=found, numbers=numbers) if numbers else [each for each in found if not each.own]
+        for each in going:
+            removed(found=each)
+
+        return going, any(each.own and each not in going for each in found)
+
+
+def off(
+    brain: store.Brain,
+) -> Optional[Waiting]:
+    """Remove the caller's own waiting note and give it, or None where it has none."""
+    with held_for_a_command(brain=brain):
+        own: Optional[Waiting] = next((each for each in waiting(brain=brain) if each.own), None)
+        if own is not None:
+            removed(found=own)
+
+        return own
+
+
+def removed(
+    found: Waiting,
+) -> None:
+    """Take the note's file away, and a session's own folder with it once it is empty."""
+    try:
+        found.path.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as error:
+        raise HandoverError(f"{name_of(path=found.path)} could not be removed, {store.explain(error=error)}") from error
+
+    emptied(path=found.path)
+
+
+def emptied(
+    path: Path,
+) -> None:
+    """Take a session's own folder away once the note that was at the path is gone and nothing else is in it."""
+    if not is_sessions(path=path):
+        return
+
+    try:
+        path.parent.rmdir()
+    except OSError:
+        pass
+
+
+def for_the_work_in_hand(
+    brain: store.Brain,
+) -> list[Waiting]:
+    """The waiting notes another session wrote for the work at the root of this session's chain, for a session that just joined that work's line."""
+    root: list[task.Item] = task.current(brain=brain)[:1]
+
+    return [each for each in waiting(brain=brain) if not each.own and root == [work_of(note=each.note)]]
+
+
 def note_at(
     path: Path,
     again: bool,
@@ -1327,6 +1613,7 @@ def adopt(
 @contextlib.contextmanager
 def taken(
     brain: store.Brain,
+    new: bool = False,
 ) -> Iterator[Optional[Claim]]:
     """The claim on the note, made and held under the note's lock until the caller is done with it, the release among its steps.
 
@@ -1334,9 +1621,11 @@ def taken(
     finds none, and a write waits until a start's move back is done.
     Where another process holds the lock through the whole wait, the
     note stays where it is with the line that says so. A note left in
-    the folder before 2.2.0 moves in first.
+    the folder before 2.2.0 moves in first. `new` says the session is
+    one that starts fresh, which `claim` reads. A session that takes a
+    note is put on the line of work its writer was on.
     """
-    folder: Path = path_of(brain=brain).parent
+    folder: Path = folder_of(brain=brain)
     if not os.path.isdir(folder):
         # the first touch on this machine makes the folder the lock lives in, so the lock below holds
         adopt(brain=brain)
@@ -1347,20 +1636,70 @@ def taken(
             return
 
         said: list[str] = [line for line in adopt(brain=brain) if not line.startswith("moved ")]
-        found: Optional[Claim] = claim(brain=brain)
+        found: Optional[Claim] = claim(brain=brain, new=new)
         # a note that stays in the old folder is said beside whatever line the start says in the note's place, and waits for the next start where a note is read
         if said and found is None:
             found = left(path=brain.root / OLD_FOLDER / FILE, again=False, waiting=" ".join(said))
         elif said and found is not None and found.note is None:
             found = left(path=found.path, again=found.again, waiting=" ".join([found.waiting or "", *said]).strip())
 
+        if found is not None and found.note is not None:
+            try:
+                join(brain=brain, note=found.note)
+            except OSError:
+                # the note is read all the same, and brain task on with its work joins the line by hand
+                pass
+
         yield found
 
 
 def claim(
     brain: store.Brain,
+    new: bool = False,
 ) -> Optional[Claim]:
-    """Take the note for the session starting, or say in one line why it stays where it is.
+    """Take the note that is the starting session's to take, or say in one line why none is taken.
+
+    Where no agent names the session, that is the unnamed note, by the
+    branch rules `claim_at` keeps for it, and no other. A session the
+    agent names takes its own note at every start, whatever its branch.
+    With none of its own, a `new` session, one that starts fresh and
+    not from a resume or a compaction, takes the one note that waits,
+    whoever wrote it and whatever its branch. Where more than one waits
+    it takes none and one line says how many, and a session that is not
+    new never takes a note another wrote.
+    """
+    if lines.session() is None:
+        return claim_at(brain=brain, path=unnamed_path(brain=brain), any_branch=False)
+
+    own: Optional[Claim] = claim_at(brain=brain, path=path_of(brain=brain), any_branch=True)
+    if own is not None or not new:
+        return own
+
+    others: list[Waiting] = waiting(brain=brain)
+    if len(others) > 1:
+        return left(
+            path=unnamed_path(brain=brain),
+            again=False,
+            waiting=f"{len(others)} handovers wait and none is this session's own, so none was taken. brain handover list names each, and brain handover take with its number reads one and removes it.",
+        )
+
+    # with no note to count, what stands at the unnamed note's path is still said as a start says it
+    only: Path = others[0].path.with_name(name=FILE) if others else unnamed_path(brain=brain)
+
+    return claim_at(brain=brain, path=only, any_branch=True)
+
+
+def claim_at(
+    brain: store.Brain,
+    path: Path,
+    any_branch: bool,
+) -> Optional[Claim]:
+    """Take the note at the path for the session starting, or say in one line why it stays where it is.
+
+    `any_branch` takes it whatever branch it was written on, as a
+    session takes its own note and a new session the one that waits,
+    while the unnamed note of a session no agent names is taken only by
+    a session on its branch.
 
     The note is renamed aside in one step, then read and judged again
     there, so a file written at the note's path between the first read
@@ -1379,12 +1718,12 @@ def claim(
     gone by then gives no claim. Where the rename fails the note is read
     where it is with the reason, and stays for the next session.
     """
-    path: Path = path_of(brain=brain)
     if os.path.lexists(path):
         return judged(
             brain=brain,
             path=path,
             again=False,
+            any_branch=any_branch,
         )
 
     aside: Path = path.with_name(name=CLAIMED_NAME)
@@ -1395,6 +1734,7 @@ def claim(
         brain=brain,
         path=aside,
         again=True,
+        any_branch=any_branch,
     )
     if leftover is not None:
         return leftover
@@ -1403,6 +1743,7 @@ def claim(
         brain=brain,
         path=path,
         again=False,
+        any_branch=any_branch,
     )
 
 
@@ -1412,6 +1753,7 @@ def judged(
     again: bool,
     branch: Optional[str] = None,
     case_flag: Optional[Callable[[], bool]] = None,
+    any_branch: bool = False,
 ) -> Optional[Claim]:
     """The claim on the file at the path, taken where it is this session's note, else left as it is with the line that says why, or None where nothing stands at the path by the time it is read.
 
@@ -1425,7 +1767,8 @@ def judged(
     is taken where it is. A file gone since the claim found it, renamed
     or removed by another start, removed by a write or deleted by hand,
     has no line to say, while a link that leads nowhere still stands
-    there.
+    there. With `any_branch` the note is this session's whatever its
+    header names, so git is asked nothing.
     """
     project: Path = project_of(brain=brain)
     where: str = path.relative_to(project).as_posix()
@@ -1453,25 +1796,27 @@ def judged(
             waiting=f"{where} holds a file brain handover never wrote, left where it is, move it into docs/ through brain new or delete it.",
         )
 
-    session_branch: str = current_branch(project=project) if branch is None else branch
+    session_branch: str = branch or ""
     shared_case_flag: Callable[[], bool] = asked_once(project=project) if case_flag is None else case_flag
-    one_ref_for_git: bool = ignore_case_for(
-        note=note,
-        branch=session_branch,
-        case_flag=shared_case_flag,
-    )
-    for_this_session: bool = is_for(
-        note=note,
-        branch=session_branch,
-        ignore_case=one_ref_for_git,
-    )
-    if not for_this_session:
-        waiting_since: str = when(moment=note.written)
-        return left(
-            path=path,
-            again=again,
-            waiting=f"A handover written on {note.branch} at {waiting_since} waits in {where} for a session on that branch, and this one is on {session_branch}.",
+    if not any_branch:
+        session_branch = current_branch(project=project) if branch is None else branch
+        one_ref_for_git: bool = ignore_case_for(
+            note=note,
+            branch=session_branch,
+            case_flag=shared_case_flag,
         )
+        for_this_session: bool = is_for(
+            note=note,
+            branch=session_branch,
+            ignore_case=one_ref_for_git,
+        )
+        if not for_this_session:
+            waiting_since: str = when(moment=note.written)
+            return left(
+                path=path,
+                again=again,
+                waiting=f"A handover written on {note.branch} at {waiting_since} waits in {where} for a session on that branch, and this one is on {session_branch}.",
+            )
 
     if path.name != CLAIMED_NAME:
         return taken_aside(
@@ -1480,6 +1825,7 @@ def judged(
             note=note,
             branch=session_branch,
             case_flag=shared_case_flag,
+            any_branch=any_branch,
         )
 
     HELD_PATHS.add(path)
@@ -1500,6 +1846,7 @@ def taken_aside(
     note: Note,
     branch: str,
     case_flag: Callable[[], bool],
+    any_branch: bool = False,
 ) -> Optional[Claim]:
     """The note renamed aside, then judged again there as the first read was judged, or read where it is with the reason when the rename fails, so the next session reads it again.
 
@@ -1546,6 +1893,7 @@ def taken_aside(
         again=False,
         branch=branch,
         case_flag=case_flag,
+        any_branch=any_branch,
     )
     if moved is None:
         return judged(
@@ -1554,6 +1902,7 @@ def taken_aside(
             again=False,
             branch=branch,
             case_flag=case_flag,
+            any_branch=any_branch,
         )
 
     if moved.taken or os.path.lexists(path):
@@ -1577,6 +1926,7 @@ def taken_aside(
         again=False,
         branch=branch,
         case_flag=case_flag,
+        any_branch=any_branch,
     )
 
 
@@ -1628,9 +1978,11 @@ def release(
     try:
         claim.path.unlink()
     except FileNotFoundError:
-        return None
+        pass
     except OSError as error:
         return store.explain(error=error)
+
+    emptied(path=claim.path)
 
     return None
 

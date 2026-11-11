@@ -210,6 +210,11 @@ def locate(
 # session that wrote the note still holds everything in it.
 FORK = "fork"
 
+# The session starts that begin fresh, with no context of an earlier one
+# to go on, so such a session takes the one note that waits whoever wrote
+# it, while a resume or a compaction takes its own session's note alone.
+NEW_STARTS = ("startup", "clear")
+
 # Claude Code shows up to this many characters of a hook's added context,
 # and past it keeps the whole text in a file of the session's and shows
 # its path with the first 2,000 characters without asking the model to
@@ -244,9 +249,12 @@ def session_start(
     fails to go out leaves the file for the next start, which reads it
     again. A note for another branch, a file the tool never wrote and
     one it cannot open stay, each said in one line in the note's place.
+    Where the agent names the session, the note is the session's own at
+    every such start, and a note another session wrote is taken only by
+    a start that begins fresh and finds that one note alone.
     """
     # the note's lock is held from the first look to the removal, so a second start waits and finds none, and a fork takes no note and no lock
-    with handover.taken(brain=brain) if source != FORK else contextlib.nullcontext(enter_result=None) as claim:
+    with handover.taken(brain=brain, new=source in NEW_STARTS) if source != FORK else contextlib.nullcontext(enter_result=None) as claim:
         text = the_moment(brain=brain) + handover_text(claim=claim)
         text += "\n\nThe brain, counted from the files right now:\n" + reads.render_status(data=reads.status(brain=brain)) + "\n" + nudge.START
         if with_rules:
