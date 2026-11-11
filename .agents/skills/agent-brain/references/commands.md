@@ -690,16 +690,26 @@ change a test file's assertions stays the folder's, since it is about
 files.
 
 The tool knows the session from what the agent puts into the
-environment of the commands and hooks it runs, `CLAUDE_CODE_SESSION_ID`,
-`CODEX_THREAD_ID` or `GEMINI_SESSION_ID`, the first that is set. It keeps
+environment of the commands it runs, `CLAUDE_CODE_SESSION_ID`,
+`CODEX_SESSION_ID` or `CODEX_THREAD_ID`, the first that is set. It keeps
 a short hash of it and never the id, no command takes one and none
-prints one. Claude Code's desktop app was seen on 2026-11-10 to set its
-variable for the commands it runs and to keep one id through a resume
-and five compactions, and Claude Code's docs say the same of its hooks
-and of the CLI. Codex and Gemini CLI are not verified to hand theirs to
-a shell command, so their support is in doubt. Where none is set, as in
-a plain terminal, the session is on the folder's line, and `--beside`
-and a join are refused with that reason.
+prints one. A hook has to read the session its commands run in, and
+each agent names it to a hook in its own way.
+
+- Claude Code: puts its variable into hooks and commands alike. Its
+  desktop app was seen on 2026-11-10 to do so and to keep one id through
+  a resume and five compactions, and its docs say the same of the CLI.
+- Codex: puts the session's id into its commands and hands a hook the
+  same id in its event, which the Codex hook reads. A sub agent's
+  commands carry their parent's session beside a thread of their own,
+  and the session is the one read. That is how Codex's source read on
+  2026-11-11. It was not run here, so Codex's support is unproven.
+- Gemini CLI: gives its commands no id, only its hooks, so a Gemini
+  session names none. There the folder keeps its one line of work and
+  its one unnamed note, as before 3.2.0.
+
+Where none is set, as in a plain terminal, the session is on the
+folder's line, and `--beside` and a join are refused with that reason.
 
 `brain task on <key>` with the root of another line's chain puts the
 session on that line, with no flag and no refusal, and with the root of

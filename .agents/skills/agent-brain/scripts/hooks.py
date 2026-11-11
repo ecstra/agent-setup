@@ -128,6 +128,8 @@ def run(
     if brain is None:
         return 0
 
+    name_the_session(agent=args.agent, event=event)
+
     if args.event == "session-start":
         return session_start(
             brain=brain,
@@ -146,6 +148,23 @@ def run(
         return pre_write(brain=brain, event=event, agent=args.agent)
 
     return post_write(brain=brain, event=event, agent=args.agent)
+
+
+def name_the_session(
+    agent: str,
+    event: dict,
+) -> None:
+    """Give this hook the session its agent's commands run in, where the agent names it to the hook another way.
+
+    Codex puts the session's id into the environment of the commands it
+    runs and not into a hook's, which gets the same id in its event, so
+    a Codex hook takes it from there, over one a Codex that started this
+    one left in the environment. Claude Code names the session to both
+    alike, and Gemini CLI to no command, so nothing is done for them.
+    """
+    given = event.get("session_id")
+    if agent == "codex" and isinstance(given, str) and given.strip():
+        os.environ[lines.CODEX_SESSION] = given
 
 
 def read_event() -> dict:

@@ -2,9 +2,10 @@
 
 Two agents may work in one project folder, each on its own line of
 work. What tells them apart is the session each runs in, which the
-agent itself names in the environment of every command and hook it
-starts. The tool reads it there and nowhere else, so no command takes
-a session's id and the agent never types one. Where no agent names a
+agent itself names in the environment of every command it starts. The
+tool reads it there and nowhere else, and a hook whose agent names the
+session to it another way puts it there first, so no command takes a
+session's id and the agent never types one. Where no agent names a
 session, as in a plain terminal, there is none, and the tool works on
 the folder's own files as it did before 3.2.0.
 
@@ -30,8 +31,17 @@ SESSIONS = "sessions"
 NO_SESSION = "this agent names no session to its commands, so a line of work of its own cannot be told apart here"
 BY_HAND = f"{FOLDER}/ holds the work in hand, the standing word and the stop time of each line of work started with brain task on --beside, and nothing there is written by hand"
 
-# what Claude Code, Codex and Gemini CLI put into the environment of what they run, read in that order
-SESSION_VARS: tuple[str, ...] = ("CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "GEMINI_SESSION_ID")
+# Codex names the session to the commands it runs under this name and to a hook in its event alone, so a Codex hook puts the event's id here
+CODEX_SESSION = "CODEX_SESSION_ID"
+
+# What an agent puts into the environment of the commands it runs, read
+# in this order. Claude Code names the session to its commands and its
+# hooks alike. Codex names the session and the thread, the session read
+# first, since a sub agent's thread has an id of its own while its
+# session is its parent's. Gemini CLI gives a command no id, only a
+# hook, so its variable is not read and a Gemini session keeps the
+# folder's one line and one unnamed note.
+SESSION_VARS: tuple[str, ...] = ("CLAUDE_CODE_SESSION_ID", CODEX_SESSION, "CODEX_THREAD_ID")
 
 # long enough that two sessions in one folder never share one, short enough for a file's name
 HASH_LENGTH = 16
