@@ -259,16 +259,13 @@ and `brain list --area` finds every entry.
   the owner's word into a bug that links the ledger, each of the last
   three with its reason.
 - The handover note is the one a session leaves for the next. Where the
-  agent names the session, each session keeps its own, in
-  `.handover/<hash>/handover.md`. That session's next write replaces it
-  and its next start takes it back, whatever the branch, a session that
-  starts fresh takes the one note that waits, and
-  `brain handover list`, `take`, `cleanup` and `off` handle the notes
-  that wait, as
+  agent names the session, each keeps its own in
+  `.handover/<hash>/handover.md`, written and taken back by that
+  session alone whatever the branch, as
   [the reference](references/commands.md#a-note-per-session) says. The
-  rest of this item is the unnamed note, `.handover/handover.md`, the
-  one an agent that names no session writes and takes. A write replaces
-  the note left on its branch or
+  rest of this item is the unnamed note, `.handover/handover.md`, of an
+  agent that names no session. A write replaces the note left on its
+  branch or
   one that names no branch, `no git` or `git could not answer`, and
   refuses any other until `--replace`. A note is for a session on its
   branch, the three just named are for any session, and so is any note
@@ -405,24 +402,12 @@ A heredoc, quoted or not, ends at the first line that is its word
 alone, so the word is one no line of the note is, which rules out `EOF`
 once a trap quotes a heredoc of its own.
 
-The note is this session's own, and its next start gets it back. The
-other notes that wait in the folder are another session's. A start that
-could not pick among several says how many wait, and then these read
-and clear them, `take` and `cleanup` on the owner's word unless the
-session is a new one picking its work up.
-
-```bash
-brain handover list
-brain handover take 2
-brain handover cleanup
-brain handover off
-```
-
-`list` numbers the notes that wait with when and where each was written
-and the work it recorded. `take` prints one and removes it. `cleanup`
-removes every note but this session's own, or the ones numbered. `off`
-drops this session's own, which a session whose work is done runs so it
-leaves no note behind.
+The note is this session's own, and its next start gets it back.
+`brain handover list` numbers the notes that wait, `take <n>` prints
+one and removes it, `cleanup` removes every note but this session's
+own, and `off` drops this session's own once its work is done. `take`
+and `cleanup` run on the owner's word, unless the session is a new one
+picking its work up.
 
 ## Checking the brain and the project
 
