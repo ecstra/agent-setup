@@ -906,9 +906,7 @@ def install(
     old_notes: list[str] = old_handovers(project=project)
     if old_notes:
         report.done(
-            f"{FOLDER}/{handover.OLD_FOLDER}/ holds {len(old_notes)} Agent Setup never wrote, which it no longer reads or lists, since the one note brain handover writes lives in {FOLDER}/{handover.FOLDER}/: "
-            + ", ".join(old_notes)
-            + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest",
+            f"{FOLDER}/{handover.OLD_FOLDER}/ holds {len(old_notes)} Agent Setup never wrote, which it no longer reads or lists, since the notes brain handover writes live in {FOLDER}/{handover.FOLDER}/: " + ", ".join(old_notes) + ". Move what still matters into docs/ or memory/ through brain new, and delete the rest",
         )
 
     for relative in kit.agent_files():
