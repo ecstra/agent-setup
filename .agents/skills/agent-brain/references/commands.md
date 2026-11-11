@@ -607,12 +607,14 @@ clears it but `brain conclude off`, a session start included.
 A time not still to come, an empty one, and one past the year 2999 are
 refused, and so are `at` or `in` with no time and `off` with one. The
 state is one dotted file at the root of the brain, `.agents/.conclude`,
-which git ignores like the standing word's, and a file there that does
-not read as a time gives a line that says so until
-`brain conclude off` clears it.
+or the one in its line's folder for a session on a line of its own, as
+[the lines of work](#the-lines-of-work) say, with how the word follows
+its session from line to line. Git ignores it like the standing word's,
+and a file there that does not read as a time gives a line that says so
+until `brain conclude off` clears it.
 
-Two limits stand. The word is one file for the checkout, so two
-sessions open on it share one time, and a handover the second writes
+Two limits stand. The word is one file for a line of work, so two
+sessions on one line share one time, and a handover the second writes
 past the time clears the word for the first, which is why one session
 at a time works a checkout while a word waits. And a session
 whose next hook comes over an hour past the time, a single tool call
@@ -683,11 +685,18 @@ under `.agents/.lines/`, with its own `.task`, `.ack` and `.conclude`,
 and puts the session on it. From then on every command and every hook
 line of that session reads and writes its line's three alone, so
 `brain task`, `brain ack`, `brain conclude` and a review's gates never
-touch the first agent's. The session's conclude word comes along to its
-new line, since the owner named that time to the session, while the
-standing word stays behind with the work it was given for. The word to
-change a test file's assertions stays the folder's, since it is about
-files.
+touch the first agent's. The standing word stays behind with the work it
+was given for, and the word to change a test file's assertions stays
+the folder's, since it is about files.
+
+The conclude word goes where its session goes, since the owner named
+that time to the session and not to the work. It comes along to a line
+the session starts with `--beside`, to one it joins by `brain task on`
+or by taking a note, and back to the folder's line when its own line
+ends. It goes along only while it still orders something, which is
+until an hour past its time, and never over a time the other line still
+counts down to, which the sessions there were given. The line left
+keeps its own for whoever stays on it.
 
 The tool knows the session from what the agent puts into the
 environment of the commands it runs, `CLAUDE_CODE_SESSION_ID`,
@@ -724,8 +733,9 @@ entry's key wherever the session is known, since that is where a second
 agent finds itself stuck.
 
 A line ends with its chain. `brain task off` that empties it takes the
-line's folder away with its standing word and its conclude word, and
-each session that was on it is on the folder's line again. A line whose
+line's folder away with its standing word, and each session that was
+on it is on the folder's line again, its conclude word carried there
+as above. A line whose
 work closed stays until that session next starts work, since a reading
 never writes, and that start is then judged from the folder's line.
 `brain status` names every other line that has work in hand, one line
@@ -748,9 +758,9 @@ names none.
 | Command | What it does |
 |---|---|
 | `brain handover [--replace]` | Writes the caller's note from the prose on standard input, in place of the one there, and prints its path, `.handover/handover.md` for the unnamed note and `.handover/<hash>/handover.md` for a session's own, which replaces the note that session wrote before with nothing else judged, so what this row says of a waiting note for another branch and of `--replace` holds for the unnamed note alone. The header carries the branch, the head and the moment. The body opens with the record the tool reads off the machine, the branch at its head with the commit's subject, the uncommitted files, the standing word as `brain ack` prints it at the note's moment and the current work as `brain task` prints it, then the prose as it came, less the blank lines before and after it, so a first line's indentation and a last line's trailing spaces stay. The uncommitted files are listed one per line with their state, modified, added, deleted, renamed, copied, type changed, unmerged or untracked, git's own letter for any other, the first fifty and then one line, `and N more`, for the rest. A project below its repository's top lists only its own files, named from its own folder, a file renamed out of it reading `moved out of the project` under the name it left, and the note under either of its names and its lock are left out, each path matched as git's listing matches it, so where `core.ignorecase` is true two paths that differ in an ASCII letter's case alone are one. A path or a subject that holds a line break or a carriage return is written with it escaped, so each stays one line. A detached head reads as the branch a rebase or a bisect in progress works on, else `detached`. Where the file git keeps for that cannot be read, it reads `git could not answer` with the reason. The branch and the head read `no git` where git is not installed or no `.git` stands at the project's root or above it, `no commits yet` in a repository with none, and `git could not answer` with the first line git gave where it refuses the repository, or with the seconds it waited where git gives no answer in 10. Refused with no words on standard input, and with a folder standing at the note's path or at `.handover/handover.md.reading`, or a file standing where their folder goes. Refused too over a file at the note's path the tool never wrote or cannot read, which `--replace` never writes over, and while another session holds the note's lock past the wait below. Which waiting note a write replaces is in [the brain's files](../SKILL.md#the-brains-files), and one it does not, a note for another branch, is refused with its branch and its moment, which `--replace` writes over on the owner's word. With nothing at the path, a claimed note a session start could not remove, `.handover/handover.md.reading`, is the note waiting and is judged the same. With neither name in `.handover/`, a note of the tool's left in `handover/` before 2.2.0, `handover.md` first and then `handover.md.reading`, is the one note waiting and is judged the same, so one for another branch is refused until `--replace`. The write moves nothing, and removes a claimed note or an old one it replaces once the new note is in place. |
-| `brain handover list` | One line for each note that waits, the oldest first, a note whose header gives no moment counting as the oldest. Each gives the note's number, when and on which branch it was written, the root of the work chain it recorded or `no work in hand`, and `this session's own` on the caller's, which is its session's note or, where the agent names no session, the unnamed one. `no handover waits` with none. Refused with a number. |
-| `brain handover take <n>` | Prints the note under that number whole and removes it, a session's own folder with it. Where the work the note recorded stands at the root of another line of work than the caller's, the session is put on that line and a last line says so, and where the agent names no session one line on standard error says why it stays where it is. Refused with the list of the notes that wait for a number none of them carries, and without exactly one number. A note that could not be printed stays. |
-| `brain handover cleanup [<n>...]` | Removes every note that waits but the caller's own, or with numbers the notes numbered, the caller's own among them where it is numbered, and prints one line for each it removed. With nothing to remove it says so, and whether the caller's own still waits. Refused with the list, and nothing removed, where a number is no note's. It runs on the owner's word alone, as SYSTEM.md section 8.4 says. |
+| `brain handover list` | One line for each note that waits, in the order of their numbers, which [a note per session](#a-note-per-session) says how a note gets and keeps. Each gives the note's number, when and on which branch it was written, the root of the work chain it recorded or `no work in hand`, and `this session's own` on the caller's, which is its session's note or, where the agent names no session, the unnamed one. `no handover waits` with none. Refused with a number, and while another session holds the notes' lock past the wait. |
+| `brain handover take <n>` | Prints the note under that number whole and removes it, its number and a session's own folder with it. Where another session wrote the note and the work it recorded stands at the root of another line of work than the caller's, the session is put on that line and a last line says so, and where the agent names no session one line on standard error says why it stays where it is. The caller's own note leaves it on the line it is on. Refused with the list of the notes that wait for a number none of them carries, one whose note was taken, removed or written again among them, and without exactly one number. A note that could not be printed stays. |
+| `brain handover cleanup [<n>...]` | Removes every note that waits but the caller's own, or with numbers the notes numbered, the caller's own among them where it is numbered, and prints one line for each it removed with its number. With nothing to remove it says so, and whether the caller's own still waits. Refused with the list, and nothing removed, where a number is no waiting note's. It runs on the owner's word alone, as SYSTEM.md section 8.4 says. |
 | `brain handover off` | Removes the caller's own waiting note and says so, or says it has none and changes nothing. Refused with a number. |
 
 [The brain's files](../SKILL.md#the-brains-files) say which session
@@ -781,9 +791,11 @@ count and names `brain handover list` and `brain handover take`. A
 start whose source is `resume` or `compact` takes its own note and no
 other. So an agent that gives a session a new id at a compaction leaves
 that session's note waiting, which the status names and
-`brain handover take` reads. A session that takes a note, at a start or
-through `take`, is put on the line of work whose root is the work the
-note recorded, wherever such a line stands.
+`brain handover take` reads. A session that takes a note another
+session wrote, at a start or through `take`, is put on the line of work
+whose root is the work the note recorded, wherever such a line stands.
+A session that takes back its own note stays on the line it is on,
+which it may have gone to since it wrote the note.
 
 Where the agent names no session, the folder keeps the one unnamed
 note, written and taken by the branch rules of
@@ -792,14 +804,28 @@ session named takes that note and never a session's own. The unnamed
 note, one an older release wrote among them, is listed, taken and
 cleaned up like any other, and an upgrade moves nothing.
 
+A waiting note keeps one number for as long as it waits.
+`brain handover list`, `take` and `cleanup`, and the line
+`brain task on` prints below, give a note the number after the last one
+ever given the first time they show it, the oldest first. The number
+is kept in a file named `number` beside the note, and the last number
+given in `.handover/numbered`, so no number is given twice. A note that was
+taken, removed or written again leaves its number naming nothing, and
+the next note in its place gets a new one. So a number read off the
+list never reaches another note than the one it named, and `take` or
+`cleanup` with a number that names nothing is refused with the list.
+
 `brain task on` that puts the session on another line of work names,
 under the chain, each waiting note another session wrote for that
-line's work, with the number `take` reads it by.
+line's work, with the number `take` reads it by. While another session
+holds the notes' lock it names none, and `brain handover list` still
+shows them.
 
 A session start and a write take turns on the note's lock,
 `.handover/handover.lock`, which every note shares, a session's own
-among them. `take`, `cleanup` and `off` take it too, each refused with
-words to run it again where another session holds it past the wait.
+among them. `list`, `take`, `cleanup` and `off` take it too, each
+refused with words to run it again where another session holds it past
+the wait.
 The start holds it from its first look for the note until it has
 removed it, so a second start waits and then finds none, and only one
 session gets the note. A write
@@ -1916,7 +1942,8 @@ before the write's.
 A tracker folder here is one the brain indexes, `docs/`, `memory/`,
 `bugs/`, `todos/`, `decisions/`, `plans/`, `build-specs/` or
 `reviews/`. The brain's own files are `INDEX.md`, `.ack`, `.ack-tests`,
-`.task`, `.conclude` and `.handover/`, which the tool alone writes. A pattern in
+`.task`, `.conclude`, `.handover/` and `.lines/`, which the tool alone
+writes. A pattern in
 place of a folder's name, as in `.agents/*/*.md` or
 `.agents/{bugs,todos}/*.md`, reaches each tracker folder it matches.
 Nothing else in the brain's folder is an entry, Agent Setup's own
