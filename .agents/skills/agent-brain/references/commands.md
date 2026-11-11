@@ -708,7 +708,10 @@ starts on the folder's line, picks a line up by naming its work.
 `--beside` for an entry that already roots a line joins that line too.
 `--beside` is refused with nothing in hand, where a plain start is the
 way, for an entry already on the chain in hand, and together with
-`--replace`. Two sessions on one line share it.
+`--replace`. Two sessions on one line share it. The refusal of a second
+root, started plain over a chain that stands, names `--beside` with the
+entry's key wherever the session is known, since that is where a second
+agent finds itself stuck.
 
 A line ends with its chain. `brain task off` that empties it takes the
 line's folder away with its standing word and its conclude word, and

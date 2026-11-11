@@ -436,7 +436,12 @@ def turn_on(
         raise TaskError(f"{item.key} is on the chain already, above {chain[-1].key}, and brain task off drops back to it")
 
     if chain and not may_push(brain=brain, chain=chain, entry=entry):
-        raise TaskError(f"the work is on {describe_item(brain=brain, item=chain[-1])}, finish it or drop it with brain task off first")
+        refusal = f"the work is on {describe_item(brain=brain, item=chain[-1])}, finish it or drop it with brain task off first"
+        # a second agent in the folder is stuck right here, so it is told the way out, and only where it can take it
+        if lines.session() is not None:
+            refusal += f", or where another session keeps that work, start this beside it with brain task on {item.key} --beside"
+
+        raise TaskError(refusal)
 
     chain.append(item)
     write(brain=brain, chain=chain)
