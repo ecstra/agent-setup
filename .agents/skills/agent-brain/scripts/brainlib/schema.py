@@ -352,7 +352,7 @@ KINDS: dict[str, Kind] = {
     ),
 }
 
-# The folder that holds the one note a session leaves for the next,
+# The folder that holds the note each session leaves for the next,
 # written by the tool and read once by the session start hook. It is
 # nobody's entry, so the store never lists it and doctor never reads it,
 # and git ignores it like the standing word and the current work, whose

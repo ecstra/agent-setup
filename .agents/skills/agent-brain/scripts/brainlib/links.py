@@ -34,7 +34,7 @@ SCRATCH_SHAPE = re.compile(r"^\.putback\.[A-Za-z0-9_]+$")
 # file may stand at that path and the folder's one note still never
 # enters git.
 REACHES_NOTHING: str = "reaches nothing"
-HANDOVER_REASON: str = f"{REACHES_NOTHING}, since {schema.HANDOVER_FOLDER}/ holds the one note brain handover writes and no link goes into it"
+HANDOVER_REASON: str = f"{REACHES_NOTHING}, since {schema.HANDOVER_FOLDER}/ holds the notes brain handover writes and no link goes into it"
 
 # What git said of its case flag for each project this run asked about,
 # kept for the run the way handover model R6 parses the flag once, so a
