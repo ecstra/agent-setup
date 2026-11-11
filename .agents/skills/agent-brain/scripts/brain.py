@@ -463,7 +463,7 @@ def run_handover_list(
         print("brain handover list takes no number", file=sys.stderr)
         return REFUSED
 
-    found = handover.waiting(brain=brain)
+    found = handover.listed(brain=brain)
     print("\n".join(handover.line_of(found=each) for each in found) if found else handover.NONE_WAITS)
     return 0
 
@@ -479,7 +479,8 @@ def run_handover_take(
     with handover.taking(brain=brain, number=args.numbers[0]) as found:
         print(found.note.text.rstrip())
 
-    joined = handover.join(brain=brain, note=found.note)
+    # the session's own note leaves it on the line it is on now, which it may have gone to since it wrote the note
+    joined = None if found.own else handover.join(brain=brain, note=found.note)
     if joined is not None:
         item, went = joined
         work = f"{task.WORDS[item.kind]} {item.key}"

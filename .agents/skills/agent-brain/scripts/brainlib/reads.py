@@ -58,7 +58,7 @@ def waiting_handover(
     if not found:
         return None
 
-    note: handover.Note = next((each.note for each in found if each.own), found[0].note)
+    note: handover.Note = handover.read(brain=brain) or found[0].note
     if len(found) > 1:
         return {**header_of(note=note), "count": len(found)}
 

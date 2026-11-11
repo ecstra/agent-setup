@@ -32,7 +32,7 @@ import stat
 import string
 import subprocess
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Iterator, Optional
@@ -42,7 +42,7 @@ if os.name == "nt":
 else:
     import fcntl
 
-from . import autoack, clock, frontmatter, lines, schema, store, task
+from . import autoack, clock, conclude, frontmatter, lines, schema, store, task
 
 FOLDER: str = schema.HANDOVER_FOLDER
 # the folder the note lived in before 2.2.0, which the upgrade moves it out of
@@ -70,6 +70,9 @@ PROSE_HEADING = "\n\n## As the session left it"
 # the standing word's line in the record, which the chain's lines follow to the record's end
 WORD_LINE = "- auto ack"
 KIND_OF_WORD: dict[str, str] = {word: kind for kind, word in task.WORDS.items()}
+# the file beside a note that keeps the number the list gave it, and the one in the notes' folder that keeps the last number ever given
+NUMBER_NAME = "number"
+LAST_NUMBER_NAME = "numbered"
 # a session's own folder under the notes', named by the hash `lines.session` gives
 SESSION_SHAPE: re.Pattern[str] = re.compile(pattern=rf"[0-9a-f]{{{lines.HASH_LENGTH}}}")
 # the lock a session start holds from its first look for the note to its removal, and a write for its own steps
@@ -236,8 +239,8 @@ def path_of(
 def is_sessions(
     path: Path,
 ) -> bool:
-    """Whether the file is in a session's own folder, not the unnamed note's place right under the notes' folder."""
-    return path.parent.name != FOLDER
+    """Whether the file is in a session's own folder under the notes', not the unnamed note's place right under it."""
+    return path.parent.parent.name == FOLDER and SESSION_SHAPE.fullmatch(string=path.parent.name) is not None
 
 
 def name_of(
@@ -378,6 +381,8 @@ def write_held(
         path=str(path),
         text=text,
     )
+    # this is another note than the one the list numbered here, so that number names nothing from now on
+    unnumbered(folder=path.parent)
 
     # the note just written replaces a claimed one left on disk, which
     # would otherwise come back as the note waiting once this one goes
@@ -1126,29 +1131,33 @@ def one_line(
 def read(
     brain: store.Brain,
 ) -> Optional[Note]:
-    """The tool's note waiting on disk, unclaimed, or None where nothing there reads as the tool's note.
+    """The caller's own note waiting on disk, unclaimed, or None where nothing there reads as the tool's note."""
+    found: Optional[tuple[Path, Note]] = standing_in(folder=path_of(brain=brain).parent)
 
-    With no file at the note's path, a claimed note left on disk is the
+    return None if found is None else found[1]
+
+
+def standing_in(
+    folder: Path,
+) -> Optional[tuple[Path, Note]]:
+    """The note that waits in the folder with the file that holds it, or None where nothing there reads as the tool's note.
+
+    With no file at the note's name, a claimed note left on disk is the
     note waiting, as `claim` and `write` judge it, read as one read
     before, unless a claim of this process holds it, since the session
     start counts the status after its claim and that note is in the
     very context the status goes into.
     """
-    path: Path = path_of(brain=brain)
-    if os.path.lexists(path):
-        return note_at(
-            path=path,
-            again=False,
-        )
+    held: Path = folder / FILE
+    again: bool = not os.path.lexists(held)
+    if again:
+        held = folder / CLAIMED_NAME
+        if held in HELD_PATHS:
+            return None
 
-    aside: Path = path.with_name(name=CLAIMED_NAME)
-    if aside in HELD_PATHS:
-        return None
+    note: Optional[Note] = note_at(path=held, again=again)
 
-    return note_at(
-        path=aside,
-        again=True,
-    )
+    return None if note is None else (held, note)
 
 
 def session_folders(
@@ -1164,32 +1173,78 @@ def session_folders(
 def waiting(
     brain: store.Brain,
 ) -> list[Waiting]:
-    """Every note that waits, the unnamed one and each session's own, numbered from the oldest.
+    """Every note that waits, the unnamed one and each session's own, the oldest first, each with the number the list gave it, or 0 where it was never listed.
 
-    Each folder holds one note, read as `read` reads it: the file at the
-    note's name, or with none there the claimed one a start left on
-    disk, unless a claim of this process holds it. The caller's own is
-    its session's, or the unnamed note where no agent names the session.
-    A note whose header gives no moment counts as the oldest.
+    Each folder holds one note, as `standing_in` reads it. The caller's
+    own is its session's, or the unnamed note where no agent names the
+    session. A note whose header gives no moment counts as the oldest.
     """
     top: Path = folder_of(brain=brain)
     own_folder: Path = path_of(brain=brain).parent
-    found: list[tuple[Path, Note]] = []
-    for folder in (top, *session_folders(top=top)):
-        held: Path = folder / FILE
-        again: bool = not os.path.lexists(held)
-        if again:
-            held = folder / CLAIMED_NAME
-            if held in HELD_PATHS:
-                continue
-
-        note: Optional[Note] = note_at(path=held, again=again)
-        if note is not None:
-            found.append((held, note))
-
+    stood: list[Optional[tuple[Path, Note]]] = [standing_in(folder=folder) for folder in (top, *session_folders(top=top))]
+    found: list[tuple[Path, Note]] = [each for each in stood if each is not None]
     found.sort(key=lambda pair: (pair[1].written is not None, pair[1].written or datetime.min, pair[0].as_posix()))
 
-    return [Waiting(number=number, path=path, note=note, own=path.parent == own_folder) for number, (path, note) in enumerate(found, start=1)]
+    return [Waiting(number=stored_number(path=path.with_name(name=NUMBER_NAME)), path=path, note=note, own=path.parent == own_folder) for path, note in found]
+
+
+def numbered(
+    brain: store.Brain,
+) -> list[Waiting]:
+    """Every note that waits, each under a number that is its own for as long as it waits, in the order of the numbers, for a caller that holds the notes' lock.
+
+    A note the list never showed takes the number after the last one
+    ever given, the oldest first. Its number is kept in a file beside
+    it, and the last number given in the notes' folder, so no number is
+    given twice. One whose note was taken, removed or written again
+    names nothing from then on, whatever the list looked like when it
+    was read. A number two notes carry, as a folder copied by hand
+    would, stays with the older. Where a number cannot be written, the
+    note still goes by it for this call.
+    """
+    top: Path = folder_of(brain=brain)
+    found: list[Waiting] = waiting(brain=brain)
+    before: int = stored_number(path=top / LAST_NUMBER_NAME)
+    last: int = max([before, *(each.number for each in found)])
+    given: set[int] = set()
+    listed: list[Waiting] = []
+    for each in found:
+        number: int = each.number
+        if number == 0 or number in given:
+            last += 1
+            number = last
+            keep_number(path=each.path.with_name(name=NUMBER_NAME), number=number)
+
+        given.add(number)
+        listed.append(replace(each, number=number))
+
+    if last != before:
+        keep_number(path=top / LAST_NUMBER_NAME, number=last)
+
+    return sorted(listed, key=lambda each: each.number)
+
+
+def stored_number(
+    path: Path,
+) -> int:
+    """The number the file holds, or 0 where it is not there or does not read as one."""
+    try:
+        number: int = int(path.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return 0
+
+    return max(number, 0)
+
+
+def keep_number(
+    path: Path,
+    number: int,
+) -> None:
+    """Write the number to its file, and go on without it where the folder cannot be written, since the caller still holds the number for its own call."""
+    try:
+        path.write_text(f"{number}\n", encoding="utf-8")
+    except OSError:
+        pass
 
 
 def work_of(
@@ -1235,6 +1290,7 @@ def join(
     if lines.session() is None:
         return item, False
 
+    conclude.carried(here=lines.home(root=brain.root), there=there)
     lines.put(root=brain.root, line=None if there == brain.root else there)
 
     return item, True
@@ -1257,7 +1313,7 @@ def written_words(
     return f"written {when(moment=note.written)} on {note.branch or 'an unknown branch'}"
 
 
-def numbered(
+def picked(
     found: list[Waiting],
     numbers: list[int],
 ) -> list[Waiting]:
@@ -1275,12 +1331,20 @@ def numbered(
 def held_for_a_command(
     brain: store.Brain,
 ) -> Iterator[None]:
-    """The notes' lock for a command that removes one, refused where another session holds it through the whole wait."""
+    """The notes' lock for a command that numbers or removes them, refused where another session holds it through the whole wait."""
     with locked(folder=folder_of(brain=brain)) as turn:
         if not turn:
             raise HandoverError(BUSY_WRITE)
 
         yield
+
+
+def listed(
+    brain: store.Brain,
+) -> list[Waiting]:
+    """Every note that waits under its number, for the list a command prints."""
+    with held_for_a_command(brain=brain):
+        return numbered(brain=brain)
 
 
 @contextlib.contextmanager
@@ -1290,7 +1354,7 @@ def taking(
 ) -> Iterator[Waiting]:
     """The numbered note for a command to print, removed once the caller is done with it, so a note that could not be printed stays."""
     with held_for_a_command(brain=brain):
-        found: Waiting = numbered(found=waiting(brain=brain), numbers=[number])[0]
+        found: Waiting = picked(found=numbered(brain=brain), numbers=[number])[0]
 
         yield found
 
@@ -1303,8 +1367,8 @@ def cleanup(
 ) -> tuple[list[Waiting], bool]:
     """Remove the notes numbered, or with no number every note but the caller's own, and give the ones removed and whether the caller's own still waits."""
     with held_for_a_command(brain=brain):
-        found: list[Waiting] = waiting(brain=brain)
-        going: list[Waiting] = numbered(found=found, numbers=numbers) if numbers else [each for each in found if not each.own]
+        found: list[Waiting] = numbered(brain=brain)
+        going: list[Waiting] = picked(found=found, numbers=numbers) if numbers else [each for each in found if not each.own]
         for each in going:
             removed(found=each)
 
@@ -1326,7 +1390,7 @@ def off(
 def removed(
     found: Waiting,
 ) -> None:
-    """Take the note's file away, and a session's own folder with it once it is empty."""
+    """Take the note's file away, with its number and, for a session's own, its folder once that is empty."""
     try:
         found.path.unlink()
     except FileNotFoundError:
@@ -1340,12 +1404,25 @@ def removed(
 def emptied(
     path: Path,
 ) -> None:
-    """Take a session's own folder away once the note that was at the path is gone and nothing else is in it."""
-    if not is_sessions(path=path):
+    """Take away what stood beside the note that was at the path once no note is left in its folder, its number and, for a session's own, the folder itself where nothing else is in it."""
+    folder: Path = path.parent
+    if os.path.lexists(folder / FILE) or os.path.lexists(folder / CLAIMED_NAME):
         return
 
+    unnumbered(folder=folder)
+    if is_sessions(path=path):
+        try:
+            folder.rmdir()
+        except OSError:
+            pass
+
+
+def unnumbered(
+    folder: Path,
+) -> None:
+    """Take the number of the folder's note away, so a note written there later comes under a number of its own."""
     try:
-        path.parent.rmdir()
+        (folder / NUMBER_NAME).unlink()
     except OSError:
         pass
 
@@ -1353,10 +1430,16 @@ def emptied(
 def for_the_work_in_hand(
     brain: store.Brain,
 ) -> list[Waiting]:
-    """The waiting notes another session wrote for the work at the root of this session's chain, for a session that just joined that work's line."""
-    root: list[task.Item] = task.current(brain=brain)[:1]
+    """The waiting notes another session wrote for the work at the root of this session's chain, each under its number, for a session that just joined that work's line.
 
-    return [each for each in waiting(brain=brain) if not each.own and root == [work_of(note=each.note)]]
+    With the notes' lock held elsewhere no number can be given, so none
+    is named, and `brain handover list` still shows the note.
+    """
+    root: list[task.Item] = task.current(brain=brain)[:1]
+    with locked(folder=folder_of(brain=brain)) as turn:
+        found: list[Waiting] = numbered(brain=brain) if turn else []
+
+    return [each for each in found if not each.own and root == [work_of(note=each.note)]]
 
 
 def note_at(
@@ -1623,7 +1706,8 @@ def taken(
     note stays where it is with the line that says so. A note left in
     the folder before 2.2.0 moves in first. `new` says the session is
     one that starts fresh, which `claim` reads. A session that takes a
-    note is put on the line of work its writer was on.
+    note another session wrote is put on the line of work its writer
+    was on.
     """
     folder: Path = folder_of(brain=brain)
     if not os.path.isdir(folder):
@@ -1643,7 +1727,8 @@ def taken(
         elif said and found is not None and found.note is None:
             found = left(path=found.path, again=found.again, waiting=" ".join([found.waiting or "", *said]).strip())
 
-        if found is not None and found.note is not None:
+        # a note another session wrote is work picked up, so the session goes where that work stands, while its own note leaves it on the line it is on now, which it may have gone to since it wrote the note
+        if found is not None and found.note is not None and found.path.parent != path_of(brain=brain).parent:
             try:
                 join(brain=brain, note=found.note)
             except OSError:

@@ -96,7 +96,13 @@ def read(
     brain: store.Brain,
 ) -> Optional[datetime]:
     """The recorded moment, or None when the file is not there or does not read as one."""
-    path = path_of(brain=brain)
+    return moment_at(path=path_of(brain=brain))
+
+
+def moment_at(
+    path: Path,
+) -> Optional[datetime]:
+    """The moment the file at this path records, or None when it is not there or does not read as one."""
     if not store.readable_file(path):
         return None
 
@@ -105,6 +111,35 @@ def read(
         return autoack.moment_of(data["at"])
     except (OSError, ValueError, KeyError, TypeError, OverflowError, RecursionError):
         return None
+
+
+def carried(
+    here: Path,
+    there: Path,
+) -> None:
+    """Carry the stop time of the line a session leaves, the folder `here`, to the line it goes to, the folder `there`.
+
+    The owner named the time to the session and not to the work, so it
+    goes where the session goes, to a line it starts, one it joins, and
+    back to the folder's own when its line ends. It goes along only
+    while it still orders something, and never over a time the other
+    line still counts down to, which the sessions there were given. The
+    line left keeps its own for whoever stays on it.
+    """
+    at = autoack.utc(clock.now())
+    theirs = moment_at(path=here / FILE)
+    if theirs is None or at >= theirs + STALE:
+        return
+
+    target = there / FILE
+    standing = moment_at(path=target)
+    if (standing is not None and at < standing + STALE) or autoack.a_folder(path=target):
+        return
+
+    frontmatter.write_text(
+        path=str(target),
+        text=json.dumps({"at": theirs.isoformat()}, indent=2) + "\n",
+    )
 
 
 def describe(

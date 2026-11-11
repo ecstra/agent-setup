@@ -14,7 +14,6 @@ multi step work starts with `brain task on`.
 """
 
 import json
-import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Optional
@@ -99,10 +98,19 @@ def write(
         raise TaskError(FOLDER)
 
     if not chain and path.parent != brain.root:
-        lines.ended(path.parent)
+        end(brain=brain, line=path.parent)
         return
 
     write_at(path=path, chain=chain)
+
+
+def end(
+    brain: store.Brain,
+    line: Path,
+) -> None:
+    """End a line of work, its stop time going back to the folder's line first, where its sessions stand from now on."""
+    conclude.carried(here=line, there=brain.root)
+    lines.ended(line)
 
 
 def write_at(
@@ -156,7 +164,7 @@ def settle(
 
     chain = read(brain)
     if chain is not None and not pruned(brain=brain, chain=chain):
-        lines.ended(home)
+        end(brain=brain, line=home)
 
 
 def folder_in_the_way(
@@ -401,6 +409,7 @@ def turn_on(
         if lines.session() is None:
             raise TaskError(f"{item.key} is the work of a line of its own, and {lines.NO_SESSION}")
 
+        conclude.carried(here=here, there=there)
         lines.put(root=brain.root, line=None if there == brain.root else there)
         return current(brain=brain)
 
@@ -416,11 +425,8 @@ def turn_on(
             raise TaskError(f"{item.key} is on the chain in hand already, so it starts no line of its own")
 
         # the stop time was named to this session, so it comes along to its line, while the standing word stays with the work it was given for
-        stop_time = here / conclude.FILE
         line = lines.started(brain.root)
-        if store.readable_file(stop_time):
-            shutil.copyfile(stop_time, line / conclude.FILE)
-
+        conclude.carried(here=here, there=line)
         lines.put(root=brain.root, line=line)
         write(brain=brain, chain=[item])
         return [item]
